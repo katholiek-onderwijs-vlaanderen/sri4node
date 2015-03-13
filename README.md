@@ -228,3 +228,7 @@ The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.
 Development will focus on :
 - Adding support for generic server-side expansion.
 - Adding support for an HTTP cache for reading, avoiding database hits for read operations.
+- Adding support for including a join in the query for list resources.
+- Creating a new project that make using SRI interfaces from AngularJS easy.
+- Creating a new project with AngularJS directives that supports creating Bootstap forms easily, by interpreting a JSON schema. SRI interfaces expose a JSON for all resources.
+- Creating a new Node.js project for consuming SRI interfaces. It could include caching strategies, etc.. Perhaps to be combined with the AngularJS service.
