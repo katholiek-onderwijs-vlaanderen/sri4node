@@ -2,7 +2,7 @@
 
 An implementtation of SRI (Standard ROA Interface). 
 SRI is a set of standards to make RESTful interfaces.
-It defines a number of concepts on accessing and querying resources.
+It specifies how resources are accesses and queried, updated, etc...
 More information can [be found here](https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub).
 
 Currently the implementation supports storage on a postgres database.
