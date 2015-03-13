@@ -44,7 +44,7 @@ Finally we configure handlers for 1 example resource :
             // For debugging SQL can be logged.
             logsql : false,
             // If no environments variable present, use this URL (for development)
-            defaultdatabaseurl : "postgres://websitepoc:websitepoc@localhost:5432/postgres",
+            defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
