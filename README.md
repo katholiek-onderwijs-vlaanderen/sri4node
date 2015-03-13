@@ -24,6 +24,52 @@ Express.js and node-postgress are technically no depedencies of sri4node.
 But you need to pass them in when configuring. 
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
+## Introduction
+
+sri4node has a very simple pipeline for mapping SRI resources onto a database. 
+We explain 3 kinds of operations below : 
+* reading regular resources 
+* updating/creating regular resources.
+* reading list resources (queries)
+
+In essence you can define 1 resource per database row. A list resource corresponds to a query on a database table.
+
+When reading a regular resource a database row is transformed into an SRI resource by doing things :
+
+1. Check if you have read permission by executing all registered functions in the mapping ('secure').
+
+2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name).
+All standard JSON datatypes are converted automatically to JSON.
+All values are passed through the 'onread' function for conversion, if defined.
+By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
+
+3. Add a $$meta section to the response document.
+
+When creating or updating a regular resource a database row is updated/inserted by doing this :
+
+1. Check if you have write/create permission by executing all registered functions in the mapping ('secure').
+
+2. Perform schema validation on the incoming resource.
+
+3. Execute all registered 'validation' functions.
+
+4. Convert the JSON document into a simple key-value object. 
+Keys map 1:1 with database columns. 
+All incoming values are passed through the 'onwrite' function for conversion, if defined.
+By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
+
+5. insert or update the database row.
+
+6. If the resource mapping defines 'afterupdate' or 'afterread' functions, those are executed.
+
+When reading a list resource :
+
+1. Check if you have read permission by executing all registered functions in the mapping ('secure').
+2. Generate a COUNT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
+3. Execute a SELECT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
+4. Retrieve the results, and expand if necessary (i.e. generate a JSON document from the result row). See above for more details.
+5. Build a list resource with a $$meta section, and return it to the user.
+
 ## Usage
 
 Start by requiring the module in your code (as well as Express.js).
@@ -45,6 +91,7 @@ Finally we configure handlers for 1 example resource :
             logsql : false,
             // If no environments variable present, use this URL (for development)
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
+            // Define all resource you want to serve.
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
