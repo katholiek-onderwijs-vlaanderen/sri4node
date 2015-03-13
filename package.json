@@ -1,0 +1,26 @@
+{
+  "name": "sri4node",
+  "version": "1.0.0",
+  "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
+  "main": "sri4node.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dimitrydhondt/sri4node.git"
+  },
+  "keywords": [
+    "SRI",
+    "REST",
+    "postgres",
+    "node",
+    "node.js"
+  ],
+  "author": "Dimitry D'hondt <dimitry.dhondt@yahoo.com> (https://github.com/dimitrydhondt/sri4node)",
+  "license": "LGPL",
+  "bugs": {
+    "url": "https://github.com/dimitrydhondt/sri4node/issues"
+  },
+  "homepage": "https://github.com/dimitrydhondt/sri4node"
+}
