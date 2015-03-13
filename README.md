@@ -25,7 +25,7 @@ This allows you to keep full control over the order of registering express middl
 
 ## Usage
 
-Start by requiring the module in you code (as well as Express.js).
+Start by requiring the module in your code (as well as Express.js).
 Then we'll create some convenient aliasses for the utility functions bundles with sri4node as well.
 
     var express = require('express');
@@ -36,106 +36,106 @@ Then we'll create some convenient aliasses for the utility functions bundles wit
 
 Finally we configure handlers for 1 example resource :
 
-roa.configure(app,pg,
-    {
-        // For debugging SQL can be logged.
-        logsql : false,
-        // If no environments variable present, use this URL (for development)
-        defaultdatabaseurl : "postgres://websitepoc:websitepoc@localhost:5432/postgres",
-        resources : [
-            {
-                // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
-                type: "/contents",
-                // Is this resource public ? (I.e.: Can it be read / updated / inserted publicly ?
-                public: true,
-                /*
-                 JSON properties are mapped 1:1 to columns in the postgres table.
-                 Every property can also register 3 possible functions:
-
-                 - onupdate : is executed before UPDATE on the table
-                 - oninsert : is executed before INSERT into the table
-                 - onread : is executed after SELECT from the table
-
-                 All 3 receive 2 parameters :
-                 - the key they were registered on.
-                 - the javascript element being PUT.
-
-                 All functions are executed in order of listing here.
-
-                 All are allowed to manipulate the element, before it is inserted/updated in the table.
-                 */
-                map: {
-                    authors: {},
-                    themes: {},
-                    html: {}
-                },
-                secure : [
-                    // TODO : Add security. People can only update their own accounts.
-                    // Admins can update all accounts in their community/ies.
-                    // Superadmins van update all accounts in all communities.
-                ],
-                // When a PUT operation is executed there are 2 phases of validate.
-                // Validation phase 1 is schema validation.
-                schemaUtils: {
-                    $schema: "http://json-schema.org/schema#",
-                    title: "An article on the websites/mailinglists.",
-                    type: "object",
-                    properties : {
-                        authors: $s.string(1,256,"Comma-separated list of authors (firstname - lastname)."),
-                        themes: $s.string(1,256,"Comma-separated list of themes this article belongs to."),
-                        html: $s.string(1,2048,"HTML content of the article. HTML tags are restricted, to allow external styling.")
+    roa.configure(app,pg,
+        {
+            // For debugging SQL can be logged.
+            logsql : false,
+            // If no environments variable present, use this URL (for development)
+            defaultdatabaseurl : "postgres://websitepoc:websitepoc@localhost:5432/postgres",
+            resources : [
+                {
+                    // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
+                    type: "/contents",
+                    // Is this resource public ? (I.e.: Can it be read / updated / inserted publicly ?
+                    public: true,
+                    /*
+                     JSON properties are mapped 1:1 to columns in the postgres table.
+                     Every property can also register 3 possible functions:
+    
+                     - onupdate : is executed before UPDATE on the table
+                     - oninsert : is executed before INSERT into the table
+                     - onread : is executed after SELECT from the table
+    
+                     All 3 receive 2 parameters :
+                     - the key they were registered on.
+                     - the javascript element being PUT.
+    
+                     All functions are executed in order of listing here.
+    
+                     All are allowed to manipulate the element, before it is inserted/updated in the table.
+                     */
+                    map: {
+                        authors: {},
+                        themes: {},
+                        html: {}
                     },
-                    // balance should not be validated. It can never be PUT ! If PUT, it is ignored. See above.
-                    required: ["authors","themes","html"]
-                },
-                // Validation phase 2 : an array of functions with validation rules.
-                // All functions are executed. If any of them return an error object the PUT operation returns 409.
-                // The output is a combination of all error objects returned by the validation rules/
-                validate: [
-                ],
-                // All queries are URLs. Any allowed URL parameter is configured here. A function can be registered.
-                // This function receives 2 parameters :
-                //  - the value of the request parameter (string)
-                //  - An object for adding SQL to the WHERE clause. This object has 2 methods :
-                //      * sql() : A method for appending sql.
-                //      * param() : A method for appending a parameter to the text sql.
-                //      * array() : A method for appending an array of parameters to the sql. (comma-separated)
-                //  All these methods can be chained, as a simple fluent interface.
-                //
-                //  All the supplied functions MUST extend the SQL statement with an 'AND' clause.
-                // (or not touch the statement, if they want to skip their processing).
-                query: {
-                    authors: contains('authors'),
-                    themes: contains('themes'),
-                    html: contains('html')
-                },
-                /*
-                Hooks for post-processing can be registered to perform desired things, like clear a cache,
-                do further processing, etc..
-
-                 - afterupdate
-                 - afterinsert
-                 - afterdelete
-
-                These post-processing functions receive 2 arguments:
-
-                 - a 'db' object, that can be used to call roa4node.utils.executeSQL() and roa4node.utils.prepareSQL().
-                   This object contains 2 things :
-                    - client : a pg-connect client object
-                    - done : a pg-connect done function
-
-                 - the element that was just updated / created.
-
-                 These functions must return a Q promise. When this promise resolves, all executed SQL will
-                 be commited on the database. When this promise fails, all executed SQL (including the original insert
-                 or update triggered by the API call) will be rolled back.
-                */
-                afterupdate: [],
-                afterinsert: [],
-                afterdelete: []
-            }
-        ]
-    });
+                    secure : [
+                        // TODO : Add security. People can only update their own accounts.
+                        // Admins can update all accounts in their community/ies.
+                        // Superadmins van update all accounts in all communities.
+                    ],
+                    // When a PUT operation is executed there are 2 phases of validate.
+                    // Validation phase 1 is schema validation.
+                    schemaUtils: {
+                        $schema: "http://json-schema.org/schema#",
+                        title: "An article on the websites/mailinglists.",
+                        type: "object",
+                        properties : {
+                            authors: $s.string(1,256,"Comma-separated list of authors (firstname - lastname)."),
+                            themes: $s.string(1,256,"Comma-separated list of themes this article belongs to."),
+                            html: $s.string(1,2048,"HTML content of the article. HTML tags are restricted, to allow external styling.")
+                        },
+                        // balance should not be validated. It can never be PUT ! If PUT, it is ignored. See above.
+                        required: ["authors","themes","html"]
+                    },
+                    // Validation phase 2 : an array of functions with validation rules.
+                    // All functions are executed. If any of them return an error object the PUT operation returns 409.
+                    // The output is a combination of all error objects returned by the validation rules/
+                    validate: [
+                    ],
+                    // All queries are URLs. Any allowed URL parameter is configured here. A function can be registered.
+                    // This function receives 2 parameters :
+                    //  - the value of the request parameter (string)
+                    //  - An object for adding SQL to the WHERE clause. This object has 2 methods :
+                    //      * sql() : A method for appending sql.
+                    //      * param() : A method for appending a parameter to the text sql.
+                    //      * array() : A method for appending an array of parameters to the sql. (comma-separated)
+                    //  All these methods can be chained, as a simple fluent interface.
+                    //
+                    //  All the supplied functions MUST extend the SQL statement with an 'AND' clause.
+                    // (or not touch the statement, if they want to skip their processing).
+                    query: {
+                        authors: contains('authors'),
+                        themes: contains('themes'),
+                        html: contains('html')
+                    },
+                    /*
+                    Hooks for post-processing can be registered to perform desired things, like clear a cache,
+                    do further processing, etc..
+    
+                     - afterupdate
+                     - afterinsert
+                     - afterdelete
+    
+                    These post-processing functions receive 2 arguments:
+    
+                     - a 'db' object, that can be used to call roa4node.utils.executeSQL() and roa4node.utils.prepareSQL().
+                       This object contains 2 things :
+                        - client : a pg-connect client object
+                        - done : a pg-connect done function
+    
+                     - the element that was just updated / created.
+    
+                     These functions must return a Q promise. When this promise resolves, all executed SQL will
+                     be commited on the database. When this promise fails, all executed SQL (including the original insert
+                     or update triggered by the API call) will be rolled back.
+                    */
+                    afterupdate: [],
+                    afterinsert: [],
+                    afterdelete: []
+                }
+            ]
+        });
 
 Now we can start Express.js serving up resources :
 
