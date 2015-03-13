@@ -24,52 +24,6 @@ Express.js and node-postgress are technically no depedencies of sri4node.
 But you need to pass them in when configuring. 
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
-## Introduction
-
-sri4node has a very simple pipeline for mapping SRI resources onto a database. 
-We explain 3 kinds of operations below : 
-* reading regular resources 
-* updating/creating regular resources.
-* reading list resources (queries)
-
-In essence you can define 1 resource per database row. A list resource corresponds to a query on a database table.
-
-When reading a regular resource a database row is transformed into an SRI resource by doing things :
-
-1. Check if you have read permission by executing all registered functions in the mapping ('secure').
-
-2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name).
-All standard JSON datatypes are converted automatically to JSON.
-All values are passed through the 'onread' function for conversion, if defined.
-By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
-
-3. Add a $$meta section to the response document.
-
-When creating or updating a regular resource a database row is updated/inserted by doing this :
-
-1. Check if you have write/create permission by executing all registered functions in the mapping ('secure').
-
-2. Perform schema validation on the incoming resource.
-
-3. Execute all registered 'validation' functions.
-
-4. Convert the JSON document into a simple key-value object. 
-Keys map 1:1 with database columns. 
-All incoming values are passed through the 'onwrite' function for conversion, if defined.
-By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
-
-5. insert or update the database row.
-
-6. If the resource mapping defines 'afterupdate' or 'afterread' functions, those are executed.
-
-When reading a list resource :
-
-1. Check if you have read permission by executing all registered functions in the mapping ('secure').
-2. Generate a COUNT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
-3. Execute a SELECT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
-4. Retrieve the results, and expand if necessary (i.e. generate a JSON document from the result row). See above for more details.
-5. Build a list resource with a $$meta section, and return it to the user.
-
 ## Usage
 
 Start by requiring the module in your code (as well as Express.js).
@@ -101,17 +55,14 @@ Finally we configure handlers for 1 example resource :
                     /*
                      JSON properties are mapped 1:1 to columns in the postgres table.
                      Every property can also register 3 possible functions:
-    
                      - onupdate : is executed before UPDATE on the table
                      - oninsert : is executed before INSERT into the table
                      - onread : is executed after SELECT from the table
     
                      All 3 receive 2 parameters :
                      - the key they were registered on.
-                     - the javascript element being PUT.
-    
+                     - the javascript element being PUT / or the results of the query just read for GET.
                      All functions are executed in order of listing here.
-    
                      All are allowed to manipulate the element, before it is inserted/updated in the table.
                      */
                     map: {
@@ -120,12 +71,9 @@ Finally we configure handlers for 1 example resource :
                         html: {}
                     },
                     secure : [
-                        // TODO : Add security. People can only update their own accounts.
-                        // Admins can update all accounts in their community/ies.
-                        // Superadmins van update all accounts in all communities.
+                        // All functions are executed to check security.
                     ],
-                    // When a PUT operation is executed there are 2 phases of validate.
-                    // Validation phase 1 is schema validation.
+                    // Standard JSON Schema definition. Don't be fooled by the use of utility functions.
                     schemaUtils: {
                         $schema: "http://json-schema.org/schema#",
                         title: "An article on the websites/mailinglists.",
@@ -135,10 +83,9 @@ Finally we configure handlers for 1 example resource :
                             themes: $s.string(1,256,"Comma-separated list of themes this article belongs to."),
                             html: $s.string(1,2048,"HTML content of the article. HTML tags are restricted, to allow external styling.")
                         },
-                        // balance should not be validated. It can never be PUT ! If PUT, it is ignored. See above.
                         required: ["authors","themes","html"]
                     },
-                    // Validation phase 2 : an array of functions with validation rules.
+                    // Execute validation functions before update/inster.
                     // All functions are executed. If any of them return an error object the PUT operation returns 409.
                     // The output is a combination of all error objects returned by the validation rules/
                     validate: [
@@ -193,10 +140,63 @@ Now we can start Express.js serving up resources :
         console.log("Node app is running at localhost:" + app.get('port'))
     });
 
-## Configuration
+## Documentation
 
-Provide code examples and explanations of how to get the project.
+sri4node has a very simple pipeline for mapping SRI resources onto a database. 
+We explain the possible operations below : 
+* reading regular resources (GET)
+* updating/creating regular resources. (PUT)
+* deleting regular resources. (DELETE)
+* reading list resources (queries) (GET)
 
+In essence you can define 1 regular resource per database row. A list resource corresponds to a query on a database table (and can be expanded to include multiple regular resource).
+
+When reading a regular resource a database row is transformed into an SRI resource by doing things :
+
+1. Check if you have permission by executing all registered functions in the mapping ('secure').
+2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name). All standard JSON datatypes are converted automatically to JSON. All values are passed through the 'onread' function for conversion, if defined. By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
+3. Add a $$meta section to the response document.
+
+When creating or updating a regular resource a database row is updated/inserted by doing this :
+
+1. Check if you have permission by executing all registered functions in the mapping (*secure*).
+2. Perform schema validation on the incoming resource.
+3. Execute *validate* functions.
+4. Convert the JSON document into a simple key-value object. Keys map 1:1 with database columns. All incoming values are passed through the *onwrite*/*oninsert* function for conversion, if defined. By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
+5. insert or update the database row.
+6. Execute *afterupdate'* or *afterread'* functions.
+
+When deleting a regular resource :
+
+1. Check if you have permission by executing all registered functions in the mapping (*secure*).
+2. Delete the row from the database.
+3. Execute *afterdelete* functions.
+
+When reading a list resource :
+
+1. Check if you have read permission by executing all registered functions in the mapping (*secure*).
+2. Generate a COUNT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
+3. Execute a SELECT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
+4. Retrieve the results, and expand if necessary (i.e. generate a JSON document from the result row). See above for more details.
+5. Build a list resource with a $$meta section, and return it to the user.
+
+## Function Definitions
+
+The functions used in the configuration of sri4node receive input, and should return :
+
+### onread / oninsert / onupdate
+
+### secure
+
+### validate
+
+### query
+
+### afterupdate
+
+### afterinsert
+
+### afterdelete
 
 ## Contributors
 
