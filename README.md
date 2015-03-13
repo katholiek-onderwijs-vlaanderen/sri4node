@@ -58,7 +58,8 @@ Finally we configure handlers for 1 example resource :
                         html: {}
                     },
                     secure : [
-                        // All functions are executed to check security.
+                        checkAccessOnResource,
+                        checkSomeMoreRules
                     ],
                     // Standard JSON Schema definition. Don't be fooled by the use of utility functions.
                     schemaUtils: {
@@ -81,7 +82,7 @@ Finally we configure handlers for 1 example resource :
                     },
                     afterupdate: [],
                     afterinsert: [],
-                    afterdelete: []
+                    afterdelete: [ cleanupFunction ]
                 }
             ]
         });
