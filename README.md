@@ -27,7 +27,7 @@ This allows you to keep full control over the order of registering express middl
 # Usage
 
 Start by requiring the module in your code (as well as Express.js).
-Then we'll create some convenient aliasses for the utility functions bundles with sri4node as well.
+Then we'll create some convenient aliasses for the utility functions bundled with sri4node as well.
 
     var express = require('express');
     var app = express();
@@ -178,15 +178,51 @@ do further processing, etc.. These post-processing functions receive 2 arguments
 
 These functions *must return a Q promise*. When this promise resolves, all executed SQL will be commited on the database. When this promise fails, all executed SQL (including the original insert or update triggered by the API call) will be rolled back.
 
-## Contributions
+## Bundled Utility Functions
+
+These utilities live independently of the basic processing described above. In other words, they provide no magic for the developer. They are provided for convenience. If you understand the above processing pipeline, reading the source for one of these functions should contain surprises.
+
+### General Utilities
+
+    clearPasswordCache  : Used for clearing the security cache. Call when updating security context of a user.
+    prepareSQL          : Used for executing SQL in after* function. Call with the 'db' object you received.
+    executeSQL          : Used for executing SQL in after* function. Call with the 'db' object you received.
+    
+### Mapping Utilities
+
+Provides various utilities for mapping between postgres and JSON :
+
+    removeifnull    : Remove key from object if value was null/undefined
+    remove          : Always remove this key
+    now             : Override with current server timestamp
+    value           : Override with a fixed value
+    parse           : Convert string into JSON
+    stringify       : Convert JSON into string
+
+### JSON Schema Utilities
+
+Provides various utilities for keeping your JSON schema definition compact and readable :
+
+    permalink(type, description)
+    string(min, max, description)
+    numeric(description)
+    email(description)
+    url(description)
+    zipcode(description)
+    phone(description)
+    timestamp(description)
+    boolean(description)
+
+
+# Contributions
 
 Contributions are welcome. Contact me on dimitry_dhondt@yahoo.com.
 
-## License
+# License
 
 The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.html). 
 
-## TO DO
+# TO DO
 
 Development will focus on :
 - Adding support for generic server-side expansion.
