@@ -3,7 +3,6 @@
 An implementtation of SRI (Standard ROA Interface). 
 SRI is a set of standards to make RESTful interfaces.
 It defines a number of concepts on accessing and querying resources.
-It defines that every resource should have a JSON schema associated with it.
 More information can [be found here](https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub).
 
 Currently the implementation supports storage on a postgres database.
@@ -156,3 +155,9 @@ Contributions are welcom. Contact me on dimitry_dhondt@yahoo.com.
 ## License
 
 The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.html). 
+
+## TO DO
+
+Development will focus on :
+- Adding support for generic server-side expansion.
+- Adding support for an HTTP cache for reading, avoiding database hits for read operations.
