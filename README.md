@@ -39,7 +39,7 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
 
 Finally we configure handlers for 1 example resource :
 
-    roa.configure(app,pg,
+    sri4node.configure(app,pg,
         {
             // For debugging SQL can be logged.
             logsql : false,
