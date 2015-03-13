@@ -1,4 +1,4 @@
-## About
+# About
 
 An implementtation of SRI (Standard ROA Interface). 
 SRI is a set of standards to make RESTful interfaces.
@@ -8,7 +8,7 @@ More information can [be found here](https://docs.google.com/document/d/1KY-VV_A
 Currently the implementation supports storage on a postgres database.
 Support for more databases/datastores may be added in the future.
 
-## Installing
+# Installing
 
 Installation is simple using npm :
 
@@ -24,7 +24,7 @@ Express.js and node-postgress are technically no depedencies of sri4node.
 But you need to pass them in when configuring. 
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
-## Usage
+# Usage
 
 Start by requiring the module in your code (as well as Express.js).
 Then we'll create some convenient aliasses for the utility functions bundles with sri4node as well.
@@ -52,19 +52,6 @@ Finally we configure handlers for 1 example resource :
                     type: "/contents",
                     // Is this resource public ? (I.e.: Can it be read / updated / inserted publicly ?
                     public: true,
-                    /*
-                     JSON properties are mapped 1:1 to columns in the postgres table.
-                     Every property can also register 3 possible functions:
-                     - onupdate : is executed before UPDATE on the table
-                     - oninsert : is executed before INSERT into the table
-                     - onread : is executed after SELECT from the table
-    
-                     All 3 receive 2 parameters :
-                     - the key they were registered on.
-                     - the javascript element being PUT / or the results of the query just read for GET.
-                     All functions are executed in order of listing here.
-                     All are allowed to manipulate the element, before it is inserted/updated in the table.
-                     */
                     map: {
                         authors: {},
                         themes: {},
@@ -79,54 +66,19 @@ Finally we configure handlers for 1 example resource :
                         title: "An article on the websites/mailinglists.",
                         type: "object",
                         properties : {
-                            authors: $s.string(1,256,"Comma-separated list of authors (firstname - lastname)."),
+                            authors: $s.string(1,256,"Comma-separated list of authors."),
                             themes: $s.string(1,256,"Comma-separated list of themes this article belongs to."),
-                            html: $s.string(1,2048,"HTML content of the article. HTML tags are restricted, to allow external styling.")
+                            html: $s.string(1,2048,"HTML content of the article.")
                         },
                         required: ["authors","themes","html"]
                     },
-                    // Execute validation functions before update/inster.
-                    // All functions are executed. If any of them return an error object the PUT operation returns 409.
-                    // The output is a combination of all error objects returned by the validation rules/
                     validate: [
                     ],
-                    // All queries are URLs. Any allowed URL parameter is configured here. A function can be registered.
-                    // This function receives 2 parameters :
-                    //  - the value of the request parameter (string)
-                    //  - An object for adding SQL to the WHERE clause. This object has 2 methods :
-                    //      * sql() : A method for appending sql.
-                    //      * param() : A method for appending a parameter to the text sql.
-                    //      * array() : A method for appending an array of parameters to the sql. (comma-separated)
-                    //  All these methods can be chained, as a simple fluent interface.
-                    //
-                    //  All the supplied functions MUST extend the SQL statement with an 'AND' clause.
-                    // (or not touch the statement, if they want to skip their processing).
                     query: {
                         authors: contains('authors'),
                         themes: contains('themes'),
                         html: contains('html')
                     },
-                    /*
-                    Hooks for post-processing can be registered to perform desired things, like clear a cache,
-                    do further processing, etc..
-    
-                     - afterupdate
-                     - afterinsert
-                     - afterdelete
-    
-                    These post-processing functions receive 2 arguments:
-    
-                     - a 'db' object, that can be used to call roa4node.utils.executeSQL() and roa4node.utils.prepareSQL().
-                       This object contains 2 things :
-                        - client : a pg-connect client object
-                        - done : a pg-connect done function
-    
-                     - the element that was just updated / created.
-    
-                     These functions must return a Q promise. When this promise resolves, all executed SQL will
-                     be commited on the database. When this promise fails, all executed SQL (including the original insert
-                     or update triggered by the API call) will be rolled back.
-                    */
                     afterupdate: [],
                     afterinsert: [],
                     afterdelete: []
@@ -134,13 +86,13 @@ Finally we configure handlers for 1 example resource :
             ]
         });
 
-Now we can start Express.js serving up resources :
+Now we can start Express.js to start serving up our SRI REST interface :
 
     app.listen(app.get('port'), function() {
         console.log("Node app is running at localhost:" + app.get('port'))
     });
 
-## Documentation
+## Processing Pipeline
 
 sri4node has a very simple pipeline for mapping SRI resources onto a database. 
 We explain the possible operations below : 
@@ -186,21 +138,49 @@ The functions used in the configuration of sri4node receive input, and should re
 
 ### onread / oninsert / onupdate
 
+JSON properties are mapped 1:1 to columns in the postgres table.
+Every property can also register 3 possible functions:
+- *onupdate* is executed before UPDATE on the table
+- *oninsert* is executed before INSERT into the table
+- *onread* is executed after SELECT from the table
+
+All 3 functions receive 2 parameters :
+- the key they were registered on.
+- the javascript element being PUT / or the results of the query just read for GET operations.
+
+All functions are executed in order of listing here. All are allowed to manipulate the element, before it is inserted/updated in the table. No return value is expected, the functions manipulate the element in-place.
+
 ### secure
 
 ### validate
 
+Validation functions are executed before update/insert. If any of the functions return an error object the PUT operation returns 409. The output is a combination of all error objects returned by the validation rules. The error objects are defined in the SRI specification.
+
 ### query
 
-### afterupdate
+All queries are URLs. Any allowed URL parameter is interpreted by these functions. The functions can annotate the WHERE clause of the query executed. The functions receive 2 parameters :
+ - the value of the request parameter (string)
+ - An sql object for adding SQL to the WHERE clause. This object has 2 methods :
+  - *sql()* : A method for appending sql.
+  - *param()* : A method for appending a parameter to the text sql.
+  - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
 
-### afterinsert
+All the methods on the sql object can be chained. It forms a simple fluent interface.
+All the supplied functions extend the SQL statement with an 'AND' clause (or not touch the statement, if they want to skip their processing).
 
-### afterdelete
+### afterupdate / afterinsert / afterdelete
 
-## Contributors
+Hooks for post-processing can be registered to perform desired things, like clear a cache,
+do further processing, etc.. These post-processing functions receive 2 arguments:
 
-Contributions are welcom. Contact me on dimitry_dhondt@yahoo.com.
+- a *db* object, that can be used to call sri4node.utils.executeSQL() and sri4node.utils.prepareSQL().
+- the *element* that was just updated / created. Mind you that this is at the end of the pipeline, so it has been processed (it is, in other words, not the exact JSON object that was PUT to the server)
+
+These functions *must return a Q promise*. When this promise resolves, all executed SQL will be commited on the database. When this promise fails, all executed SQL (including the original insert or update triggered by the API call) will be rolled back.
+
+## Contributions
+
+Contributions are welcome. Contact me on dimitry_dhondt@yahoo.com.
 
 ## License
 
