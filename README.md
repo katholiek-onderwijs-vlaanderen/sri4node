@@ -15,13 +15,14 @@ Installation is simple using npm :
     $ cd [your_project]
     $ npm install --save sri4node
     
-You will also want to install Express.js :
+You will also want to install Express.js and node-postgres :
 
     $ npm install --save express
+    $ npm install --save pg
     
-Express.js is not actually a depedency of sri4node in the technical sense. 
-But you need to pass it in when configuring. 
-This allows you to keep full control over the order of registering express middleware.
+Express.js and node-postgress are technically no depedencies of sri4node.
+But you need to pass them in when configuring. 
+This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
 ## Usage
 
@@ -29,6 +30,8 @@ Start by requiring the module in your code (as well as Express.js).
 Then we'll create some convenient aliasses for the utility functions bundles with sri4node as well.
 
     var express = require('express');
+    var app = express();
+    var pg = require('pg');
     var sri4node = require('sri4node');
     var $u = sri4node.utils;
     var $m = sri4node.mapUtils;
