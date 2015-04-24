@@ -6,6 +6,7 @@ var bodyParser = require('body-parser');
 var Q = require('q');
 var pg = require('pg');
 var needle = require('needle');
+var assert = require('assert');
 
 // Local includes
 var roa = require("../sri4node.js");
@@ -95,26 +96,8 @@ roa.configure(app,pg,
         defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5432/postgres",
         resources : [
             {
-                // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
                 type: "/persons",
-                // Is this resource public ? (I.e.: Can it be read / updated / inserted publicly ?
                 public: false,
-                /*
-                 JSON properties are mapped 1:1 to columns in the postgres table.
-                 Every property can also register 3 possible functions:
-
-                 - onupdate : is executed before UPDATE on the table
-                 - oninsert : is executed before INSERT into the table
-                 - onread : is executed after SELECT from the table
-
-                 All 3 receive 2 parameters :
-                 - the key they were registered on.
-                 - the javascript element being PUT.
-
-                 All functions are executed in order of listing here.
-
-                 All are allowed to manipulate the element, before it is inserted/updated in the table.
-                */
                 map: {
                     firstname: {},
                     lastname: {},
@@ -132,33 +115,9 @@ roa.configure(app,pg,
                     mail4elas: {},
                     community: {references: '/communities'}
                 },
-                // Whenever a request is received, all the functions registered here
-                // are executed with these parameters :
-                //   req  : express.js request object.
-                //   me   : The security context as returned on GET /me
-                //
-                // The function must return a Q promise.
-                //
-                // The reject object is an array of ROA error messages, as defined in the spec.
-                // If any of those promises is rejected, the request handling is terminated, and
-                // a combination of all error messages (if more than one of the security functions
-                // rejects it's promise) is sent to the client.
                 secure : [
-                    // TODO : Add security.
-
-                    // People can only update their own accounts.
-
-                    // Admins can update all accounts in their community/ies.
-
-                    // Superadmins van update all accounts in all communities.
-
-                    // People can only read /persons in their own community, and
-                    // in communities that have given an /interletsapproval to the
-                    // community of the current user.
                     restrictReadPersons
                 ],
-                // When a PUT operation is executed there are 2 phases of validate.
-                // Validation phase 1 is schema validation.
                 schemaUtils: {
                     $schema: "http://json-schema.org/schema#",
                     title: "An object representing a person taking part in the LETS system.",
@@ -179,49 +138,13 @@ roa.configure(app,pg,
                             enum: ["never","daily","weekly","instant"]
                         }
                     },
-                    // balance should not be validated. It can never be PUT ! If PUT, it is ignored. See above.
                     required: ["firstname","lastname","street","streetnumber","zipcode","city", "mail4elas"]
                 },
-                // Validation phase 2 : an array of functions with validation rules.
-                // All functions are executed. If any of them return an error object the PUT operation returns 409.
-                // The output is a combination of all error objects returned by the validation rules/
                 validate: [
                 ],
-                // All queries are URLs. Any allowed URL parameter is configured here. A function can be registered.
-                // This function receives 2 parameters :
-                //  - the value of the request parameter (string)
-                //  - An object for adding SQL to the WHERE clause. This object has 2 methods :
-                //      * sql() : A method for appending sql.
-                //      * param() : A method for appending a parameter to the text sql.
-                //      * array() : A method for appending an array of parameters to the sql. (comma-separated)
-                //  All these methods can be chained, as a simple fluent interface.
-                //
-                //  All the supplied functions MUST extend the SQL statement with an 'AND' clause.
-                // (or not touch the statement, if they want to skip their processing).
                 query: {
                     communities: filterReferencedType('communities','community')
                 },
-                /*
-                Hooks for post-processing can be registered to perform desired things, like clear a cache,
-                do further processing, etc..
-
-                 - afterupdate
-                 - afterinsert
-                 - afterdelete
-
-                These post-processing functions receive 2 arguments:
-
-                 - a 'db' object, that can be used to call roa4node.utils.executeSQL() and roa4node.utils.prepareSQL().
-                   This object contains 2 things :
-                    - client : a pg-connect client object
-                    - done : a pg-connect done function
-
-                 - the element that was just updated / created.
-
-                 These functions must return a Q promise. When this promise resolves, all executed SQL will
-                 be commited on the database. When this promise fails, all executed SQL (including the original insert
-                 or update triggered by the API call) will be rolled back.
-                */
                 afterupdate: [
                     clearPasswordCache
                 ],
@@ -236,7 +159,6 @@ roa.configure(app,pg,
                 map: {
                     person: {references: '/persons'},
                     posted: {
-//                        oninsert: $m.now,
                         onupdate: $m.now
                     },
                     type: {},
@@ -247,13 +169,6 @@ roa.configure(app,pg,
                     community: {references: "/communities"}
                 },
                 secure: [
-                    // TODO : Add security.
-                    // People should only be allowed to update their own messages.
-                    // People should only be allowed to create messages in the communities they have access to.
-                    // People should only be allowed to delete their own messages.
-                    // Admins should be allowed to update all message in their community/ies.
-                    // Admins should be allowed to delete all message in their community/ies.
-                    // Superadmins should be allowed to create in any community, update and delete all messages in all communities.
                 ],
                 schemaUtils: {
                     $schema: "http://json-schema.org/schema#",
@@ -340,10 +255,6 @@ roa.configure(app,pg,
                     amount: {}
                 },
                 secure: [
-                    // TODO : Add security.
-                    // People should be allowed to create transactions for their community.
-                    // Admins should be allowed to create transactions for their community/ies.
-                    // Superadmins should be allowed to create transaction in any community.
                 ],
                 schemaUtils: {
                     $schema: "http://json-schema.org/schema#",
@@ -381,88 +292,93 @@ roa.configure(app,pg,
                         return deferred.promise;
                     }
                 ]
-            },
-            {
-                type: "/interletsapprovals",
-                public: false,
-                map: {
-                    community: {references: '/communities'},
-                    approved: {references: '/communities'}
-                },
-                secure: [
-                    // TODO : Add security.
-                    // Only admins should be allowed to create / approve a new interlets approval.
-                ],
-                schemaUtils: {
-                    $schema: "http://json-schema.org/schema#",
-                    title: "An approval from one group to share it's messages with another group.",
-                    type: "object",
-                    properties : {
-                        community: $s.permalink("/communities","A permalink to the community that approved access to it's information."),
-                        approved: $s.permalink("/communities","A permalink to the community that was granted access.")
-                    },
-                    required: ["community","approved"]
-                },
-                query : {
-                    approved: filterReferencedType("communities","approved")
-                },
-                beforeinsert : [],
-                beforeupdate : [],
-                beforedelete : [],
-                afterinsert : [],
-                afterupdate : [],
-                afterdelete : []
-            },
-            {
-                type: "/interletssettings",
-                public: false,
-                map: {
-                    person: {references: '/persons'},
-                    interletsapproval: {references: '/interletsapprovals'},
-                    active: {}
-                },
-                secure: [
-                    // TODO : Add security.
-                    // Only admins should be allowed to create / approve a new interlets approval.
-                ],
-                schemaUtils: {
-                    $schema: "http://json-schema.org/schema#",
-                    title: "Activation of an interletsapproval for a specific user.",
-                    type: "object",
-                    properties: {
-                        person: $s.permalink("/persons","A permalink to the person who configured this interlets setting."),
-                        interletsapproval: $s.permalink("/interletsapprovals","A permalink to the approval between two groups."),
-                        active: $s.boolean("True if the user wants to include the interlets information from the approved group. False if the user does not want to see the other group's information.")
-                    },
-                    required: ["person","interletsapproval","active"]
-                },
-                validate: [],
-                query : {
-                    person : filterReferencedType("persons","person"),
-                    persons : filterReferencedType("persons","person")
-                },
-                beforeinsert : [],
-                beforeupdate : [],
-                beforedelete : [],
-                afterinsert : [],
-                afterupdate : [],
-                afterdelete: []
             }
         ]
     });
 
-var server = app.listen(app.get('port'), function() {
+var port = app.get('port');
+
+var server = app.listen(port, function() {
   console.log("Node app is running at localhost:" + app.get('port'))
 });
 
+// Q wrapper for needle.get()
+function doGet(url, user, pwd) {
+    var deferred = Q.defer();
+    
+    var headers = {};
+    if(user && pwd) {
+        headers.username = user;
+        headers.password = pwd;
+    }
+    
+    needle.get(url, headers, function(error, response) {
+        if(!error) {
+            deferred.resolve(response);
+        } else {
+            deferred.reject(error);
+        }
+    });
+    
+    return deferred.promise;
+};
+
 /* Configuration of sri4node is done */
 /* Now let's test it... */
+var base = "http://localhost:" + port;
 
-var base = "http://localhost:" + app.get('port');
-cl("Test 1: Retrieve /communities ...");
-needle.get(base + "/communities", function(error, response) {
-    if(response.body.$$meta.count != 4) throw new Error("Failed");
-    server.close();
-    process.exit(0);
+describe('get', function(){
+  describe('/communities', function(){
+    it('should return a list of 4 communities', function(){
+        doGet(base + "/communities").then(function(response) {
+            if(response.body.$$meta.count != 4) assert.fail();
+        });
+    });
+  });
+    
+  describe('/communities/{guid}', function() {
+      it('should return LETS Regio Dendermonde', function() {
+          return doGet(base + "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849").then(function(response) {
+              assert.equal(response.body.name,'LETS Regio Dendermonde');
+          });
+      });
+  });
 });
 
+describe('private resources', function() {
+    describe('/persons without authentication', function() {
+        it('should be 401 Forbidden', function() {
+            return doGet(base + '/persons').then(function(response) {
+                assert.equal(response.statusCode,401);
+            });
+        });
+    });
+    
+    describe('/persons with authentication', function() {
+        it('should be 200 Ok', function() {
+            return doGet(base + '/persons', 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 7);
+            });
+        });
+    });
+    
+    describe('/persons/{guid} from my community', function() {
+        it('should return Kevin Boon', function() {
+            return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d','kevin@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.firstname, "Kevin");
+                assert.equal(response.body.lastname,"Boon");
+            });
+        });
+    });
+    /*
+    describe('/persons/{guid} from different community', function() {
+        it('should be 401 Forbidden', function() {
+            return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d','kevin@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+    */
+});

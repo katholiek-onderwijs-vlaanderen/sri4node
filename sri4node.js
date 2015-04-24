@@ -23,7 +23,7 @@ var pgConnect = function () {
     } else {
         dbUrl = configuration.defaultdatabaseurl;
     }
-    cl("Using database connection string : [" + dbUrl + "]");
+    //cl("Using database connection string : [" + dbUrl + "]");
     
     pg.connect(dbUrl, function (err, client, done) {
         if (err) {
@@ -385,12 +385,14 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 function logRequests(req, res, next) {
-    cl(req.method + " " + req.path + " starting.");
-    var start = Date.now();
-    res.on('finish', function () {
-        var duration = Date.now() - start;
-        cl(req.method + " " + req.path + " took " + duration + " ms. ");
-    });
+    if(configuration.enableLoggingOfRequests) {
+        cl(req.method + " " + req.path + " starting.");
+        var start = Date.now();
+        res.on('finish', function () {
+            var duration = Date.now() - start;
+            cl(req.method + " " + req.path + " took " + duration + " ms. ");
+        });
+    }
     next();
 }
 
@@ -503,7 +505,6 @@ exports = module.exports = {
         pg = postgres;
 
         app.use(forceSecureSockets);
-//        app.use(logRequests);
         app.use(allowCrossDomain);
 
         for (var configIndex = 0; configIndex < resources.length; configIndex++) {

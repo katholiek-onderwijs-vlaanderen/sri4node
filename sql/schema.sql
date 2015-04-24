@@ -63,19 +63,3 @@ CREATE TABLE "messages" (
   "unit" character varying(32),
   "community" character varying(36) references "communities"(guid)
 );
-
--- Approvals for interlets. An interlets requires 2 approvals. Group A must approves B, and B must approve A.
-CREATE TABLE "interletsapprovals" (
-  "guid" character varying(36) unique,
-  "community" character varying(36) references "communities"(guid),
-  "approved" character varying(36) references "communities"(guid),
-  "deleted" boolean
-);
-
--- Selected interlets communities that are visible to a person.
-CREATE TABLE "interletssettings" (
-  "guid" character varying(36) unique,
-  "person" character varying(36) references "persons"(guid),
-  "interletsapproval" character varying(36) references "interletsapprovals"(guid),
-  "active" boolean
-);
