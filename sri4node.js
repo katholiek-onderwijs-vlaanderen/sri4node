@@ -496,6 +496,65 @@ function executePutInsideTransaction(db, url, element) {
     }); // pgExec(db,countquery)...
 }
 
+// Local cache of known identities.
+var knownIdentities = {};
+// Returns a JSON object with the identity of the current user.
+function getMe(req) {
+    var deferred = Q.defer();
+    
+    var basic = req.headers.authorization;
+    var encoded = basic.substr(6);
+    var decoded = new Buffer(encoded, 'base64').toString('utf-8');
+    var firstColonIndex = decoded.indexOf(':');
+    if (firstColonIndex != -1) {
+        var username = decoded.substr(0, firstColonIndex);
+        if(knownIdentities[username]) {
+            deferred.resolve(knownIdentities[username]);
+        } else {
+            var database;
+            pgConnect().then(function (db) {
+                database = db;
+                return configuration.identity(username, db);
+            }).then(function(me) {
+                knownIdentities[username] = me;
+                database.done();
+                deferred.resolve(me);
+            }).fail(function(err) {
+                cl("Retrieving of identity had errors. Removing pg client from pool. Error : ")
+                cl(err);
+                database.done(err);
+                deferred.reject(err);
+            });
+        }
+    }
+    
+    return deferred.promise;
+}
+
+function validateAccessAllowed(mapping, db, req, resp, me) {
+    var deferred = Q.defer();
+    
+    // Array of functions that returns promises. If any of the promises fail, 
+    // the response will be 401 Forbidden. All promises must resolve (to empty values)
+    var secure = mapping.secure;
+    
+    
+    if(secure.length == 1) {
+        secure[0](req, resp, db, me).then(function() {
+            deferred.resolve();
+        }).catch(function(error) {
+            deferred.reject("FORBIDDEN");
+        });
+    } else if(secure.length > 1) {
+        // TODO : Support multiple secure functions.
+        throw new Error("More than 1 secure function not yet implemented");
+    } else {
+        deferred.resolve();
+    }
+    
+    return deferred.promise;
+}
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
     configure: function (app, postgres, config) {
@@ -504,6 +563,7 @@ exports = module.exports = {
         logsql = config.logsql;
         pg = postgres;
 
+        // All URLs force SSL and allow cross origin access.
         app.use(forceSecureSockets);
         app.use(allowCrossDomain);
 
@@ -632,9 +692,17 @@ exports = module.exports = {
                 var guid = req.params.guid;
 
                 var database;
-                pgConnect().then(function (db) {
+                pgConnect().then(function(db) {
                     database = db;
-                    return queryByGuid(resources, db, mapping, guid).then(function (element) {
+                    var basic = req.headers.authorization;
+                    if(basic) {
+                        return getMe(req);
+                    }
+                }).then(function(me) {
+                    // me == null if no authentication header was sent by the client.
+                    return validateAccessAllowed(mapping,database,req,resp,me);
+                }).then(function () {
+                    return queryByGuid(resources, database, mapping, guid).then(function (element) {
                         element.$$meta = {permalink: mapping.type + '/' + guid};
                         resp.set('Content-Type', 'application/json');
                         resp.send(element);
@@ -645,11 +713,19 @@ exports = module.exports = {
                         resp.end();
                     })
                     .fail(function (err) {
-                        cl("GET processing had errors. Removing pg client from pool. Error : ");
-                        cl(err);
-                        database.done(err);
-                        resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
-                        resp.end();
+                    cl("fail()");
+                        if(err === "FORBIDDEN") {
+                            database.done();
+                            resp.status(401).send("Forbidden");
+                            resp.end();
+                        } else {
+                            cl("GET processing had errors. Removing pg client from pool. Error : ");
+                            cl(err);
+                            database.done(err);
+                            cl("Client removed from pool");
+                            resp.status(500).send("Internal Server Error. [" + err.toString() + "]");
+                            resp.end();
+                        }
                     });
             });
 
@@ -810,45 +886,13 @@ exports = module.exports = {
         app.use(url, logRequests);
         app.use(url, checkBasicAuthentication);
         app.get(url, function (req, resp) {
-            var typeToMapping = typeToConfig(resources);
-            var mapping = typeToMapping['/persons'];
-            var columns = sqlColumnNames(mapping);
-            var table = mapping.type.split("/")[1];
-
-            var basic = req.headers.authorization;
-            var encoded = basic.substr(6);
-            var decoded = new Buffer(encoded, 'base64').toString('utf-8');
-            var firstColonIndex = decoded.indexOf(':');
-            if (firstColonIndex != -1) {
-                var email = decoded.substr(0, firstColonIndex);
-                var query = prepare('me');
-                query.sql('select ' + columns + ',guid from ' + table + ' where email = ').param(email);
-
-                var database;
-                pgConnect().then(function (db) {
-                    database = db;
-                    return pgExec(db, query).then(function (result) {
-                        var row = result.rows[0];
-                        var output = {};
-                        output.$$meta = {};
-                        output.$$meta.permalink = '/persons/' + row.guid;
-                        mapColumnsToObject(resources, mapping, row, output);
-                        resp.set('Content-Type', 'application/json');
-                        resp.send(output);
-                    });
-                })
-                .then(function() {
-                    database.done();
-                    resp.end();
-                })
-                .fail(function(err) {
-                    cl("GET processing had errors. Removing pg client from pool. Error : ")
-                    cl(err);
-                    database.done(err);
-                    resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
-                    resp.end();
-                });
-            }
+            getMe(req).then(function(me) {
+                resp.set('Content-Type', 'application/json');
+                resp.send(me);
+            }).fail(function() {
+                resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
+                resp.end();
+            });
         });
 
         app.put('/log', function (req, resp) {
@@ -863,9 +907,10 @@ exports = module.exports = {
     },
 
     utils: {
-        // Call this is you want to clear the passwords cache for the API.
+        // Call this is you want to clear the password and identity cache for the API.
         clearPasswordCache : function() {
             knownPasswords = {};
+            knownIdentities = {};
         },
 
         // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..

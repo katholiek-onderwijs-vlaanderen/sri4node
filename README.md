@@ -214,6 +214,14 @@ Provides various utilities for keeping your JSON schema definition compact and r
     timestamp(description)
     boolean(description)
 
+## Various
+
+A function to construct the /me resource must be registered in your configuration :
+
+    config.identity = function(username,database) {
+        // Use the database connection and username.
+        // return a promise that resolves to the desired JSON for /me (and the security checks)
+    }
 
 # Contributions
 

@@ -78,13 +78,24 @@ var clearPasswordCache = function (db, element) {
     return deferred.promise;
 };
 
-var restrictReadPersons = function(req, me) {
-    console.log("restrictReadPersons");
+var restrictReadPersons = function(req, resp, db, me) {
     var deferred = Q.defer();
-
-    //deferred.reject({ error: "message" });
-    deferred.resolve();
-
+    
+    var url = req.path;
+    var type = '/' + url.split("/")[1];
+    var guid = url.split("/")[2];
+    var myCommunityGuid = me.community.href.split("/")[2];
+    
+    var query = $u.prepareSQL("check-person-is-in-my-community");
+    query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
+    $u.executeSQL(db, query).then(function(result) {
+        if(result.rows[0].count == 1) {
+            deferred.resolve();
+        } else {
+            deferred.reject();
+        }
+    });
+    
     return deferred.promise;
 };
 
@@ -94,6 +105,21 @@ roa.configure(app,pg,
         // For debugging SQL can be logged.
         logsql : false,
         defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5432/postgres",
+        identity : function(username, database) {
+            var query = $u.prepareSQL("me");
+            query.sql('select * from persons where email = ').param(username);
+            return $u.executeSQL(database, query).then(function (result) {
+                var row = result.rows[0];
+                var output = {};
+                output.$$meta = {};
+                output.$$meta.permalink = '/persons/' + row.guid;
+                output.firstname = row.firstname;
+                output.lastname = row.lastname;
+                output.email = row.email;
+                output.community = { href: '/communities/' + row.community };
+                return output;
+            });
+        },
         resources : [
             {
                 type: "/persons",
@@ -372,13 +398,23 @@ describe('private resources', function() {
             });
         });
     });
-    /*
+    
     describe('/persons/{guid} from different community', function() {
         it('should be 401 Forbidden', function() {
-            return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d','kevin@email.be','pwd').then(function(response) {
+            return doGet(base + '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb','kevin@email.be','pwd').then(function(response) {
                 assert.equal(response.statusCode, 401);
             });
         });
     });
-    */
+    
+    describe('/me',function() {
+        it('should return *me*', function() {
+            return doGet(base + '/me','steven@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.firstname, "Steven");
+                assert.equal(response.body.lastname,"Plas");
+            });
+        });
+    });
+    
 });
