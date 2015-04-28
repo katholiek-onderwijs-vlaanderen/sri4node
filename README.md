@@ -1,6 +1,6 @@
 # About
 
-An implementtation of SRI (Standard ROA Interface). 
+An implementation of SRI (Standard ROA Interface). 
 SRI is a set of standards to make RESTful interfaces.
 It specifies how resources are accesses, queried, updated, deleted.
 More information can [be found here](https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub).
@@ -220,7 +220,7 @@ A function to construct the /me resource must be registered in your configuratio
 
     config.identity = function(username,database) {
         // Use the database connection and username.
-        // return a promise that resolves to the desired JSON for /me (and the security checks)
+        // return a promise that resolves to the desired JSON for /me (and the 'secure' functions)
     }
 
 # Contributions
