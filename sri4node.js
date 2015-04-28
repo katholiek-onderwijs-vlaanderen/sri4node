@@ -538,20 +538,21 @@ function validateAccessAllowed(mapping, db, req, resp, me) {
     // the response will be 401 Forbidden. All promises must resolve (to empty values)
     var secure = mapping.secure;
     
+    var promises = [];
+    secure.forEach(function (f) {
+        promises.push(f(req, resp, db, me));
+    });
     
-    if(secure.length == 1) {
-        secure[0](req, resp, db, me).then(function() {
+    if(secure.length > 0) {
+        Q.all(promises).then(function(result) {
             deferred.resolve();
-        }).catch(function(error) {
+        }).catch(function(result) {
             deferred.reject("FORBIDDEN");
         });
-    } else if(secure.length > 1) {
-        // TODO : Support multiple secure functions.
-        throw new Error("More than 1 secure function not yet implemented");
     } else {
         deferred.resolve();
     }
-    
+
     return deferred.promise;
 }
 
