@@ -26,7 +26,7 @@ This allows you to keep full control over the order of registering express middl
 
 # Usage
 
-Start by requiring the module in your code (as well as Express.js).
+Start by requiring the module in your code.
 Then we'll create some convenient aliasses for the utility functions bundled with sri4node as well.
 
     var express = require('express');
@@ -43,25 +43,33 @@ Finally we configure handlers for 1 example resource :
         {
             // For debugging SQL can be logged.
             logsql : false,
-            // If no environments variable present, use this URL (for development)
+            // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            // Define all resource you want to serve.
             resources : [
                 {
-                    // Base url, maps 1:1 with a table in postgres (same name, except the '/' is removed)
+                    // Base url, maps 1:1 with a table in postgres 
+                    // Same name, except the '/' is removed
                     type: "/contents",
-                    // Is this resource public ? (I.e.: Can it be read / updated / inserted publicly ?
-                    public: true,
+                    // Is this resource public ? 
+                    // Can it be read / updated / inserted publicly ?
+                    public: false,
+                    // All columns in the table that appear in the
+                    // resource should be declared.
+                    // Optionally mapping functions can be given.
                     map: {
                         authors: {},
                         themes: {},
                         html: {}
                     },
+                    // Multiple function that check access control 
+                    // They receive a database object and
+                    // the security context of the current user.
                     secure : [
                         checkAccessOnResource,
                         checkSomeMoreRules
                     ],
-                    // Standard JSON Schema definition. Don't be fooled by the use of utility functions.
+                    // Standard JSON Schema definition. 
+                    // It uses utility functions, for compactness.
                     schemaUtils: {
                         $schema: "http://json-schema.org/schema#",
                         title: "An article on the websites/mailinglists.",
@@ -73,13 +81,20 @@ Finally we configure handlers for 1 example resource :
                         },
                         required: ["authors","themes","html"]
                     },
+                    // Functions that validate the incoming resource
+                    // when a PUT operation is executed.
                     validate: [
+                        validateAuthorVersusThemes
                     ],
+                    // Supported URL parameters are configured
+                    // this allows filtering on the list resource.
                     query: {
                         authors: contains('authors'),
                         themes: contains('themes'),
                         html: contains('html')
                     },
+                    // After update, insert or delete
+                    // you can perform extra actions.
                     afterupdate: [],
                     afterinsert: [],
                     afterdelete: [ cleanupFunction ]
