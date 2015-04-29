@@ -322,7 +322,6 @@ function forceSecureSockets(req, res, next) {
 
 function checkBasicAuthentication(req, res, next) {
     var forbidden = function () {
-        cl("Rejecting request ! Please authenticate via BASIC + TLS.");
         res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
         res.status(401).send("Forbidden");
     };
@@ -340,7 +339,10 @@ function checkBasicAuthentication(req, res, next) {
                 if (knownPasswords[email]) {
                     if (knownPasswords[email] === password) {
                         next();
-                    } else forbidden();
+                    } else {
+                        cl("Invalid password");
+                        forbidden();
+                    }
                 } else {
                     var database;
                     pgConnect().then(function (db) {
@@ -695,13 +697,19 @@ exports = module.exports = {
                 var database;
                 pgConnect().then(function(db) {
                     database = db;
-                    var basic = req.headers.authorization;
-                    if(basic) {
-                        return getMe(req);
+                    if(!mapping.public) {
+                        var basic = req.headers.authorization;
+                        if(basic) {
+                            return getMe(req);
+                        } else {
+                            throw new Error ("Private resource accessed without BASIC authentication");
+                        }
                     }
                 }).then(function(me) {
                     // me == null if no authentication header was sent by the client.
-                    return validateAccessAllowed(mapping,database,req,resp,me);
+                    if(!mapping.public) {
+                        return validateAccessAllowed(mapping,database,req,resp,me);
+                    }
                 }).then(function () {
                     return queryByGuid(resources, database, mapping, guid).then(function (element) {
                         element.$$meta = {permalink: mapping.type + '/' + guid};
@@ -714,7 +722,6 @@ exports = module.exports = {
                         resp.end();
                     })
                     .fail(function (err) {
-                    cl("fail()");
                         if(err === "FORBIDDEN") {
                             database.done();
                             resp.status(401).send("Forbidden");

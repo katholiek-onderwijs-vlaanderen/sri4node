@@ -99,6 +99,21 @@ var restrictReadPersons = function(req, resp, db, me) {
     return deferred.promise;
 };
 
+function disallowOnePerson(permalink) {
+    return function(req, resp, db, me) {
+        var deferred = Q.defer();
+        
+        var url = req.path;
+        if(url == permalink) {
+            deferred.reject();
+        } else {
+            deferred.resolve();
+        }
+        
+        return deferred.promise;
+    };
+}
+
 // Need to pass in express.js and node-postgress as dependencies.
 roa.configure(app,pg,
     {
@@ -142,7 +157,9 @@ roa.configure(app,pg,
                     community: {references: '/communities'}
                 },
                 secure : [
-                    restrictReadPersons
+                    restrictReadPersons,
+                    // Ingrid Ohno
+                    disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
                 ],
                 schemaUtils: {
                     $schema: "http://json-schema.org/schema#",
@@ -353,25 +370,60 @@ function doGet(url, user, pwd) {
 /* Now let's test it... */
 var base = "http://localhost:" + port;
 
-describe('get', function(){
-  describe('/communities', function(){
-    it('should return a list of 4 communities', function(){
-        doGet(base + "/communities").then(function(response) {
-            if(response.body.$$meta.count != 4) assert.fail();
+describe('GET public list resource', function(){
+    describe('without authentication', function(){
+        it('should return a list of 4 communities', function(){
+            return doGet(base + "/communities").then(function(response) {
+                if(response.body.$$meta.count != 4) assert.fail();
+            });
         });
     });
-  });
     
-  describe('/communities/{guid}', function() {
-      it('should return LETS Regio Dendermonde', function() {
-          return doGet(base + "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849").then(function(response) {
-              assert.equal(response.body.name,'LETS Regio Dendermonde');
-          });
-      });
-  });
+    
+    describe('with authentication', function() {
+        it('should return a list of 4 communities', function() {
+            return doGet(base + '/communities', 'sabine@email.be', 'pwd').then(function(response) {
+                if(response.body.$$meta.count != 4) assert.fail();
+            });
+        });
+    });
+});
+    
+describe('GET public regular resource', function() {
+    describe('without authentication', function() {
+        it('should return LETS Regio Dendermonde', function() {
+            return doGet(base + "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849").then(function(response) {
+                assert.equal(response.body.name,'LETS Regio Dendermonde');
+            });
+        });
+    });
+    
+    describe('with authentication', function() {
+        it('should return LETS Regio Dendermonde', function() {
+            return doGet(base + "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",'sabine@email.be','pwd').then(function(response) {
+                assert.equal(response.body.name,'LETS Hamme');
+            });
+        });
+    });
+    
+    describe('with invalid authentication - non-existing user', function() {
+        it('should return LETS Regio Dendermonde', function() {
+            return doGet(base + "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",'unknown@email.be','pwd').then(function(response) {
+                assert.equal(response.body.name,'LETS Hamme');
+            });
+        });
+    });
+    
+    describe('with invalid authentication - existing user, wrong password', function() {
+        it('should return LETS Regio Dendermonde', function() {
+            return doGet(base + "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",'sabine@email.be','INVALID').then(function(response) {
+                assert.equal(response.body.name,'LETS Hamme');
+            });
+        });
+    });
 });
 
-describe('private resources', function() {
+describe('GET private list resource', function() {
     describe('/persons without authentication', function() {
         it('should be 401 Forbidden', function() {
             return doGet(base + '/persons').then(function(response) {
@@ -388,7 +440,9 @@ describe('private resources', function() {
             });
         });
     });
-    
+});
+
+describe('GET private regular resource', function() {
     describe('/persons/{guid} from my community', function() {
         it('should return Kevin Boon', function() {
             return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d','kevin@email.be','pwd').then(function(response) {
@@ -407,7 +461,41 @@ describe('private resources', function() {
         });
     });
     
-    describe('/me',function() {
+    describe('two secure functions', function() {
+        it('should disallow read on Ingrid Ohno', function() {
+            return doGet(base + '/persons/da6dcc12-c46f-4626-a965-1a00536131b2','sabine@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+    
+    describe('with invalid authentication - non-existing user', function() {
+        it('should disallow read', function() {
+            return doGet(base + "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",'unknown@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+    
+    describe('with invalid authentication - existing user, wrong password', function() {
+        it('should disallow read', function() {
+            return doGet(base + "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",'sabine@email.be','INVALID').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+    
+    describe('without authentication', function() {
+        it('should disallow read', function() {
+            return doGet(base + "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d").then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+});
+
+describe("GET user security context /me", function() {
+    describe("with authentication", function() {
         it('should return *me*', function() {
             return doGet(base + '/me','steven@email.be','pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
@@ -417,4 +505,28 @@ describe('private resources', function() {
         });
     });
     
+    describe("without authentication", function() {
+        it('should disallow access', function() {
+            return doGet(base + '/me').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+
+    describe("with invalid authentication - non-existing user", function() {
+        it('should disallow access', function() {
+            return doGet(base + '/me','invalid@email.be','pwd').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+
+    describe("with invalid authentication - wrong password", function() {
+        it('should disallow access', function() {
+            return doGet(base + '/me','steven@email.be','INVALID').then(function(response) {
+                assert.equal(response.statusCode, 401);
+            });
+        });
+    });
+
 });
