@@ -24,6 +24,10 @@ context.serve(roa, port, logsql, logrequests,debug);
 /* Now let's test it... */
 var base = "http://localhost:" + port;
 
+function cl(x) {
+    console.log(x);
+}
+
 describe('GET public list resource', function(){
     describe('without authentication', function(){
         it('should return a list of 4 communities', function(){
@@ -271,6 +275,20 @@ describe('DELETE regular resource', function() {
                 return doGet(base + "/communities/" + guid, 'sabine@email.be', 'pwd');
             }).then(function(response) {
                 assert.equal(response.statusCode, 403);
+            });
+        });
+    });
+});
+
+describe('PUT', function() {
+    describe('schema validation', function() {
+        it('should detect if a field is too long', function() {
+            var guid = uuid.v4();
+            var body = generateRandomCommunity(guid);
+            body.email = body.email + body.email + body.email;
+            return doPut(base + '/communities/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+                cl(response.body);  
+                assert.equal(response.statusCode, 409);
             });
         });
     });
