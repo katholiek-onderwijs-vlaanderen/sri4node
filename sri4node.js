@@ -240,13 +240,24 @@ function queryByGuid(config, db, mapping, guid) {
 
     var query = prepare('select-row-by-guid-from-' + table);
     query.sql('select ' + columns + ' from "' + table + '" where "guid" = ').param(guid);
-
     return pgExec(db, query).then(function (result) {
-        var row = result.rows[0];
-        var output = {};
-        mapColumnsToObject(config, mapping, row, output);
-        executeOnFunctions(config, mapping, "onread", output);
-        return output;
+        var deferred = Q.defer();
+        
+        var rows = result.rows;
+        if(rows.length == 1) {
+            var row = result.rows[0];
+            var output = {};
+            mapColumnsToObject(config, mapping, row, output);
+            executeOnFunctions(config, mapping, "onread", output);
+            deferred.resolve(output);
+        } else if (rows.length == 0) {
+            deferred.reject("NOT FOUND");
+        } else {
+            var msg = "More than one entry with guid " + guid + " found for " + mapping.type;
+            debug(msg);
+            deferred.reject(new Error(msg));
+        }    
+        return deferred.promise;
     });
 }
 
@@ -306,6 +317,10 @@ function cl(x) {
     console.log(x);
 }
 
+function debug(x) {
+    if(configuration.debug) console.log(x);
+}
+
 // Security cache; stores a map 'e-mail' -> 'password'
 // To avoid a database query for all API calls.
 var knownPasswords = {};
@@ -342,7 +357,7 @@ function checkBasicAuthentication(req, res, next) {
         var encoded = basic.substr(6);
         var decoded = new Buffer(encoded, 'base64').toString('utf-8');
         var firstColonIndex = decoded.indexOf(':');
-        if (firstColonIndex != -1) {
+        if (firstColonIndex != -1) {    
             var email = decoded.substr(0, firstColonIndex);
             var password = decoded.substr(firstColonIndex + 1);
             if (email && password && email.length > 0 && password.length > 0) {
@@ -350,7 +365,7 @@ function checkBasicAuthentication(req, res, next) {
                     if (knownPasswords[email] === password) {
                         next();
                     } else {
-                        cl("Invalid password");
+                        debug("Invalid password");
                         forbidden();
                     }
                 } else {
@@ -368,7 +383,7 @@ function checkBasicAuthentication(req, res, next) {
                                 knownPasswords[email] = password;
                                 next();
                             } else {
-                                cl("Wrong combination of email / password. Found " + count + " records.");
+                                debug("Wrong combination of email / password. Found " + count + " records.");
                                 forbidden();
                             }
                         });
@@ -383,7 +398,10 @@ function checkBasicAuthentication(req, res, next) {
                 }
             } else forbidden();
         } else forbidden();
-    } else forbidden();
+    } else {
+        debug("No authorization header received from client. Rejecting.");
+        forbidden();
+    }
 }
 
 // Apply CORS headers.
@@ -408,29 +426,39 @@ function logRequests(req, res, next) {
     next();
 }
 
-function executePutInsideTransaction(db, url, element) {
-    cl(url.split("/"));
+function executePutInsideTransaction(db, url, body) {
     var type = '/' + url.split("/")[1];
     var guid = url.split("/")[2];
-
+    
+    debug('PUT processing starting. Request body :');
+    debug(body);
+    
     var typeToMapping = typeToConfig(resources);
     // var type = '/' + req.route.path.split("/")[1];
     var mapping = typeToMapping[type];
     var table = mapping.type.split("/")[1];
 
-    cl(element);
-
     if (mapping.schemaUtils) {
-        var errors = getSchemaValidationErrors(element, mapping.schemaUtils);
+        var errors = getSchemaValidationErrors(body, mapping.schemaUtils);
         if (errors) {
             var deferred = Q.defer();
             deferred.reject(errors);
             return deferred.promise;
         } else {
-            cl("Schema validation passed.");
+            debug("Schema validation passed.");
         }
     }
 
+    // create an object that only has mapped properties
+    var element = {};
+    for (var key in mapping.map) {
+        if (mapping.map.hasOwnProperty(key)) {
+            if(body[key]) {
+                element[key] = body[key];
+            }
+        }
+    }
+    
     // check and remove types from references.
     for (var key in mapping.map) {
         if (mapping.map.hasOwnProperty(key)) {
@@ -447,13 +475,13 @@ function executePutInsideTransaction(db, url, element) {
                 if (type === referencedMapping.type) {
                     element[key] = refguid;
                 } else {
-                    console.log("Faulty reference detected [" + element[key].href + "], detected [" + type + "] expected [" + referencedMapping.type + "]");
+                    cl("Faulty reference detected [" + element[key].href + "], detected [" + type + "] expected [" + referencedMapping.type + "]");
                     return;
                 }
             }
         }
     }
-    cl('Converted references to values for update');
+    debug('Converted references to values for update');
 
     var countquery = prepare('check-resource-exists-' + table);
     countquery.sql('select count(*) from ' + table + ' where "guid" = ').param(guid);
@@ -482,14 +510,14 @@ function executePutInsideTransaction(db, url, element) {
             return pgExec(db, update).then(function (results) {
                 if (mapping.afterupdate && mapping.afterupdate.length > 0) {
                     if (mapping.afterupdate.length == 1) {
-                        cl("Executing one afterupdate function...");
+                        debug("Executing one afterupdate function...");
                         return mapping.afterupdate[0](db, element);
                     } else {
                         // TODO : Support more than one after* function.
                         cl("More than one after* function not supported yet. Ignoring");
                     }
                 } else {
-                    cl("No afterupdate functions...");
+                    debug("No afterupdate functions...");
                 }
             });
         } else {
@@ -704,31 +732,35 @@ exports = module.exports = {
                 pgConnect().then(function(db) {
                     database = db;
                     if(!mapping.public) {
-                        var basic = req.headers.authorization;
-                        if(basic) {
-                            return getMe(req);
-                        } else {
-                            throw new Error ("Private resource accessed without BASIC authentication");
-                        }
+                        return getMe(req);
                     }
                 }).then(function(me) {
                     // me == null if no authentication header was sent by the client.
                     if(!mapping.public) {
+                        debug("running config.secure functions");
                         return validateAccessAllowed(mapping,database,req,resp,me);
                     }
                 }).then(function () {
-                    return queryByGuid(resources, database, mapping, guid).then(function (element) {
-                        element.$$meta = {permalink: mapping.type + '/' + guid};
-                        resp.set('Content-Type', 'application/json');
-                        resp.send(element);
-                    });
+                    debug("query by guid");
+                    return queryByGuid(resources, database, mapping, guid);
+                }).then(function (element) {
+                    element.$$meta = {permalink: mapping.type + '/' + guid};
+                    resp.set('Content-Type', 'application/json');
+                    resp.send(element);
                 }).then(function () {
+                    debug("done");
                     database.done();
                     resp.end();
                 }).fail(function (err) {
                     if(err === "FORBIDDEN") {
+                        debug("401 Forbidden");
                         database.done();
                         resp.status(401).send("Forbidden");
+                        resp.end();
+                    } else if(err == "NOT FOUND") {
+                        debug("403 Not Found");
+                        database.done();
+                        resp.status(403).send("Not Found");
                         resp.end();
                     } else {
                         cl("GET processing had errors. Removing pg client from pool. Error : ");
@@ -747,11 +779,11 @@ exports = module.exports = {
                     return pgExec(db, begin).then(function () {
                         return executePutInsideTransaction(db, url, req.body);
                     }).then(function () {
-                        cl("PUT processing went OK. Committing database transaction.");
+                        debug("PUT processing went OK. Committing database transaction.");
                         db.client.query("COMMIT", function (err) {
                             // If err is defined, client will be removed from pool.
                             db.done(err);
-                            cl("COMMIT DONE.");
+                            debug("COMMIT DONE.");
                             resp.send(true);
                             resp.end();
                         });
@@ -768,6 +800,7 @@ exports = module.exports = {
                     });
                 }); // pgConnect
             }).delete(logRequests, checkBasicAuthentication, function (req, resp) {
+                debug('sri4node DELETE invoked');
                 var typeToMapping = typeToConfig(resources);
                 var type = '/' + req.route.path.split("/")[1];
                 var mapping = typeToMapping[type];
@@ -793,11 +826,11 @@ exports = module.exports = {
                             }
                         }); // pgExec delete
                     }).then(function () {
-                        cl("DELETE processing went OK. Committing database transaction.");
+                        debug("DELETE processing went OK. Committing database transaction.");
                         db.client.query("COMMIT", function (err) {
                             // If err is defined, client will be removed from pool.
                             db.done(err);
-                            cl("COMMIT DONE.");
+                            debug("COMMIT DONE.");
                             resp.send(true);
                             resp.end();
                         });

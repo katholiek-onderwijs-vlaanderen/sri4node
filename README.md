@@ -132,7 +132,7 @@ When creating or updating a regular resource a database row is updated/inserted 
 3. Execute *validate* functions.
 4. Convert the JSON document into a simple key-value object. Keys map 1:1 with database columns. All incoming values are passed through the *onwrite*/*oninsert* function for conversion, if defined. By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
 5. insert or update the database row.
-6. Execute *afterupdate'* or *afterread'* functions.
+6. Execute *afterupdate* or *afterread* functions.
 
 When deleting a regular resource :
 
