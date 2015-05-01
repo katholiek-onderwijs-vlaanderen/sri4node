@@ -7,6 +7,7 @@ var Q = require('q');
 var pg = require('pg');
 var needle = require('needle');
 var assert = require('assert');
+var uuid = require('node-uuid');
 
 // Local includes
 var roa = require("../sri4node.js");
@@ -80,22 +81,27 @@ var clearPasswordCache = function (db, element) {
 
 var restrictReadPersons = function(req, resp, db, me) {
     var deferred = Q.defer();
-    
-    var url = req.path;
-    var type = '/' + url.split("/")[1];
-    var guid = url.split("/")[2];
-    var myCommunityGuid = me.community.href.split("/")[2];
-    
-    var query = $u.prepareSQL("check-person-is-in-my-community");
-    query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
-    $u.executeSQL(db, query).then(function(result) {
-        if(result.rows[0].count == 1) {
-            deferred.resolve();
-        } else {
-            deferred.reject();
-        }
-    });
-    
+    if(req.method === 'GET') {
+        var url = req.path;
+        var type = '/' + url.split("/")[1];
+        var guid = url.split("/")[2];
+        var myCommunityGuid = me.community.href.split("/")[2];
+
+        var query = $u.prepareSQL("check-person-is-in-my-community");
+        query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
+        $u.executeSQL(db, query).then(function(result) {
+            if(result.rows[0].count == 1) {
+                deferred.resolve();
+            } else {
+                cl('security method restrictedReadPersons denies access');
+                deferred.reject();
+            }
+        });
+
+    } else {
+        deferred.resolve();
+    }
+
     return deferred.promise;
 };
 
@@ -103,12 +109,17 @@ function disallowOnePerson(permalink) {
     return function(req, resp, db, me) {
         var deferred = Q.defer();
         
-        var url = req.path;
-        if(url == permalink) {
-            deferred.reject();
+        if(req.method === 'GET') {
+            var url = req.path;
+            if(url == permalink) {
+                cl('security method disallowedOnePerson for ' + permalink + ' denies access');
+                deferred.reject();
+            } else {
+                deferred.resolve();
+            }
         } else {
             deferred.resolve();
-        }
+        }   
         
         return deferred.promise;
     };
@@ -119,6 +130,7 @@ roa.configure(app,pg,
     {
         // For debugging SQL can be logged.
         logsql : false,
+        enableLoggingOfRequests : true,
         defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5432/postgres",
         identity : function(username, database) {
             var query = $u.prepareSQL("me");
@@ -366,6 +378,27 @@ function doGet(url, user, pwd) {
     return deferred.promise;
 };
 
+function doPut(url, body, user, pwd) {
+    var deferred = Q.defer();
+    
+    var options = {};
+    if(user && pwd) {
+        options.username = user;
+        options.password = pwd;
+    }
+    options.json = true;
+
+    needle.request('PUT', url, body, options, function(error, response) {
+        if(!error) {
+            deferred.resolve(response);
+        } else {
+            deferred.reject(error);
+        }
+    });
+    
+    return deferred.promise;
+};
+
 /* Configuration of sri4node is done */
 /* Now let's test it... */
 var base = "http://localhost:" + port;
@@ -374,7 +407,8 @@ describe('GET public list resource', function(){
     describe('without authentication', function(){
         it('should return a list of 4 communities', function(){
             return doGet(base + "/communities").then(function(response) {
-                if(response.body.$$meta.count != 4) assert.fail();
+                assert.equal(response.statusCode, 200);
+                if(!response.body.$$meta.count) assert.fail();
             });
         });
     });
@@ -383,12 +417,13 @@ describe('GET public list resource', function(){
     describe('with authentication', function() {
         it('should return a list of 4 communities', function() {
             return doGet(base + '/communities', 'sabine@email.be', 'pwd').then(function(response) {
-                if(response.body.$$meta.count != 4) assert.fail();
+                assert.equal(response.statusCode, 200);
+                if(!response.body.$$meta.count) assert.fail();
             });
         });
     });
 });
-    
+
 describe('GET public regular resource', function() {
     describe('without authentication', function() {
         it('should return LETS Regio Dendermonde', function() {
@@ -436,7 +471,7 @@ describe('GET private list resource', function() {
         it('should be 200 Ok', function() {
             return doGet(base + '/persons', 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                assert.equal(response.body.$$meta.count, 7);
+                if(!response.body.$$meta.count) assert.fail();
             });
         });
     });
@@ -468,7 +503,7 @@ describe('GET private regular resource', function() {
             });
         });
     });
-    
+
     describe('with invalid authentication - non-existing user', function() {
         it('should disallow read', function() {
             return doGet(base + "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",'unknown@email.be','pwd').then(function(response) {
@@ -476,7 +511,7 @@ describe('GET private regular resource', function() {
             });
         });
     });
-    
+
     describe('with invalid authentication - existing user, wrong password', function() {
         it('should disallow read', function() {
             return doGet(base + "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",'sabine@email.be','INVALID').then(function(response) {
@@ -492,6 +527,7 @@ describe('GET private regular resource', function() {
             });
         });
     });
+
 });
 
 describe("GET user security context /me", function() {
@@ -528,5 +564,40 @@ describe("GET user security context /me", function() {
             });
         });
     });
+});
 
+var communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
+function generateRandomPerson(guid, communityPermalink) {
+    return {
+        firstname: "Sabine",
+        lastname: "Eeckhout",
+        street: "Stationstraat",
+        streetnumber: "17",
+        zipcode: "9280",
+        city: "Lebbeke",
+        phone: "0492882277",
+        email: guid + "@email.com",
+        balance: 0,
+        mail4elas: "weekly",
+        community: { href: communityPermalink }
+    };
+}
+
+describe("PUT regular resource", function() {
+    describe("create regular resource",function() {
+        var guid = uuid.v4();
+        it('should create a new person', function() {
+            var body = generateRandomPerson(guid, communityDendermonde);
+            return doPut(base + "/persons/" + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+            });
+        });
+        
+        it('should be possible to read the newly created person', function() {
+            return doGet(base + "/persons/" + guid, 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.email, guid + '@email.com');
+            });
+        });
+    });
 });

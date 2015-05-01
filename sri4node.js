@@ -321,6 +321,17 @@ function forceSecureSockets(req, res, next) {
 }
 
 function checkBasicAuthentication(req, res, next) {
+    var path = req.route.path;
+    if(path !== '/me' && path != '/batch') {
+        var typeToMapping = typeToConfig(resources);
+        var type = '/' + req.route.path.split("/")[1];
+        var mapping = typeToMapping[type];
+        if(mapping.public) {
+            next();
+            return;
+        }
+    }
+    
     var forbidden = function () {
         res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
         res.status(401).send("Forbidden");
@@ -334,7 +345,6 @@ function checkBasicAuthentication(req, res, next) {
         if (firstColonIndex != -1) {
             var email = decoded.substr(0, firstColonIndex);
             var password = decoded.substr(firstColonIndex + 1);
-
             if (email && password && email.length > 0 && password.length > 0) {
                 if (knownPasswords[email]) {
                     if (knownPasswords[email] === password) {
@@ -426,6 +436,9 @@ function executePutInsideTransaction(db, url, element) {
         if (mapping.map.hasOwnProperty(key)) {
             if (mapping.map[key].references) {
                 var value = element[key].href;
+                if(!value) {
+                    throw new Error("No href found inside reference " + key);
+                }
                 var referencedType = mapping.map[key].references;
                 var referencedMapping = typeToMapping[referencedType];
                 var parts = value.split("/");
@@ -440,6 +453,7 @@ function executePutInsideTransaction(db, url, element) {
             }
         }
     }
+    cl('Converted references to values for update');
 
     var countquery = prepare('check-resource-exists-' + table);
     countquery.sql('select count(*) from ' + table + ' where "guid" = ').param(guid);
@@ -589,11 +603,7 @@ exports = module.exports = {
 
             // register list resource for this type.
             url = mapping.type;
-            app.use(url, logRequests);
-            if (!mapping.public) {
-                app.use(url, checkBasicAuthentication);
-            }
-            app.get(url, function (req, resp) {
+            app.get(url, logRequests, checkBasicAuthentication, function (req, resp) {
                 var typeToMapping = typeToConfig(resources);
                 var type = '/' + req.route.path.split("/")[1];
                 var mapping = typeToMapping[type];
@@ -684,11 +694,7 @@ exports = module.exports = {
 
             // register single resource
             url = mapping.type + '/:guid';
-            app.use(url, logRequests);
-            if (!mapping.public) {
-                app.use(url, checkBasicAuthentication);
-            }
-            app.get(url, function (req, resp) {
+            app.route(url).get(logRequests, checkBasicAuthentication, function (req, resp) {
                 var typeToMapping = typeToConfig(resources);
                 var type = '/' + req.route.path.split("/")[1];
                 var mapping = typeToMapping[type];
@@ -716,72 +722,52 @@ exports = module.exports = {
                         resp.set('Content-Type', 'application/json');
                         resp.send(element);
                     });
-                })
-                    .then(function () {
+                }).then(function () {
+                    database.done();
+                    resp.end();
+                }).fail(function (err) {
+                    if(err === "FORBIDDEN") {
                         database.done();
+                        resp.status(401).send("Forbidden");
                         resp.end();
-                    })
-                    .fail(function (err) {
-                        if(err === "FORBIDDEN") {
-                            database.done();
-                            resp.status(401).send("Forbidden");
-                            resp.end();
-                        } else {
-                            cl("GET processing had errors. Removing pg client from pool. Error : ");
-                            cl(err);
-                            database.done(err);
-                            cl("Client removed from pool");
-                            resp.status(500).send("Internal Server Error. [" + err.toString() + "]");
-                            resp.end();
-                        }
-                    });
-            });
-
-            // register PUT operation for inserts and updates
-            url = mapping.type + '/:guid';
-            app.use(url, logRequests);
-            if (!mapping.public) {
-                app.use(url, checkBasicAuthentication);
-            }
-            app.put(url, function (req, resp) {
+                    } else {
+                        cl("GET processing had errors. Removing pg client from pool. Error : ");
+                        cl(err);
+                        database.done(err);
+                        cl("Client removed from pool");
+                        resp.status(500).send("Internal Server Error. [" + err.toString() + "]");
+                        resp.end();
+                    }
+                });
+            }).put(logRequests, checkBasicAuthentication, function(req, resp) {
                 var url = req.path;
                 pgConnect().then(function (db) {
                     var begin = prepare("begin-transaction");
                     begin.sql('BEGIN');
                     return pgExec(db, begin).then(function () {
                         return executePutInsideTransaction(db, url, req.body);
-                    }) // pgExec(db,SQL("BEGIN")...
-                        .then(function () {
-                            cl("PUT processing went OK. Committing database transaction.");
-                            db.client.query("COMMIT", function (err) {
-                                // If err is defined, client will be removed from pool.
-                                db.done(err);
-                                cl("COMMIT DONE.");
-                                resp.send(true);
-                                resp.end();
-                            });
-                        })
-                        .fail(function (puterr) {
-                            cl("PUT processing failed. Rolling back database transaction. Error was :");
-                            cl(puterr);
-                            db.client.query("ROLLBACK", function (rollbackerr) {
-                                // If err is defined, client will be removed from pool.
-                                db.done(rollbackerr);
-                                cl("ROLLBACK DONE.");
-                                resp.status(409).send(puterr);
-                                resp.end();
-                            });
+                    }).then(function () {
+                        cl("PUT processing went OK. Committing database transaction.");
+                        db.client.query("COMMIT", function (err) {
+                            // If err is defined, client will be removed from pool.
+                            db.done(err);
+                            cl("COMMIT DONE.");
+                            resp.send(true);
+                            resp.end();
                         });
+                    }).fail(function (puterr) {
+                        cl("PUT processing failed. Rolling back database transaction. Error was :");
+                        cl(puterr);
+                        db.client.query("ROLLBACK", function (rollbackerr) {
+                            // If err is defined, client will be removed from pool.
+                            db.done(rollbackerr);
+                            cl("ROLLBACK DONE.");
+                            resp.status(409).send(puterr);
+                            resp.end();
+                        });
+                    });
                 }); // pgConnect
-            }); // app.put
-
-            // Register delete operation for resource
-            url = mapping.type + '/:guid';
-            app.use(url, logRequests);
-            if (!mapping.public) {
-                app.use(url, checkBasicAuthentication);
-            }
-            app.delete(url, function (req, resp) {
+            }).delete(logRequests, checkBasicAuthentication, function (req, resp) {
                 var typeToMapping = typeToConfig(resources);
                 var type = '/' + req.route.path.split("/")[1];
                 var mapping = typeToMapping[type];
@@ -806,36 +792,32 @@ exports = module.exports = {
                                 }
                             }
                         }); // pgExec delete
-                    }) // pgExec(db,SQL("BEGIN")...
-                        .then(function () {
-                            cl("DELETE processing went OK. Committing database transaction.");
-                            db.client.query("COMMIT", function (err) {
-                                // If err is defined, client will be removed from pool.
-                                db.done(err);
-                                cl("COMMIT DONE.");
-                                resp.send(true);
-                                resp.end();
-                            });
-                        })
-                        .fail(function (delerr) {
-                            cl("DELETE processing failed. Rolling back database transaction. Error was :");
-                            cl(delerr);
-                            db.client.query("ROLLBACK", function (rollbackerr) {
-                                // If err is defined, client will be removed from pool.
-                                db.done(rollbackerr);
-                                cl("ROLLBACK DONE. Sending 500 Internal Server Error. [" + delerr.toString() + "]");
-                                resp.status(500).send("Internal Server Error. [" + delerr.toString() + "]");
-                                resp.end();
-                            });
+                    }).then(function () {
+                        cl("DELETE processing went OK. Committing database transaction.");
+                        db.client.query("COMMIT", function (err) {
+                            // If err is defined, client will be removed from pool.
+                            db.done(err);
+                            cl("COMMIT DONE.");
+                            resp.send(true);
+                            resp.end();
                         });
+                    }).fail(function (delerr) {
+                        cl("DELETE processing failed. Rolling back database transaction. Error was :");
+                        cl(delerr);
+                        db.client.query("ROLLBACK", function (rollbackerr) {
+                            // If err is defined, client will be removed from pool.
+                            db.done(rollbackerr);
+                            cl("ROLLBACK DONE. Sending 500 Internal Server Error. [" + delerr.toString() + "]");
+                            resp.status(500).send("Internal Server Error. [" + delerr.toString() + "]");
+                            resp.end();
+                        });
+                    });
                 }); // pgConnect
             }); // app.delete
         } // for all mappings.
 
         url = '/batch';
-        app.use(url, logRequests);
-        app.use(url, checkBasicAuthentication);
-        app.put(url, function(req, resp) {
+        app.put(url, logRequests, checkBasicAuthentication, function(req, resp) {
             // An array of objects with 'href', 'verb' and 'body'
             var batch = req.body;
             batch.reverse();
@@ -891,9 +873,7 @@ exports = module.exports = {
         }); // app.put('/batch');
 
         url = '/me';
-        app.use(url, logRequests);
-        app.use(url, checkBasicAuthentication);
-        app.get(url, function (req, resp) {
+        app.get(url, logRequests, checkBasicAuthentication, function (req, resp) {
             getMe(req).then(function(me) {
                 resp.set('Content-Type', 'application/json');
                 resp.send(me);
@@ -995,7 +975,7 @@ exports = module.exports = {
                 type: "string",
                 format: "email",
                 minLength: 1,
-                maxLength: 32,
+                maxLength: 64,
                 description: description
             }
         },
