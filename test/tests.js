@@ -287,7 +287,6 @@ describe('PUT', function() {
             var body = generateRandomCommunity(guid);
             body.email = body.email + body.email + body.email;
             return doPut(base + '/communities/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
-                cl(response.body);  
                 assert.equal(response.statusCode, 409);
             });
         });
