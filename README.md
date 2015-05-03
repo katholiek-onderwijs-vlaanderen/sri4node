@@ -153,7 +153,7 @@ When reading a list resource :
 
 ## Function Definitions
 
-Below is a full description of the different types of functions that you can use in the configuration of sri4node.
+Below is a description of the different types of functions that you can use in the configuration of sri4node.
 It describes the inputs and outputs of the different functions.
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
 Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL.
