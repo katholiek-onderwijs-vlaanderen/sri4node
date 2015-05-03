@@ -16,7 +16,7 @@ var Q = require('q');
 var $u,$m,$s;
 
 exports = module.exports = {
-    serve: function(roa, port, logsql, logrequests, debug) {
+    serve: function(roa, port, logsql, logrequests, logdebug) {
         $u = roa.utils;
         $m = roa.mapUtils;
         $s = roa.schemaUtils;
@@ -25,9 +25,13 @@ exports = module.exports = {
         app.set('port', port);
         app.use(bodyParser.json());
 
-        var cl = function (x) {
+        function cl(x) {
             console.log(x);
-        };
+        }
+        
+        function debug(x) {
+            if(logdebug) cl(x);
+        }
 
         // node-postgres defaults to 10 clients in the pool, but heroku.com allows 20.
         pg.defaults.poolSize = 20;
@@ -129,6 +133,20 @@ exports = module.exports = {
 
                 return deferred.promise;
             };
+        };
+        
+        function validateMoreThan(field, max) {
+            return function(body, db) {
+                var deferred = Q.defer();
+                if(body.amount <= max) {
+                    debug("Should be more, or equal to " + max);
+                    deferred.reject({ path: field, code: "not.enough"});
+                } else {
+                    deferred.resolve();
+                }
+                
+                return deferred.promise;
+            };
         }
 
         // Need to pass in express.js and node-postgress as dependencies.
@@ -136,8 +154,8 @@ exports = module.exports = {
             {
                 // For debugging SQL can be logged.
                 logsql : logsql,
-                enableLoggingOfRequests : logrequests,
-                debug : debug,
+                logrequests : logrequests,
+                logdebug : logdebug,
                 defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5432/postgres",
                 identity : function(username, database) {
                     var query = $u.prepareSQL("me");
@@ -180,7 +198,7 @@ exports = module.exports = {
                             // Ingrid Ohno
                             disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
                         ],
-                        schemaUtils: {
+                        schema: {
                             $schema: "http://json-schema.org/schema#",
                             title: "An object representing a person taking part in the LETS system.",
                             type: "object",
@@ -232,7 +250,7 @@ exports = module.exports = {
                         },
                         secure: [
                         ],
-                        schemaUtils: {
+                        schema: {
                             $schema: "http://json-schema.org/schema#",
                             title: "A messages posted to the LETS members.",
                             type: "object",
@@ -251,6 +269,10 @@ exports = module.exports = {
                             },
                             required: ["person","type","title","community"]
                         },
+                        validate: [
+                            validateMoreThan('amount', 10),
+                            validateMoreThan('amount', 20)
+                        ],
                         query: {
                             communities: filterReferencedType("communities","community"),
                             postedSince: messagesPostedSince, // For compatability, to be removed.
@@ -281,7 +303,7 @@ exports = module.exports = {
                             // Admins should be allowed to update their community/ies.
                             // Superadmins should be allowed to create, delete and update all communities
                         ],
-                        schemaUtils: {
+                        schema: {
                             $schema: "http://json-schema.org/schema#",
                             title: "A local group in the LETS system.",
                             type: "object",
@@ -301,7 +323,7 @@ exports = module.exports = {
                             },
                             required: ["name", "street", "streetnumber", "zipcode", "city", "phone", "email", "adminpassword", "currencyname"]
                         },
-                        validate: [ validateCommunities ]
+                        validate: [ ]
                     },
                     {
                         type: "/transactions",
@@ -318,7 +340,7 @@ exports = module.exports = {
                         },
                         secure: [
                         ],
-                        schemaUtils: {
+                        schema: {
                             $schema: "http://json-schema.org/schema#",
                             title: "A single transaction between 2 people.",
                             type: "object",

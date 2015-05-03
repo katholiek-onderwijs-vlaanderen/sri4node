@@ -1,5 +1,6 @@
 /*
 Run the reference API for the test suite stand alone.
+Just here for convenience.
 */
 
 "use strict";

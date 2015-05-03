@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, debug;
-logsql = logrequests = debug = false;
+logsql = logrequests = debug = true;
 context.serve(roa, port, logsql, logrequests,debug);
 
 /* Configuration of sri4node is done */
@@ -192,6 +192,7 @@ describe("GET user security context /me", function() {
 });
 
 var communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
+var personSabine = "/persons/9abe4102-6a29-4978-991e-2a30655030e6";
 function generateRandomPerson(guid, communityPermalink) {
     return {
         firstname: "Sabine",
@@ -219,6 +220,18 @@ function generateRandomCommunity(guid) {
         email: guid + "@email.com",
         adminpassword: "secret",
         currencyname: "pluimen"
+    };
+}
+
+function generateRandomMessage(guid, person, community) {
+    return {
+        person: { href: person },
+        type: "offer",
+        title: "new message",
+        description : "description for " + guid,
+        amount : 1,
+        unit : "stuk",
+        community : { href: community }
     };
 }
 
@@ -288,6 +301,17 @@ describe('PUT', function() {
             body.email = body.email + body.email + body.email;
             return doPut(base + '/communities/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 409);
+            });
+        });
+    });
+    
+    describe('with rejecting custom validation function', function() {
+        it('should return a 409 Conflict', function() {
+            var guid = uuid.v4();
+            var body = generateRandomMessage(guid, personSabine, communityDendermonde);
+            return doPut(base + '/messages/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 409);
+                assert.equal(response.body.errors[0].code, 'not.enough');
             });
         });
     });

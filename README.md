@@ -41,10 +41,29 @@ Finally we configure handlers for 1 example resource :
 
     sri4node.configure(app,pg,
         {
-            // For debugging SQL can be logged.
-            logsql : false,
+            // Log and time HTTP requests ?
+            logrequests : true,
+            // Log SQL ?
+            logsql: false,
+            // Log debugging information ?
+            logdebug: false,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
+            // A function to determine the security function.
+            identity : function(username, database) {
+                var query = $u.prepareSQL("me");
+                query.sql('select * from persons where email = ').param(username);
+                return $u.executeSQL(database, query).then(function (result) {
+                    var row = result.rows[0];
+                    var output = {};
+                    output.$$meta = {};
+                    output.$$meta.permalink = '/persons/' + row.guid;
+                    output.firstname = row.firstname;
+                    output.lastname = row.lastname;
+                    output.email = row.email;
+                    return output;
+                });
+            },
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres 
@@ -68,7 +87,7 @@ Finally we configure handlers for 1 example resource :
                         type: "object",
                         properties : {
                             authors: $s.string(1,256,"Comma-separated list of authors."),
-                            themes: $s.string(1,256,"Comma-separated list of themes this article belongs to."),
+                            themes: $s.string(1,256,"Comma-separated list of themes."),
                             html: $s.string(1,2048,"HTML content of the article.")
                         },
                         required: ["authors","themes","html"]
@@ -136,16 +155,17 @@ By default references to other resources (GUIDs in the database) are expanded to
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
 1. Check if you have permission by executing all registered *secure* functions.
-If any of these functions rejects it's promise, the client will receivt 401 Forbidden.
+If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Perform schema validation on the incoming resource.
+If the schema is violated, the clinet will receive a 409 Conflict.
 3. Execute *validate* functions. 
-If one or more of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
+If any of of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
 4. Convert the JSON document into a simple key-value object. 
 Keys map 1:1 with database columns. 
 All incoming values are passed through the *onwrite*/*oninsert* function for conversion (if configured). 
 By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
-6. Execute *afterupdate* or *afterread* functions.
+6. Execute *afterupdate* or *afterinsert* functions.
 
 When deleting a regular resource :
 
@@ -156,16 +176,16 @@ When deleting a regular resource :
 When reading a list resource :
 
 1. Check if you have read permission by executing all registered functions in the mapping (*secure*).
-2. Generate a COUNT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
-3. Execute a SELECT statement and execute all registered 'query' functions to annotated the WHERE clause of the query.
-4. Retrieve the results, and expand if necessary (i.e. generate a JSON document from the result row). See above for more details.
-5. Build a list resource with a $$meta section, and return it to the user.
+2. Generate a COUNT statement and execute all registered 'query' functions to annotate the WHERE clause of the query.
+3. Execute a SELECT statement and execute all registered 'query' functions to annotate the WHERE clause of the query.
+4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as $$expanded). See the [SRI specification][sri-specs] for more details.
+5. Build a list resource with a $$meta section + a results section, and return it to the user.
 
 ## Function Definitions
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
 It describes the inputs of the different functions.
-All functions must return a [Q promises][q-kriskowal].
+All but one of these function must return a [Q promises][kriskowal-q] (The *query* functions have no return value).
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
 Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL.
 Transaction demarcation is handled by sri4node.
@@ -182,7 +202,7 @@ All 3 functions receive 2 parameters :
 - the key they were registered on.
 - the javascript element being PUT / or the results of the query just read for GET operations.
 
-All functions are executed in order of listing here. 
+All functions are executed in order of listing in the *map* section of the configuration. 
 All are allowed to manipulate the element, before it is inserted/updated in the table. 
 For GET the *onread* method can manipulate the outgoing JSON object.
 No return value is expected, the functions manipulate the element in-place.
@@ -195,14 +215,12 @@ A *secure* function receive 4 parameters :
 - *database* is a database object (see above) that you can use for querying the database.
 - *me* is the security context of the user performing the current HTTP operation.
 
-It should return a [Q][kriskowal-q] promise that resolves if the function allows the HTTP operation.
-It should reject the promise if the function disallows the HTTP operation. 
+It should reject returned the promise if the function disallows the HTTP operation. 
 In the later case the client will receive a 401 Forbidden as response to his operation.
 
 ### validate
 
 Validation functions are executed before update/insert. 
-If any of the functions return an error object the PUT operation returns 409. 
 The output is a combination of all error objects returned by the validation functions. 
 The error objects are defined in the SRI specification.
 All validation functions are executed for every PUT operation.
@@ -211,31 +229,57 @@ A *validate* function receives 2 arguments :
 - *body* is full JSON document being PUT. (As PUT by the client, without processing).
 - *database* is a database object (see above) that you can use for querying the database.
 
-It should return a [Q][kriskowal-q] promise that resolves if the validation succeeds.
-It should reject the promise if the validation fails. 
-It should reject with an object that corresponds to the SRI definition of an [error][sri-error].
+It should reject the returned promise if the validation fails. 
+It should reject with one or more objects that corresponds to the SRI definition of an [error][sri-error].
+The implementation can return an array, or a single object.
+In this case then client receives 409 Conflict. 
+In the response body the client will find all responses generated by all rejecting *validate* functions.
 
 ### query
 
-All queries are URLs. Any allowed URL parameter is interpreted by these functions. The functions can annotate the WHERE clause of the query executed. The functions receive 2 parameters :
- - the value of the request parameter (string)
- - An sql object for adding SQL to the WHERE clause. This object has 2 methods :
-  - *sql()* : A method for appending sql.
-  - *param()* : A method for appending a parameter to the text sql.
-  - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
+All queries are URLs. 
+Any allowed URL parameter is interpreted by these functions. 
+The functions can annotate the WHERE clause of the query executed. 
+The functions receive 2 parameters :
+- the value of the request parameter (string)
+- An **sql object** for adding SQL to the WHERE clause. This object has these methods :
+ - *sql()* : A method for appending sql.
+ - *param()* : A method for appending a parameter to the text sql.
+ - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
 
 All the methods on the sql object can be chained. It forms a simple fluent interface.
-All the supplied functions extend the SQL statement with an 'AND' clause (or not touch the statement, if they want to skip their processing).
+All the supplied functions extend the SQL statement with an 'AND' clause.
+This type of function has no return value.
 
-### afterupdate / afterinsert / afterdelete
+### afterupdate / afterinsert
 
 Hooks for post-processing can be registered to perform desired things, like clear a cache,
-do further processing, etc.. These post-processing functions receive 2 arguments:
+do further processing, update other tables, etc.. 
+These post-processing functions receive 2 arguments:
 
-- a *db* object, that can be used to call sri4node.utils.executeSQL() and sri4node.utils.prepareSQL().
-- the *element* that was just updated / created. Mind you that this is at the end of the pipeline, so it has been processed (it is, in other words, not the exact JSON object that was PUT to the server)
+- *db* is a database object, allowing you to execute extra SQL statements.
+- *element* is the that was just updated / created. 
 
-These functions *must return a Q promise*. When this promise resolves, all executed SQL will be commited on the database. When this promise fails, all executed SQL (including the original insert or update triggered by the API call) will be rolled back.
+In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is be rolled back.
+
+### afterdelete
+
+Hook for post-processing when a record is deleted.
+The function receives these argument : 
+
+- *db* is a database object, allowing you to execute extra SQL statements.
+- *permalink* is the permalink of the object that was deleted.
+
+In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
+
+## identity
+
+A function to construct the /me resource (and the security context of *secure* functions) must be registered in your configuration :
+
+    config.identity = function(username,database) {
+        // Use the database connection and username.
+        // return a promise that resolves to the desired JSON for /me (and the 'secure' functions)
+    }
 
 ## Bundled Utility Functions
 
@@ -271,15 +315,6 @@ Provides various utilities for keeping your JSON schema definition compact and r
     phone(description)
     timestamp(description)
     boolean(description)
-
-## Various
-
-A function to construct the /me resource must be registered in your configuration :
-
-    config.identity = function(username,database) {
-        // Use the database connection and username.
-        // return a promise that resolves to the desired JSON for /me (and the 'secure' functions)
-    }
 
 # Contributions
 

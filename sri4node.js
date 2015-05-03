@@ -318,7 +318,7 @@ function cl(x) {
 }
 
 function debug(x) {
-    if(configuration.debug) console.log(x);
+    if(configuration.logdebug) console.log(x);
 }
 
 // Security cache; stores a map 'e-mail' -> 'password'
@@ -415,7 +415,7 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 function logRequests(req, res, next) {
-    if(configuration.enableLoggingOfRequests) {
+    if(configuration.logrequests) {
         cl(req.method + " " + req.path + " starting.");
         var start = Date.now();
         res.on('finish', function () {
@@ -425,6 +425,41 @@ function logRequests(req, res, next) {
     }
     next();
 }
+
+function executeValidateMethods(mapping, body, db) {
+    var deferred = Q.defer();
+
+    if(mapping.validate && mapping.validate.length > 0) {
+        debug("Executing validation methods.");
+        var promises = [];
+        mapping.validate.forEach(function(f) {
+            promises.push(f(body, db));
+        });
+        
+        Q.allSettled(promises).then(function(results) {
+            var errors = [];
+            results.forEach(function(result) {
+                if(result.state == 'rejected') {
+                    errors.push(result.reason);
+                }
+            });
+            
+            if(errors.length == 0) {
+                deferred.resolve();
+            } else {
+                var ret = { errors: errors };
+                debug("Some validate methods rejected : ");
+                debug(ret);
+                deferred.reject(ret);
+            }
+        });
+    } else {
+        debug("No validate methods were registered.");
+        deferred.resolve();
+    }
+
+    return deferred.promise;
+};
 
 function executePutInsideTransaction(db, url, body) {
     var type = '/' + url.split("/")[1];
@@ -438,8 +473,9 @@ function executePutInsideTransaction(db, url, body) {
     var mapping = typeToMapping[type];
     var table = mapping.type.split("/")[1];
 
-    if (mapping.schemaUtils) {
-        var errors = getSchemaValidationErrors(body, mapping.schemaUtils);
+    debug("Validating schema.");
+    if (mapping.schema) {
+        var errors = getSchemaValidationErrors(body, mapping.schema);
         if (errors) {
             var deferred = Q.defer();
             deferred.reject(errors);
@@ -448,96 +484,103 @@ function executePutInsideTransaction(db, url, body) {
             debug("Schema validation passed.");
         }
     }
-
-    // create an object that only has mapped properties
-    var element = {};
-    for (var key in mapping.map) {
-        if (mapping.map.hasOwnProperty(key)) {
-            if(body[key]) {
-                element[key] = body[key];
-            }
-        }
-    }
     
-    // check and remove types from references.
-    for (var key in mapping.map) {
-        if (mapping.map.hasOwnProperty(key)) {
-            if (mapping.map[key].references) {
-                var value = element[key].href;
-                if(!value) {
-                    throw new Error("No href found inside reference " + key);
-                }
-                var referencedType = mapping.map[key].references;
-                var referencedMapping = typeToMapping[referencedType];
-                var parts = value.split("/");
-                var type = '/' + parts[1];
-                var refguid = parts[2];
-                if (type === referencedMapping.type) {
-                    element[key] = refguid;
-                } else {
-                    cl("Faulty reference detected [" + element[key].href + "], detected [" + type + "] expected [" + referencedMapping.type + "]");
-                    return;
+    return executeValidateMethods(mapping, body, db).then(function() {
+        // create an object that only has mapped properties
+        var element = {};
+        for (var key in mapping.map) {
+            if (mapping.map.hasOwnProperty(key)) {
+                if(body[key]) {
+                    element[key] = body[key];
                 }
             }
         }
-    }
-    debug('Converted references to values for update');
+        debug("Mapped incomming object according to configuration");
 
-    var countquery = prepare('check-resource-exists-' + table);
-    countquery.sql('select count(*) from ' + table + ' where "guid" = ').param(guid);
-    return pgExec(db, countquery).then(function (results) {
+        // check and remove types from references.
+        for (var key in mapping.map) {
+            if (mapping.map.hasOwnProperty(key)) {
+                if (mapping.map[key].references) {
+                    var value = element[key].href;
+                    if(!value) {
+                        throw new Error("No href found inside reference " + key);
+                    }
+                    var referencedType = mapping.map[key].references;
+                    var referencedMapping = typeToMapping[referencedType];
+                    var parts = value.split("/");
+                    var type = '/' + parts[1];
+                    var refguid = parts[2];
+                    if (type === referencedMapping.type) {
+                        element[key] = refguid;
+                    } else {
+                        cl("Faulty reference detected [" + element[key].href + "], detected [" + type + "] expected [" + referencedMapping.type + "]");
+                        return;
+                    }
+                }
+            }
+        }
+        debug('Converted references to values for update');
+
+        var countquery = prepare('check-resource-exists-' + table);
+        countquery.sql('select count(*) from ' + table + ' where "guid" = ').param(guid);
+        return pgExec(db, countquery).then(function (results) {
+            var deferred = Q.defer();
+
+            if (results.rows[0].count == 1) {
+                executeOnFunctions(resources, mapping, "onupdate", element);
+
+                var update = prepare('update-' + table);
+                update.sql('update ' + table + ' set ');
+                var firstcolumn = true;
+                for (var key in element) {
+                    if (element.hasOwnProperty(key)) {
+                        if(!firstcolumn) {
+                            update.sql(',');
+                        } else {
+                            firstcolumn = false;
+                        }
+
+                        update.sql(key + '=').param(element[key]);
+                    }
+                }
+                update.sql(" where guid = ").param(guid);
+
+                return pgExec(db, update).then(function (results) {
+                    if (mapping.afterupdate && mapping.afterupdate.length > 0) {
+                        if (mapping.afterupdate.length == 1) {
+                            debug("Executing one afterupdate function...");
+                            return mapping.afterupdate[0](db, body);
+                        } else {
+                            // TODO : Support more than one after* function.
+                            cl("More than one after* function not supported yet. Ignoring");
+                        }
+                    } else {
+                        debug("No afterupdate functions...");
+                    }
+                });
+            } else {
+                element.guid = guid;
+                executeOnFunctions(resources, mapping, "oninsert", element);
+
+                var insert = prepare("insert-"+ table);
+                insert.sql('insert into ' + table + ' (').columns(element).sql(') values (').object(element).sql(') ');
+                return pgExec(db, insert).then(function (results) {
+                    if (mapping.afterinsert && mapping.afterinsert.length > 0) {
+                        if (mapping.afterinsert.length == 1) {
+                            return mapping.afterinsert[0](db, body);
+                        } else {
+                            // TODO : Support more than one after* function.
+                            cl("More than one after* function not supported yet. Ignoring");
+                        }
+                    }
+                });
+            }
+        }); // pgExec(db,countquery)...
+    }).fail(function(errors) {
         var deferred = Q.defer();
-
-        if (results.rows[0].count == 1) {
-            executeOnFunctions(resources, mapping, "onupdate", element);
-
-            var update = prepare('update-' + table);
-            update.sql('update ' + table + ' set ');
-            var firstcolumn = true;
-            for (var key in element) {
-                if (element.hasOwnProperty(key)) {
-                    if(!firstcolumn) {
-                        update.sql(',');
-                    } else {
-                        firstcolumn = false;
-                    }
-
-                    update.sql(key + '=').param(element[key]);
-                }
-            }
-            update.sql(" where guid = ").param(guid);
-
-            return pgExec(db, update).then(function (results) {
-                if (mapping.afterupdate && mapping.afterupdate.length > 0) {
-                    if (mapping.afterupdate.length == 1) {
-                        debug("Executing one afterupdate function...");
-                        return mapping.afterupdate[0](db, element);
-                    } else {
-                        // TODO : Support more than one after* function.
-                        cl("More than one after* function not supported yet. Ignoring");
-                    }
-                } else {
-                    debug("No afterupdate functions...");
-                }
-            });
-        } else {
-            element.guid = guid;
-            executeOnFunctions(resources, mapping, "oninsert", element);
-
-            var insert = prepare("insert-"+ table);
-            insert.sql('insert into ' + table + ' (').columns(element).sql(') values (').object(element).sql(') ');
-            return pgExec(db, insert).then(function (results) {
-                if (mapping.afterinsert && mapping.afterinsert.length > 0) {
-                    if (mapping.afterinsert.length == 1) {
-                        return mapping.afterinsert[0](db, element);
-                    } else {
-                        // TODO : Support more than one after* function.
-                        cl("More than one after* function not supported yet. Ignoring");
-                    }
-                }
-            });
-        }
-    }); // pgExec(db,countquery)...
+        deferred.reject(errors);
+        return deferred.promise;
+    });
 }
 
 // Local cache of known identities.
@@ -625,8 +668,7 @@ exports = module.exports = {
                 var mapping = typeToMapping[type];
 
                 resp.set('Content-Type', 'application/json');
-                cl(mapping.schemaUtils);
-                resp.send(mapping.schemaUtils);
+                resp.send(mapping.schema);
             });
 
             // register list resource for this type.
@@ -772,6 +814,7 @@ exports = module.exports = {
                     }
                 });
             }).put(logRequests, checkBasicAuthentication, function(req, resp) {
+                debug("sri4node PUT processing invoked.");
                 var url = req.path;
                 pgConnect().then(function (db) {
                     var begin = prepare("begin-transaction");
@@ -817,7 +860,7 @@ exports = module.exports = {
                             if (results.rowCount == 1) {
                                 if (mapping.afterdelete && mapping.afterdelete.length > 0) {
                                     if (mapping.afterdelete.length == 1) {
-                                        return mapping.afterdelete[0](db, req.params.guid);
+                                        return mapping.afterdelete[0](db, req.route.path);
                                     } else {
                                         // TODO : Support more than one after* function.
                                         cl("More than one after* function not supported yet. Ignoring");
