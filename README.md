@@ -133,12 +133,12 @@ Values can be transformed by one of the *onread* function (if configured).
 By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
 3. Add a $$meta section to the response document.
 
-When creating or updating a *regular* resource a database row is updated/inserted by doing this :
+When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
 1. Check if you have permission by executing all registered *secure* functions.
+If any of these functions rejects it's promise, the client will receivt 401 Forbidden.
 2. Perform schema validation on the incoming resource.
 3. Execute *validate* functions. 
-All functions must return [Q promises][q-kriskowal] that resolve. 
 If one or more of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
 4. Convert the JSON document into a simple key-value object. 
 Keys map 1:1 with database columns. 
@@ -164,7 +164,8 @@ When reading a list resource :
 ## Function Definitions
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
-It describes the inputs and outputs of the different functions.
+It describes the inputs of the different functions.
+All functions must return a [Q promises][q-kriskowal].
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
 Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL.
 Transaction demarcation is handled by sri4node.
