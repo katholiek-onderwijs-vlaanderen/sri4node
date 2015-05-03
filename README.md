@@ -59,7 +59,10 @@ Finally we configure handlers for 1 example resource :
                     map: {
                         authors: {},
                         themes: {},
-                        html: {}
+                        html: {},
+                        // Reference to another resource of type */persons*.
+                        // (mapping of 'persons' is not shown in this example)
+                        person: {references : '/persons'}
                     },
                     // Multiple function that check access control 
                     // They receive a database object and
@@ -127,7 +130,7 @@ When reading a regular resource a database row is transformed into an SRI resour
 
 When creating or updating a regular resource a database row is updated/inserted by doing this :
 
-1. Check if you have permission by executing all registered functions in the mapping (*secure*).
+1. Check if you have permission by executing all registered *secure* functions.
 2. Perform schema validation on the incoming resource.
 3. Execute *validate* functions.
 4. Convert the JSON document into a simple key-value object. Keys map 1:1 with database columns. All incoming values are passed through the *onwrite*/*oninsert* function for conversion, if defined. By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
@@ -150,7 +153,7 @@ When reading a list resource :
 
 ## Function Definitions
 
-The functions used in the configuration of sri4node receive input, and should return :
+The functions used in the configuration of sri4node receive input parameters and should return :
 
 ### onread / oninsert / onupdate
 
@@ -164,9 +167,20 @@ All 3 functions receive 2 parameters :
 - the key they were registered on.
 - the javascript element being PUT / or the results of the query just read for GET operations.
 
-All functions are executed in order of listing here. All are allowed to manipulate the element, before it is inserted/updated in the table. No return value is expected, the functions manipulate the element in-place.
+All functions are executed in order of listing here. 
+All are allowed to manipulate the element, before it is inserted/updated in the table. 
+For GET the *onread* method can manipulate the outgoing JSON object.
+No return value is expected, the functions manipulate the element in-place.
 
 ### secure
+
+A *secure* function receive 4 parameters :
+- *request* is the Express.js [request][express-request] object for this operation.
+- *response* is the Express.js [response][express-response] object for this operation.
+- database
+- me
+
+
 
 ### validate
 
@@ -255,3 +269,6 @@ Development will focus on :
 - Creating a new project that make using SRI interfaces from AngularJS easy.
 - Creating a new project with AngularJS directives that supports creating Bootstap forms easily, by interpreting a JSON schema. SRI interfaces expose a JSON for all resources.
 - Creating a new Node.js project for consuming SRI interfaces. It could include caching strategies, etc.. Perhaps to be combined with the AngularJS service.
+
+[express-request]: http://expressjs.com/4x/api.html#req
+[express-response]: http://expressjs.com/4x/api.html#res
