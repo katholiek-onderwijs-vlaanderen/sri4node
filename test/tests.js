@@ -16,8 +16,8 @@ var doPut = sriclient.put;
 var doDelete = sriclient.delete;
 
 var port = 5000;
-var logsql, logrequests, debug;
-logsql = logrequests = debug = true;
+var logsql, logrequests, logdebug;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests,debug);
 
 /* Configuration of sri4node is done */
@@ -26,6 +26,10 @@ var base = "http://localhost:" + port;
 
 function cl(x) {
     console.log(x);
+}
+
+function debug(x) {
+    if(logdebug) cl(x);
 }
 
 describe('GET public list resource', function(){
@@ -235,6 +239,15 @@ function generateRandomMessage(guid, person, community) {
     };
 }
 
+function generateTransaction(guid, permalinkFrom, permalinkTo, amount) {
+    return {
+        fromperson: { href : permalinkFrom },
+        toperson: { href: permalinkTo },
+        amount: amount,
+        description: 'description for transaction ' + guid
+    };
+}
+
 describe("PUT regular resource", function() {
     var guid = uuid.v4();
     describe("create regular resource",function() {
@@ -312,6 +325,41 @@ describe('PUT', function() {
             return doPut(base + '/messages/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 409);
                 assert.equal(response.body.errors[0].code, 'not.enough');
+            });
+        });
+    });
+});
+
+describe('afterupdate', function() {
+    describe('should support', function() {
+        it('multiple functions', function() {
+            var guidp1 = uuid.v4();
+            var p1 = generateRandomPerson(guidp1, communityDendermonde);
+            return doPut(base + '/persons/' + guidp1, p1, 'sabine@email.be', 'pwd').then(function(response) {
+                debug(response);
+                assert.equal(response.statusCode, 200);
+                debug('p1 created');
+                var guidp2 = uuid.v4();
+                var p2 = generateRandomPerson(guidp2, communityDendermonde);
+                return doPut(base + '/persons/' + guidp2, p2, 'sabine@email.be', 'pwd').then(function(response) {
+                    assert.equal(response.statusCode, 200);
+                    debug('p2 created');
+                    var guidt = uuid.v4();
+                    var t = generateTransaction(guidt, '/persons/' + guidp1, '/persons/' + guidp2, 20);
+                    return doPut(base + '/transactions/' + guidt, t, 'sabine@email.be', 'pwd');
+                }).then(function(response) {
+                    debug(response.body);
+                    assert.equal(response.statusCode, 200);
+                    debug('t created');
+                    return doGet(base + '/persons/' + guidp1, 'sabine@email.be', 'pwd');
+                }).then(function(response) {
+                    assert.equal(response.statusCode, 200);
+                    assert.equal(response.body.balance, -20);
+                    return doGet(base + '/persons/' + guidp2, 'sabine@email.be', 'pwd');
+                }).then(function(response) {
+                    assert.equal(response.statusCode, 200);
+                    assert.equal(response.body.balance, 20);                    
+                });
             });
         });
     });

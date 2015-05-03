@@ -459,7 +459,31 @@ function executeValidateMethods(mapping, body, db) {
     }
 
     return deferred.promise;
-};
+}
+
+function postProcess(functions, db, body) {
+    var deferred = Q.defer();
+
+    if(functions && functions.length > 0) {
+        var promises = [];
+        functions.forEach(function(f) {
+            promises.push(f(db, body));
+        });
+    
+        Q.all(promises).then(function(results) {
+            debug('all post processing functions resolved.');
+            deferred.resolve();
+        }).catch(function(error) {
+            debug('one of the post processing functions rejected.');
+            deferred.reject();
+        });
+    } else {
+        debug("no post processing functions registered.");
+        deferred.resolve();
+    }
+    
+    return deferred.promise;
+}
 
 function executePutInsideTransaction(db, url, body) {
     var type = '/' + url.split("/")[1];
@@ -546,16 +570,13 @@ function executePutInsideTransaction(db, url, body) {
                 update.sql(" where guid = ").param(guid);
 
                 return pgExec(db, update).then(function (results) {
-                    if (mapping.afterupdate && mapping.afterupdate.length > 0) {
-                        if (mapping.afterupdate.length == 1) {
-                            debug("Executing one afterupdate function...");
-                            return mapping.afterupdate[0](db, body);
-                        } else {
-                            // TODO : Support more than one after* function.
-                            cl("More than one after* function not supported yet. Ignoring");
-                        }
+                    if(results.rowCount != 1) {
+                        debug("No row affected ?!");
+                        var deferred = Q.defer();
+                        deferred.reject("No row affected.");
+                        return deferred.promise();
                     } else {
-                        debug("No afterupdate functions...");
+                        return postProcess(mapping.afterupdate, db, body);
                     }
                 });
             } else {
@@ -565,13 +586,13 @@ function executePutInsideTransaction(db, url, body) {
                 var insert = prepare("insert-"+ table);
                 insert.sql('insert into ' + table + ' (').columns(element).sql(') values (').object(element).sql(') ');
                 return pgExec(db, insert).then(function (results) {
-                    if (mapping.afterinsert && mapping.afterinsert.length > 0) {
-                        if (mapping.afterinsert.length == 1) {
-                            return mapping.afterinsert[0](db, body);
-                        } else {
-                            // TODO : Support more than one after* function.
-                            cl("More than one after* function not supported yet. Ignoring");
-                        }
+                    if(results.rowCount != 1) {
+                        debug("No row affected ?!");
+                        var deferred = Q.defer();
+                        deferred.reject("No row affected.");
+                        return deferred.promise();
+                    } else {
+                        return postProcess(mapping.afterinsert, db, body);
                     }
                 });
             }
