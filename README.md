@@ -73,7 +73,7 @@ Finally we configure handlers for 1 example resource :
                     ],
                     // Standard JSON Schema definition. 
                     // It uses utility functions, for compactness.
-                    schemaUtils: {
+                    schema: {
                         $schema: "http://json-schema.org/schema#",
                         title: "An article on the websites/mailinglists.",
                         type: "object",
