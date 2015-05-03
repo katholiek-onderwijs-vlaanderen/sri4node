@@ -53,17 +53,6 @@ Finally we configure handlers for 1 example resource :
                     // Is this resource public ? 
                     // Can it be read / updated / inserted publicly ?
                     public: false,
-                    // All columns in the table that appear in the
-                    // resource should be declared.
-                    // Optionally mapping functions can be given.
-                    map: {
-                        authors: {},
-                        themes: {},
-                        html: {},
-                        // Reference to another resource of type */persons*.
-                        // (mapping of 'persons' is not shown in this example)
-                        person: {references : '/persons'}
-                    },
                     // Multiple function that check access control 
                     // They receive a database object and
                     // the security context of the current user.
@@ -96,6 +85,17 @@ Finally we configure handlers for 1 example resource :
                         themes: contains('themes'),
                         html: contains('html')
                     },
+                    // All columns in the table that appear in the
+                    // resource should be declared.
+                    // Optionally mapping functions can be given.
+                    map: {
+                        authors: {},
+                        themes: {},
+                        html: {},
+                        // Reference to another resource of type */persons*.
+                        // (mapping of 'persons' is not shown in this example)
+                        person: {references : '/persons'}
+                    },
                     // After update, insert or delete
                     // you can perform extra actions.
                     afterupdate: [],
@@ -107,33 +107,43 @@ Finally we configure handlers for 1 example resource :
 
 Now we can start Express.js to start serving up our SRI REST interface :
 
-    app.listen(app.get('port'), function() {
+    app.listen(5000, function() {
         console.log("Node app is running at localhost:" + app.get('port'))
     });
 
 ## Processing Pipeline
 
-sri4node has a very simple pipeline for mapping SRI resources onto a database. 
-We explain the possible operations below : 
+sri4node has a very simple processing pipeline for mapping SRI resources onto a database. 
+We explain the possible HTTP operations below : 
 * reading regular resources (GET)
 * updating/creating regular resources. (PUT)
 * deleting regular resources. (DELETE)
-* reading list resources (queries) (GET)
+* reading *list* resources (queries) (GET)
 
-In essence you can define 1 regular resource per database row. A list resource corresponds to a query on a database table (and can be expanded to include multiple regular resource).
+In essence we map 1 *regular* resource to a database row. 
+A *list* resource corresponds to a query on a database table.
+List resource support *expansion*, to allow you to include the corresponding regular resource in the same request.
 
-When reading a regular resource a database row is transformed into an SRI resource by doing things :
+When reading a *regular* resource a database row is transformed into an SRI resource by doing things :
 
-1. Check if you have permission by executing all registered functions in the mapping ('secure').
-2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name). All standard JSON datatypes are converted automatically to JSON. All values are passed through the 'onread' function for conversion, if defined. By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
+1. Check if you have permission by executing all registered *secure* functions in the configuration.
+2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name). 
+All standard JSON datatypes are converted automatically to JSON. 
+Values can be transformed by one of the *onread* function (if configured). 
+By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
 3. Add a $$meta section to the response document.
 
-When creating or updating a regular resource a database row is updated/inserted by doing this :
+When creating or updating a *regular* resource a database row is updated/inserted by doing this :
 
 1. Check if you have permission by executing all registered *secure* functions.
 2. Perform schema validation on the incoming resource.
-3. Execute *validate* functions.
-4. Convert the JSON document into a simple key-value object. Keys map 1:1 with database columns. All incoming values are passed through the *onwrite*/*oninsert* function for conversion, if defined. By default references to other resources (relative links in the JSON document) are reduced to foreign keys (GUIDs) in the database.
+3. Execute *validate* functions. 
+All functions must return [Q promises][q-kriskowal] that resolve. 
+If one or more of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
+4. Convert the JSON document into a simple key-value object. 
+Keys map 1:1 with database columns. 
+All incoming values are passed through the *onwrite*/*oninsert* function for conversion (if configured). 
+By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
 6. Execute *afterupdate* or *afterread* functions.
 
