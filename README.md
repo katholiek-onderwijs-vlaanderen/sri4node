@@ -3,7 +3,7 @@
 An implementation of SRI (Standard ROA Interface). 
 SRI is a set of standards to make RESTful interfaces.
 It specifies how resources are accesses, queried, updated, deleted.
-More information can [be found here](https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub).
+The specification can [be found here][sri-specs].
 
 Currently the implementation supports storage on a postgres database.
 Support for more databases/datastores may be added in the future.
@@ -153,7 +153,11 @@ When reading a list resource :
 
 ## Function Definitions
 
-The functions used in the configuration of sri4node receive input parameters and should return :
+Below is a full description of the different types of functions that you can use in the configuration of sri4node.
+It describes the inputs and outputs of the different functions.
+Some of the function are called with a database context, allowing you to execute SQL inside your function.
+Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL.
+Transaction demarcation is handled by sri4node.
 
 ### onread / oninsert / onupdate
 
@@ -177,14 +181,28 @@ No return value is expected, the functions manipulate the element in-place.
 A *secure* function receive 4 parameters :
 - *request* is the Express.js [request][express-request] object for this operation.
 - *response* is the Express.js [response][express-response] object for this operation.
-- database
-- me
+- **database** is a database object (see above) that you can use for querying the database.
+- *me* is the security context of the user performing the current HTTP operation.
 
-
+It should return a [Q][kriskowal-q] promise that resolves if the function allows the HTTP operation.
+It should reject the promise if the function disallows the HTTP operation. 
+In the later case the client will receive a 401 Forbidden as response to his operation.
 
 ### validate
 
-Validation functions are executed before update/insert. If any of the functions return an error object the PUT operation returns 409. The output is a combination of all error objects returned by the validation rules. The error objects are defined in the SRI specification.
+Validation functions are executed before update/insert. 
+If any of the functions return an error object the PUT operation returns 409. 
+The output is a combination of all error objects returned by the validation functions. 
+The error objects are defined in the SRI specification.
+All validation functions are executed for every PUT operation.
+
+A *validate* function receives 2 arguments :
+- *body* is full JSON document being PUT. (As PUT by the client, without processing).
+- *database* is a database object (see above) that you can use for querying the database.
+
+It should return a [Q][kriskowal-q] promise that resolves if the validation succeeds.
+It should reject the promise if the validation fails. 
+It should reject with an object that corresponds to the SRI definition of an [error][sri-error].
 
 ### query
 
@@ -272,3 +290,6 @@ Development will focus on :
 
 [express-request]: http://expressjs.com/4x/api.html#req
 [express-response]: http://expressjs.com/4x/api.html#res
+[kriskowal-q]: https://github.com/kriskowal/q
+[sri-errors]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/edit#heading=h.ry6n9c1t7hl0
+[sri-specs]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub
