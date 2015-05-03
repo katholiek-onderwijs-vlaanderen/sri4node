@@ -878,15 +878,13 @@ exports = module.exports = {
                         deletequery.sql('delete from "' + table + '" where "guid" = ').param(req.params.guid);
 
                         return pgExec(db, deletequery).then(function (results) {
-                            if (results.rowCount == 1) {
-                                if (mapping.afterdelete && mapping.afterdelete.length > 0) {
-                                    if (mapping.afterdelete.length == 1) {
-                                        return mapping.afterdelete[0](db, req.route.path);
-                                    } else {
-                                        // TODO : Support more than one after* function.
-                                        cl("More than one after* function not supported yet. Ignoring");
-                                    }
-                                }
+                            if(results.rowCount != 1) {
+                                debug("No row affected ?!");
+                                var deferred = Q.defer();
+                                deferred.reject("No row affected.");
+                                return deferred.promise();
+                            } else {
+                                return postProcess(mapping.afterdelete, db, req.route.path);
                             }
                         }); // pgExec delete
                     }).then(function () {
