@@ -181,7 +181,7 @@ No return value is expected, the functions manipulate the element in-place.
 A *secure* function receive 4 parameters :
 - *request* is the Express.js [request][express-request] object for this operation.
 - *response* is the Express.js [response][express-response] object for this operation.
-- **database** is a database object (see above) that you can use for querying the database.
+- *database* is a database object (see above) that you can use for querying the database.
 - *me* is the security context of the user performing the current HTTP operation.
 
 It should return a [Q][kriskowal-q] promise that resolves if the function allows the HTTP operation.
