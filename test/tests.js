@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -370,8 +370,9 @@ describe("escaping", function() {
         it("on table 'table' and column 'from'", function() {
             return doGet(base + '/table').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                assert.equal(response.body.from, "from-value");
-                assert.equal(response.body.select, "select-value");
+                debug(response.body);
+                assert.equal(response.body.results[0].$$expanded.from, "from-value");
+                assert.equal(response.body.results[0].$$expanded.select, "select-value");
             });
         });
     });
