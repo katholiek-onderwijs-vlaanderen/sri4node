@@ -31,4 +31,4 @@ INSERT INTO "messages" VALUES ('7f5f646c-8f0b-4ce6-97ce-8549b8b78234', '82565813
 INSERT INTO "messages" VALUES ('5a2747d4-ed99-4ceb-9058-8152e34f4cd5', 'de32ce31-af0c-4620-988e-1d0de282ee9d', '2014-10-13 14:02:22', 'offer', 'Vervoer van Sint-Niklaas naar Lebbeke en terug, voor een Letser die allerlei leuke zelfgemaakte dingen op onze Letsmarkt wil aanbieden maar zelf geen vervoer heeft. 13/12', '', null, null, '6531e471-7514-43cc-9a19-a72cf6d27f4c');
 
 -- A table with protected keywords. To check if sri4node does proper escaping of table and column names.
-INSERT INTO "table" VALUES ('select-value','from-value');
+INSERT INTO "table" VALUES ('fe12be5b-2334-4cb8-9b04-7f51e63553bd','select-value','from-value');

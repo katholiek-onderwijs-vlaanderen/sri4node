@@ -370,6 +370,8 @@ describe("escaping", function() {
         it("on table 'table' and column 'from'", function() {
             return doGet(base + '/table').then(function(response) {
                 assert.equal(response.statusCode, 200);
+                assert.equal(response.body.from, "from-value");
+                assert.equal(response.body.select, "select-value");
             });
         });
     });
