@@ -364,3 +364,13 @@ describe('afterupdate', function() {
         });
     });
 });
+
+describe("escaping", function() {
+    describe("should do proper escaping", function() {
+        it("on table 'table' and column 'from'", function() {
+            return doGet(base + '/table').then(function(response) {
+                assert.equal(response.statusCode, 200);
+            });
+        });
+    });
+});

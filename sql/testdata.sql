@@ -29,3 +29,6 @@ INSERT INTO "messages" VALUES ('a391efaf-485e-45bb-8688-87d7bdfee9f6', '2f11714a
 INSERT INTO "messages" VALUES ('e1332ca8-a886-4581-8159-11f0568011b8', '2f11714a-9c45-44d3-8cde-cd37eb0c048b', '2014-10-15 09:01:06', 'request', 'Wie heeft een meter om leidingen in muur te traceren ?', 'Zou een rek willen ophangen en wil zeker zijn dat er niks loopt.',   null, null, '8bf649b4-c50a-4ee9-9b02-877aa0a71849');
 INSERT INTO "messages" VALUES ('7f5f646c-8f0b-4ce6-97ce-8549b8b78234', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '2014-10-11 01:02:06', 'offer', 'Lets Kerstmarkt - zat. 13 dec', 'WANNEER? zaterdag 13 december 2014 WAAR? HuisElf.',   null, null, '57561082-1506-41e8-a57e-98fee9289e0c');
 INSERT INTO "messages" VALUES ('5a2747d4-ed99-4ceb-9058-8152e34f4cd5', 'de32ce31-af0c-4620-988e-1d0de282ee9d', '2014-10-13 14:02:22', 'offer', 'Vervoer van Sint-Niklaas naar Lebbeke en terug, voor een Letser die allerlei leuke zelfgemaakte dingen op onze Letsmarkt wil aanbieden maar zelf geen vervoer heeft. 13/12', '', null, null, '6531e471-7514-43cc-9a19-a72cf6d27f4c');
+
+-- A table with protected keywords. To check if sri4node does proper escaping of table and column names.
+INSERT INTO "table" VALUES ('select-value','from-value');

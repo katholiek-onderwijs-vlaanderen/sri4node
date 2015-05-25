@@ -1,13 +1,14 @@
 -- Needed for uuid_generate_v4() function.
 CREATE EXTENSION "uuid-ossp";
 
-DROP TABLE IF EXISTS "interletssettings";
-DROP TABLE IF EXISTS "interletsapprovals";
+DROP TABLE IF EXISTS "interletssettings" CASCADE;
+DROP TABLE IF EXISTS "interletsapprovals" CASCADE;
 
-DROP TABLE IF EXISTS "messages";
-DROP TABLE IF EXISTS "transactions";
-DROP TABLE IF EXISTS "persons";
-DROP TABLE IF EXISTS "communities";
+DROP TABLE IF EXISTS "messages" CASCADE;
+DROP TABLE IF EXISTS "transactions" CASCADE;
+DROP TABLE IF EXISTS "persons" CASCADE;
+DROP TABLE IF EXISTS "communities" CASCADE;
+DROP TABLE IF EXISTS "table" CASCADE;
 
 CREATE TABLE "communities" (
   "guid" character varying(36) unique,
@@ -62,4 +63,10 @@ CREATE TABLE "messages" (
   "amount" integer,
   "unit" character varying(32),
   "community" character varying(36) references "communities"(guid)
+);
+
+CREATE TABLE "table" (
+  "guid" character varying(36) unique,
+  "select" character varying(32),
+  "from" character varying(32)
 );

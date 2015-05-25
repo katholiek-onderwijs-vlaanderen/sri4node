@@ -379,6 +379,27 @@ exports = module.exports = {
                             return deferred.promise;
                         }
                     ]
+                },
+                {
+                    type: "/table",
+                    public: true,
+                    map: {
+                        "select": {},
+                        "from": {}
+                    },
+                    secure: [],
+                    schema: {
+                        $schema: "http://json-schema.org/schema#",
+                        title: "A table with protected keywords, to check escaping of sri4node",
+                        type: "object",
+                        properties: {
+                            "select": $s.string(1,32,""),
+                            "from": $s.string(1,32,"")
+                        },
+                        required: ["select","from"]
+                    },
+                    afterinsert : [],
+                    afterupdate : []
                 }
             ]
         }

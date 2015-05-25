@@ -189,9 +189,9 @@ function sqlColumnNames(mapping) {
             columnNames.push(key);
         }
     }
-    var sqlColumnNames = 'guid,';
+    var sqlColumnNames = '"guid",';
     for (var j = 0; j < columnNames.length; j++) {
-        sqlColumnNames += columnNames[j];
+        sqlColumnNames += '"' + columnNames[j] + '"';
         if (j < columnNames.length - 1) {
             sqlColumnNames += ",";
         }
