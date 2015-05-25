@@ -49,7 +49,7 @@ Finally we configure handlers for 1 example resource :
             logdebug: false,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            // A function to determine the security function.
+            // A function to determine the security context.
             identity : function(username, database) {
                 var query = $u.prepareSQL("me");
                 query.sql('select * from persons where email = ').param(username);
@@ -185,9 +185,9 @@ When reading a list resource :
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
 It describes the inputs of the different functions.
-All but one of these function must return a [Q promises][kriskowal-q] (The *query* functions have no return value).
+Most of these function must return a [Q promise][kriskowal-q] (The *query* functions have no return value, nor do the mapping functions).
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
-Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL.
+Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL().
 Transaction demarcation is handled by sri4node.
 
 ### onread / oninsert / onupdate

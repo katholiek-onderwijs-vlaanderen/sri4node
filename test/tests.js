@@ -10,7 +10,7 @@ var roa = require("../sri4node.js");
 // Reference API, used in the test suite.
 var context = require("./context.js");
 // Utility methods for calling the SRI interface
-var sriclient = require("./sriclient.js");
+var sriclient = require("sri4node-client");
 var doGet = sriclient.get;
 var doPut = sriclient.put;
 var doDelete = sriclient.delete;
