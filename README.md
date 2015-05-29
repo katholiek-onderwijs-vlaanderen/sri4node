@@ -246,6 +246,7 @@ The functions receive 2 parameters :
  - *sql()* : A method for appending sql.
  - *param()* : A method for appending a parameter to the text sql.
  - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
+- The name of the URL parameter
 
 All the methods on the sql object can be chained. It forms a simple fluent interface.
 All the supplied functions extend the SQL statement with an 'AND' clause.

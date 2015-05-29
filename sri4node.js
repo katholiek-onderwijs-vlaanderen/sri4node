@@ -213,7 +213,7 @@ function applyRequestParameters(mapping, req, select) {
                     if (mapping.query[key]) {
                         // Execute the configured function that will apply this URL parameter
                         // to the SELECT statement
-                        mapping.query[key](urlparameters[key], select);
+                        mapping.query[key](urlparameters[key], select, key);
                     } else {
                         cl("Unknown query parameter [" + key + "]. Ignoring..");
                     }
