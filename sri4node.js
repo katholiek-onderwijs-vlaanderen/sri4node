@@ -202,10 +202,13 @@ function sqlColumnNames(mapping) {
 
 // apply extra parameters on request URL for a list-resource to a sselect.
 function applyRequestParameters(mapping, req, select) {
+    var deferred = Q.defer();
+    
     var urlparameters = req.query;
-
     var standard_parameters = ['orderby', 'descending', 'limit', 'offset'];
 
+    var promises = [];
+    var reject = false;
     if (mapping.query) {
         for (var key in urlparameters) {
             if (urlparameters.hasOwnProperty(key)) {
@@ -213,14 +216,57 @@ function applyRequestParameters(mapping, req, select) {
                     if (mapping.query[key]) {
                         // Execute the configured function that will apply this URL parameter
                         // to the SELECT statement
-                        mapping.query[key](urlparameters[key], select, key);
+                        promises.push(mapping.query[key](urlparameters[key], select, key));
                     } else {
-                        cl("Unknown query parameter [" + key + "]. Ignoring..");
+                        reject = true;
+                        deferred.reject({
+                            type: 'unknown.query.parameter',
+                            status: 404,
+                            body: {
+                                errors: [
+                                    { 
+                                        code: 'invalid.query.parameter',
+                                        parameter: key
+                                    }
+                                ]
+                            }
+                        });
+                        break;
                     }
                 }
             }
         }
     }
+    
+    if(!reject) {
+        Q.allSettled(promises).then(function(results) {
+            var errors = [];
+            results.forEach(function(result) {
+                if(result.state == 'rejected') {
+                    errors.push(result.reason);
+                }
+            });
+
+            if(errors.length == 0) {
+                deferred.resolve();
+            } else {
+                var ret = { 
+                    // When rejecting we return an object with :
+                    // 'type' -> an internal code to identify the error. Useful in the fail() method.
+                    // 'status' -> the returned HTTP status code.
+                    // 'body' -> the response body that will be returned to the client.
+                    type: 'query.functions.rejected',
+                    status: 404,
+                    body: {
+                        errors: errors 
+                    }
+                };
+                deferred.reject(ret);
+            }
+        });
+    }
+    
+    return deferred.promise;
 }
 
 // Execute registered mapping functions for elements of a ROA resource.
@@ -701,87 +747,102 @@ exports = module.exports = {
                 var columns = sqlColumnNames(mapping);
                 var table = mapping.type.split("/")[1];
 
-                var countquery = prepare();
-                countquery.sql('select count(*) from "' + table + '" where 1=1 ');
-                applyRequestParameters(mapping, req, countquery);
                 var database;
-                pgConnect().then(function (db) {
+                var countquery;
+                var count;
+                var query;
+                pgConnect().then(function(db) {
+                    debug("pgConnect ... OK");
                     database = db;
-                    return pgExec(db, countquery).then(function (results) {
-                        var count = parseInt(results.rows[0].count);
-                        var query = prepare();
-                        query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
-                        applyRequestParameters(mapping, req, query);
-
-                        // All list resources support orderby, limit and offset.
-                        var orderby = req.query.orderby;
-                        var descending = req.query.descending;
-                        if (orderby) {
-                            var valid = true;
-                            var orders = orderby.split(",");
-                            for (var o = 0; o < orders.length; o++) {
-                                var order = orders[o];
-                                if (!mapping.map[order]) {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-                            if (valid) {
-                                query.sql(" order by " + orders);
-                                if (descending) query.sql(" desc");
-                            } else {
-                                cl("Can not order by [" + orderby + "]. One or more unknown properties. Ignoring orderby.");
+                }).then(function() {
+                    countquery = prepare();
+                    countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+                    return applyRequestParameters(mapping, req, countquery, database);
+                }).then(function () {
+                    debug("applyRequestParameters count(*) ... OK");
+                    return pgExec(database, countquery);
+                }).then(function (results) {
+                    debug("pgExec count(*) ... OK");
+                    debug(results);
+                    count = parseInt(results.rows[0].count);
+                    query = prepare();
+                    query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
+                    return applyRequestParameters(mapping, req, query, database);
+                }).then(function() {    
+                    debug("applyRequestParameters select ... OK");
+                    // All list resources support orderby, limit and offset.
+                    var orderby = req.query.orderby;
+                    var descending = req.query.descending;
+                    if (orderby) {
+                        var valid = true;
+                        var orders = orderby.split(",");
+                        for (var o = 0; o < orders.length; o++) {
+                            var order = orders[o];
+                            if (!mapping.map[order]) {
+                                valid = false;
+                                break;
                             }
                         }
+                        if (valid) {
+                            query.sql(" order by " + orders);
+                            if (descending) query.sql(" desc");
+                        } else {
+                            cl("Can not order by [" + orderby + "]. One or more unknown properties. Ignoring orderby.");
+                        }
+                    }
 
-                        if (req.query.limit) query.sql(" limit ").param(req.query.limit);
-                        if (req.query.offset) query.sql(" offset ").param(req.query.offset);
+                    if (req.query.limit) query.sql(" limit ").param(req.query.limit);
+                    if (req.query.offset) query.sql(" offset ").param(req.query.offset);
 
-                        return pgExec(db, query).then(function (result) {
-                            var rows = result.rows;
-                            var results = [];
-                            for (var row = 0; row < rows.length; row++) {
-                                var currentrow = rows[row];
+                    return pgExec(database, query);
+                }).then(function (result) {
+                    debug("pgExec select ... OK");
+                    debug(result);
+                    var rows = result.rows;
+                    var results = [];
+                    for (var row = 0; row < rows.length; row++) {
+                        var currentrow = rows[row];
 
-                                var element = {
-                                    href: mapping.type + '/' + currentrow.guid
-                                };
+                        var element = {
+                            href: mapping.type + '/' + currentrow.guid
+                        };
 
-                                if (req.query.expand !== 'full') {
-                                    element.$$expanded = {
-                                        $$meta: {
-                                            permalink: mapping.type + '/' + currentrow.guid
-                                        }
-                                    };
-                                    mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
-                                    executeOnFunctions(resources, mapping, "onread", element.$$expanded);
-                                }
-                                results.push(element);
-                            }
-
-                            var output = {
+                        if (req.query.expand !== 'full') {
+                            element.$$expanded = {
                                 $$meta: {
-                                    count: count,
-                                    schema: mapping.type + '/schema'
-                                },
-                                results: results
+                                    permalink: mapping.type + '/' + currentrow.guid
+                                }
                             };
-                            resp.set('Content-Type', 'application/json');
-                            resp.send(output);
-                        });
-                    })
-                })
-                    .then(function () {
+                            mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
+                            executeOnFunctions(resources, mapping, "onread", element.$$expanded);
+                        }
+                        results.push(element);
+                    }
+
+                    var output = {
+                        $$meta: {
+                            count: count,
+                            schema: mapping.type + '/schema'
+                        },
+                        results: results
+                    };
+                    resp.set('Content-Type', 'application/json');
+                    resp.send(output);
+                    database.done();
+                    resp.end();
+                }).fail(function(error) {
+                    if(error.type = 'reject.by.query.methods') {
+                        resp.status(error.status).send(error.body);
                         database.done();
                         resp.end();
-                    })
-                    .fail(function (err) {
+                    } else {
                         cl("GET processing had errors. Removing pg client from pool. Error : ");
-                        cl(err);
-                        database.done(err);
+                        cl(errors);
+                        database.done(errors);
                         resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
                         resp.end();
-                    });
+                    }
+                });
             }); // app.get - list resource
 
             // register single resource

@@ -41,41 +41,51 @@ exports = module.exports = {
         // createInClause("communities", "approved");
         var filterReferencedType = function (resourcetype, columnname) {
             return function (value, query) {
+                var deferred = Q.defer();
+                
                 var permalinks, guids, i;
-
-                var syntax = function () {
-                    cl("ignoring parameter [' + resourcetype + '] - syntax error. [" + value + "]");
-                };
 
                 if (value) {
                     permalinks = value.split(",");
                     guids = [];
+                    var reject = false;
                     for (i = 0; i < permalinks.length; i++) {
                         if(permalinks[i].indexOf("/" + resourcetype + "/") === 0) {
                             var guid = permalinks[i].substr(resourcetype.length + 2);
                             if(guid.length == 36) {
                                 guids.push(guid);
                             } else {
-                                syntax();
-                                return;
+                                deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                                reject = true;
+                                break;
                             }
                         } else {
-                            syntax();
-                            return;
+                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                            reject = true;
+                            break;
                         }
                     }
-                    if(guid.length == 36) {
+                    if(!reject) {
                         query.sql(' and ' + columnname + ' in (').array(guids).sql(') ');
-                    } else {
-                        syntax();
-                        return;
+                        deferred.resolve();
                     }
                 }
+                
+                return deferred.promise;
             }
         };
 
+        var invalidQueryParameter = function(value, select, param, database) {
+            var deferred = Q.defer();
+            deferred.reject({ code: "invalid.query.parameter" });
+            return deferred.promise;
+        };
+        
         var messagesPostedSince = function(value, select) {
+            var deferred = Q.defer();
             select.sql(' and posted > ').param(value);
+            deferred.resolve();
+            return deferred.promise;
         };
 
 
@@ -295,12 +305,10 @@ exports = module.exports = {
                         website: { onread: $m.removeifnull },
                         currencyname: {}
                     },
-                    secure: [
-                        // TODO : Add security.
-                        // People should only be allowed to register new communities, with a unique name.
-                        // Admins should be allowed to update their community/ies.
-                        // Superadmins should be allowed to create, delete and update all communities
-                    ],
+                    secure: [],
+                    query: {
+                        invalidQueryParameter : invalidQueryParameter,
+                    },
                     schema: {
                         $schema: "http://json-schema.org/schema#",
                         title: "A local group in the LETS system.",

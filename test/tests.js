@@ -41,8 +41,7 @@ describe('GET public list resource', function(){
             });
         });
     });
-    
-    
+   
     describe('with authentication', function() {
         it('should return a list of 4 communities', function() {
             return doGet(base + '/communities', 'sabine@email.be', 'pwd').then(function(response) {
@@ -370,9 +369,30 @@ describe("escaping", function() {
         it("on table 'table' and column 'from'", function() {
             return doGet(base + '/table').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                debug(response.body);
                 assert.equal(response.body.results[0].$$expanded.from, "from-value");
                 assert.equal(response.body.results[0].$$expanded.select, "select-value");
+            });
+        });
+    });
+});
+
+describe("URL parameters", function() {
+    describe("that reject their promise", function() {
+        it("should return 404 and the error message.", function() {
+            return doGet(base + '/communities?invalidQueryParameter=true').then(function(response) {
+                assert.equal(response.statusCode, 404);
+                debug(response.body);
+                assert.equal(response.body.errors[0].code, "invalid.query.parameter");
+            });
+        });
+    });
+    
+    describe("that were not configured", function() {
+        it("should return 404 with code [invalid.query.parameter]", function() {
+            return doGet(base + '/communities?nonexistingparameter=x').then(function(response) {
+                assert.equal(response.statusCode, 404);
+                assert.equal(response.body.errors[0].code, "invalid.query.parameter");
+                assert.equal(response.body.errors[0].parameter, "nonexistingparameter");
             });
         });
     });

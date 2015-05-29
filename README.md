@@ -185,10 +185,10 @@ When reading a list resource :
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
 It describes the inputs of the different functions.
-Most of these function must return a [Q promise][kriskowal-q] (The *query* functions have no return value, nor do the mapping functions).
+Most of these function return a [Q promise][kriskowal-q].
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
 Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL().
-Transaction demarcation is handled by sri4node.
+Transaction demarcation is handled by sri4node, on a per-request-basis. That implies that /batch operations are all handled in a single transaction.
 
 ### onread / oninsert / onupdate
 
@@ -246,11 +246,16 @@ The functions receive 2 parameters :
  - *sql()* : A method for appending sql.
  - *param()* : A method for appending a parameter to the text sql.
  - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
-- The name of the URL parameter
+- The name of the URL parameter.
+- *db* A database object that you can use to execute extra SQL statements.
 
 All the methods on the sql object can be chained. It forms a simple fluent interface.
 All the supplied functions extend the SQL statement with an 'AND' clause.
-This type of function has no return value.
+
+This type of function must return a promise. When the URL parameter was applied to the **sql object**, then the promise should be resolved.
+If one query function rejects it's promise, the client will find all responses by all rejecting *query* functions and receive 404 Not Found.
+It should reject with one or more objects that correspond to the SRI definition of an [error][sri-error]. Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
+If a query parameter is supplied that is not supported, the client also receives a 404 and a listing of supported query parameters.
 
 ### afterupdate / afterinsert
 
