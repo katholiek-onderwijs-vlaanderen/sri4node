@@ -201,7 +201,7 @@ function sqlColumnNames(mapping) {
 }
 
 // apply extra parameters on request URL for a list-resource to a sselect.
-function applyRequestParameters(mapping, req, select) {
+function applyRequestParameters(mapping, req, select, database, count) {
     var deferred = Q.defer();
     
     var urlparameters = req.query;
@@ -216,7 +216,7 @@ function applyRequestParameters(mapping, req, select) {
                     if (mapping.query[key]) {
                         // Execute the configured function that will apply this URL parameter
                         // to the SELECT statement
-                        promises.push(mapping.query[key](urlparameters[key], select, key));
+                        promises.push(mapping.query[key](urlparameters[key], select, key, database, count));
                     } else {
                         reject = true;
                         deferred.reject({
@@ -297,7 +297,11 @@ function queryByGuid(config, db, mapping, guid) {
             executeOnFunctions(config, mapping, "onread", output);
             deferred.resolve(output);
         } else if (rows.length == 0) {
-            deferred.reject("NOT FOUND");
+            deferred.reject({
+                type: "not.found",
+                status: 404,
+                body: "Not Found"
+            });
         } else {
             var msg = "More than one entry with guid " + guid + " found for " + mapping.type;
             debug(msg);
@@ -393,9 +397,9 @@ function checkBasicAuthentication(req, res, next) {
         }
     }
     
-    var forbidden = function () {
+    var unauthorized = function () {
         res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-        res.status(401).send("Forbidden");
+        res.status(401).send("Unauthorized");
     };
 
     if (req.headers.authorization) {
@@ -412,7 +416,7 @@ function checkBasicAuthentication(req, res, next) {
                         next();
                     } else {
                         debug("Invalid password");
-                        forbidden();
+                        unauthorized();
                     }
                 } else {
                     var database;
@@ -430,7 +434,7 @@ function checkBasicAuthentication(req, res, next) {
                                 next();
                             } else {
                                 debug("Wrong combination of email / password. Found " + count + " records.");
-                                forbidden();
+                                unauthorized();
                             }
                         });
                     }).then(function () {
@@ -439,14 +443,14 @@ function checkBasicAuthentication(req, res, next) {
                         cl("checking basic authentication against database failed.");
                         cl(err);
                         database.done(err);
-                        forbidden();
+                        unauthorized();
                     });
                 }
-            } else forbidden();
-        } else forbidden();
+            } else unauthorized();
+        } else unauthorized();
     } else {
         debug("No authorization header received from client. Rejecting.");
-        forbidden();
+        unauthorized();
     }
 }
 
@@ -701,7 +705,11 @@ function validateAccessAllowed(mapping, db, req, resp, me) {
         Q.all(promises).then(function(result) {
             deferred.resolve();
         }).catch(function(result) {
-            deferred.reject("FORBIDDEN");
+            deferred.reject({
+                type: "access.denied",
+                status: 403,
+                body: "Forbidden"
+            });
         });
     } else {
         deferred.resolve();
@@ -755,9 +763,13 @@ exports = module.exports = {
                     debug("pgConnect ... OK");
                     database = db;
                 }).then(function() {
+                    var begin = prepare("begin-transaction");
+                    begin.sql('BEGIN');
+                    return pgExec(database,begin);
+                }).then(function() {
                     countquery = prepare();
                     countquery.sql('select count(*) from "' + table + '" where 1=1 ');
-                    return applyRequestParameters(mapping, req, countquery, database);
+                    return applyRequestParameters(mapping, req, countquery, database, true);
                 }).then(function () {
                     debug("applyRequestParameters count(*) ... OK");
                     return pgExec(database, countquery);
@@ -767,7 +779,7 @@ exports = module.exports = {
                     count = parseInt(results.rows[0].count);
                     query = prepare();
                     query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
-                    return applyRequestParameters(mapping, req, query, database);
+                    return applyRequestParameters(mapping, req, query, database, false);
                 }).then(function() {    
                     debug("applyRequestParameters select ... OK");
                     // All list resources support orderby, limit and offset.
@@ -828,10 +840,20 @@ exports = module.exports = {
                     };
                     resp.set('Content-Type', 'application/json');
                     resp.send(output);
-                    database.done();
                     resp.end();
+                    
+                    database.client.query("ROLLBACK", function (err) {
+                        // If err is defined, client will be removed from pool.
+                        database.done(err);
+                    });
+                    database.done();
                 }).fail(function(error) {
-                    if(error.type = 'reject.by.query.methods') {
+                    database.client.query("ROLLBACK", function (err) {
+                        // If err is defined, client will be removed from pool.
+                        database.done(err);
+                    });
+                    
+                    if(error.type && error.status && error.body) {
                         resp.status(error.status).send(error.body);
                         database.done();
                         resp.end();
@@ -876,7 +898,19 @@ exports = module.exports = {
                     debug("done");
                     database.done();
                     resp.end();
-                }).fail(function (err) {
+                }).fail(function (error) {
+                    if(error.type && error.status && error.body) {
+                        resp.status(error.status).send(error.body);
+                        database.done();
+                        resp.end();
+                    } else {
+                        cl("GET processing had errors. Removing pg client from pool. Error : ");
+                        cl(errors);
+                        database.done(errors);
+                        resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
+                        resp.end();
+                    }
+/*
                     if(err === "FORBIDDEN") {
                         debug("401 Forbidden");
                         database.done();
@@ -894,7 +928,7 @@ exports = module.exports = {
                         cl("Client removed from pool");
                         resp.status(500).send("Internal Server Error. [" + err.toString() + "]");
                         resp.end();
-                    }
+                    }*/
                 });
             }).put(logRequests, checkBasicAuthentication, function(req, resp) {
                 debug("sri4node PUT processing invoked.");

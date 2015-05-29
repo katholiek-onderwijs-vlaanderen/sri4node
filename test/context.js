@@ -81,6 +81,59 @@ exports = module.exports = {
             return deferred.promise;
         };
         
+        var parameterWithExtraQuery = function(value, select, param, database, count) {
+            var deferred = Q.defer();
+            
+            if(count) {
+                var q = $u.prepareSQL("create-allcommunityguids");
+                q.sql('CREATE TEMPORARY TABLE allcommunityguids ON COMMIT DROP AS SELECT guid FROM communities');
+                $u.executeSQL(database, q).then(function(results) {
+                    select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids") ');
+                    deferred.resolve();
+                }).catch(function(error) {
+                    debug("Catch creating temp table");
+                    debug(error);
+                    deferred.reject(error);
+                }).fail(function(error) {
+                    debug("Fail creating temp table");
+                    debug(error);
+                    deferred.reject(error);
+                });
+            } else {
+                select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids") ');
+                deferred.resolve();
+            }
+            
+            return deferred.promise;
+        };
+
+        var parameterWithExtraQuery2 = function(value, select, param, database, count) {
+            var deferred = Q.defer();
+            
+            if(count) {
+                var q = $u.prepareSQL("create-allcommunityguids2");
+                q.sql('CREATE TEMPORARY TABLE allcommunityguids2 ON COMMIT DROP AS SELECT guid FROM communities');
+                $u.executeSQL(database, q).then(function(results) {
+                    select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids2") ');
+                    deferred.resolve();
+                }).catch(function(error) {
+                    debug("Catch creating temp table");
+                    debug(error);
+                    deferred.reject(error);
+                }).fail(function(error) {
+                    debug("Fail creating temp table");
+                    debug(error);
+                    deferred.reject(error);
+                });
+            } else {
+                select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids2") ');
+                deferred.resolve();
+            }
+            
+            return deferred.promise;
+        };
+        
+        
         var messagesPostedSince = function(value, select) {
             var deferred = Q.defer();
             select.sql(' and posted > ').param(value);
@@ -307,7 +360,9 @@ exports = module.exports = {
                     },
                     secure: [],
                     query: {
-                        invalidQueryParameter : invalidQueryParameter,
+                        invalidQueryParameter: invalidQueryParameter,
+                        parameterWithExtraQuery: parameterWithExtraQuery,
+                        parameterWithExtraQuery2: parameterWithExtraQuery2
                     },
                     schema: {
                         $schema: "http://json-schema.org/schema#",

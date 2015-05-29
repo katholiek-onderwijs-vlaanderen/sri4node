@@ -248,6 +248,7 @@ The functions receive 2 parameters :
  - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
 - The name of the URL parameter.
 - *db* A database object that you can use to execute extra SQL statements.
+- *count* A boolean telling you if you are currently decorating the SELECT COUNT(*) query, or the final SELECT (...) query. Useful for making sure some statements are not executed twice (when using the *database* object)
 
 All the methods on the sql object can be chained. It forms a simple fluent interface.
 All the supplied functions extend the SQL statement with an 'AND' clause.
@@ -294,8 +295,8 @@ These utilities live independently of the basic processing described above. In o
 ### General Utilities
 
     clearPasswordCache  : Used for clearing the security cache. Call when updating security context of a user.
-    prepareSQL          : Used for executing SQL in after* function. Call with the 'db' object you received.
-    executeSQL          : Used for executing SQL in after* function. Call with the 'db' object you received.
+    prepareSQL          : Used for preparing SQL. Supply a name to keep the query in the database as a prepared statement.
+    executeSQL          : Used for executing SQL. Call with the 'db' object you received, and a query object (returned by prepareSQL).
     
 ### Mapping Utilities
 

@@ -88,7 +88,7 @@ describe('GET public regular resource', function() {
 
 describe('GET private list resource', function() {
     describe('/persons without authentication', function() {
-        it('should be 401 Forbidden', function() {
+        it('should be 401 Unauthorized', function() {
             return doGet(base + '/persons').then(function(response) {
                 assert.equal(response.statusCode,401);
             });
@@ -117,9 +117,9 @@ describe('GET private regular resource', function() {
     });
     
     describe('/persons/{guid} from different community', function() {
-        it('should be 401 Forbidden', function() {
+        it('should be 403 Forbidden', function() {
             return doGet(base + '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb','kevin@email.be','pwd').then(function(response) {
-                assert.equal(response.statusCode, 401);
+                assert.equal(response.statusCode, 403);
             });
         });
     });
@@ -127,7 +127,7 @@ describe('GET private regular resource', function() {
     describe('two secure functions', function() {
         it('should disallow read on Ingrid Ohno', function() {
             return doGet(base + '/persons/da6dcc12-c46f-4626-a965-1a00536131b2','sabine@email.be','pwd').then(function(response) {
-                assert.equal(response.statusCode, 401);
+                assert.equal(response.statusCode, 403);
             });
         });
     });
@@ -299,7 +299,8 @@ describe('DELETE regular resource', function() {
                 assert.equal(response.statusCode, 200);
                 return doGet(base + "/communities/" + guid, 'sabine@email.be', 'pwd');
             }).then(function(response) {
-                assert.equal(response.statusCode, 403);
+                // After delete the response should be 404.
+                assert.equal(response.statusCode, 404);
             });
         });
     });
@@ -393,6 +394,23 @@ describe("URL parameters", function() {
                 assert.equal(response.statusCode, 404);
                 assert.equal(response.body.errors[0].code, "invalid.query.parameter");
                 assert.equal(response.body.errors[0].parameter, "nonexistingparameter");
+            });
+        });
+    });
+    
+    describe("that use the database object", function() {
+        it("should return correct results (no side-effects)", function() {
+            return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                // It should return none, we added NOT IN SELECT guid FROM temptable
+                // Where temptable was first filled to select all guids
+                assert.equal(response.body.$$meta.count, 0);
+                // And do it again to check that it works more than once.
+                return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true');
+            }).then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 0);
             });
         });
     });
