@@ -762,7 +762,7 @@ exports = module.exports = {
                             var output = {
                                 $$meta: {
                                     count: count,
-                                    schema: mapping.type + '/schema';
+                                    schema: mapping.type + '/schema'
                                 },
                                 results: results
                             };
