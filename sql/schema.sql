@@ -1,8 +1,4 @@
--- Needed for uuid_generate_v4() function.
-CREATE EXTENSION "uuid-ossp";
-
-DROP TABLE IF EXISTS "interletssettings" CASCADE;
-DROP TABLE IF EXISTS "interletsapprovals" CASCADE;
+SET search_path TO sri4node;
 
 DROP TABLE IF EXISTS "messages" CASCADE;
 DROP TABLE IF EXISTS "transactions" CASCADE;
