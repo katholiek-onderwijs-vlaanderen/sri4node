@@ -16,3 +16,4 @@ echo "CREATE USER sri4node WITH PASSWORD 'sri4node'" | sudo sudo -u postgres psq
 echo "GRANT ALL PRIVILEGES ON SCHEMA sri4node TO sri4node" | sudo sudo -u postgres psql
 echo "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA sri4node TO sri4node" | sudo sudo -u postgres psql
 echo "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA sri4node TO sri4node" | sudo sudo -u postgres psql
+echo "ALTER USER sri4node SET search_path = sri4node" | sudo sudo -u postgres psql
