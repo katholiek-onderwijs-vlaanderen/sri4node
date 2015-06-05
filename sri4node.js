@@ -1144,13 +1144,14 @@ exports = module.exports = {
             };
         },
 
-        string: function(min, max, description) {
-            return {
+        string: function(description, min, max) {
+            ret = {
                 type: "string",
-                minLength: min,
-                maxLength: max,
                 description: description
-            }
+            };
+            if(min) ret.minLength = min;
+            if(max) ret.maxLength = max;
+            return ret;
         },
 
         numeric: function(description) {
