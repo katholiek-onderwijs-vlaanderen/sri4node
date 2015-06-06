@@ -112,11 +112,12 @@ Finally we configure handlers for 1 example resource :
                     // This is a collection of predefined functions.
                     // You can build your own (see below).
                     // These functions can execute an arbitrary set
-                    // of preperatory queries on the database,
+                    // of preparatory queries on the database,
                     // You can execute stored procedures and create
-                    // a temporary table to allow you to 
-                    // add ' AND guid IN (SELECT guid FROM mytemptable) '
-                    // to perform any kind of filtering on 
+                    // temporary tables to allow you to add things like :
+                    // ' AND guid IN (SELECT guid FROM mytemptable) '
+                    // to the query being executed.
+                    // Allowig any kind of filtering on
                     // the resulting list resource.
                     query: {
                         authors: $q.filterContains('authors'),
@@ -125,13 +126,13 @@ Finally we configure handlers for 1 example resource :
                         person: $q.filterReferencedType('/persons','person')
                     },
                     // All columns in the table that appear in the
-                    // resource should be declared.
+                    // resource should be declared in the 'map' object.
                     // Optionally mapping functions can be given.
                     // Mapping functions can be registered 
-                    // for onread, onwrite, onupdate.
+                    // for onread, onwrite and onupdate.
                     //
                     // For GET operations the key in the 'map' object 
-                    // is the name of the key as it will appear in the output.
+                    // is the name of the key as it will appear in the JSON output.
                     //
                     // For PUT operations it is the key that appears
                     // on the input resource. The end result after mapping
