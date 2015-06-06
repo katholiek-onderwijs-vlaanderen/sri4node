@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = true;
+logsql = logrequests = logdebug = false;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
