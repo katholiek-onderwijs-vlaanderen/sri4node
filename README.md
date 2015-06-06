@@ -51,6 +51,9 @@ Finally we configure handlers for 1 example resource :
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             // A function to determine the security context.
+            // The return value of this function
+            // is passed into 'secure' function (see below).
+            // It is also returned as when "GET /me" is performed by clients.
             identity : function(username, database) {
                 var query = $u.prepareSQL("me");
                 query.sql('select * from persons where email = ').param(username);
@@ -75,7 +78,7 @@ Finally we configure handlers for 1 example resource :
                     public: false,
                     // Multiple function that check access control 
                     // They receive a database object and
-                    // the security context of the current user.
+                    // /me resource as determined by the 'identity' function above.
                     secure : [
                         checkAccessOnResource,
                         checkSomeMoreRules
