@@ -82,8 +82,8 @@ Finally we configure handlers for 1 example resource :
                     // Can it be read / updated / inserted publicly ?
                     public: false,
                     // Multiple function that check access control 
-                    // They receive a database object and
-                    // /me resource as determined by the 'identity' function above.
+                    // They receive a database object and the security context
+                    // as determined by the 'identity' function above.
                     secure : [
                         checkAccessOnResource,
                         checkSomeMoreRules
