@@ -604,7 +604,7 @@ function executePutInsideTransaction(db, url, body) {
                 executeOnFunctions(resources, mapping, "onupdate", element);
 
                 var update = prepare('update-' + table);
-                update.sql('update ' + table + ' set ');
+                update.sql('update "' + table + '" set ');
                 var firstcolumn = true;
                 for (var key in element) {
                     if (element.hasOwnProperty(key)) {
@@ -634,7 +634,7 @@ function executePutInsideTransaction(db, url, body) {
                 executeOnFunctions(resources, mapping, "oninsert", element);
 
                 var insert = prepare("insert-"+ table);
-                insert.sql('insert into ' + table + ' (').columns(element).sql(') values (').object(element).sql(') ');
+                insert.sql('insert into "' + table + '" (').columns(element).sql(') values (').object(element).sql(') ');
                 return pgExec(db, insert).then(function (results) {
                     if(results.rowCount != 1) {
                         debug("No row affected ?!");
@@ -866,7 +866,7 @@ exports = module.exports = {
                             href: mapping.type + '/' + currentrow.guid
                         };
 
-                        if (req.query.expand !== 'full') {
+                        if (req.query.expand !== 'none') {
                             element.$$expanded = {
                                 $$meta: {
                                     permalink: mapping.type + '/' + currentrow.guid
@@ -1240,15 +1240,11 @@ exports = module.exports = {
                 e[key] = value;
             };
         },
-        parse : function() {
-            return function(key, e) {
-                e[key] = JSON.parse(e[key]);
-            };
+        parse : function(key, e) {
+            e[key] = JSON.parse(e[key]);
         },
-        stringify : function() {
-            return function(key, e) {
-                e[key] = JSON.stringify(e[key]);
-            };
+        stringify : function(key, e) {
+            e[key] = JSON.stringify(e[key]);
         }
     },
 
@@ -1295,7 +1291,7 @@ exports = module.exports = {
                 type: "string",
                 format: "email",
                 minLength: 1,
-                maxLength: 64,
+                maxLength: 254,
                 description: description
             }
         },
@@ -1304,13 +1300,13 @@ exports = module.exports = {
             return {
                 type: "string",
                 minLength: 1,
-                maxLength: 256,
+                maxLength: 2000,
                 format: "uri",
                 description: description
             }
         },
 
-        zipcode: function(description) {
+        belgianzipcode: function(description) {
             return {
                 type: "string",
                 pattern: "^[0-9][0-9][0-9][0-9]$",
