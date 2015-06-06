@@ -276,7 +276,7 @@ A `secure` function receives these parameters :
 - `database` is a database object (see above) that you can use for querying the database.
 - `me` is the security context of the user performing the current HTTP operation. This is the result of the `identity` function.
 
-It must return a [Q promise][kriskowal-q].
+The function must return a [Q promise][kriskowal-q].
 It should `resolve()` the promise if the function allows the HTTP operation.
 It should `reject()` the promise if the function disallows the HTTP operation.
 In the later case the client will receive a 401 Forbidden as response to his operation.
