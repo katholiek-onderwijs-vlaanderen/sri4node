@@ -55,9 +55,11 @@ Finally we configure handlers for 1 example resource :
             // is passed into 'secure' functions (see below).
             // It is also returned as when "GET /me" is performed by clients.
             identity : function(username, database) {
+                var deferred = Q.defer();
+                
                 var query = $u.prepareSQL("me");
-                query.sql('select * from persons where email = ').param(username);
-                return $u.executeSQL(database, query).then(function (result) {
+                query.sql('select * from persons where login = ').param(username);
+                $u.executeSQL(database, query).then(function (result) {
                     var row = result.rows[0];
                     var output = {};
                     output.$$meta = {};
@@ -65,8 +67,11 @@ Finally we configure handlers for 1 example resource :
                     output.firstname = row.firstname;
                     output.lastname = row.lastname;
                     output.email = row.email;
-                    return output;
+                    ...
+                    promise.resolve(output);
                 });
+                
+                return deferred.promise;
             },
             resources : [
                 {
