@@ -180,14 +180,14 @@ List resource support *expansion*, to allow you to include the corresponding reg
 
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
-1. Check if you have permission by executing all registered *secure* functions in the configuration.
+1. Check if you have permission by executing all registered `secure` functions in the configuration.
 If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name). 
 All standard postgreSQL datatypes are converted automatically to JSON. 
 Values can be transformed by an *onread* function (if configured). 
 By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
 As they are mapped with `{ references: '/type' }`.
-3. Add a $$meta section to the response document.
+3. Add a `$$meta` section to the response document.
 
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
@@ -195,11 +195,11 @@ When creating or updating a *regular* resource, a database row is updated/insert
 If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Perform schema validation on the incoming resource.
 If the schema is violated, the client will receive a 409 Conflict.
-3. Execute *validate* functions. 
-If any of of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
+3. Execute `validate` functions. 
+If any of of the `validate` functions rejects it's promise, the client receives a 409 Conflict.
 4. Convert the JSON document into a simple key-value object. 
 Keys map 1:1 with database columns. 
-All incoming values are passed through the *onwrite*/*oninsert* function for conversion (if configured). 
+All incoming values are passed through the `onwrite`/`oninsert` function for conversion (if configured). 
 By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
 6. Execute *afterupdate* or *afterinsert* functions.
