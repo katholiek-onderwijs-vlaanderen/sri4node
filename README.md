@@ -95,9 +95,9 @@ Finally we configure handlers for 1 example resource :
                         title: "An article on the websites/mailinglists.",
                         type: "object",
                         properties : {
-                            authors: $s.string(1,256,"Comma-separated list of authors."),
-                            themes: $s.string(1,256,"Comma-separated list of themes."),
-                            html: $s.string(1,2048,"HTML content of the article.")
+                            authors: $s.string("Comma-separated list of authors."),
+                            themes: $s.string("Comma-separated list of themes."),
+                            html: $s.string("HTML content of the article.")
                         },
                         required: ["authors","themes","html"]
                     },
