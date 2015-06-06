@@ -219,7 +219,8 @@ If any of these functions rejects it's promise, the client will receive 401 Forb
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 The `query` functions are executed if they appear in the request URL as parameters.
-4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`). See the [SRI specification][sri-specs] for more details.
+4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`). 
+See the [SRI specification][sri-specs-list-resources] for more details.
 5. Build a list resource with a `$$meta` section + a `results` section.
 6. Execute any `afterread` functions to allow you to manipulate the result JSON.
 
@@ -231,9 +232,10 @@ Below is a description of the different types of functions that you can use in t
 It describes the inputs and outputs of the different functions.
 Most of these function return a [Q promise][kriskowal-q].
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
-Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL().
+Such a database object can be used together with `sri4node.utils.prepareSQL()` and `sri4node.utils.executeSQL()`.
 Transaction demarcation is handled by sri4node, on a per-request-basis. 
-That implies that /batch operations are all handled in a single transaction.
+That implies that `/batch` operations are all handled in a single transaction.
+For more details on batch operations see the [SRI specification][sri-specs-batch].
 
 ### onread / oninsert / onupdate
 
@@ -463,3 +465,5 @@ Development will focus on :
 [kriskowal-q]: https://github.com/kriskowal/q
 [sri-errors]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/edit#heading=h.ry6n9c1t7hl0
 [sri-specs]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub
+[sri-specs-list-resources]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub#h.7fk12av55wjz
+[sri-specs-batch]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub#h.9ottwr99upq6
