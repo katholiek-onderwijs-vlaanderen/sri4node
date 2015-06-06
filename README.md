@@ -185,6 +185,7 @@ When reading a *regular* resource a database row is transformed into an SRI reso
 All standard postgreSQL datatypes are converted automatically to JSON. 
 Values can be transformed by an *onread* function (if configured). 
 By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
+As they are mapped with `{ references: '/type' }`.
 3. Add a $$meta section to the response document.
 
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
