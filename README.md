@@ -181,6 +181,7 @@ List resource support *expansion*, to allow you to include the corresponding reg
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
 1. Check if you have permission by executing all registered *secure* functions in the configuration.
+If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name). 
 All standard postgreSQL datatypes are converted automatically to JSON. 
 Values can be transformed by an *onread* function (if configured). 
