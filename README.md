@@ -148,7 +148,7 @@ Finally we configure handlers for 1 example resource :
                     // After read, update, insert or delete
                     // you can perform extra actions.
                     afterread: [
-                        addAdditionalInfoToOutput 
+                        addAdditionalInfoToOutputJSON 
                     ],
                     afterupdate: [],
                     afterinsert: [],
@@ -170,15 +170,15 @@ Now we can start Express.js to start serving up our SRI REST interface :
 sri4node has a very simple processing pipeline for mapping SRI resources onto a database. 
 We explain the possible HTTP operations below : 
 * reading regular resources (GET)
-* updating/creating regular resources. (PUT)
-* deleting regular resources. (DELETE)
+* updating/creating regular resources (PUT)
+* deleting regular resources (DELETE)
 * reading *list* resources (queries) (GET)
 
 In essence we map 1 *regular* resource to a database row. 
 A *list* resource corresponds to a query on a database table.
 List resource support *expansion*, to allow you to include the corresponding regular resource in the same request.
 
-When reading a *regular* resource a database row is transformed into an SRI resource by doing things :
+When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
 1. Check if you have permission by executing all registered *secure* functions in the configuration.
 2. Retrieve the row and convert all columns into a JSON key-value pair (key maps directly to the database column name). 
