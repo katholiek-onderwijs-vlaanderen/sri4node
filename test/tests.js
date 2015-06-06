@@ -435,4 +435,20 @@ describe("Afterread methods", function() {
             });
         });
     });
+    
+    describe("should be executed on lists with many resources", function() {
+        it("should have correct messagecounts on all items", function() {
+            return doGet(base + '/communities?limit=4').then(function(response) {
+                debug("response body");
+                debug(response.body);
+                debug(response.body.results[2].$$expanded);
+                debug(response.body.results[3].$$expanded);
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
+                if(response.body.results[1].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
+                if(response.body.results[2].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
+                if(response.body.results[3].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
+            });
+        });
+    });
 });

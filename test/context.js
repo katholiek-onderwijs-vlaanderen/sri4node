@@ -192,6 +192,8 @@ exports = module.exports = {
                     var guid = element.$$meta.permalink.split('/')[2];
                     guids.push(guid);
                     guidToElement[guid] = element;
+                    // Default to 0, The query will not return a row for those.
+                    element.$$messagecount = 0;
                 }
                 query.sql("SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (");
                 query.array(guids);
