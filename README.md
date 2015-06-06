@@ -237,27 +237,38 @@ Transaction demarcation is handled by sri4node, on a per-request-basis.
 That implies that `/batch` operations are all handled in a single transaction.
 For more details on batch operations see the [SRI specification][sri-specs-batch].
 
-### onread / oninsert / onupdate
+### onread 
+
+Database columns are mapped 1:1 to keys in the output JSON object.
+The `onread` function receives these arguments :
+
+- `key` is the key the function was registered on.
+- `element` is the the result of the query that was executed.
+
+Functions are executed in order of listing in the `map` section of the configuration. 
+No return value is expected, this function manipulates the element in-place.
+These functions allow you to do al sorts of things, like remove the key if it is `NULL` in the database,
+allways remove the key, rename the key, etc..
+A selection of predefined functions is available in `sri4node.mapUtils` (usually assigned to `$m`).
+See below for details.
+
+### oninsert / onupdate
 
 JSON properties are mapped 1:1 to columns in the postgres table.
-Every property can also register 3 possible functions:
-- *onupdate* is executed before UPDATE on the table
-- *oninsert* is executed before INSERT into the table
-- *onread* is executed after SELECT from the table
+The `onupdate` and `oninsert` functions recieves these parameters :
 
-All 3 functions receive 2 parameters :
+- `key` is the key they were registered on.
+- `element` is the JSON object being PUT.
 
-- *key* is the key they were registered on.
-- *element* is the javascript element being PUT / or the results of the query for GET operations.
-
-All functions are executed in order of listing in the *map* section of the configuration. 
+All functions are executed in order of listing in the `map` section of the configuration. 
 All are allowed to manipulate the element, before it is inserted/updated in the table. 
-For GET the *onread* method can manipulate the outgoing JSON object.
 No return value is expected, the functions manipulate the element in-place.
+A selection of predefined functions is available in `sri4node.mapUtils` (usually assign to `$m`).
+See below for details.
 
 ### secure
 
-A *secure* function receive 4 parameters :
+A `secure` function receives these parameters :
 
 - *request* is the Express.js [request][express-request] object for this operation.
 - *response* is the Express.js [response][express-response] object for this operation.
