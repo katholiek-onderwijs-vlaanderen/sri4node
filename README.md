@@ -194,7 +194,7 @@ When creating or updating a *regular* resource, a database row is updated/insert
 1. Check if you have permission by executing all registered *secure* functions.
 If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Perform schema validation on the incoming resource.
-If the schema is violated, the clinet will receive a 409 Conflict.
+If the schema is violated, the client will receive a 409 Conflict.
 3. Execute *validate* functions. 
 If any of of the *validate* functions rejects it's promise, the client receives a 409 Conflict.
 4. Convert the JSON document into a simple key-value object. 
