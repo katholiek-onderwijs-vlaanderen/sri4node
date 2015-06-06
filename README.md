@@ -288,7 +288,7 @@ All validation functions are executed for every PUT operation.
 
 A `validate` function receives these arguments :
 
-- `body` is full JSON document being PUT.
+- `body` is the full JSON document being PUT.
 - `database` is a database object (see above) that you can use for querying the database.
 
 The function must return a [Q promise][kriskowal-q].
