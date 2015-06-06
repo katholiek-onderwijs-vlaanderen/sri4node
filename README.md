@@ -107,15 +107,35 @@ Finally we configure handlers for 1 example resource :
                         validateAuthorVersusThemes
                     ],
                     // Supported URL parameters are configured
-                    // this allows filtering on the list resource.
+                    // for list resources. $q is an alias for
+                    // sri4node.queryUtils.
+                    // This is a collection of predefined functions.
+                    // You can build your own (see below).
+                    // These functions can execute an arbitrary set
+                    // of preperatory queries on the database,
+                    // You can execute stored procedures and create
+                    // a temporary table to allow you to 
+                    // add ' AND guid IN (SELECT guid FROM mytemptable) '
+                    // to perform any kind of filtering on 
+                    // the resulting list resource.
                     query: {
-                        authors: contains('authors'),
-                        themes: contains('themes'),
-                        html: contains('html')
+                        authors: $q.filterContains('authors'),
+                        themes: $q.filterContains('themes'),
+                        html: $q.filterContains('html'),
+                        person: $q.filterReferencedType('/persons','person')
                     },
                     // All columns in the table that appear in the
                     // resource should be declared.
                     // Optionally mapping functions can be given.
+                    // Mapping functions can be registered 
+                    // for onread, onwrite, onupdate.
+                    //
+                    // For GET operations the key in the 'map' object 
+                    // is the name of the key as it will appear in the output.
+                    //
+                    // For PUT operations it is the key that appears
+                    // on the input resource. The end result after mapping
+                    // is created / updated in the database table.
                     map: {
                         authors: {},
                         themes: {},
@@ -124,11 +144,16 @@ Finally we configure handlers for 1 example resource :
                         // (mapping of 'persons' is not shown in this example)
                         person: {references : '/persons'}
                     },
-                    // After update, insert or delete
+                    // After read, update, insert or delete
                     // you can perform extra actions.
+                    afterread: [
+                        addAdditionalInfoToOutput 
+                    ],
                     afterupdate: [],
                     afterinsert: [],
-                    afterdelete: [ cleanupFunction ]
+                    afterdelete: [ 
+                        cleanupFunction
+                    ]
                 }
             ]
         });

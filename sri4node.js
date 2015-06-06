@@ -1206,6 +1206,22 @@ exports = module.exports = {
                 
                 return deferred.promise;
             }
+        },
+        
+        filterContains: function(columnname) {
+            return function(value, select) {
+                var deferred = Q.defer();
+                
+                if (value) {
+                    var query = $u.prepareSQL();
+                    query.sql(' and ' + columnname + ' LIKE "%').param(value).sql('%" ');
+                    deferred.resolve();
+                } else {
+                    deferred.resolve();
+                }
+                
+                return deferred.promise;
+            }
         }
     },
 
