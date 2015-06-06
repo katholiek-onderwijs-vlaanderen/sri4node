@@ -188,6 +188,7 @@ Values can be transformed by an *onread* function (if configured).
 By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
 As they are mapped with `{ references: '/type' }`.
 3. Add a `$$meta` section to the response document.
+4. Execute any `afterread` functions to allow you to manipulate the result JSON.
 
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
@@ -202,7 +203,7 @@ Keys map 1:1 with database columns.
 All incoming values are passed through the `onwrite`/`oninsert` function for conversion (if configured). 
 By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
-6. Execute *afterupdate* or *afterinsert* functions.
+6. Execute `afterupdate` or `afterinsert` functions.
 
 When deleting a regular resource :
 
