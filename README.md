@@ -52,7 +52,7 @@ Finally we configure handlers for 1 example resource :
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             // A function to determine the security context.
             // The return value of this function
-            // is passed into 'secure' function (see below).
+            // is passed into 'secure' functions (see below).
             // It is also returned as when "GET /me" is performed by clients.
             identity : function(username, database) {
                 var query = $u.prepareSQL("me");
