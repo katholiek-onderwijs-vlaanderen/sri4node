@@ -718,6 +718,51 @@ function validateAccessAllowed(mapping, db, req, resp, me) {
     return deferred.promise;
 }
 
+function executeAfterReadFunctions(database, elements, mapping) {
+    debug("executeAfterReadFunctions");
+    var deferred = Q.defer();
+
+    if(mapping.afterread && mapping.afterread.length > 0) {
+        var promises = [];
+        for(var i=0; i<mapping.afterread.length; i++) {
+            promises.push(mapping.afterread[i](database,elements));
+        }
+
+        Q.allSettled(promises).then(function(results) {
+            debug("allSettled :");
+            debug(results);
+            var errors = [];
+            results.forEach(function(result) {
+                if(result.state == 'rejected') {
+                    errors.push(result.reason);
+                }
+            });
+
+            if(errors.length == 0) {
+                deferred.resolve();
+            } else {
+                var ret = { 
+                    // When rejecting we return an object with :
+                    // 'type' -> an internal code to identify the error. Useful in the fail() method.
+                    // 'status' -> the returned HTTP status code.
+                    // 'body' -> the response body that will be returned to the client.
+                    type: 'afterread.failed',
+                    status: 500,
+                    body: {
+                        errors: errors 
+                    }
+                };
+                deferred.reject(ret);
+            }
+        });
+    } else {
+        // Nothing to do, resolve the promise.
+        deferred.resolve();
+    }
+    
+    return deferred.promise;    
+}
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
     configure: function (app, postgres, config) {
@@ -759,6 +804,7 @@ exports = module.exports = {
                 var countquery;
                 var count;
                 var query;
+                var output;
                 pgConnect().then(function(db) {
                     debug("pgConnect ... OK");
                     database = db;
@@ -812,6 +858,7 @@ exports = module.exports = {
                     debug(result);
                     var rows = result.rows;
                     var results = [];
+                    var elements = [];
                     for (var row = 0; row < rows.length; row++) {
                         var currentrow = rows[row];
 
@@ -829,15 +876,20 @@ exports = module.exports = {
                             executeOnFunctions(resources, mapping, "onread", element.$$expanded);
                         }
                         results.push(element);
+                        elements.push(element.$$expanded);
                     }
 
-                    var output = {
+                    output = {
                         $$meta: {
                             count: count,
                             schema: mapping.type + '/schema'
                         },
                         results: results
                     };
+                    
+                    return executeAfterReadFunctions(database, elements, mapping);
+                }).then(function() {
+                    debug("executeAfterReadFunctions finished");
                     resp.set('Content-Type', 'application/json');
                     resp.send(output);
                     resp.end();
@@ -876,6 +928,7 @@ exports = module.exports = {
                 var guid = req.params.guid;
 
                 var database;
+                var element;
                 pgConnect().then(function(db) {
                     database = db;
                     if(!mapping.public) {
@@ -887,14 +940,20 @@ exports = module.exports = {
                         debug("running config.secure functions");
                         return validateAccessAllowed(mapping,database,req,resp,me);
                     }
-                }).then(function () {
+                }).then(function() {
                     debug("query by guid");
                     return queryByGuid(resources, database, mapping, guid);
-                }).then(function (element) {
+                }).then(function(result) {
+                    element = result;
                     element.$$meta = {permalink: mapping.type + '/' + guid};
+                    var elements = [];
+                    elements.push(element);
+                    return executeAfterReadFunctions(database, elements, mapping);
+                }).then(function() {
+                    debug("element after executeAfterReadFunctions : ");
+                    debug(element);
                     resp.set('Content-Type', 'application/json');
                     resp.send(element);
-                }).then(function () {
                     debug("done");
                     database.done();
                     resp.end();
@@ -910,25 +969,6 @@ exports = module.exports = {
                         resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
                         resp.end();
                     }
-/*
-                    if(err === "FORBIDDEN") {
-                        debug("401 Forbidden");
-                        database.done();
-                        resp.status(401).send("Forbidden");
-                        resp.end();
-                    } else if(err == "NOT FOUND") {
-                        debug("403 Not Found");
-                        database.done();
-                        resp.status(403).send("Not Found");
-                        resp.end();
-                    } else {
-                        cl("GET processing had errors. Removing pg client from pool. Error : ");
-                        cl(err);
-                        database.done(err);
-                        cl("Client removed from pool");
-                        resp.status(500).send("Internal Server Error. [" + err.toString() + "]");
-                        resp.end();
-                    }*/
                 });
             }).put(logRequests, checkBasicAuthentication, function(req, resp) {
                 debug("sri4node PUT processing invoked.");
@@ -1095,6 +1135,78 @@ exports = module.exports = {
         // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL : pgExec,
         prepareSQL : prepare
+    },
+    
+    queryUtils: {
+        filterHrefs : function (value, query) {
+            var deferred = Q.defer();
+            try {
+                debug(value);
+                var permalinks, guids, i;
+
+                if (value) {
+                    permalinks = value.split(",");
+                    guids = [];
+                    var reject = false;
+                    for (i = 0; i < permalinks.length; i++) {
+                        var guid = permalinks[i].split('/')[2];
+                        if(guid.length == 36) {
+                            guids.push(guid);
+                        } else {
+                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                            reject = true;
+                            break;
+                        }
+                    }
+                    if(!reject) {
+                        query.sql(' and guid in (').array(guids).sql(') ');
+                        deferred.resolve();
+                    }
+                }
+            } catch(error) {
+                debug(error.stack);
+                deferred.reject({ code: 'internal.error', description: error.toString() });
+            }
+            
+            return deferred.promise;
+        },
+    
+        // filterReferencedType('/persons','person')
+        filterReferencedType : function (resourcetype, columnname) {
+            return function (value, query) {
+                var deferred = Q.defer();
+                
+                var permalinks, guids, i;
+
+                if (value) {
+                    permalinks = value.split(",");
+                    guids = [];
+                    var reject = false;
+                    for (i = 0; i < permalinks.length; i++) {
+                        if(permalinks[i].indexOf("/" + resourcetype + "/") === 0) {
+                            var guid = permalinks[i].substr(resourcetype.length + 2);
+                            if(guid.length == 36) {
+                                guids.push(guid);
+                            } else {
+                                deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                                reject = true;
+                                break;
+                            }
+                        } else {
+                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                            reject = true;
+                            break;
+                        }
+                    }
+                    if(!reject) {
+                        query.sql(' and ' + columnname + ' in (').array(guids).sql(') ');
+                        deferred.resolve();
+                    }
+                }
+                
+                return deferred.promise;
+            }
+        }
     },
 
     mapUtils : {

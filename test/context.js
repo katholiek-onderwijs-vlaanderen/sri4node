@@ -13,13 +13,14 @@ var bodyParser = require('body-parser');
 var pg = require('pg');
 var Q = require('q');
 
-var $u,$m,$s;
+var $u,$m,$s,$q;
 
 exports = module.exports = {
     serve: function(roa, port, logsql, logrequests, logdebug) {
         $u = roa.utils;
         $m = roa.mapUtils;
         $s = roa.schemaUtils;
+        $q = roa.queryUtils;
 
         var app = express();
         app.set('port', port);
@@ -36,44 +37,7 @@ exports = module.exports = {
         // node-postgres defaults to 10 clients in the pool, but heroku.com allows 20.
         pg.defaults.poolSize = 20;
 
-        // createInClause("communities", "community");
-        // createInClause("persons", "person");
-        // createInClause("communities", "approved");
-        var filterReferencedType = function (resourcetype, columnname) {
-            return function (value, query) {
-                var deferred = Q.defer();
-                
-                var permalinks, guids, i;
-
-                if (value) {
-                    permalinks = value.split(",");
-                    guids = [];
-                    var reject = false;
-                    for (i = 0; i < permalinks.length; i++) {
-                        if(permalinks[i].indexOf("/" + resourcetype + "/") === 0) {
-                            var guid = permalinks[i].substr(resourcetype.length + 2);
-                            if(guid.length == 36) {
-                                guids.push(guid);
-                            } else {
-                                deferred.reject({ code: "parameter." + param + ".invalid.value" });
-                                reject = true;
-                                break;
-                            }
-                        } else {
-                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
-                            reject = true;
-                            break;
-                        }
-                    }
-                    if(!reject) {
-                        query.sql(' and ' + columnname + ' in (').array(guids).sql(') ');
-                        deferred.resolve();
-                    }
-                }
-                
-                return deferred.promise;
-            }
-        };
+        
 
         var invalidQueryParameter = function(value, select, param, database) {
             var deferred = Q.defer();
@@ -211,6 +175,46 @@ exports = module.exports = {
                 return deferred.promise;
             };
         }
+        
+        function addMessageCountToCommunities(database, elements) {
+            debug("addMessageCountToCommunities");
+            var deferred = Q.defer();
+            
+            // Lets do this efficiently. Remember that we receive an array of elements. 
+            // We query the message counts in a single select.
+            // e.g. select community,count(*) from messages group by community having community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
+            if(elements && elements.length > 0) {
+                var query = $u.prepareSQL();
+                var guidToElement = {};
+                var guids = [];
+                for(var i=0; i<elements.length; i++) {
+                    var element = elements[i];
+                    var guid = element.$$meta.permalink.split('/')[2];
+                    guids.push(guid);
+                    guidToElement[guid] = element;
+                }
+                query.sql("SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (");
+                query.array(guids);
+                query.sql(")");
+                $u.executeSQL(database,query).then(function(result) {
+                    debug(result);
+                    var rows = result.rows;
+                    for(var i=0; i<rows.length; i++) {
+                        var row = rows[i];
+                        guidToElement[row.community].$$messagecount = parseInt(row.messagecount);
+                    }
+                    deferred.resolve();
+                }).fail(function(error) {
+                    debug(error);
+                    deferred.reject(error);
+                });
+            } else {
+                // No elements in array, resolve promise.
+                deferred.resolve();
+            }
+            
+            return deferred.promise;
+        }
 
         var config = {
             // For debugging SQL can be logged.
@@ -264,13 +268,13 @@ exports = module.exports = {
                         title: "An object representing a person taking part in the LETS system.",
                         type: "object",
                         properties : {
-                            firstname: $s.string(1,128,"First name of the person."),
-                            lastname: $s.string(1,128,"Last name of the person."),
-                            street: $s.string(1,256,"Streetname of the address of residence."),
-                            streetnumber: $s.string(1,16,"Street number of the address of residence."),
-                            streetbus: $s.string(1,16,"Postal box of the address of residence."),
+                            firstname: $s.string("First name of the person."),
+                            lastname: $s.string("Last name of the person."),
+                            street: $s.string("Streetname of the address of residence."),
+                            streetnumber: $s.string("Street number of the address of residence."),
+                            streetbus: $s.string("Postal box of the address of residence."),
                             zipcode: $s.zipcode("4 digit postal code of the city for the address of residence."),
-                            city: $s.string(1,64,"City for the address of residence."),
+                            city: $s.string("City for the address of residence."),
                             phone: $s.phone("The telephone number for this person. Can be a fixed or mobile phone number."),
                             email: $s.email("The email address the person can be reached on. It should be unique to this person. The email should not be shared with others."),
                             mail4elas: {
@@ -284,7 +288,7 @@ exports = module.exports = {
                     validate: [
                     ],
                     query: {
-                        communities: filterReferencedType('communities','community')
+                        communities: $q.filterReferencedType('communities','community')
                     },
                     afterupdate: [
                         clearPasswordCache
@@ -322,10 +326,10 @@ exports = module.exports = {
                                 description: "Is this message offering something, or is it requesting something ?",
                                 enum: ["offer","request"]
                             },
-                            title: $s.string(1,256,"A short summary of the message. A plain text string."),
-                            description: $s.string(0,1024,"A more elaborate description. An HTML string."),
+                            title: $s.string("A short summary of the message. A plain text string."),
+                            description: $s.string("A more elaborate description. An HTML string."),
                             amount: $s.numeric("Amount suggested by the author."),
-                            unit: $s.string(0,32,"Unit in which amount was suggested by the author."),
+                            unit: $s.string("Unit in which amount was suggested by the author."),
                             community: $s.permalink("/communities","In what community was the message placed ? The permalink to the community.")
                         },
                         required: ["person","type","title","community"]
@@ -335,7 +339,7 @@ exports = module.exports = {
                         validateMoreThan('amount', 20)
                     ],
                     query: {
-                        communities: filterReferencedType("communities","community"),
+                        communities: $q.filterReferencedType("communities","community"),
                         postedSince: messagesPostedSince, // For compatability, to be removed.
                         modifiedsince: messagesPostedSince
                     }
@@ -343,6 +347,28 @@ exports = module.exports = {
                 {
                     type: "/communities",
                     public: true, // remove authorisation check.
+                    secure: [],
+                    schema: {
+                        $schema: "http://json-schema.org/schema#",
+                        title: "A local group in the LETS system.",
+                        type: "object",
+                        properties: {
+                            name: $s.string("Name of this group. Normally named 'LETS [locale]'."),
+                            street: $s.string("Street of the organisational seat address."),
+                            streetnumber: $s.string("Street number of the organisational seat address."),
+                            streetbus: $s.string("Postal box of the organisational seat address."),
+                            zipcode: $s.zipcode("4 digit postal code of the city for the organisational seat address."),
+                            city: $s.string("City for the organisational seat address."),
+                            phone: $s.phone("Contact phone number for the group."),
+                            email: $s.email("Contact email for the group."),
+                            adminpassword: $s.string("Administrative password for the group."),
+                            website: $s.url("Website URL for the group."),
+                            facebook: $s.url("URL to the facebook page of the group."),
+                            currencyname: $s.string("Name of the local currency for the group.")
+                        },
+                        required: ["name", "street", "streetnumber", "zipcode", "city", "phone", "email", "adminpassword", "currencyname"]
+                    },
+                    validate: [ ],
                     map: {
                         name: {},
                         street: {},
@@ -358,40 +384,25 @@ exports = module.exports = {
                         website: { onread: $m.removeifnull },
                         currencyname: {}
                     },
-                    secure: [],
                     query: {
                         invalidQueryParameter: invalidQueryParameter,
                         parameterWithExtraQuery: parameterWithExtraQuery,
-                        parameterWithExtraQuery2: parameterWithExtraQuery2
+                        parameterWithExtraQuery2: parameterWithExtraQuery2,
+                        hrefs: $q.filterHrefs
                     },
-                    schema: {
-                        $schema: "http://json-schema.org/schema#",
-                        title: "A local group in the LETS system.",
-                        type: "object",
-                        properties: {
-                            name: $s.string(1,256,"Name of this group. Normally named 'LETS [locale]'."),
-                            street: $s.string(1,256,"Street of the organisational seat address."),
-                            streetnumber: $s.string(1,16,"Street number of the organisational seat address."),
-                            streetbus: $s.string(1,16,"Postal box of the organisational seat address."),
-                            zipcode: $s.zipcode("4 digit postal code of the city for the organisational seat address."),
-                            city: $s.string(1,64,"City for the organisational seat address."),
-                            phone: $s.phone("Contact phone number for the group."),
-                            email: $s.email("Contact email for the group."),
-                            adminpassword: $s.string(5,64,"Administrative password for the group."),
-                            website: $s.url("Website URL for the group."),
-                            facebook: $s.url("URL to the facebook page of the group."),
-                            currencyname: $s.string(1,32,"Name of the local currency for the group.")
-                        },
-                        required: ["name", "street", "streetnumber", "zipcode", "city", "phone", "email", "adminpassword", "currencyname"]
-                    },
-                    validate: [ ]
+                    afterread: [
+                        // Add the result of a select query to the outgoing resource
+                        // SELECT count(*) FROM messages where community = [this community]
+                        // For example : 
+                        // $$messagecount: 17
+                        addMessageCountToCommunities
+                    ]
                 },
                 {
                     type: "/transactions",
                     public: false,
                     map: {
                         transactiontimestamp: {
-    //                        oninsert: $m.now,
                             onupdate: $m.now
                         },
                         fromperson: {references: '/persons'},
@@ -409,7 +420,7 @@ exports = module.exports = {
                             transactiontimestamp: $s.timestamp("Date and time when the transaction was recorded."),
                             fromperson: $s.permalink("/persons","A permalink to the person that sent currency."),
                             toperson: $s.permalink("/persons","A permalink to the person that received currency."),
-                            description: $s.string(1,256,"A description, entered by the person sending, of the transaction."),
+                            description: $s.string("A description, entered by the person sending, of the transaction."),
                             amount: $s.numeric("The amount of currency sent. This unit is expressed as 20 units/hour, irrelevant of the group's currency settings.")
                         },
                         required: ["fromperson","toperson","description","amount"]
@@ -456,8 +467,8 @@ exports = module.exports = {
                         title: "A table with protected keywords, to check escaping of sri4node",
                         type: "object",
                         properties: {
-                            "select": $s.string(1,32,""),
-                            "from": $s.string(1,32,"")
+                            "select": $s.string(""),
+                            "from": $s.string("")
                         },
                         required: ["select","from"]
                     },

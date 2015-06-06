@@ -7,62 +7,62 @@ DROP TABLE IF EXISTS "communities" CASCADE;
 DROP TABLE IF EXISTS "table" CASCADE;
 
 CREATE TABLE "communities" (
-  "guid" character varying(36) unique,
-  "name" character varying(256) unique,
-  "street" character varying(256) not null,
-  "streetnumber" character varying(16) not null,
-  "streetbus" character varying(16),
-  "zipcode" character varying(4) not null,
-  "city" character varying(64) not null,
-  "phone" character varying(32),
-  "email" character varying(64) not null,
-  "adminpassword" character varying(64) not null,
-  "website" character varying(256),
-  "facebook" character varying(256) unique,
-  "currencyname" character varying(32) not null
+  "guid" text unique,
+  "name" text unique,
+  "street" text not null,
+  "streetnumber" text not null,
+  "streetbus" text,
+  "zipcode" text not null,
+  "city" text not null,
+  "phone" text,
+  "email" text not null,
+  "adminpassword" text not null,
+  "website" text,
+  "facebook" text unique,
+  "currencyname" text not null
 );
 
 CREATE TABLE "persons" (
-  "guid" character varying(36) unique,
-  "firstname" character varying(128) not null,
-  "lastname" character varying(128) not null,
-  "street" character varying(256),
-  "streetnumber" character varying(16),
-  "streetbus" character varying(16),
-  "zipcode" character varying(4),
-  "city" character varying(64),
-  "phone" character varying(32),
-  "email" character varying(64) unique,
+  "guid" text unique,
+  "firstname" text not null,
+  "lastname" text not null,
+  "street" text,
+  "streetnumber" text,
+  "streetbus" text,
+  "zipcode" text,
+  "city" text,
+  "phone" text,
+  "email" text unique,
   "balance" integer not null,
-  "password" character varying(64),
-  "community" character varying(36) references "communities"(guid),
+  "password" text,
+  "community" text references "communities"(guid),
   -- never, daily, weekly, instant
-  "mail4elas" character varying(6) default 'never' -- default : don't spam.
+  "mail4elas" text default 'never' -- default : don't spam.
 );
 
 CREATE TABLE "transactions" (
-  "guid" character varying(36) unique,
+  "guid" text unique,
   "transactiontimestamp" timestamp with time zone not null default (now() at time zone 'utc'),
-  "fromperson" character varying(36) references "persons"(guid),
-  "toperson" character varying(36) references "persons"(guid),
-  "description" character varying(256),
+  "fromperson" text references "persons"(guid),
+  "toperson" text references "persons"(guid),
+  "description" text,
   "amount" integer not null
 );
 
 CREATE TABLE "messages" (
-  "guid" character varying(36) unique,
-  "person" character varying(36) references "persons"(guid),
+  "guid" text unique,
+  "person" text references "persons"(guid),
   "posted" timestamp with time zone not null default (now() at time zone 'utc'),
-  "type" character varying(10) not null,
-  "title" character varying(256) not null,
-  "description" character varying(1024),
+  "type" text not null,
+  "title" text not null,
+  "description" text,
   "amount" integer,
-  "unit" character varying(32),
-  "community" character varying(36) references "communities"(guid)
+  "unit" text,
+  "community" text references "communities"(guid)
 );
 
 CREATE TABLE "table" (
-  "guid" character varying(36) unique,
-  "select" character varying(32),
-  "from" character varying(32)
+  "guid" text unique,
+  "select" text,
+  "from" text
 );

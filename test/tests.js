@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -401,7 +401,6 @@ describe("URL parameters", function() {
     describe("that use the database object", function() {
         it("should return correct results (no side-effects)", function() {
             return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true').then(function(response) {
-                debug(response.body);
                 assert.equal(response.statusCode, 200);
                 // It should return none, we added NOT IN SELECT guid FROM temptable
                 // Where temptable was first filled to select all guids
@@ -411,6 +410,28 @@ describe("URL parameters", function() {
             }).then(function(response) {
                 assert.equal(response.statusCode, 200);
                 assert.equal(response.body.$$meta.count, 0);
+            });
+        });
+    });
+});
+
+describe("Afterread methods", function() {
+    describe("should be executed on regular resources", function() {
+        it('should have a correct messagecount.', function() {
+            return doGet(base + '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$messagecount, 5);
+            });
+        });
+    });
+
+    describe("should be executed on list resources", function() {
+        it('should have a correct messagecount.', function() {
+            return doGet(base + '/communities?hrefs=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+                assert.equal(response.body.results[0].$$expanded.$$messagecount, 5);
             });
         });
     });

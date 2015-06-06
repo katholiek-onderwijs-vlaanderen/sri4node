@@ -36,6 +36,7 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
     var $u = sri4node.utils;
     var $m = sri4node.mapUtils;
     var $s = sri4node.schemaUtils;
+    var $q = sri4node.queryUtils;
 
 Finally we configure handlers for 1 example resource :
 
@@ -68,7 +69,7 @@ Finally we configure handlers for 1 example resource :
                 {
                     // Base url, maps 1:1 with a table in postgres 
                     // Same name, except the '/' is removed
-                    type: "/contents",
+                    type: "/content",
                     // Is this resource public ? 
                     // Can it be read / updated / inserted publicly ?
                     public: false,
@@ -184,11 +185,12 @@ When reading a list resource :
 ## Function Definitions
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
-It describes the inputs of the different functions.
+It describes the inputs and outputs of the different functions.
 Most of these function return a [Q promise][kriskowal-q].
 Some of the function are called with a database context, allowing you to execute SQL inside your function.
 Such a database object can be used together with sri4node.utils.prepareSQL() and sri4node.utils.executeSQL().
-Transaction demarcation is handled by sri4node, on a per-request-basis. That implies that /batch operations are all handled in a single transaction.
+Transaction demarcation is handled by sri4node, on a per-request-basis. 
+That implies that /batch operations are all handled in a single transaction.
 
 ### onread / oninsert / onupdate
 
@@ -199,8 +201,9 @@ Every property can also register 3 possible functions:
 - *onread* is executed after SELECT from the table
 
 All 3 functions receive 2 parameters :
-- the key they were registered on.
-- the javascript element being PUT / or the results of the query just read for GET operations.
+
+- *key* is the key they were registered on.
+- *element* is the javascript element being PUT / or the results of the query for GET operations.
 
 All functions are executed in order of listing in the *map* section of the configuration. 
 All are allowed to manipulate the element, before it is inserted/updated in the table. 
@@ -210,6 +213,7 @@ No return value is expected, the functions manipulate the element in-place.
 ### secure
 
 A *secure* function receive 4 parameters :
+
 - *request* is the Express.js [request][express-request] object for this operation.
 - *response* is the Express.js [response][express-response] object for this operation.
 - *database* is a database object (see above) that you can use for querying the database.
@@ -226,6 +230,7 @@ The error objects are defined in the SRI specification.
 All validation functions are executed for every PUT operation.
 
 A *validate* function receives 2 arguments :
+
 - *body* is full JSON document being PUT. (As PUT by the client, without processing).
 - *database* is a database object (see above) that you can use for querying the database.
 
@@ -241,22 +246,38 @@ All queries are URLs.
 Any allowed URL parameter is interpreted by these functions. 
 The functions can annotate the WHERE clause of the query executed. 
 The functions receive 2 parameters :
-- the value of the request parameter (string)
-- An **sql object** for adding SQL to the WHERE clause. This object has these methods :
+
+- *value* is the value of the request parameter (string).
+- *select* is a **sql object** for adding SQL to the WHERE clause. This object has these methods :
  - *sql()* : A method for appending sql.
- - *param()* : A method for appending a parameter to the text sql.
- - *array()* : A method for appending an array of parameters to the sql. (comma-separated)
-- The name of the URL parameter.
-- *db* A database object that you can use to execute extra SQL statements.
+ - *param(value)* : A method for appending a parameter to the text sql.
+ - *array(value)* : A method for appending an array of parameters to the sql. (comma-separated)
+- *parameter* is the name of the URL parameter.
+- *database* A database object that you can use to execute extra SQL statements.
 - *count* A boolean telling you if you are currently decorating the SELECT COUNT(*) query, or the final SELECT (...) query. Useful for making sure some statements are not executed twice (when using the *database* object)
 
 All the methods on the sql object can be chained. It forms a simple fluent interface.
 All the supplied functions extend the SQL statement with an 'AND' clause.
 
 This type of function must return a promise. When the URL parameter was applied to the **sql object**, then the promise should be resolved.
-If one query function rejects it's promise, the client will find all responses by all rejecting *query* functions and receive 404 Not Found.
-It should reject with one or more objects that correspond to the SRI definition of an [error][sri-error]. Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
+If one query function rejects it's promise, the client will find all error objects by all rejecting *query* functions and receives 404 Not Found + all error messages in the body.
+It should reject with one or more objects that correspond to the SRI definition of an [error][sri-error]. 
+Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
 If a query parameter is supplied that is not supported, the client also receives a 404 and a listing of supported query parameters.
+
+### afterread
+
+Hook for post-processing a GET operation. 
+It applies to both regular resources, and list resources (with at least expand=href).
+Two arguments are received by your function :
+
+- *database* is a database object, allowing you to execute extra SQL statements.
+- *elements* an array of one or more resources that you can manipulate.
+
+The function must retuen a Q promise, that is normally resolved.
+If one of the afterread methods rejects it's promise all error objects are returned to the client, who receives a 500 Internal Error response.
+It should reject with an object that correspond to the SRI definition of an [error][sri-error].
+Mind you that *path* does not makes sense for errors in afterread methods, so you should ommit it.
 
 ### afterupdate / afterinsert
 
@@ -264,17 +285,17 @@ Hooks for post-processing can be registered to perform desired things, like clea
 do further processing, update other tables, etc.. 
 These post-processing functions receive 2 arguments:
 
-- *db* is a database object, allowing you to execute extra SQL statements.
+- *database* is a database object, allowing you to execute extra SQL statements.
 - *element* is the that was just updated / created. 
 
-In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is be rolled back.
+In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
 
 ### afterdelete
 
 Hook for post-processing when a record is deleted.
 The function receives these argument : 
 
-- *db* is a database object, allowing you to execute extra SQL statements.
+- *database* is a database object, allowing you to execute extra SQL statements.
 - *permalink* is the permalink of the object that was deleted.
 
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
@@ -314,7 +335,7 @@ Provides various utilities for mapping between postgres and JSON :
 Provides various utilities for keeping your JSON schema definition compact and readable :
 
     permalink(type, description)
-    string(min, max, description)
+    string(description, min, max)
     numeric(description)
     email(description)
     url(description)
@@ -322,6 +343,62 @@ Provides various utilities for keeping your JSON schema definition compact and r
     phone(description)
     timestamp(description)
     boolean(description)
+
+### query functions
+
+Provides pre-packaged filters for use as *query* function. 
+The example assume you have stored sri4node.queryUtils in $q as a shortcut.
+
+    var sri4node = require('sri4node');
+    ...
+    var $q = sri4node.queryUtils;
+
+#### filterHrefs
+
+Can be used to support filtering on one or more specific regular resources in a list by permalink.
+
+Example : You have created a list of /persons.
+You want to be able to retrieve 3 people in a single GET operation, you can achieve this by retrieving a list resource with exactly those 3 people.
+The SRI specification states that all resources must support this on URL parameter *hrefs*.
+This can be implemented with filterHrefs :
+
+    {
+        type: '/persons',
+        map: {
+            ...
+        },
+        ...
+        query: [
+            hrefs: filterHrefs,
+            href: filterHrefs   // For convenience we also support href.
+        ]
+    }
+
+Then do a query : `GET /persons?hrefs=/persons/{guid-1},/persons/{guid-2},/persons/{guid-3}
+
+#### filterReferencedType(type, columnname)
+
+Can be used to filter of referenced resources. 
+Example: /content resources have a key 'creator' that references /persons.
+A list resource /content?creator=/persons/{guid} can be created by adding this query function :
+
+    {
+        type: '/content',
+        map: {
+            ...
+            creator: { references: '/persons' },
+            ...
+        },
+        ...
+        query: [
+            creator: $q.filterReferencedType('/persons','creator')
+        ],
+        ...
+    }
+
+Do a query to retrieve all content, created by person X :
+
+    GET /content?creator=/persons/{guid-X}
 
 # Contributions
 
