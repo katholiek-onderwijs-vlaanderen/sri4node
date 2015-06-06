@@ -247,8 +247,9 @@ The `onread` function receives these arguments :
 
 Functions are executed in order of listing in the `map` section of the configuration. 
 No return value is expected, this function manipulates the element in-place.
-These functions allow you to do al sorts of things, like remove the key if it is `NULL` in the database,
-allways remove the key, rename the key, etc..
+These functions allow you to do al sorts of things, 
+like remove the key if it is `NULL` in the database,
+always remove the key, rename the key, etc..
 A selection of predefined functions is available in `sri4node.mapUtils` (usually assigned to `$m`).
 See below for details.
 
