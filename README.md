@@ -271,12 +271,14 @@ See below for details.
 
 A `secure` function receives these parameters :
 
-- *request* is the Express.js [request][express-request] object for this operation.
-- *response* is the Express.js [response][express-response] object for this operation.
-- *database* is a database object (see above) that you can use for querying the database.
-- *me* is the security context of the user performing the current HTTP operation.
+- `request` is the Express.js [request][express-request] object for this operation.
+- `response` is the Express.js [response][express-response] object for this operation.
+- `database` is a database object (see above) that you can use for querying the database.
+- `me` is the security context of the user performing the current HTTP operation.
 
-It should reject returned the promise if the function disallows the HTTP operation. 
+It must return a [Q promise][kriskowal-q].
+It should `resolve()` the promise if the function allows the HTTP operation.
+It should `reject()` the promise if the function disallows the HTTP operation.
 In the later case the client will receive a 401 Forbidden as response to his operation.
 
 ### validate
