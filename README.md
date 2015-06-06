@@ -249,7 +249,7 @@ Functions are executed in order of listing in the `map` section of the configura
 No return value is expected, this function manipulates the element in-place.
 These functions allow you to do al sorts of things, 
 like remove the key if it is `NULL` in the database,
-always remove the key, rename the key, etc..
+always remove a certain key, rename a key, etc..
 A selection of predefined functions is available in `sri4node.mapUtils` (usually assigned to `$m`).
 See below for details.
 
