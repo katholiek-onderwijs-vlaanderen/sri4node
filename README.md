@@ -219,7 +219,7 @@ If any of these functions rejects it's promise, the client will receive 401 Forb
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 The `query` functions are executed if they appear in the request URL as parameters.
-4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as $$expanded). See the [SRI specification][sri-specs] for more details.
+4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`). See the [SRI specification][sri-specs] for more details.
 5. Build a list resource with a `$$meta` section + a `results` section.
 6. Execute any `afterread` functions to allow you to manipulate the result JSON.
 
