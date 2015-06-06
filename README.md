@@ -192,7 +192,7 @@ As they are mapped with `{ references: '/type' }`.
 
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
-1. Check if you have permission by executing all registered *secure* functions.
+1. Check if you have permission by executing all registered `secure` functions.
 If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Perform schema validation on the incoming resource.
 If the schema is violated, the client will receive a 409 Conflict.
@@ -205,19 +205,25 @@ By default references to other resources (relative links in the JSON document) a
 5. insert or update the database row.
 6. Execute `afterupdate` or `afterinsert` functions.
 
-When deleting a regular resource :
+When deleting a *regular* resource :
 
-1. Check if you have permission by executing all registered functions in the mapping (*secure*).
+1. Check if you have permission by executing all registered `secure` functions in the mapping.
+If any of these functions rejects it's promise, the client will receive 401 Forbidden.
 2. Delete the row from the database.
-3. Execute *afterdelete* functions.
+3. Execute any `afterdelete` functions.
 
-When reading a list resource :
+When reading a *list* resource :
 
-1. Check if you have read permission by executing all registered functions in the mapping (*secure*).
-2. Generate a COUNT statement and execute all registered 'query' functions to annotate the WHERE clause of the query.
-3. Execute a SELECT statement and execute all registered 'query' functions to annotate the WHERE clause of the query.
+1. Check if you have read permission by executing all registered `secure` functions in the mapping.
+If any of these functions rejects it's promise, the client will receive 401 Forbidden.
+2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
+3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
+The `query` functions are executed if they appear in the request URL as parameters.
 4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as $$expanded). See the [SRI specification][sri-specs] for more details.
-5. Build a list resource with a $$meta section + a results section, and return it to the user.
+5. Build a list resource with a `$$meta` section + a `results` section.
+6. Execute any `afterread` functions to allow you to manipulate the result JSON.
+
+That's it ! :-).
 
 ## Function Definitions
 
