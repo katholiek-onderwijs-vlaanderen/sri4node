@@ -123,7 +123,7 @@ Finally we configure handlers for 1 example resource :
                         authors: $q.filterContains('authors'),
                         themes: $q.filterContains('themes'),
                         html: $q.filterContains('html'),
-                        person: $q.filterReferencedType('/persons','person')
+                        editor: $q.filterReferencedType('/persons','editor')
                     },
                     // All columns in the table that appear in the
                     // resource should be declared in the 'map' object.
@@ -141,9 +141,9 @@ Finally we configure handlers for 1 example resource :
                         authors: {},
                         themes: {},
                         html: {},
-                        // Reference to another resource of type */persons*.
+                        // Reference to another resource of type /persons.
                         // (mapping of 'persons' is not shown in this example)
-                        person: {references : '/persons'}
+                        editor: {references : '/persons'}
                     },
                     // After read, update, insert or delete
                     // you can perform extra actions.
