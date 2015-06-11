@@ -182,6 +182,9 @@ A shorthand version of this is `expand=full`.
 Expansion on list resource can also be specified as `expand=results.href.x,results.href.y`, where `x` and `y` can be any reference in the expanded *regular* resource.
 This will include related *regular* resource.
 
+Expansion on *regular* resource can be specified as `expand=u,v`, where `u` and `v` can be any reference to a related *regular* resource.
+This will include related *regular* resource.
+
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
 1. Check if you have permission by executing all registered `secure` functions in the configuration.
