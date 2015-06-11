@@ -738,7 +738,8 @@ Development will focus on :
 [express-request]: http://expressjs.com/4x/api.html#req
 [express-response]: http://expressjs.com/4x/api.html#res
 [kriskowal-q]: https://github.com/kriskowal/q
-[sri-errors]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub#h.ry6n9c1t7hl0
-[sri-specs]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub
-[sri-specs-list-resources]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub#h.7fk12av55wjz
-[sri-specs-batch]: https://docs.google.com/document/d/1KY-VV_AUJXxkMYrMwVFmyN4yIqil4zx4sKeV_RJFRnU/pub#h.9ottwr99upq6
+
+[sri-specs]: https://github.com/dimitrydhondt/sri
+[sri-specs-list-resources]: https://github.com/dimitrydhondt/sri#list-resources
+[sri-specs-batch]: https://github.com/dimitrydhondt/sri#batch-operations
+[sri-errors]: https://github.com/dimitrydhondt/sri#errors

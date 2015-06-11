@@ -522,4 +522,20 @@ describe("Expansion", function() {
             });
         });
     });
+    
+    // Test expand=results.href.community,results.href.person
+    describe('on list resources', function() {
+        it("should allow expanding multiple keys.", function() {
+            return doGet(base + '/messages?expand=results.href.person,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                debug(response.body.results[0].$$expanded);
+                if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[1].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[2].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[0].$$expanded.person.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[1].$$expanded.person.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[2].$$expanded.person.$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
 });
