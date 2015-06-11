@@ -205,7 +205,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
     var deferred = Q.defer();
     
     var urlparameters = req.query;
-    var standard_parameters = ['orderby', 'descending', 'limit', 'offset'];
+    var standard_parameters = ['orderby', 'descending', 'limit', 'offset','expand'];
 
     var promises = [];
     var reject = false;
@@ -218,6 +218,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
                         // to the SELECT statement
                         promises.push(mapping.query[key](urlparameters[key], select, key, database, count));
                     } else {
+                        debug("rejecting unknown query parameter : [" + key + "]");
                         reject = true;
                         deferred.reject({
                             type: 'unknown.query.parameter',
@@ -281,6 +282,7 @@ function executeOnFunctions(config, mapping, ontype, element) {
 }
 
 function queryByGuid(config, db, mapping, guid) {
+    debug('** queryByGuid()');
     var columns = sqlColumnNames(mapping);
     var table = mapping.type.split("/")[1];
 
@@ -293,8 +295,12 @@ function queryByGuid(config, db, mapping, guid) {
         if(rows.length == 1) {
             var row = result.rows[0];
             var output = {};
+            debug('** mapping columns to JSON object');
             mapColumnsToObject(config, mapping, row, output);
+            debug('** executing onread functions');
             executeOnFunctions(config, mapping, "onread", output);
+            debug('** result of queryByGuid() : ');
+            debug(output);
             deferred.resolve(output);
         } else if (rows.length == 0) {
             deferred.reject({
@@ -763,6 +769,182 @@ function executeAfterReadFunctions(database, elements, mapping) {
     return deferred.promise;    
 }
 
+// Expands a single path on an array of elements.
+function executeSingleExpansion(database, elements, mapping, resources, expand) {
+    var deferred = Q.defer();
+    
+    try {
+        if(elements && elements.length > 0) {        
+            var query = prepare();
+            var targetguids = [];
+            var guidToElement = {};
+            if(mapping.map[expand] == undefined) {
+                debug('** rejecting expand value [' + expand + ']');
+                deferred.reject();
+            } else {            
+                for(var i=0; i<elements.length; i++) {
+                    var element = elements[i];
+                    var permalink = element.$$meta.permalink;
+                    var targetlink = element[expand].href;
+                    var guid = permalink.split('/')[2];
+                    var targetguid = targetlink.split('/')[2];
+                    targetguids.push(targetguid);
+                    guidToElement[guid] = element;
+                }
+
+                var targetType = mapping.map[expand].references;
+                var typeToMapping = typeToConfig(resources);
+                var targetMapping = typeToMapping[targetType];
+                var table = targetMapping.type.substr(1);
+                var columns = sqlColumnNames(targetMapping);
+                debug(table);
+                query.sql('select ' + columns + ' from "' + table + '" where guid in (').array(targetguids).sql(')');
+                pgExec(database,query).then(function(result) {
+                    debug('expansion query done');
+                    var rows = result.rows;
+                    var targetpermalinkToObject = {};
+                    for(var i=0; i<rows.length; i++) {
+                        var row = rows[i];
+                        var expanded = {};
+                        var guid = row['guid'];
+                        mapColumnsToObject(resources, targetMapping, row, expanded);
+                        executeOnFunctions(resources, targetMapping, "onread", expanded);
+                        targetpermalinkToObject[targetType + '/' + guid] = expanded;
+                    }
+
+                    for(var i=0; i<elements.length; i++) {
+                        var element = elements[i];
+                        var targetlink = element[expand].href;
+                        element[expand].$$expanded = targetpermalinkToObject[targetlink];
+                    }
+                    debug('after expansion :');
+                    debug(elements);
+                    // TODO execute afterread
+                    debug('** executeSingleExpansion resolving');
+                    deferred.resolve();
+                });
+            }
+        } else {
+            deferred.resolve();
+        }
+    } catch(e) {
+        debug("** executeSingleExpansion failed : ");
+        debug(e);
+        deferred.reject(e.toString());
+    }
+    
+    return deferred.promise;
+}
+
+/*
+Reduce comma-separated expand parameter to array, in lower case, and remove 'results.href' as prefix.
+The rest of the processing of expansion does not make a distinction between list resources and regular
+resources. Also rewrites 'none' and 'full' to the same format.
+If none appears anywhere in the list, an empty array is returned.
+*/
+function parseExpand(expand, mapping) {
+    var ret = [];
+    
+    var paths = expand.split(',');
+    var containsFull = false;
+    for(var i=0; i<paths.length; i++) {
+        var path = paths[i].toLowerCase();
+        if(path == 'none') {
+            return [];
+        } else if(path == 'full') {
+            // If this was a list resource full is already handled.
+        } else if(path == 'results.href') {
+            // If this was a list resource full is already handled.
+        } else {
+            var prefix = 'results.href.';
+            var index = paths[i].indexOf(prefix)
+            if(index == 0) {
+                var npath = path.substr(prefix.length);
+                if(npath && npath.length > 0) {
+                    debug(npath);
+                    ret.push(npath);
+                }
+            } else if(index == -1) {
+                ret.push(path);
+            }
+        }
+    }    
+    debug("** parseExpand() results in :");
+    debug(ret);
+    
+    return ret;
+}
+
+/*
+Execute expansion on an array of elements.
+Takes into account a comma-separated list of property paths.
+Currently only one level of items on the elements can be expanded.
+
+So for list resources : 
+- results.href.person is OK
+- results.href.community is OK
+- results.href.person,results.href.community is OK. (2 expansions - but both 1 level)
+- results.href.person.address is NOT OK - it has 1 expansion of 2 levels. This is not supported.
+
+For regular resources :
+- person is OK
+- community is OK
+- person,community is OK
+- person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
+*/
+function executeExpansion(database, elements, mapping, resources, expand) {
+    var deferred = Q.defer();
+    debug('** executeExpansion()');
+    try {    
+        if(expand) {
+            var paths = parseExpand(expand, mapping);
+            if(paths && paths.length > 0) {
+                var promises = [];
+                for(var i=0; i<paths.length; i++) {
+                    var path = paths[i];
+                    promises.push(executeSingleExpansion(database, elements, mapping, resources, path));
+                }
+
+                Q.allSettled(promises).then(function(results) {
+                    debug("allSettled :");
+                    debug(results);
+                    var errors = [];
+                    results.forEach(function(result) {
+                        if(result.state == 'rejected') {
+                            errors.push(result.reason);
+                        }
+                    });
+
+                    if(errors.length == 0) {
+                        debug('** executeExpansion() resolves.');
+                        deferred.resolve();
+                    } else {
+                        deferred.reject({ 
+                            type: 'expansion.failed',
+                            status: 404,
+                            body: {
+                                errors: {
+                                    code: 'invalid.expand.value',
+                                    description: 'expand=' + expand + ' is not a valid expansion string.'
+                                }
+                            }
+                        });
+                    }
+                });
+            } else {
+                deferred.resolve();
+            }
+        } else {
+            // No expand value ? We're done !
+            deferred.resolve();
+        }
+    } catch(e) {
+        resolve.reject(e.toString());
+    }
+    
+    return deferred.promise;
+}
+    
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
     configure: function (app, postgres, config) {
@@ -805,29 +987,28 @@ exports = module.exports = {
                 var count;
                 var query;
                 var output;
+                var elements;
                 pgConnect().then(function(db) {
                     debug("pgConnect ... OK");
                     database = db;
-                }).then(function() {
                     var begin = prepare("begin-transaction");
                     begin.sql('BEGIN');
                     return pgExec(database,begin);
                 }).then(function() {
                     countquery = prepare();
-                    countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+                    countquery.sql('select count(*) from "' + table + '" where 1=1 ');                    
+                    debug('* applying URL parameters to WHERE clause');
                     return applyRequestParameters(mapping, req, countquery, database, true);
                 }).then(function () {
-                    debug("applyRequestParameters count(*) ... OK");
+                    debug('* executing SELECT COUNT query on database');
                     return pgExec(database, countquery);
                 }).then(function (results) {
-                    debug("pgExec count(*) ... OK");
-                    debug(results);
                     count = parseInt(results.rows[0].count);
                     query = prepare();
                     query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
+                    debug('* applying URL parameters to WHERE clause');
                     return applyRequestParameters(mapping, req, query, database, false);
                 }).then(function() {    
-                    debug("applyRequestParameters select ... OK");
                     // All list resources support orderby, limit and offset.
                     var orderby = req.query.orderby;
                     var descending = req.query.descending;
@@ -852,13 +1033,14 @@ exports = module.exports = {
                     if (req.query.limit) query.sql(" limit ").param(req.query.limit);
                     if (req.query.offset) query.sql(" offset ").param(req.query.offset);
 
+                    debug('* executing SELECT query on database');
                     return pgExec(database, query);
                 }).then(function (result) {
                     debug("pgExec select ... OK");
                     debug(result);
                     var rows = result.rows;
                     var results = [];
-                    var elements = [];
+                    elements = [];
                     for (var row = 0; row < rows.length; row++) {
                         var currentrow = rows[row];
 
@@ -866,7 +1048,10 @@ exports = module.exports = {
                             href: mapping.type + '/' + currentrow.guid
                         };
 
-                        if (req.query.expand !== 'none') {
+                        // full, or any set of expansion values that must 
+                        // all start with "results.href" or "results.href.*" will result in inclusion
+                        // of the regular resources in the list resources.
+                        if (!req.query.expand || (req.query.expand == 'full' || req.query.expand.indexOf('results.href') == 0)) {
                             element.$$expanded = {
                                 $$meta: {
                                     permalink: mapping.type + '/' + currentrow.guid
@@ -874,9 +1059,16 @@ exports = module.exports = {
                             };
                             mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
                             executeOnFunctions(resources, mapping, "onread", element.$$expanded);
+                            elements.push(element.$$expanded);
+                        } else if(req.query.expand && req.query.expand == 'none') {
+                            // Intentionally left blank.
+                        } else if(req.query.expand) {
+                            // Error expand must be either 'full','none' or start with 'href'
+                            var msg = "expand value unknown : " + req.query.expand;
+                            debug(msg);
+                            throw new Error(msg);
                         }
                         results.push(element);
-                        elements.push(element.$$expanded);
                     }
 
                     output = {
@@ -886,14 +1078,20 @@ exports = module.exports = {
                         },
                         results: results
                     };
-                    
+                    debug('* executing expansion : ' + req.query.expand);
+                    return executeExpansion(database, elements, mapping, resources, req.query.expand);
+                }).then(function() {
+                    debug('* executing afterread functions on results');
+                    debug(elements);
                     return executeAfterReadFunctions(database, elements, mapping);
                 }).then(function() {
-                    debug("executeAfterReadFunctions finished");
+                    debug('* sending response to client :');
+                    debug(output);
                     resp.set('Content-Type', 'application/json');
                     resp.send(output);
                     resp.end();
                     
+                    debug('* rolling back database transaction, GETs never have a side effect on the database.');
                     database.client.query("ROLLBACK", function (err) {
                         // If err is defined, client will be removed from pool.
                         database.done(err);
@@ -929,32 +1127,37 @@ exports = module.exports = {
 
                 var database;
                 var element;
+                var elements;
                 pgConnect().then(function(db) {
                     database = db;
                     if(!mapping.public) {
+                        debug('* getting security context');
                         return getMe(req);
                     }
                 }).then(function(me) {
                     // me == null if no authentication header was sent by the client.
                     if(!mapping.public) {
-                        debug("running config.secure functions");
+                        debug("* running config.secure functions");
                         return validateAccessAllowed(mapping,database,req,resp,me);
                     }
                 }).then(function() {
-                    debug("query by guid");
+                    debug("* query by guid");
                     return queryByGuid(resources, database, mapping, guid);
                 }).then(function(result) {
                     element = result;
                     element.$$meta = {permalink: mapping.type + '/' + guid};
-                    var elements = [];
+                    elements = [];
                     elements.push(element);
+                    debug('* executing expansion : ' + req.query.expand);
+                    return executeExpansion(database, elements, mapping, resources, req.query.expand);
+                }).then(function() {
+                    debug('* executing afterread functions');
                     return executeAfterReadFunctions(database, elements, mapping);
                 }).then(function() {
-                    debug("element after executeAfterReadFunctions : ");
+                    debug('* sending response to the client :');
                     debug(element);
                     resp.set('Content-Type', 'application/json');
                     resp.send(element);
-                    debug("done");
                     database.done();
                     resp.end();
                 }).fail(function (error) {
@@ -971,7 +1174,7 @@ exports = module.exports = {
                     }
                 });
             }).put(logRequests, checkBasicAuthentication, function(req, resp) {
-                debug("sri4node PUT processing invoked.");
+                debug("* sri4node PUT processing invoked.");
                 var url = req.path;
                 pgConnect().then(function (db) {
                     var begin = prepare("begin-transaction");

@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -41,7 +41,7 @@ describe('GET public list resource', function(){
             });
         });
     });
-   
+
     describe('with authentication', function() {
         it('should return a list of 4 communities', function() {
             return doGet(base + '/communities', 'sabine@email.be', 'pwd').then(function(response) {
@@ -448,6 +448,77 @@ describe("Afterread methods", function() {
                 if(response.body.results[1].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
                 if(response.body.results[2].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
                 if(response.body.results[3].$$expanded.$$messagecount == undefined) assert.fail('should have $$messagecount');
+            });
+        });
+    });
+});
+
+describe("Expansion", function() {
+    // Test expand=none
+    describe(' with results.href on list resources', function() {
+        it("should succeed with $$expanded in results array.", function() {
+            return doGet(base + '/messages?expand=none','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded != undefined) assert.fail('Expansion was performed !');
+                if(response.body.results[1].$$expanded != undefined) assert.fail('Expansion was performed !');
+                if(response.body.results[2].$$expanded != undefined) assert.fail('Expansion was performed !');
+            });
+        });
+    });
+    
+    // Test expand=full on list resources (all elements href expanded)
+    describe(' with results.href on list resources', function() {
+        it("should succeed with $$expanded in results array.", function() {
+            return doGet(base + '/messages?expand=full','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[1].$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[2].$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
+    
+    // Test expand=href on list resources
+    describe(' with results.href on list resources', function() {
+        it("should succeed with $$expanded in results array.", function() {
+            return doGet(base + '/messages?expand=results.href','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[1].$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[2].$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
+
+    // Test expand=community on regular message resource
+    describe("on regular resources", function() {
+        it("should succeed with $$expanded as result.", function() {
+            return doGet(base + '/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=community','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.permalink, '/messages/ad9ff799-7727-4193-a34a-09f3819c3479');
+                if(response.body.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
+    
+    // Test expand=results.href,results.href.community on lists of messages
+    describe('on list resources', function() {
+        it("should succeed with $$expanded as result.", function() {
+            return doGet(base + '/messages?expand=results.href,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                debug(response.body.results[0].$$expanded);
+                if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[1].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[2].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
+
+    // Test expand=invalid send 404 Not Found.
+    describe("with invalid", function() {
+        it("should say 'not found'.", function() {
+            return doGet(base + '/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 404);
             });
         });
     });
