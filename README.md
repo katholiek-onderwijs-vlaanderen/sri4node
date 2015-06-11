@@ -176,7 +176,11 @@ We explain the possible HTTP operations below :
 
 In essence we map 1 *regular* resource to a database row. 
 A *list* resource corresponds to a query on a database table.
-List resource support *expansion*, to allow you to include the corresponding regular resource in the same request.
+
+Expansion on list resource can be specified as `expand=results.href`, this will include all *regular* resources in your *list* resource. 
+A shorthand version of this is `expand=full`.
+Expansion on list resource can also be specified as `expand=results.href.x,results.href.y`, where `x` and `y` can be any reference in the expanded *regular* resource.
+This will include related *regular* resource.
 
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
