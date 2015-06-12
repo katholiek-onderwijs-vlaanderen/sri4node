@@ -334,6 +334,7 @@ function queryByGuid(config, db, mapping, guid) {
         var rows = result.rows;
         if(rows.length == 1) {
             var row = result.rows[0];
+            
             var output = {};
             debug('** mapping columns to JSON object');
             mapColumnsToObject(config, mapping, row, output);
@@ -838,12 +839,14 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
                 var targetMapping = typeToMapping[targetType];
                 var table = targetMapping.type.substr(1);
                 var columns = sqlColumnNames(targetMapping);
+                var targetpermalinkToObject = {};
+                var expandedElements = [];
+                
                 debug(table);
                 query.sql('select ' + columns + ' from "' + table + '" where guid in (').array(targetguids).sql(')');
                 pgExec(database,query).then(function(result) {
                     debug('expansion query done');
                     var rows = result.rows;
-                    var targetpermalinkToObject = {};
                     for(var i=0; i<rows.length; i++) {
                         var row = rows[i];
                         var expanded = {};
@@ -851,8 +854,13 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
                         mapColumnsToObject(resources, targetMapping, row, expanded);
                         executeOnFunctions(resources, targetMapping, "onread", expanded);
                         targetpermalinkToObject[targetType + '/' + guid] = expanded;
+                        expanded.$$meta = {permalink: mapping.type + '/' + guid};
+                        expandedElements.push(expanded);
                     }
-
+                    
+                    debug('** executing afterread functions on expanded resources');
+                    return executeAfterReadFunctions(database, expandedElements, targetMapping);
+                }).then(function() {
                     for(var i=0; i<elements.length; i++) {
                         var element = elements[i];
                         var targetlink = element[expand].href;
@@ -862,7 +870,7 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
                     debug(elements);
                     // TODO execute afterread
                     debug('** executeSingleExpansion resolving');
-                    deferred.resolve();
+                    deferred.resolve();                    
                 });
             }
         } else {

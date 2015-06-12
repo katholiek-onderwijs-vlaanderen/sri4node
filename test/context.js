@@ -227,6 +227,7 @@ exports = module.exports = {
         
         function addMessageCountToCommunities(database, elements) {
             debug("addMessageCountToCommunities");
+            debug(elements);
             var deferred = Q.defer();
             
             // Lets do this efficiently. Remember that we receive an array of elements. 
@@ -247,6 +248,7 @@ exports = module.exports = {
                 query.sql("SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (");
                 query.array(guids);
                 query.sql(")");
+                
                 $u.executeSQL(database,query).then(function(result) {
                     debug(result);
                     var rows = result.rows;
@@ -263,6 +265,17 @@ exports = module.exports = {
                 // No elements in array, resolve promise.
                 deferred.resolve();
             }
+            
+            return deferred.promise;
+        }
+        
+        var addExtraKeysAfterRead = function(database, elements) {
+            var deferred = Q.defer();
+            
+            for(var i=0; i<elements.length; i++) {
+                elements[i].$$afterread = 'added by afterread method';
+            }
+            deferred.resolve();
             
             return deferred.promise;
         }
@@ -395,7 +408,10 @@ exports = module.exports = {
                         modifiedsince: messagesPostedSince,
                         cteOneGuid: cteOneGuid,
                         cteOneGuid2: cteOneGuid2
-                    }
+                    },
+                    afterread: [
+                        addExtraKeysAfterRead
+                    ]
                 },
                 {
                     type: "/communities",

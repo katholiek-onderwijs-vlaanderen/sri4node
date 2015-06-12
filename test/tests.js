@@ -562,8 +562,16 @@ describe("Expansion", function() {
             });
         });
     });
-});
-
+    
+    describe('on list resource', function() {
+        it('should have executed afterread on expanded resources.', function() {
+            return doGet(base + '/messages?expand=results.href.person,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded.community.$$expanded.$$messagecount == undefined) assert.fail("afterread was not executed on expanded resource !");
+            });
+        });
+    });
+});        
 
 describe("query parameters", function() {
     describe("that use a CTE", function() {
@@ -595,3 +603,5 @@ describe("query parameters", function() {
         });
     });    
 });
+
+
