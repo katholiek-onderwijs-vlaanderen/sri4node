@@ -200,7 +200,7 @@ As they are mapped with `{ references: '/type' }`.
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
 1. Check if you have permission by executing all registered `secure` functions.
-If any of these functions rejects it's promise, the client will receive 401 Forbidden.
+If any of these functions rejects it's promise, the client will receive 403 Forbidden.
 2. Perform schema validation on the incoming resource.
 If the schema is violated, the client will receive a 409 Conflict.
 3. Execute `validate` functions. 
@@ -215,14 +215,14 @@ By default references to other resources (relative links in the JSON document) a
 When deleting a *regular* resource :
 
 1. Check if you have permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects it's promise, the client will receive 401 Forbidden.
+If any of these functions rejects it's promise, the client will receive 403 Forbidden.
 2. Delete the row from the database.
 3. Execute any `afterdelete` functions.
 
 When reading a *list* resource :
 
 1. Check if you have read permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects it's promise, the client will receive 401 Forbidden.
+If any of these functions rejects it's promise, the client will receive 403 Forbidden.
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 The `query` functions are executed if they appear in the request URL as parameters.

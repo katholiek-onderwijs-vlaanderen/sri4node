@@ -97,7 +97,8 @@ describe('GET private list resource', function() {
     
     describe('/persons with authentication', function() {
         it('should be 200 Ok', function() {
-            return doGet(base + '/persons', 'sabine@email.be', 'pwd').then(function(response) {
+            // Must restrict to the community of the user logged in (restictReadPersons enforces this)
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849', 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 if(!response.body.$$meta.count) assert.fail();
             });
@@ -539,3 +540,16 @@ describe("Expansion", function() {
         });
     });
 });
+
+/*
+describe("query parameters", function() {
+    describe("that use a CTE", function() {
+        it("to limit to a single guid, should only return 1 row.", function() {
+            return doGet(base + '/messages?cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+            });
+        });
+    });
+});
+*/

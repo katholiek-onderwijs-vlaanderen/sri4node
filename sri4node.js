@@ -995,6 +995,17 @@ exports = module.exports = {
                     begin.sql('BEGIN');
                     return pgExec(database,begin);
                 }).then(function() {
+                    if(!mapping.public) {
+                        debug('* getting security context');
+                        return getMe(req);
+                    }
+                }).then(function(me) {
+                    // me == null if no authentication header was sent by the client.
+                    if(!mapping.public) {
+                        debug("* running config.secure functions");
+                        return validateAccessAllowed(mapping,database,req,resp,me);
+                    }
+                }).then(function() {
                     countquery = prepare();
                     countquery.sql('select count(*) from "' + table + '" where 1=1 ');                    
                     debug('* applying URL parameters to WHERE clause');

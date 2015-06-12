@@ -37,14 +37,21 @@ exports = module.exports = {
         // node-postgres defaults to 10 clients in the pool, but heroku.com allows 20.
         pg.defaults.poolSize = 20;
 
-        
-
         var invalidQueryParameter = function(value, select, param, database) {
             var deferred = Q.defer();
             deferred.reject({ code: "invalid.query.parameter" });
             return deferred.promise;
         };
         
+        // Don't really need the extra parameters when using CTE.
+        var cteOneGuid = function(value, select, param) {
+            var deferred = Q.defer();
+            
+            deferred.resolve();
+            
+            return deferred.promise;
+        }
+
         var parameterWithExtraQuery = function(value, select, param, database, count) {
             var deferred = Q.defer();
             
@@ -117,24 +124,49 @@ exports = module.exports = {
         };
 
         var restrictReadPersons = function(req, resp, db, me) {
+            // A secure function must take into account that a GET operation
+            // can be either a GET for a regular resource, or a GET for a
+            // list resource.
+            debug('** restrictReadPersons ');
             var deferred = Q.defer();
             if(req.method === 'GET') {
+                debug('** req.path = ' + req.   path);
                 var url = req.path;
-                var type = '/' + url.split("/")[1];
-                var guid = url.split("/")[2];
-                var myCommunityGuid = me.community.href.split("/")[2];
-
-                var query = $u.prepareSQL("check-person-is-in-my-community");
-                query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
-                $u.executeSQL(db, query).then(function(result) {
-                    if(result.rows[0].count == 1) {
-                        deferred.resolve();
+                if(url == '/persons') {
+                    // Should allways restrict to /me community.
+                    debug('** req.query :');
+                    debug(req.query);
+                    if(req.query.communities) {
+                        debug('** me :');
+                        debug(me);
+                        if(req.query.communities == me.community.href) {
+                            debug('** restrictReadPersons resolves.');
+                            deferred.resolve();
+                        } else {
+                            debug('** restrictReadPersons rejecting - can only request persons from your own community.');
+                            deferred.reject();
+                        }
                     } else {
-                        cl('security method restrictedReadPersons denies access');
+                        cl('** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
                         deferred.reject();
                     }
-                });
+                } else {                    
+                    var type = '/' + url.split("/")[1];
+                    var guid = url.split("/")[2];
+                    var myCommunityGuid = me.community.href.split("/")[2];
 
+                    var query = $u.prepareSQL("check-person-is-in-my-community");
+                    query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
+                    $u.executeSQL(db, query).then(function(result) {
+                        if(result.rows[0].count == 1) {
+                            debug('** restrictReadPersons resolves.');
+                            deferred.resolve();
+                        } else {
+                            cl('** security method restrictedReadPersons denies access.');
+                            deferred.reject();
+                        }
+                    });
+                } /* end handling regular resource request */
             } else {
                 deferred.resolve();
             }
