@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = true;
+logsql = logrequests = logdebug = false;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -31,7 +31,7 @@ function cl(x) {
 function debug(x) {
     if(logdebug) cl(x);
 }
-/*
+
 describe('GET public list resource', function(){
     describe('without authentication', function(){
         it('should return a list of 4 communities', function(){
@@ -563,10 +563,9 @@ describe("Expansion", function() {
         });
     });
 });
-*/
+
 
 describe("query parameters", function() {
-    /*
     describe("that use a CTE", function() {
         it("to limit to a single guid, should only return 1 row.", function() {
             return doGet(base + '/messages?cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
@@ -575,7 +574,6 @@ describe("query parameters", function() {
             });
         });
     });
-    */
     
     // Test re-ordering of query parameters.
     describe("that use a CTE and other parameter", function() {
@@ -595,6 +593,5 @@ describe("query parameters", function() {
                 assert.equal(response.body.$$meta.count, 1);
             });
         });
-    });
-    
+    });    
 });
