@@ -479,7 +479,7 @@ describe("Afterread methods", function() {
 
 describe("Expansion", function() {
     // Test expand=none
-    describe(' with results.href on list resources', function() {
+    describe(' with "none" on list resources', function() {
         it("should succeed with $$expanded in results array.", function() {
             return doGet(base + '/messages?expand=none','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
@@ -491,7 +491,7 @@ describe("Expansion", function() {
     });
     
     // Test expand=full on list resources (all elements href expanded)
-    describe(' with results.href on list resources', function() {
+    describe(' with "full" on list resources', function() {
         it("should succeed with $$expanded in results array.", function() {
             return doGet(base + '/messages?expand=full','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
