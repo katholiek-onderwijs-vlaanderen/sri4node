@@ -408,7 +408,7 @@ It returns a query object with these functions :
 - `param(value)` is a method for appending a parameter to the SQL statement.
 - `array(value)` is a method for appending an array of parameters to the SQL statement (comma-separated). Useful for generating things like `IN` clauses.
 - `keys(value)` adds all keys in an object comma-separated to the SQL statement.
-- `values(value)` is a method for appending all values of an object as parameters to the SQL statement. `columns` and `object` have the same iteration order of the object supplied.
+- `values(value)` is a method for appending all values of an object as parameters to the SQL statement. `keys` and `values` have the same iteration order of the object supplied.
 - `with(query, virtualtablename)` is a method for adding a different query object as `WITH` statement to this query. Allows you to use postgres Common Table Objects (CTE) in your request parameters. You can refer in the query to the virtual table you named with `virtualtablename`.
 
 All the methods on the query object can be chained. It forms a simple fluent interface.
