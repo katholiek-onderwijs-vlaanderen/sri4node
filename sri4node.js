@@ -49,14 +49,41 @@ var pgConnect = function () {
 // values : An array of java values to be inserted in $1,$2, etc..
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
+var parameterPattern = '$?$?';
 var pgExec = function (db, query) {
     var deferred = Q.defer();
-
-    if (logsql) {
-        cl(query);
+    var q = {};
+    
+    q.text = query.text;
+    q.values = query.params;
+    var paramCount = 1;
+    if(q.values && q.values.length > 0) {
+        for(var i=0; i<q.values.length; i++) {
+            var index = q.text.indexOf(parameterPattern);
+            if(index == -1) {
+                var msg = "Parameter count in query does not add up. Too few parameters in the query string";
+                debug("** " + msg); 
+                deferred.reject(msg);
+            } else {
+                var prefix = q.text.substring(0,index);
+                var postfix = q.text.substring(index+parameterPattern.length,q.text.length);
+                q.text = prefix + "$" + paramCount + postfix;
+                paramCount++;
+            }
+        }
+        var index = q.text.indexOf(parameterPattern);
+        if(index != -1) {
+            var msg = "Parameter count in query does not add up. Extra parameters in the query string.";
+            debug("** " + msg);
+            deferred.reject();
+        }
     }
 
-    db.client.query(query, function (err, result) {
+    if (logsql) {
+        cl(q);
+    }
+
+    db.client.query(q, function (err, result) {
         if (err) {
             if (logsql) {
                 cl("SQL error :");
@@ -81,14 +108,14 @@ var prepare = function(name) {
     return {
         name: name,
         text: '',
-        values: [],
+        params: [],
         param: function(x) {
             // Convenience function for adding a parameter to the text, it
             // automatically adds $x to the SQL text, and adds the supplied value
             // to the 'value'-array.
-            var index = this.values.length + 1;
-            this.values.push(x);
-            this.text = this.text + "$" + index;
+            var index = this.params.length + 1;
+            this.params.push(x);
+            this.text = this.text + parameterPattern;
 
             return this;
         },
@@ -113,7 +140,7 @@ var prepare = function(name) {
 
             return this;
         },
-        columns: function(o) {
+        keys: function(o) {
             // Convenience function for adding all keys in an object (comma-separated)
             var columnNames = [];
 
@@ -133,7 +160,7 @@ var prepare = function(name) {
 
             return this;
         },
-        object: function(o) {
+        values: function(o) {
             // Convenience function for adding all values of an object as parameters.
             // Same iteration order as 'columns'.
             var firstcolumn = true;
@@ -148,6 +175,17 @@ var prepare = function(name) {
                 }
             }
 
+            return this;
+        },
+        with: function(query, virtualtablename) {
+            if(this.text.indexOf('WITH') == -1) {
+                this.text = 'WITH ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ' + this.text;
+            } else {
+                var cte = ', ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ';
+                this.text = this.text.replace('/*LASTCTE*/',cte);
+            }
+            this.params = query.params.concat(this.params);
+            
             return this;
         }
     }
@@ -205,7 +243,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
     var deferred = Q.defer();
     
     var urlparameters = req.query;
-    var standard_parameters = ['orderby', 'descending', 'limit', 'offset','expand'];
+    var standard_parameters = ['orderby', 'descending', 'limit', 'offset','expand','hrefs'];
 
     var promises = [];
     var reject = false;
@@ -234,6 +272,8 @@ function applyRequestParameters(mapping, req, select, database, count) {
                         });
                         break;
                     }
+                } else if(key == 'hrefs') {
+                    promises.push(exports.queryUtils.filterHrefs(urlparameters['hrefs'], select, key, database, count));
                 }
             }
         }
@@ -446,8 +486,9 @@ function checkBasicAuthentication(req, res, next) {
                     }).then(function () {
                         database.done();
                     }).fail(function (err) {
-                        cl("checking basic authentication against database failed.");
-                        cl(err);
+                        debug("checking basic authentication against database failed.");
+                        debug(err);
+                        debug(err.stack);
                         database.done(err);
                         unauthorized();
                     });
@@ -640,7 +681,7 @@ function executePutInsideTransaction(db, url, body) {
                 executeOnFunctions(resources, mapping, "oninsert", element);
 
                 var insert = prepare("insert-"+ table);
-                insert.sql('insert into "' + table + '" (').columns(element).sql(') values (').object(element).sql(') ');
+                insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
                 return pgExec(db, insert).then(function (results) {
                     if(results.rowCount != 1) {
                         debug("No row affected ?!");
@@ -1120,8 +1161,12 @@ exports = module.exports = {
                         resp.end();
                     } else {
                         cl("GET processing had errors. Removing pg client from pool. Error : ");
-                        cl(errors);
-                        database.done(errors);
+                        if(error.stack) {
+                            cl(error.stack);
+                        } else {
+                            cl(error);
+                        }
+                        database.done(error);
                         resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
                         resp.end();
                     }

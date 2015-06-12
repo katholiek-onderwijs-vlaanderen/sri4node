@@ -47,10 +47,27 @@ exports = module.exports = {
         var cteOneGuid = function(value, select, param) {
             var deferred = Q.defer();
             
+            var cte = $u.prepareSQL();
+            cte.sql("SELECT guid FROM messages where title = ").param("Rabarberchutney");
+            select.with(cte, "cte");
+            select.sql(" AND guid IN (SELECT guid FROM cte)");
             deferred.resolve();
             
             return deferred.promise;
         }
+
+        var cteOneGuid2 = function(value, select, param) {
+            var deferred = Q.defer();
+            
+            var cte = $u.prepareSQL();
+            cte.sql("SELECT guid FROM messages where title = ").param("Rabarberchutney");
+            select.with(cte, "cte2");
+            select.sql(" AND guid IN (SELECT guid FROM cte2)");
+            deferred.resolve();
+            
+            return deferred.promise;
+        }
+
 
         var parameterWithExtraQuery = function(value, select, param, database, count) {
             var deferred = Q.defer();
@@ -375,7 +392,9 @@ exports = module.exports = {
                     query: {
                         communities: $q.filterReferencedType("communities","community"),
                         postedSince: messagesPostedSince, // For compatability, to be removed.
-                        modifiedsince: messagesPostedSince
+                        modifiedsince: messagesPostedSince,
+                        cteOneGuid: cteOneGuid,
+                        cteOneGuid2: cteOneGuid2
                     }
                 },
                 {

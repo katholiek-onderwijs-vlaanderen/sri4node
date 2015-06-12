@@ -31,7 +31,7 @@ function cl(x) {
 function debug(x) {
     if(logdebug) cl(x);
 }
-
+/*
 describe('GET public list resource', function(){
     describe('without authentication', function(){
         it('should return a list of 4 communities', function(){
@@ -50,6 +50,29 @@ describe('GET public list resource', function(){
             });
         });
     });
+
+    describe('with single value ?hrefs=...', function() {
+        it('should work', function() {
+            return doGet(base + '/communities?hrefs=/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+                assert.equal(response.body.results[0].href, '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d');
+            });
+        });
+    });
+    
+    describe('with two values ?hrefs=...', function() {
+        it('should work', function() {
+            return doGet(base + '/communities?hrefs=/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d,/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c', 'sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 2);
+                var hrefs = [response.body.results[0].href,response.body.results[1].href];
+                if(hrefs.indexOf('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d') == -1) assert.fail();
+                if(hrefs.indexOf('/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c') == -1) assert.fail();
+            });
+        });
+    });
+
 });
 
 describe('GET public regular resource', function() {
@@ -540,9 +563,10 @@ describe("Expansion", function() {
         });
     });
 });
+*/
 
-/*
 describe("query parameters", function() {
+    /*
     describe("that use a CTE", function() {
         it("to limit to a single guid, should only return 1 row.", function() {
             return doGet(base + '/messages?cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
@@ -551,5 +575,26 @@ describe("query parameters", function() {
             });
         });
     });
+    */
+    
+    // Test re-ordering of query parameters.
+    describe("that use a CTE and other parameter", function() {
+        it("to limit to a single guid + another parameter, should handle re-sequencing of parameters well", function() {
+            return doGet(base + '/messages?hrefs=/messages/d70c98ca-9559-47db-ade6-e5da590b2435&cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+            });
+        });
+    });
+    
+    // Test applying 2 CTEs
+    describe("that use a TWO CTEs", function() {
+        it("to limit to a single guid, should handle both CTEs well", function() {
+            return doGet(base + '/messages?cteOneGuid=true&cteOneGuid2=true','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+            });
+        });
+    });
+    
 });
-*/
