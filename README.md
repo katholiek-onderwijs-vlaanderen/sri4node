@@ -749,13 +749,6 @@ Contributions are welcome. Contact me on dimitry_dhondt@yahoo.com.
 
 The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.html). 
 
-# TO DO
-
-Development will focus on :
-- Adding support for generic server-side expansion.
-- Adding support for an HTTP cache for reading, avoiding database hits for read operations.
-- Creating a new project that make using SRI interfaces from AngularJS easy.
-
 [express-request]: http://expressjs.com/4x/api.html#req
 [express-response]: http://expressjs.com/4x/api.html#res
 [kriskowal-q]: https://github.com/kriskowal/q
