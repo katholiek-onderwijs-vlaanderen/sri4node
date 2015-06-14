@@ -667,4 +667,3 @@ describe("Using queryUtils", function() {
         });
     });
 });
-

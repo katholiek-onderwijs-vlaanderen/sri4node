@@ -1471,21 +1471,25 @@ exports = module.exports = {
                 var permalinks, guids, i;
 
                 if (value) {
+                    debug('** filterReferencedType');
+                    debug('** resourcetype = [' + resourcetype + ']');
                     permalinks = value.split(",");
+                    debug('** permalinks : ');
+                    debug(permalinks);
                     guids = [];
                     var reject = false;
                     for (i = 0; i < permalinks.length; i++) {
-                        if(permalinks[i].indexOf("/" + resourcetype + "/") === 0) {
-                            var guid = permalinks[i].substr(resourcetype.length + 2);
+                        if(permalinks[i].indexOf(resourcetype + "/") === 0) {
+                            var guid = permalinks[i].substr(resourcetype.length + 1);
                             if(guid.length == 36) {
                                 guids.push(guid);
                             } else {
-                                deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                                deferred.reject({ code: "parameter.invalid.value" });
                                 reject = true;
                                 break;
                             }
                         } else {
-                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
+                            deferred.reject({ code: "parameter.invalid.value" });
                             reject = true;
                             break;
                         }

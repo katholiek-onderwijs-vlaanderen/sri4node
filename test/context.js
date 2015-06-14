@@ -352,7 +352,7 @@ exports = module.exports = {
                     validate: [
                     ],
                     query: {
-                        communities: $q.filterReferencedType('communities','community'),
+                        communities: $q.filterReferencedType('/communities','community'),
                         firstnameILike: $q.filterILike('firstname'),
                         firstnameIn: $q.filterIn('firstname')
                     },
@@ -405,7 +405,7 @@ exports = module.exports = {
                         validateMoreThan('amount', 20)
                     ],
                     query: {
-                        communities: $q.filterReferencedType("communities","community"),
+                        communities: $q.filterReferencedType("/communities","community"),
                         postedSince: messagesPostedSince, // For compatability, to be removed.
                         modifiedsince: messagesPostedSince,
                         cteOneGuid: cteOneGuid,
