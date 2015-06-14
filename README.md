@@ -179,11 +179,11 @@ A *list* resource corresponds to a query on a database table.
 
 Expansion on list resource can be specified as `expand=results.href`, this will include all *regular* resources in your *list* resource. 
 A shorthand version of this is `expand=full`.
-Expansion on list resource can also be specified as `expand=results.href.x,results.href.y`, where `x` and `y` can be any reference in the expanded *regular* resource.
-This will include related *regular* resource.
+Expansion on list resource can also be specified as `expand=results.href.x.y,results.href.u.v.w`, where `x.y` and `u.v.w` can be any path in the expanded *regular* resource.
+This will include related *regular* resources.
 
-Expansion on *regular* resource can be specified as `expand=u,v`, where `u` and `v` can be any reference to a related *regular* resource.
-This will include related *regular* resource.
+Expansion on *regular* resource can be specified as `expand=u.v,x.y.z`, where `u.v` and `x.y.z` can be any reference to related *regular* resources.
+This will include related *regular* resources.
 
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
