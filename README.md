@@ -743,7 +743,7 @@ Do a query to retrieve all content, created by person X :
 
 # Contributions
 
-Contributions are welcome. Contact me on dimitry_dhondt@yahoo.com.
+Contributions are welcome. Contact me on dimitry-underscore-dhondt-at-yahoo-dot-com.
 
 # License
 
