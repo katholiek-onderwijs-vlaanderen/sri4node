@@ -812,7 +812,9 @@ function executeAfterReadFunctions(database, elements, mapping) {
 }
 
 // Expands a single path on an array of elements.
-function executeSingleExpansion(database, elements, mapping, resources, expand) {
+// Potential improvement : when the expansion would load obejcts that are already
+// in the cluster currently loaded, re-use the loaded element, rather that querying it again.
+function executeSingleExpansion(database, elements, mapping, resources, expandpath) {
     var deferred = Q.defer();
     
     try {
@@ -820,6 +822,18 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
             var query = prepare();
             var targetguids = [];
             var guidToElement = {};
+            var firstDotIndex = expandpath.indexOf('.');
+            var expand;
+            var recurse;
+            var recursepath;
+            if(firstDotIndex == -1) {
+                expand = expandpath;
+                recurse = false;
+            } else {
+                expand = expandpath.substring(0,firstDotIndex);
+                recurse = true;
+                recursepath = expandpath.substring(firstDotIndex + 1, expandpath.length);
+            }
             if(mapping.map[expand] == undefined) {
                 debug('** rejecting expand value [' + expand + ']');
                 deferred.reject();
@@ -830,7 +844,10 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
                     var targetlink = element[expand].href;
                     var guid = permalink.split('/')[2];
                     var targetguid = targetlink.split('/')[2];
-                    targetguids.push(targetguid);
+                    // Remove duplicates and items that are already expanded.
+                    if(targetguids.indexOf(targetguid) == -1 && element[expand].$$expanded == undefined) {
+                        targetguids.push(targetguid);
+                    }
                     guidToElement[guid] = element;
                 }
 
@@ -866,11 +883,17 @@ function executeSingleExpansion(database, elements, mapping, resources, expand) 
                         var targetlink = element[expand].href;
                         element[expand].$$expanded = targetpermalinkToObject[targetlink];
                     }
-                    debug('after expansion :');
-                    debug(elements);
-                    // TODO execute afterread
-                    debug('** executeSingleExpansion resolving');
-                    deferred.resolve();                    
+                    if(recurse) {
+                        debug('** recursing to next level of expansion : ' + recursepath);
+                        executeSingleExpansion(database,expandedElements,targetMapping,resources,recursepath,guidToElement).then(function() {
+                            deferred.resolve();
+                        }).fail(function(e) {
+                            deferred.reject(e);
+                        });
+                    } else {
+                        debug('** executeSingleExpansion resolving');
+                        deferred.resolve();
+                    }
                 });
             }
         } else {
@@ -966,6 +989,8 @@ function executeExpansion(database, elements, mapping, resources, expand) {
 
                     if(errors.length == 0) {
                         debug('** executeExpansion() resolves.');
+                        debug('after expansion :');
+                        debug(elements);
                         deferred.resolve();
                     } else {
                         deferred.reject({ 

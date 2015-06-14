@@ -571,6 +571,18 @@ describe("Expansion", function() {
             });
         });
     });
+    
+    describe('with 2 level path (x.y)', function() {
+        it('should expand recursively.', function() {
+            return doGet(base + '/messages?expand=results.href.person.community,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+                assert.equal(response.statusCode, 200);
+                if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[0].$$expanded.person.$$expanded == undefined) assert.fail('Expansion was not performed !');
+                if(response.body.results[0].$$expanded.person.$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
+            });
+        });
+    });
+
 });        
 
 describe("query parameters", function() {
@@ -603,5 +615,3 @@ describe("query parameters", function() {
         });
     });    
 });
-
-
