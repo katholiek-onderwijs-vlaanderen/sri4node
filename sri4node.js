@@ -1500,13 +1500,34 @@ exports = module.exports = {
             }
         },
         
-        filterContains: function(columnname) {
+        filterILike: function(columnname) {
             return function(value, select) {
                 var deferred = Q.defer();
                 
                 if (value) {
-                    var query = $u.prepareSQL();
-                    query.sql(' and ' + columnname + ' LIKE "%').param(value).sql('%" ');
+                    var values = value.split(',');
+                    select.sql(' AND (');
+                    for(var i=0; i<values.length; i++) {
+                        if(i>0) select.sql(' OR ');
+                        select.sql(columnname + ' ILIKE ').param('%' + values[i] + '%');
+                    }
+                    select.sql(') ');
+                    deferred.resolve();
+                } else {
+                    deferred.resolve();
+                }
+                
+                return deferred.promise;
+            }
+        },
+        
+        filterIn: function(columnname) {
+            return function(value, select) {
+                var deferred = Q.defer();
+                
+                if(value) {
+                    var values = value.split(',');
+                    select.sql(' AND ' + columnname + ' IN (').array(values).sql(') ');
                     deferred.resolve();
                 } else {
                     deferred.resolve();

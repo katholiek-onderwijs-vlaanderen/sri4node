@@ -695,33 +695,10 @@ The example assume you have stored `sri4node.queryUtils` in $q as a shortcut.
     ...
     var $q = sri4node.queryUtils;
 
-#### filterHrefs
-
-Can be used to support filtering on one or more specific regular resources in a list by permalink.
-
-Example : You have created a list of /persons.
-You want to be able to retrieve 3 people in a single GET operation, you can achieve this by retrieving a list resource with exactly those 3 people.
-The SRI specification states that all resources must support this on URL parameter *hrefs*.
-This can be implemented with filterHrefs :
-
-    {
-        type: '/persons',
-        map: {
-            ...
-        },
-        ...
-        query: [
-            hrefs: filterHrefs,
-            href: filterHrefs   // For convenience we also support href.
-        ]
-    }
-
-Then do a query : `GET /persons?hrefs=/persons/{guid-1},/persons/{guid-2},/persons/{guid-3}`
-
 #### filterReferencedType(type, columnname)
 Can be used to filter on referenced resources. 
 Example: /content resources have a key `creator` that references /persons.
-A list resource /content?creator=/persons/{guid} can be created by adding this query function :
+A list resource `/content?creator=/persons/{guid}` can be created by adding this query function :
 
     {
         type: '/content',
@@ -740,6 +717,62 @@ A list resource /content?creator=/persons/{guid} can be created by adding this q
 Do a query to retrieve all content, created by person X :
 
     GET /content?creator=/persons/{guid-X}
+ 
+#### filterILike(columnname)
+Can be used to filter an a case-insensitive substring of a certain column.
+Example: /content resources have a key `html`.
+You can support list resource like `/content?html=keyword` by adding this query function :
+
+    {
+        type: '/content',
+        map: {
+            ...
+            html: { },
+            ...
+        },
+        ...
+        query: [
+            html: $q.filterContains('/persons','creator')
+        ],
+        ...
+    }
+
+Do a query to retrieve all content, created by person X :
+
+    GET /content?html=keyword
+    
+This filter also supports multiple, comma-separated, values. 
+The resulting list resource will contain items that contain *one of* the supplied values.
+
+    GET /content?html=thiskeyword,ORthisone
+
+ 
+#### filterIn(columnname)
+Can be used to filter on an exact value for a certain column.
+Example: A `/schools` resource could have a property `institutionNumber`.
+In order to filter down to the school with exactly one institutionNumber : 
+
+    {
+        type: '/schools',
+        map: {
+            ...
+            institutionNumber: { },
+            ...
+        },
+        ...
+        query: [
+            institutionNumber: filterEquals('insititionNumber')
+        ]
+    }
+
+Then do a query to retrieve a specific school with institution number 128256 : `
+
+    GET /schools?institutionNumber=128256
+
+This filter supports multiple, comma-separated, values.
+The resulting list resource will contain items that has *one of* the supplied values.
+
+    GET /schools?institutionNumber=128256,036456
 
 # Contributions
 

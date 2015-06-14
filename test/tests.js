@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -615,3 +615,56 @@ describe("query parameters", function() {
         });
     });    
 });
+
+describe("Using queryUtils", function() {
+    describe("function filterILike", function() {
+        it("should should match substrings case-insensitive", function() {
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameILike=NgRi','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+            });
+        });
+    });
+    
+    describe("function filterILike", function() {
+        it("should should support matching on 2 possible values", function() {
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameILike=NgRi,iCoL','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 2);
+            });
+        });
+    });    
+
+    describe("function filterIn", function() {
+        it("should should match on exact values", function() {
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Ingrid','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 1);
+            });
+        });
+    });
+
+    describe("function filterIn", function() {
+        it("should should ONLY match on exact values", function() {
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Gobeldigook','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 0);
+            });
+        });
+    });
+
+    describe("function filterIn", function() {
+        it("should should support matching on 2 possible values", function() {
+            return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Ingrid,Nicole','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 2);
+            });
+        });
+    });
+});
+

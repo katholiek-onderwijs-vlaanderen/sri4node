@@ -352,7 +352,9 @@ exports = module.exports = {
                     validate: [
                     ],
                     query: {
-                        communities: $q.filterReferencedType('communities','community')
+                        communities: $q.filterReferencedType('communities','community'),
+                        firstnameILike: $q.filterILike('firstname'),
+                        firstnameIn: $q.filterIn('firstname')
                     },
                     afterupdate: [
                         clearPasswordCache
