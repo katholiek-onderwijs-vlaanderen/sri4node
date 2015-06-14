@@ -1495,7 +1495,7 @@ exports = module.exports = {
                         }
                     }
                     if(!reject) {
-                        query.sql(' and ' + columnname + ' in (').array(guids).sql(') ');
+                        query.sql(' and "' + columnname + '" in (').array(guids).sql(') ');
                         deferred.resolve();
                     }
                 }
@@ -1513,7 +1513,7 @@ exports = module.exports = {
                     select.sql(' AND (');
                     for(var i=0; i<values.length; i++) {
                         if(i>0) select.sql(' OR ');
-                        select.sql(columnname + ' ILIKE ').param('%' + values[i] + '%');
+                        select.sql('"' + columnname + '" ILIKE ').param('%' + values[i] + '%');
                     }
                     select.sql(') ');
                     deferred.resolve();
@@ -1531,7 +1531,7 @@ exports = module.exports = {
                 
                 if(value) {
                     var values = value.split(',');
-                    select.sql(' AND ' + columnname + ' IN (').array(values).sql(') ');
+                    select.sql(' AND "' + columnname + '" IN (').array(values).sql(') ');
                     deferred.resolve();
                 } else {
                     deferred.resolve();
