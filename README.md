@@ -63,7 +63,7 @@ Finally we configure handlers for 1 example resource :
                     var row = result.rows[0];
                     var output = {};
                     output.$$meta = {};
-                    output.$$meta.permalink = '/persons/' + row.guid;
+                    output.$$meta.permalink = '/persons/' + row.key;
                     output.firstname = row.firstname;
                     output.lastname = row.lastname;
                     output.email = row.email;
@@ -115,7 +115,7 @@ Finally we configure handlers for 1 example resource :
                     // of preparatory queries on the database,
                     // You can execute stored procedures and create
                     // temporary tables to allow you to add things like :
-                    // ' AND guid IN (SELECT guid FROM mytemptable) '
+                    // ' AND key IN (SELECT key FROM mytemptable) '
                     // to the query being executed.
                     // Allowig any kind of filtering on
                     // the resulting list resource.

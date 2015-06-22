@@ -7,7 +7,7 @@ DROP TABLE IF EXISTS "communities" CASCADE;
 DROP TABLE IF EXISTS "table" CASCADE;
 
 CREATE TABLE "communities" (
-  "guid" text unique,
+  "key" text unique,
   "name" text unique,
   "street" text not null,
   "streetnumber" text not null,
@@ -23,7 +23,7 @@ CREATE TABLE "communities" (
 );
 
 CREATE TABLE "persons" (
-  "guid" text unique,
+  "key" text unique,
   "firstname" text not null,
   "lastname" text not null,
   "street" text,
@@ -35,34 +35,34 @@ CREATE TABLE "persons" (
   "email" text unique,
   "balance" integer not null,
   "password" text,
-  "community" text references "communities"(guid),
+  "community" text references "communities"(key),
   -- never, daily, weekly, instant
   "mail4elas" text default 'never' -- default : don't spam.
 );
 
 CREATE TABLE "transactions" (
-  "guid" text unique,
+  "key" text unique,
   "transactiontimestamp" timestamp with time zone not null default (now() at time zone 'utc'),
-  "fromperson" text references "persons"(guid),
-  "toperson" text references "persons"(guid),
+  "fromperson" text references "persons"(key),
+  "toperson" text references "persons"(key),
   "description" text,
   "amount" integer not null
 );
 
 CREATE TABLE "messages" (
-  "guid" text unique,
-  "person" text references "persons"(guid),
+  "key" text unique,
+  "person" text references "persons"(key),
   "posted" timestamp with time zone not null default (now() at time zone 'utc'),
   "type" text not null,
   "title" text not null,
   "description" text,
   "amount" integer,
   "unit" text,
-  "community" text references "communities"(guid)
+  "community" text references "communities"(key)
 );
 
 CREATE TABLE "table" (
-  "guid" text unique,
+  "key" text unique,
   "select" text,
   "from" text
 );

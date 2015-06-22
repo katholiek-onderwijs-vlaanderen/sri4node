@@ -227,7 +227,7 @@ function sqlColumnNames(mapping) {
             columnNames.push(key);
         }
     }
-    var sqlColumnNames = '"guid",';
+    var sqlColumnNames = '"key",';
     for (var j = 0; j < columnNames.length; j++) {
         sqlColumnNames += '"' + columnNames[j] + '"';
         if (j < columnNames.length - 1) {
@@ -321,13 +321,13 @@ function executeOnFunctions(config, mapping, ontype, element) {
     }
 }
 
-function queryByGuid(config, db, mapping, guid) {
-    debug('** queryByGuid()');
+function queryByKey(config, db, mapping, key) {
+    debug('** queryByKey()');
     var columns = sqlColumnNames(mapping);
     var table = mapping.type.split("/")[1];
 
-    var query = prepare('select-row-by-guid-from-' + table);
-    query.sql('select ' + columns + ' from "' + table + '" where "guid" = ').param(guid);
+    var query = prepare('select-row-by-key-from-' + table);
+    query.sql('select ' + columns + ' from "' + table + '" where "key" = ').param(key);
     return pgExec(db, query).then(function (result) {
         var deferred = Q.defer();
         
@@ -340,7 +340,7 @@ function queryByGuid(config, db, mapping, guid) {
             mapColumnsToObject(config, mapping, row, output);
             debug('** executing onread functions');
             executeOnFunctions(config, mapping, "onread", output);
-            debug('** result of queryByGuid() : ');
+            debug('** result of queryByKey() : ');
             debug(output);
             deferred.resolve(output);
         } else if (rows.length == 0) {
@@ -350,7 +350,7 @@ function queryByGuid(config, db, mapping, guid) {
                 body: "Not Found"
             });
         } else {
-            var msg = "More than one entry with guid " + guid + " found for " + mapping.type;
+            var msg = "More than one entry with key " + key + " found for " + mapping.type;
             debug(msg);
             deferred.reject(new Error(msg));
         }    
@@ -585,10 +585,11 @@ function postProcess(functions, db, body) {
 
 function executePutInsideTransaction(db, url, body) {
     var type = '/' + url.split("/")[1];
-    var guid = url.split("/")[2];
+    var key = url.split("/")[2];
     
     debug('PUT processing starting. Request body :');
     debug(body);
+    debug('Key received on URL : ' + key);
     
     var typeToMapping = typeToConfig(resources);
     // var type = '/' + req.route.path.split("/")[1];
@@ -610,30 +611,30 @@ function executePutInsideTransaction(db, url, body) {
     return executeValidateMethods(mapping, body, db).then(function() {
         // create an object that only has mapped properties
         var element = {};
-        for (var key in mapping.map) {
-            if (mapping.map.hasOwnProperty(key)) {
-                if(body[key]) {
-                    element[key] = body[key];
+        for (var k in mapping.map) {
+            if (mapping.map.hasOwnProperty(k)) {
+                if(body[k]) {
+                    element[k] = body[k];
                 }
             }
         }
         debug("Mapped incomming object according to configuration");
 
         // check and remove types from references.
-        for (var key in mapping.map) {
-            if (mapping.map.hasOwnProperty(key)) {
-                if (mapping.map[key].references) {
-                    var value = element[key].href;
+        for (var k in mapping.map) {
+            if (mapping.map.hasOwnProperty(k)) {
+                if (mapping.map[k].references) {
+                    var value = element[k].href;
                     if(!value) {
-                        throw new Error("No href found inside reference " + key);
+                        throw new Error("No href found inside reference " + k);
                     }
-                    var referencedType = mapping.map[key].references;
+                    var referencedType = mapping.map[k].references;
                     var referencedMapping = typeToMapping[referencedType];
                     var parts = value.split("/");
                     var type = '/' + parts[1];
-                    var refguid = parts[2];
+                    var refkey = parts[2];
                     if (type === referencedMapping.type) {
-                        element[key] = refguid;
+                        element[k] = refkey;
                     } else {
                         cl("Faulty reference detected [" + element[key].href + "], detected [" + type + "] expected [" + referencedMapping.type + "]");
                         return;
@@ -644,7 +645,7 @@ function executePutInsideTransaction(db, url, body) {
         debug('Converted references to values for update');
 
         var countquery = prepare('check-resource-exists-' + table);
-        countquery.sql('select count(*) from ' + table + ' where "guid" = ').param(guid);
+        countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
         return pgExec(db, countquery).then(function (results) {
             var deferred = Q.defer();
 
@@ -654,18 +655,18 @@ function executePutInsideTransaction(db, url, body) {
                 var update = prepare('update-' + table);
                 update.sql('update "' + table + '" set ');
                 var firstcolumn = true;
-                for (var key in element) {
-                    if (element.hasOwnProperty(key)) {
+                for (var k in element) {
+                    if (element.hasOwnProperty(k)) {
                         if(!firstcolumn) {
                             update.sql(',');
                         } else {
                             firstcolumn = false;
                         }
 
-                        update.sql(key + '=').param(element[key]);
+                        update.sql(k + '=').param(element[k]);
                     }
                 }
-                update.sql(" where guid = ").param(guid);
+                update.sql(' where "key" = ').param(key);
 
                 return pgExec(db, update).then(function (results) {
                     if(results.rowCount != 1) {
@@ -678,7 +679,7 @@ function executePutInsideTransaction(db, url, body) {
                     }
                 });
             } else {
-                element.guid = guid;
+                element.key = key;
                 executeOnFunctions(resources, mapping, "oninsert", element);
 
                 var insert = prepare("insert-"+ table);
@@ -820,8 +821,8 @@ function executeSingleExpansion(database, elements, mapping, resources, expandpa
     try {
         if(elements && elements.length > 0) {        
             var query = prepare();
-            var targetguids = [];
-            var guidToElement = {};
+            var targetkeys = [];
+            var keyToElement = {};
             var firstDotIndex = expandpath.indexOf('.');
             var expand;
             var recurse;
@@ -842,13 +843,13 @@ function executeSingleExpansion(database, elements, mapping, resources, expandpa
                     var element = elements[i];
                     var permalink = element.$$meta.permalink;
                     var targetlink = element[expand].href;
-                    var guid = permalink.split('/')[2];
-                    var targetguid = targetlink.split('/')[2];
+                    var key = permalink.split('/')[2];
+                    var targetkey = targetlink.split('/')[2];
                     // Remove duplicates and items that are already expanded.
-                    if(targetguids.indexOf(targetguid) == -1 && element[expand].$$expanded == undefined) {
-                        targetguids.push(targetguid);
+                    if(targetkeys.indexOf(targetkey) == -1 && element[expand].$$expanded == undefined) {
+                        targetkeys.push(targetkey);
                     }
-                    guidToElement[guid] = element;
+                    keyToElement[key] = element;
                 }
 
                 var targetType = mapping.map[expand].references;
@@ -860,18 +861,18 @@ function executeSingleExpansion(database, elements, mapping, resources, expandpa
                 var expandedElements = [];
                 
                 debug(table);
-                query.sql('select ' + columns + ' from "' + table + '" where guid in (').array(targetguids).sql(')');
+                query.sql('select ' + columns + ' from "' + table + '" where key in (').array(targetkeys).sql(')');
                 pgExec(database,query).then(function(result) {
                     debug('expansion query done');
                     var rows = result.rows;
                     for(var i=0; i<rows.length; i++) {
                         var row = rows[i];
                         var expanded = {};
-                        var guid = row['guid'];
+                        var key = row['key'];
                         mapColumnsToObject(resources, targetMapping, row, expanded);
                         executeOnFunctions(resources, targetMapping, "onread", expanded);
-                        targetpermalinkToObject[targetType + '/' + guid] = expanded;
-                        expanded.$$meta = {permalink: mapping.type + '/' + guid};
+                        targetpermalinkToObject[targetType + '/' + key] = expanded;
+                        expanded.$$meta = {permalink: mapping.type + '/' + key};
                         expandedElements.push(expanded);
                     }
                     
@@ -885,7 +886,7 @@ function executeSingleExpansion(database, elements, mapping, resources, expandpa
                     }
                     if(recurse) {
                         debug('** recursing to next level of expansion : ' + recursepath);
-                        executeSingleExpansion(database,expandedElements,targetMapping,resources,recursepath,guidToElement).then(function() {
+                        executeSingleExpansion(database,expandedElements,targetMapping,resources,recursepath,keyToElement).then(function() {
                             deferred.resolve();
                         }).fail(function(e) {
                             deferred.reject(e);
@@ -1130,7 +1131,7 @@ exports = module.exports = {
                         var currentrow = rows[row];
 
                         var element = {
-                            href: mapping.type + '/' + currentrow.guid
+                            href: mapping.type + '/' + currentrow.key
                         };
 
                         // full, or any set of expansion values that must 
@@ -1139,7 +1140,7 @@ exports = module.exports = {
                         if (!req.query.expand || (req.query.expand == 'full' || req.query.expand.indexOf('results.href') == 0)) {
                             element.$$expanded = {
                                 $$meta: {
-                                    permalink: mapping.type + '/' + currentrow.guid
+                                    permalink: mapping.type + '/' + currentrow.key
                                 }
                             };
                             mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
@@ -1207,12 +1208,12 @@ exports = module.exports = {
             }); // app.get - list resource
 
             // register single resource
-            url = mapping.type + '/:guid';
+            url = mapping.type + '/:key';
             app.route(url).get(logRequests, checkBasicAuthentication, function (req, resp) {
                 var typeToMapping = typeToConfig(resources);
                 var type = '/' + req.route.path.split("/")[1];
                 var mapping = typeToMapping[type];
-                var guid = req.params.guid;
+                var key = req.params.key;
 
                 var database;
                 var element;
@@ -1230,11 +1231,11 @@ exports = module.exports = {
                         return validateAccessAllowed(mapping,database,req,resp,me);
                     }
                 }).then(function() {
-                    debug("* query by guid");
-                    return queryByGuid(resources, database, mapping, guid);
+                    debug("* query by key");
+                    return queryByKey(resources, database, mapping, key);
                 }).then(function(result) {
                     element = result;
-                    element.$$meta = {permalink: mapping.type + '/' + guid};
+                    element.$$meta = {permalink: mapping.type + '/' + key};
                     elements = [];
                     elements.push(element);
                     debug('* executing expansion : ' + req.query.expand);
@@ -1302,8 +1303,8 @@ exports = module.exports = {
                     var begin = prepare("begin-transaction");
                     begin.sql("BEGIN");
                     return pgExec(db, begin).then(function () {
-                        var deletequery = prepare("delete-by-guid-" + table);
-                        deletequery.sql('delete from "' + table + '" where "guid" = ').param(req.params.guid);
+                        var deletequery = prepare("delete-by-key-" + table);
+                        deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
 
                         return pgExec(db, deletequery).then(function (results) {
                             if(results.rowCount != 1) {
@@ -1434,16 +1435,16 @@ exports = module.exports = {
             var deferred = Q.defer();
             try {
                 debug(value);
-                var permalinks, guids, i;
+                var permalinks, keys, i;
 
                 if (value) {
                     permalinks = value.split(",");
-                    guids = [];
+                    keys = [];
                     var reject = false;
                     for (i = 0; i < permalinks.length; i++) {
-                        var guid = permalinks[i].split('/')[2];
-                        if(guid.length == 36) {
-                            guids.push(guid);
+                        var key = permalinks[i].split('/')[2];
+                        if(key.length == 36) {
+                            keys.push(key);
                         } else {
                             deferred.reject({ code: "parameter." + param + ".invalid.value" });
                             reject = true;
@@ -1451,7 +1452,7 @@ exports = module.exports = {
                         }
                     }
                     if(!reject) {
-                        query.sql(' and guid in (').array(guids).sql(') ');
+                        query.sql(' and key in (').array(keys).sql(') ');
                         deferred.resolve();
                     }
                 }
@@ -1468,7 +1469,7 @@ exports = module.exports = {
             return function (value, query) {
                 var deferred = Q.defer();
                 
-                var permalinks, guids, i;
+                var permalinks, keys, i;
 
                 if (value) {
                     debug('** filterReferencedType');
@@ -1476,13 +1477,13 @@ exports = module.exports = {
                     permalinks = value.split(",");
                     debug('** permalinks : ');
                     debug(permalinks);
-                    guids = [];
+                    keys = [];
                     var reject = false;
                     for (i = 0; i < permalinks.length; i++) {
                         if(permalinks[i].indexOf(resourcetype + "/") === 0) {
-                            var guid = permalinks[i].substr(resourcetype.length + 1);
-                            if(guid.length == 36) {
-                                guids.push(guid);
+                            var key = permalinks[i].substr(resourcetype.length + 1);
+                            if(key.length == 36) {
+                                keys.push(key);
                             } else {
                                 deferred.reject({ code: "parameter.invalid.value" });
                                 reject = true;
@@ -1495,7 +1496,7 @@ exports = module.exports = {
                         }
                     }
                     if(!reject) {
-                        query.sql(' and "' + columnname + '" in (').array(guids).sql(') ');
+                        query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
                         deferred.resolve();
                     }
                 }

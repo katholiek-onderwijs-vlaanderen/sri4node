@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -30,6 +30,59 @@ function cl(x) {
 
 function debug(x) {
     if(logdebug) cl(x);
+}
+
+var communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
+var personSabine = "/persons/9abe4102-6a29-4978-991e-2a30655030e6";
+function generateRandomPerson(key, communityPermalink) {
+    return {
+        firstname: "Sabine",
+        lastname: "Eeckhout",
+        street: "Stationstraat",
+        streetnumber: "17",
+        zipcode: "9280",
+        city: "Lebbeke",
+        phone: "0492882277",
+        email: key + "@email.com",
+        balance: 0,
+        mail4elas: "weekly",
+        community: { href: communityPermalink }
+    };
+}
+
+function generateRandomCommunity(key) {
+    return {
+        name: "LETS " + key,
+        street: "Leuvensesteenweg",
+        streetnumber: "34",
+        zipcode: "1040",
+        city: "Brussel",
+        phone: "0492882277",
+        email: key + "@email.com",
+        adminpassword: "secret",
+        currencyname: "pluimen"
+    };
+}
+
+function generateRandomMessage(key, person, community) {
+    return {
+        person: { href: person },
+        type: "offer",
+        title: "new message",
+        description : "description for " + key,
+        amount : 1,
+        unit : "stuk",
+        community : { href: community }
+    };
+}
+
+function generateTransaction(key, permalinkFrom, permalinkTo, amount) {
+    return {
+        fromperson: { href : permalinkFrom },
+        toperson: { href: permalinkTo },
+        amount: amount,
+        description: 'description for transaction ' + key
+    };
 }
 
 describe('GET public list resource', function(){
@@ -130,7 +183,7 @@ describe('GET private list resource', function() {
 });
 
 describe('GET private regular resource', function() {
-    describe('/persons/{guid} from my community', function() {
+    describe('/persons/{key} from my community', function() {
         it('should return Kevin Boon', function() {
             return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d','kevin@email.be','pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
@@ -140,7 +193,7 @@ describe('GET private regular resource', function() {
         });
     });
     
-    describe('/persons/{guid} from different community', function() {
+    describe('/persons/{key} from different community', function() {
         it('should be 403 Forbidden', function() {
             return doGet(base + '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb','kevin@email.be','pwd').then(function(response) {
                 assert.equal(response.statusCode, 403);
@@ -218,110 +271,21 @@ describe("GET user security context /me", function() {
     });
 });
 
-var communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
-var personSabine = "/persons/9abe4102-6a29-4978-991e-2a30655030e6";
-function generateRandomPerson(guid, communityPermalink) {
-    return {
-        firstname: "Sabine",
-        lastname: "Eeckhout",
-        street: "Stationstraat",
-        streetnumber: "17",
-        zipcode: "9280",
-        city: "Lebbeke",
-        phone: "0492882277",
-        email: guid + "@email.com",
-        balance: 0,
-        mail4elas: "weekly",
-        community: { href: communityPermalink }
-    };
-}
-
-function generateRandomCommunity(guid) {
-    return {
-        name: "LETS " + guid,
-        street: "Leuvensesteenweg",
-        streetnumber: "34",
-        zipcode: "1040",
-        city: "Brussel",
-        phone: "0492882277",
-        email: guid + "@email.com",
-        adminpassword: "secret",
-        currencyname: "pluimen"
-    };
-}
-
-function generateRandomMessage(guid, person, community) {
-    return {
-        person: { href: person },
-        type: "offer",
-        title: "new message",
-        description : "description for " + guid,
-        amount : 1,
-        unit : "stuk",
-        community : { href: community }
-    };
-}
-
-function generateTransaction(guid, permalinkFrom, permalinkTo, amount) {
-    return {
-        fromperson: { href : permalinkFrom },
-        toperson: { href: permalinkTo },
-        amount: amount,
-        description: 'description for transaction ' + guid
-    };
-}
-
-describe("PUT regular resource", function() {
-    var guid = uuid.v4();
-    describe("create regular resource",function() {
-        it('should create a new person', function() {
-            var body = generateRandomPerson(guid, communityDendermonde);
-            return doPut(base + "/persons/" + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
-                assert.equal(response.statusCode, 200);
-            });
-        });
-        
-        it('should be possible to read the newly created person', function() {
-            return doGet(base + "/persons/" + guid, 'sabine@email.be', 'pwd').then(function(response) {
-                assert.equal(response.statusCode, 200);
-                assert.equal(response.body.email, guid + '@email.com');
-            });
-        });
-        
-        it('should be possible to update the newly created person', function() {
-            return doGet(base + "/persons/" + guid, 'sabine@email.be', 'pwd').then(function(response) {
-                assert.equal(response.statusCode, 200);
-                assert.equal(response.body.firstname, "Sabine");
-                var body = response.body;
-                body.firstname = 'Modified';
-                return doPut(base + "/persons/" + guid, body, 'sabine@email.be', 'pwd');
-            }).then(function(response) {
-                assert.equal(response.statusCode, 200);
-                return doGet(base + "/persons/" + guid, 'sabine@email.be', 'pwd');
-            }).then(function(response) {
-                assert.equal(response.statusCode, 200);
-                assert.equal(response.body.email, guid + '@email.com');
-                assert.equal(response.body.firstname, "Modified");
-            });
-        });
-    });
-});
-
 describe('DELETE regular resource', function() {
-    var guid = uuid.v4();
+    var key = uuid.v4();
     describe('remove newly created resource', function() {
         it('should be possible to delete a newly created resource', function() {
-            var body = generateRandomCommunity(guid);
-            return doPut(base + "/communities/" + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+            var body = generateRandomCommunity(key);
+            return doPut(base + "/communities/" + key, body, 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                return doGet(base + "/communities/" + guid, 'sabine@email.be', 'pwd');
+                return doGet(base + "/communities/" + key, 'sabine@email.be', 'pwd');
             }).then(function(response) {
                 assert.equal(response.statusCode, 200);
-                assert.equal(response.body.email, guid + '@email.com');
-                return doDelete(base + "/communities/" + guid, 'sabine@email.be', 'pwd');
+                assert.equal(response.body.email, key + '@email.com');
+                return doDelete(base + "/communities/" + key, 'sabine@email.be', 'pwd');
             }).then(function(response) {
                 assert.equal(response.statusCode, 200);
-                return doGet(base + "/communities/" + guid, 'sabine@email.be', 'pwd');
+                return doGet(base + "/communities/" + key, 'sabine@email.be', 'pwd');
             }).then(function(response) {
                 // After delete the response should be 404.
                 assert.equal(response.statusCode, 404);
@@ -333,10 +297,10 @@ describe('DELETE regular resource', function() {
 describe('PUT', function() {
     describe('schema validation', function() {
         it('should detect if a field is too long', function() {
-            var guid = uuid.v4();
-            var body = generateRandomCommunity(guid);
+            var key = uuid.v4();
+            var body = generateRandomCommunity(key);
             body.email = body.email + body.email + body.email;
-            return doPut(base + '/communities/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+            return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 409);
             });
         });
@@ -344,9 +308,9 @@ describe('PUT', function() {
     
     describe('with rejecting custom validation function', function() {
         it('should return a 409 Conflict', function() {
-            var guid = uuid.v4();
-            var body = generateRandomMessage(guid, personSabine, communityDendermonde);
-            return doPut(base + '/messages/' + guid, body, 'sabine@email.be', 'pwd').then(function(response) {
+            var key = uuid.v4();
+            var body = generateRandomMessage(key, personSabine, communityDendermonde);
+            return doPut(base + '/messages/' + key, body, 'sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 409);
                 assert.equal(response.body.errors[0].code, 'not.enough');
             });
@@ -357,29 +321,29 @@ describe('PUT', function() {
 describe('afterupdate', function() {
     describe('should support', function() {
         it('multiple functions', function() {
-            var guidp1 = uuid.v4();
-            var p1 = generateRandomPerson(guidp1, communityDendermonde);
-            return doPut(base + '/persons/' + guidp1, p1, 'sabine@email.be', 'pwd').then(function(response) {
+            var keyp1 = uuid.v4();
+            var p1 = generateRandomPerson(keyp1, communityDendermonde);
+            return doPut(base + '/persons/' + keyp1, p1, 'sabine@email.be', 'pwd').then(function(response) {
                 debug(response);
                 assert.equal(response.statusCode, 200);
                 debug('p1 created');
-                var guidp2 = uuid.v4();
-                var p2 = generateRandomPerson(guidp2, communityDendermonde);
-                return doPut(base + '/persons/' + guidp2, p2, 'sabine@email.be', 'pwd').then(function(response) {
+                var keyp2 = uuid.v4();
+                var p2 = generateRandomPerson(keyp2, communityDendermonde);
+                return doPut(base + '/persons/' + keyp2, p2, 'sabine@email.be', 'pwd').then(function(response) {
                     assert.equal(response.statusCode, 200);
                     debug('p2 created');
-                    var guidt = uuid.v4();
-                    var t = generateTransaction(guidt, '/persons/' + guidp1, '/persons/' + guidp2, 20);
-                    return doPut(base + '/transactions/' + guidt, t, 'sabine@email.be', 'pwd');
+                    var keyt = uuid.v4();
+                    var t = generateTransaction(keyt, '/persons/' + keyp1, '/persons/' + keyp2, 20);
+                    return doPut(base + '/transactions/' + keyt, t, 'sabine@email.be', 'pwd');
                 }).then(function(response) {
                     debug(response.body);
                     assert.equal(response.statusCode, 200);
                     debug('t created');
-                    return doGet(base + '/persons/' + guidp1, 'sabine@email.be', 'pwd');
+                    return doGet(base + '/persons/' + keyp1, 'sabine@email.be', 'pwd');
                 }).then(function(response) {
                     assert.equal(response.statusCode, 200);
                     assert.equal(response.body.balance, -20);
-                    return doGet(base + '/persons/' + guidp2, 'sabine@email.be', 'pwd');
+                    return doGet(base + '/persons/' + keyp2, 'sabine@email.be', 'pwd');
                 }).then(function(response) {
                     assert.equal(response.statusCode, 200);
                     assert.equal(response.body.balance, 20);                    
@@ -426,8 +390,8 @@ describe("URL parameters", function() {
         it("should return correct results (no side-effects)", function() {
             return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                // It should return none, we added NOT IN SELECT guid FROM temptable
-                // Where temptable was first filled to select all guids
+                // It should return none, we added NOT IN SELECT key FROM temptable
+                // Where temptable was first filled to select all keys
                 assert.equal(response.body.$$meta.count, 0);
                 // And do it again to check that it works more than once.
                 return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true');
@@ -587,7 +551,7 @@ describe("Expansion", function() {
 
 describe("query parameters", function() {
     describe("that use a CTE", function() {
-        it("to limit to a single guid, should only return 1 row.", function() {
+        it("to limit to a single key, should only return 1 row.", function() {
             return doGet(base + '/messages?cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 assert.equal(response.body.$$meta.count, 1);
@@ -597,7 +561,7 @@ describe("query parameters", function() {
     
     // Test re-ordering of query parameters.
     describe("that use a CTE and other parameter", function() {
-        it("to limit to a single guid + another parameter, should handle re-sequencing of parameters well", function() {
+        it("to limit to a single key + another parameter, should handle re-sequencing of parameters well", function() {
             return doGet(base + '/messages?hrefs=/messages/d70c98ca-9559-47db-ade6-e5da590b2435&cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 assert.equal(response.body.$$meta.count, 1);
@@ -607,7 +571,7 @@ describe("query parameters", function() {
     
     // Test applying 2 CTEs
     describe("that use a TWO CTEs", function() {
-        it("to limit to a single guid, should handle both CTEs well", function() {
+        it("to limit to a single key, should handle both CTEs well", function() {
             return doGet(base + '/messages?cteOneGuid=true&cteOneGuid2=true','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 assert.equal(response.body.$$meta.count, 1);

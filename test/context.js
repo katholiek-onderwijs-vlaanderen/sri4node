@@ -48,9 +48,9 @@ exports = module.exports = {
             var deferred = Q.defer();
             
             var cte = $u.prepareSQL();
-            cte.sql("SELECT guid FROM messages where title = ").param("Rabarberchutney");
+            cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
             select.with(cte, "cte");
-            select.sql(" AND guid IN (SELECT guid FROM cte)");
+            select.sql(' AND "key" IN (SELECT key FROM cte)');
             deferred.resolve();
             
             return deferred.promise;
@@ -60,9 +60,9 @@ exports = module.exports = {
             var deferred = Q.defer();
             
             var cte = $u.prepareSQL();
-            cte.sql("SELECT guid FROM messages where title = ").param("Rabarberchutney");
+            cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
             select.with(cte, "cte2");
-            select.sql(" AND guid IN (SELECT guid FROM cte2)");
+            select.sql(' AND "key" IN (SELECT key FROM cte2)');
             deferred.resolve();
             
             return deferred.promise;
@@ -73,10 +73,10 @@ exports = module.exports = {
             var deferred = Q.defer();
             
             if(count) {
-                var q = $u.prepareSQL("create-allcommunityguids");
-                q.sql('CREATE TEMPORARY TABLE allcommunityguids ON COMMIT DROP AS SELECT guid FROM communities');
+                var q = $u.prepareSQL("create-allcommunitykeys");
+                q.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
                 $u.executeSQL(database, q).then(function(results) {
-                    select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids") ');
+                    select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
                     deferred.resolve();
                 }).catch(function(error) {
                     debug("Catch creating temp table");
@@ -88,7 +88,7 @@ exports = module.exports = {
                     deferred.reject(error);
                 });
             } else {
-                select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids") ');
+                select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
                 deferred.resolve();
             }
             
@@ -99,10 +99,10 @@ exports = module.exports = {
             var deferred = Q.defer();
             
             if(count) {
-                var q = $u.prepareSQL("create-allcommunityguids2");
-                q.sql('CREATE TEMPORARY TABLE allcommunityguids2 ON COMMIT DROP AS SELECT guid FROM communities');
+                var q = $u.prepareSQL("create-allcommunitykeys2");
+                q.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
                 $u.executeSQL(database, q).then(function(results) {
-                    select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids2") ');
+                    select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
                     deferred.resolve();
                 }).catch(function(error) {
                     debug("Catch creating temp table");
@@ -114,7 +114,7 @@ exports = module.exports = {
                     deferred.reject(error);
                 });
             } else {
-                select.sql(' AND "guid" NOT IN (SELECT "guid" FROM "allcommunityguids2") ');
+                select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
                 deferred.resolve();
             }
             
@@ -169,16 +169,17 @@ exports = module.exports = {
                     }
                 } else {                    
                     var type = '/' + url.split("/")[1];
-                    var guid = url.split("/")[2];
-                    var myCommunityGuid = me.community.href.split("/")[2];
+                    var key = url.split("/")[2];
+                    var myCommunityKey = me.community.href.split("/")[2];
 
                     var query = $u.prepareSQL("check-person-is-in-my-community");
-                    query.sql("select count(*) from persons where guid = ").param(guid).sql(" and community = ").param(myCommunityGuid);
+                    query.sql("select count(*) from persons where key = ").param(key).sql(" and community = ").param(myCommunityKey);
                     $u.executeSQL(db, query).then(function(result) {
                         if(result.rows[0].count == 1) {
                             debug('** restrictReadPersons resolves.');
                             deferred.resolve();
                         } else {
+                            debug('results.rows[0].count = ' + result.rows[0].count);
                             cl('** security method restrictedReadPersons denies access.');
                             deferred.reject();
                         }
@@ -235,18 +236,18 @@ exports = module.exports = {
             // e.g. select community,count(*) from messages group by community having community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
             if(elements && elements.length > 0) {
                 var query = $u.prepareSQL();
-                var guidToElement = {};
-                var guids = [];
+                var keyToElement = {};
+                var keys = [];
                 for(var i=0; i<elements.length; i++) {
                     var element = elements[i];
-                    var guid = element.$$meta.permalink.split('/')[2];
-                    guids.push(guid);
-                    guidToElement[guid] = element;
+                    var key = element.$$meta.permalink.split('/')[2];
+                    keys.push(key);
+                    keyToElement[key] = element;
                     // Default to 0, The query will not return a row for those.
                     element.$$messagecount = 0;
                 }
                 query.sql("SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (");
-                query.array(guids);
+                query.array(keys);
                 query.sql(")");
                 
                 $u.executeSQL(database,query).then(function(result) {
@@ -254,7 +255,7 @@ exports = module.exports = {
                     var rows = result.rows;
                     for(var i=0; i<rows.length; i++) {
                         var row = rows[i];
-                        guidToElement[row.community].$$messagecount = parseInt(row.messagecount);
+                        keyToElement[row.community].$$messagecount = parseInt(row.messagecount);
                     }
                     deferred.resolve();
                 }).fail(function(error) {
@@ -293,7 +294,7 @@ exports = module.exports = {
                     var row = result.rows[0];
                     var output = {};
                     output.$$meta = {};
-                    output.$$meta.permalink = '/persons/' + row.guid;
+                    output.$$meta.permalink = '/persons/' + row.key;
                     output.firstname = row.firstname;
                     output.lastname = row.lastname;
                     output.email = row.email;
@@ -499,20 +500,20 @@ exports = module.exports = {
                     afterinsert : [
                         function(db, element) {
                             var amount = element.amount;
-                            var toguid = element.toperson.href;
-                            toguid = toguid.split("/")[2];
+                            var tokey = element.toperson.href;
+                            tokey = tokey.split("/")[2];
 
                             var updateto = $u.prepareSQL();
-                            updateto.sql('update persons set balance = (balance + ').param(amount).sql(') where guid = ').param(toguid);
+                            updateto.sql('update persons set balance = (balance + ').param(amount).sql(') where key = ').param(tokey);
                             return $u.executeSQL(db,updateto);
                         },
                         function(db, element) {
                             var amount = element.amount;
-                            var fromguid = element.fromperson.href;
-                            fromguid = fromguid.split("/")[2];
+                            var fromkey = element.fromperson.href;
+                            fromkey = fromkey.split("/")[2];
 
                             var updatefrom = $u.prepareSQL();
-                            updatefrom.sql('update persons set balance = (balance - ').param(amount).sql(') where guid = ').param(fromguid);
+                            updatefrom.sql('update persons set balance = (balance - ').param(amount).sql(') where key = ').param(fromkey);
                             return $u.executeSQL(db,updatefrom);
                         }
                     ],
