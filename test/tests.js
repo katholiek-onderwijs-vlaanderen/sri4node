@@ -592,7 +592,7 @@ describe("Using queryUtils", function() {
     });
     
     describe("function filterILike", function() {
-        it("should should support matching on 2 possible values", function() {
+        it("should support matching on 2 possible values", function() {
             return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameILike=NgRi,iCoL','sabine@email.be', 'pwd').then(function(response) {
                 debug(response.body);
                 assert.equal(response.statusCode, 200);
@@ -602,7 +602,7 @@ describe("Using queryUtils", function() {
     });    
 
     describe("function filterIn", function() {
-        it("should should match on exact values", function() {
+        it("should match on exact values", function() {
             return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Ingrid','sabine@email.be', 'pwd').then(function(response) {
                 debug(response.body);
                 assert.equal(response.statusCode, 200);
@@ -612,7 +612,7 @@ describe("Using queryUtils", function() {
     });
 
     describe("function filterIn", function() {
-        it("should should ONLY match on exact values", function() {
+        it("should ONLY match on exact values", function() {
             return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Gobeldigook','sabine@email.be', 'pwd').then(function(response) {
                 debug(response.body);
                 assert.equal(response.statusCode, 200);
@@ -622,7 +622,7 @@ describe("Using queryUtils", function() {
     });
 
     describe("function filterIn", function() {
-        it("should should support matching on 2 possible values", function() {
+        it("should support matching on 2 possible values", function() {
             return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameIn=Ingrid,Nicole','sabine@email.be', 'pwd').then(function(response) {
                 debug(response.body);
                 assert.equal(response.statusCode, 200);
@@ -631,3 +631,15 @@ describe("Using queryUtils", function() {
         });
     });
 });
+
+describe('utils.addReferencingResources ', function() {
+    describe('on afterread /persons', function() {
+        it('should include related transactions',function() {
+            return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6','sabine@email.be', 'pwd').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$transactions.length, 1);                
+            })
+        })
+    })
+})

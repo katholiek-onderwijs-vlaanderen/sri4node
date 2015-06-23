@@ -401,7 +401,7 @@ Used for clearing the security cache. Call when updating anything where the secu
 To avoid retrieving the security context of all users on every request, `sri4node` keeps a cache of all security contexts of all users identities used to call the API.
 
 #### prepareSQL()
-Used for preparing SQL. Supply a name to keep the query in the database as a prepared statement.
+Used for preparing SQL. Supply a `name` to keep the query in the database as a prepared statement.
 It returns a query object with these functions :
 
 - `sql()` is a method for appending sql.
@@ -424,11 +424,17 @@ Example of using a common table expression :
     cte.sql(...);
     query.with(cte,'virtualtable');
     
-#### executeSQL()
+#### executeSQL(database, query)
 Used for executing SQL. 
-Call with the a database object you received, and a query object (as returned by `prepareSQL()`, or as received for `query` functions).
+Call with the a `database` object you received, and a `query` object (as returned by `prepareSQL()`, or as received for `query` functions).
 The function returns a [Q promise][kriskowal-q].
-    
+
+#### addReferencingResources(type, foreignkey, targetkey)
+Afterread utility function. Adds, for convenience, an array of referencing resource to the currently retrieved resource(s).
+It will add an array of references to resource of `type` to the currently retrieved resource.
+Specify the foreign key column (in the table of those referencing resource) via `foreignkey`.
+Specify the desired key (should be `$$somekey`, as it is not actually a part of the resource, but provided for convenience) to add to the currently retrieved resource(s) via `targetkey`.
+
 ### Mapping Utilities
 Provides various utilities for mapping between postgres and JSON.
 These functions can be found in `sri4node.mapUtils`.

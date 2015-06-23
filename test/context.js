@@ -357,6 +357,9 @@ exports = module.exports = {
                         firstnameILike: $q.filterILike('firstname'),
                         firstnameIn: $q.filterIn('firstname')
                     },
+                    afterread: [
+                        $u.addReferencingResources('/transactions','fromperson','$$transactions')
+                    ],
                     afterupdate: [
                         clearPasswordCache
                     ],

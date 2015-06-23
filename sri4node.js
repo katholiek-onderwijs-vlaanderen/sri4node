@@ -1427,7 +1427,52 @@ exports = module.exports = {
 
         // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL : pgExec,
-        prepareSQL : prepare
+        prepareSQL : prepare,
+        
+        /*
+            Add references from a different resource to this resource.
+            * type : the resource type that has a reference to the retrieved elements.
+            * column : the database column that contains the foreign key.
+            * key : the name of the key to add to the retrieved elements.
+        */
+        addReferencingResources : function(type, column, targetkey) {
+            return function(database, elements) {
+                var deferred = Q.defer()
+                
+                if(elements && elements.length && elements.length > 0) {
+                    var tablename = type.split('/')[1]
+                    var query = prepare()
+                    var elementKeys = []
+                    var elementKeysToElement = {}
+                    elements.forEach(function(element) { 
+                        var permalink = element.$$meta.permalink
+                        var elementKey = permalink.split('/')[2]
+                        elementKeys.push(elementKey)
+                        elementKeysToElement[elementKey] = element
+                    });
+                    console.log(elements)
+                    console.log(elementKeys)
+                    query.sql('select key,' + column + ' as fkey from ' + tablename + ' where ' + column + ' in (').array(elementKeys).sql(')')
+                    pgExec(database, query).then(function(result) {
+                        result.rows.forEach(function(row) {
+                            var element = elementKeysToElement[row.fkey]
+                            if(!element[targetkey]) {
+                                element[targetkey] = []
+                            }
+                            element[targetkey].push(type + '/' + row.key)
+                        });
+                        deferred.resolve()
+                    }).fail(function(e) {
+                        console.log(e.stack)
+                        deferred.reject()
+                    })
+                } else {
+                    deferred.resolve()
+                }
+
+                return deferred.promise
+            }
+        }
     },
     
     queryUtils: {
