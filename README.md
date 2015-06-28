@@ -120,9 +120,9 @@ Finally we configure handlers for 1 example resource :
                     // Allowig any kind of filtering on
                     // the resulting list resource.
                     query: {
-                        authors: $q.filterContains('authors'),
-                        themes: $q.filterContains('themes'),
-                        html: $q.filterContains('html'),
+                        authors: $q.filterILike('authors'),
+                        themes: $q.filterILike('themes'),
+                        html: $q.filterILike('html'),
                         editor: $q.filterReferencedType('/persons','editor')
                     },
                     // All columns in the table that appear in the
@@ -738,7 +738,7 @@ You can support list resource like `/content?html=keyword` by adding this query 
         },
         ...
         query: [
-            html: $q.filterContains('/persons','creator')
+            html: $q.filterILike('/persons','creator')
         ],
         ...
     }
