@@ -16,6 +16,10 @@ var mapColumnsToObject = common.mapColumnsToObject;
 var executeOnFunctions = common.executeOnFunctions;
 var executeValidateMethods = common.executeValidateMethods;
 
+var queryobject = require('./js/queryobject');
+var parameterPattern = queryobject.parameterPattern;
+var prepare = queryobject.prepareSQL;
+
 // Module variables.
 var configuration;
 var resources;
@@ -65,7 +69,6 @@ var pgConnect = function () {
 // values : An array of java values to be inserted in $1,$2, etc..
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-var parameterPattern = '$?$?';
 var pgExec = function (db, query) {
     var deferred = Q.defer();
     var q = {};
@@ -116,95 +119,6 @@ var pgExec = function (db, query) {
     });
 
     return deferred.promise;
-};
-
-// Creates a config object for q node-postgres prepared statement.
-// It also adds some convenience functions for handling appending of SQL and parameters.
-var prepare = function(name) {
-    return {
-        name: name,
-        text: '',
-        params: [],
-        param: function(x) {
-            // Convenience function for adding a parameter to the text, it
-            // automatically adds $x to the SQL text, and adds the supplied value
-            // to the 'value'-array.
-            var index = this.params.length + 1;
-            this.params.push(x);
-            this.text = this.text + parameterPattern;
-
-            return this;
-        },
-        sql: function(x) {
-            // Convenience function for adding a parameter to the SQL statement.
-            this.text = this.text + x;
-
-            return this;
-        },
-        array: function(x) {
-            // Convenience function for adding an array of values to a SQL statement.
-            // The values are added comma-separated.
-
-            if(x && x.length && x.length > 0) {
-                for(var i=0; i< x.length; i++) {
-                    this.param(x[i]);
-                    if (i < (x.length - 1)) {
-                        this.text = this.text + ',';
-                    }
-                }
-            }
-
-            return this;
-        },
-        keys: function(o) {
-            // Convenience function for adding all keys in an object (comma-separated)
-            var columnNames = [];
-
-            for (var key in o) {
-                if (o.hasOwnProperty(key)) {
-                    columnNames.push(key);
-                }
-            }
-            var sqlColumnNames = '';
-            for (var j = 0; j < columnNames.length; j++) {
-                sqlColumnNames += columnNames[j];
-                if (j < columnNames.length - 1) {
-                    sqlColumnNames += ",";
-                }
-            }
-            this.text = this.text + sqlColumnNames;
-
-            return this;
-        },
-        values: function(o) {
-            // Convenience function for adding all values of an object as parameters.
-            // Same iteration order as 'columns'.
-            var firstcolumn = true;
-            for (var key in o) {
-                if (o.hasOwnProperty(key)) {
-                    if(!firstcolumn) {
-                        this.text += ",";
-                    } else {
-                        firstcolumn = false;
-                    }
-                    this.param(o[key]);
-                }
-            }
-
-            return this;
-        },
-        with: function(query, virtualtablename) {
-            if(this.text.indexOf('WITH') == -1) {
-                this.text = 'WITH ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ' + this.text;
-            } else {
-                var cte = ', ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ';
-                this.text = this.text.replace('/*LASTCTE*/',cte);
-            }
-            this.params = query.params.concat(this.params);
-            
-            return this;
-        }
-    }
 };
 
 // apply extra parameters on request URL for a list-resource to a sselect.
@@ -1136,7 +1050,7 @@ exports = module.exports = {
 
         // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL : pgExec,
-        prepareSQL : prepare,
+        prepareSQL : queryobject.prepareSQL,
         
         /*
             Add references from a different resource to this resource.
