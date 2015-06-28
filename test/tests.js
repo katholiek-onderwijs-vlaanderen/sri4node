@@ -668,3 +668,13 @@ describe('utils.addReferencingResources ', function() {
         })
     })
 })
+
+describe('CORS', function() {
+    it('should mirror request origin', function() {
+        return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6','sabine@email.be', 'pwd').then(function(response) {
+            debug(response.headers);
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.headers['access-control-allow-origin'], 'localhost:5000');
+        })
+    })
+})

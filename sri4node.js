@@ -369,7 +369,19 @@ function checkBasicAuthentication(req, res, next) {
 // Apply CORS headers.
 // TODO : Change temporary URL into final deploy URL.
 var allowCrossDomain = function(req, res, next) {
-    res.header('Access-Control-Allow-Origin', 'https://sheltered-lowlands-3555.herokuapp.com');
+    var origin = "*";
+    if(req.headers['x-forwarded-for']) {
+        origin = req.headers['x-forwarded-for'];
+    } else if(req.headers['X-Forwarded-For']) {
+        origin = req.headers['X-Forwarded-For'];
+    } else if(req.headers['host']) {
+        origin = req.headers['host'];
+    } else if(req.headers['Host']) {
+        origin = req.headers['Host'];
+    }
+    debug(req);
+    
+    res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
 
