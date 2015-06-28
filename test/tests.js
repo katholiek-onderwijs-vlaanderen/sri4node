@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+logsql = logrequests = logdebug = true;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -578,6 +578,31 @@ describe("query parameters", function() {
             });
         });
     });    
+    
+    // Test recursive CTE
+    describe("that require recursion", function() {
+        it('should find parents', function() {
+            return doGet(base + '/selfreferential?allParentsOf=/selfreferential/ab142ea6-7e79-4f93-82d3-8866b0c8d46b').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 4);
+            }).fail(function(e) {
+                debug(e);
+            })
+        })
+    })
+
+    describe("that require recursion", function() {
+        it('should find parents', function() {
+            return doGet(base + '/selfreferential?allParentsOf=/selfreferential/b8c020bf-0505-407c-a8ad-88044d741712').then(function(response) {
+                debug(response.body);
+                assert.equal(response.statusCode, 200);
+                assert.equal(response.body.$$meta.count, 2);
+            }).fail(function(e) {
+                debug(e);
+            })
+        })
+    })
 });
 
 describe("Using queryUtils", function() {

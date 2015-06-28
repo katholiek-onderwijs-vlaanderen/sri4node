@@ -67,6 +67,22 @@ exports = module.exports = {
             
             return deferred.promise;
         }
+        
+        var allParentsOf = function(value, select, param, database, count) {
+            var deferred = Q.defer();
+            
+            var key = value.split('/')[2];
+            var nonrecursive = $u.prepareSQL();
+            nonrecursive.sql('VALUES (').param(key).sql(')');
+            var recursive = $u.prepareSQL();
+            recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p WHERE sr.key = p.key AND sr.parent IS NOT NULL');
+            select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
+            select.sql(' AND key IN (SELECT key FROM parentsof)');
+            console.log(select.text);
+            deferred.resolve();
+            
+            return deferred.promise;
+        }
 
 
         var parameterWithExtraQuery = function(value, select, param, database, count) {
@@ -549,6 +565,18 @@ exports = module.exports = {
                     },
                     afterinsert : [],
                     afterupdate : []
+                },
+                {
+                    type: '/selfreferential',
+                    public: true,
+                    map: {
+                        key: {},
+                        name: {},
+                        parent: {references: '/selfreferential'}
+                    },
+                    query: {
+                        allParentsOf: allParentsOf
+                    }
                 }
             ]
         }

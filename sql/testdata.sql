@@ -34,3 +34,9 @@ INSERT INTO "messages" VALUES ('5a2747d4-ed99-4ceb-9058-8152e34f4cd5', 'de32ce31
 
 -- A table with protected keywords. To check if sri4node does proper escaping of table and column names.
 INSERT INTO "table" VALUES ('fe12be5b-2334-4cb8-9b04-7f51e63553bd','select-value','from-value');
+
+-- A table that refers to itsels, used to test recursive query support via recursive CTEs.
+INSERT INTO "selfreferential" VALUES ('247caf52-9c58-44f1-97f8-de1a9766e990','level0',null);
+INSERT INTO "selfreferential" VALUES ('b8c020bf-0505-407c-a8ad-88044d741712','level1','247caf52-9c58-44f1-97f8-de1a9766e990');
+INSERT INTO "selfreferential" VALUES ('55ac49a0-34c8-4c33-9c8b-acfcb1578a91','level2','b8c020bf-0505-407c-a8ad-88044d741712');
+INSERT INTO "selfreferential" VALUES ('ab142ea6-7e79-4f93-82d3-8866b0c8d46b','level3','55ac49a0-34c8-4c33-9c8b-acfcb1578a91');

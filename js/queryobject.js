@@ -5,9 +5,10 @@ configuration can add pieces to the WHERE clause of a list resource.
 They can all add CTEs as well, without affecting one another.
 */
 exports = module.exports = {
+    parameterPattern: '$?$?',
+    
     // Creates a config object for q node-postgres prepared statement.
     // It also adds some convenience functions for handling appending of SQL and parameters.
-    parameterPattern: '$?$?',
     prepareSQL: function(name) {
         return {
             name: name,
@@ -81,14 +82,59 @@ exports = module.exports = {
 
                 return this;
             },
-            with: function(query, virtualtablename) {
-                if(this.text.indexOf('WITH') == -1) {
-                    this.text = 'WITH ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ' + this.text;
-                } else {
-                    var cte = ', ' + virtualtablename + ' AS (' + query.text + ') /*LASTCTE*/ ';
-                    this.text = this.text.replace('/*LASTCTE*/',cte);
-                }
-                this.params = query.params.concat(this.params);
+            with: function(nonrecursivequery, unionclause, recursivequery, virtualtablename) {
+                // Form : select.with(nonrecursiveterm,virtualtablename)
+                if(nonrecursivequery && unionclause && !recursivequery && !virtualtablename) {
+                    var tablename = unionclause;
+                    if(this.text.indexOf('WITH RECURSIVE') == -1) {
+                        this.text = 'WITH RECURSIVE ' 
+                            + tablename 
+                            + ' AS (' 
+                            + nonrecursivequery.text 
+                            + ') /*LASTCTE*/ ' 
+                            + this.text;
+                    } else {
+                        var cte = ', ' 
+                        + tablename 
+                        + ' AS (' 
+                        + nonrecursivequery.text 
+                        + ') /*LASTCTE*/ ';
+                        this.text = this.text.replace('/*LASTCTE*/',cte);
+                    }
+                    this.params = nonrecursivequery.params.concat(this.params);
+                } else 
+                    // Format : select.with(nonrecursiveterm, 'UNION' or 'UNION ALL', recursiveterm, virtualtablename)
+                    if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
+                        unionclause = unionclause.toLowerCase().trim();
+                        if(unionclause == 'union' || unionclause == 'union all') {
+                            if(this.text.indexOf('WITH RECURSIVE') == -1) {
+                                this.text = 'WITH RECURSIVE ' 
+                                    + virtualtablename 
+                                    + ' AS (' 
+                                    + nonrecursivequery.text 
+                                    + ' ' + unionclause + ' '
+                                    + recursivequery.text
+                                    + ') /*LASTCTE*/ ' 
+                                    + this.text;
+                            } else {
+                                var cte = ', ' 
+                                + virtualtablename 
+                                + ' AS (' 
+                                + nonrecursivequery.text 
+                                + ' ' + unionclause + ' '
+                                + recursivequery.text
+                                + ') /*LASTCTE*/ ';
+                                this.text = this.text.replace('/*LASTCTE*/',cte);
+                            }
+                            this.params = nonrecursivequery.params.concat(this.params)
+                            this.params = recursivequery.params.concat(this.params)
+                        } else {
+                            throw new Error("Must use UNION or UNION ALL as union-clause");
+                        }
+                        tablename = virtualtablename;
+                    } else {
+                        throw new Error("Parameter combination not supported...");
+                    }
 
                 return this;
             }

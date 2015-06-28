@@ -66,3 +66,9 @@ CREATE TABLE "table" (
   "select" text,
   "from" text
 );
+
+CREATE TABLE "selfreferential" (
+    "key" text unique,
+    "name" text not null,
+    "parent" text references "selfreferential"(key)
+);
