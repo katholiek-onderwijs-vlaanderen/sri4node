@@ -2,13 +2,28 @@
   The core server for the REST api.
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
+
+// External dependencies.
 var validator = require('jsonschema').Validator;
 var Q = require("q");
 
+// Utility function.
+var common = require('./js/common.js');
+var cl = common.cl;
+var typeToConfig = common.typeToConfig;
+var sqlColumnNames = common.sqlColumnNames;
+var mapColumnsToObject = common.mapColumnsToObject;
+var executeOnFunctions = common.executeOnFunctions;
+
+// Module variables.
 var configuration;
 var resources;
 var logsql;
 var pg;
+
+function debug(x) {
+    if(configuration.logdebug) cl(x);
+}
 
 // Q wrapper to get a node-postgres client from the client pool.
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
@@ -191,53 +206,6 @@ var prepare = function(name) {
     }
 };
 
-// Converts the configuration object for roa4node into an array per resource type.
-var typeToConfig = function(config) {
-    var ret = {};
-    for (var i = 0; i < config.length; i++) {
-        ret[config[i].type] = config[i];
-    }
-    return ret;
-};
-
-// Create a ROA resource, based on a row result from node-postgres.
-function mapColumnsToObject(config, mapping, row, element) {
-    var typeToMapping = typeToConfig(config);
-
-    // add all mapped columns to output.
-    for (var key in mapping.map) {
-        if (mapping.map.hasOwnProperty(key)) {
-            if (mapping.map[key].references) {
-                var referencedType = mapping.map[key].references;
-                element[key] = {href: typeToMapping[referencedType].type + '/' + row[key]};
-            } else if (mapping.map[key].onlyinput) {
-                // Skip on output !
-            } else {
-                element[key] = row[key];
-            }
-        }
-    }
-}
-
-function sqlColumnNames(mapping) {
-    var columnNames = [];
-
-    for (var key in mapping.map) {
-        if (mapping.map.hasOwnProperty(key)) {
-            columnNames.push(key);
-        }
-    }
-    var sqlColumnNames = '"key",';
-    for (var j = 0; j < columnNames.length; j++) {
-        sqlColumnNames += '"' + columnNames[j] + '"';
-        if (j < columnNames.length - 1) {
-            sqlColumnNames += ",";
-        }
-    }
-
-    return sqlColumnNames;
-}
-
 // apply extra parameters on request URL for a list-resource to a sselect.
 function applyRequestParameters(mapping, req, select, database, count) {
     var deferred = Q.defer();
@@ -308,17 +276,6 @@ function applyRequestParameters(mapping, req, select, database, count) {
     }
     
     return deferred.promise;
-}
-
-// Execute registered mapping functions for elements of a ROA resource.
-function executeOnFunctions(config, mapping, ontype, element) {
-    for (var key in mapping.map) {
-        if (mapping.map.hasOwnProperty(key)) {
-            if (mapping.map[key][ontype]) {
-                mapping.map[key][ontype](key, element);
-            }
-        }
-    }
 }
 
 function queryByKey(config, db, mapping, key) {
@@ -408,14 +365,6 @@ function endResponse(resp) {
     return function () {
         resp.end();
     };
-}
-
-function cl(x) {
-    console.log(x);
-}
-
-function debug(x) {
-    if(configuration.logdebug) console.log(x);
 }
 
 // Security cache; stores a map 'e-mail' -> 'password'
@@ -812,217 +761,11 @@ function executeAfterReadFunctions(database, elements, mapping) {
     return deferred.promise;    
 }
 
-// Expands a single path on an array of elements.
-// Potential improvement : when the expansion would load obejcts that are already
-// in the cluster currently loaded, re-use the loaded element, rather that querying it again.
-function executeSingleExpansion(database, elements, mapping, resources, expandpath) {
-    var deferred = Q.defer();
-    
-    try {
-        if(elements && elements.length > 0) {        
-            var query = prepare();
-            var targetkeys = [];
-            var keyToElement = {};
-            var firstDotIndex = expandpath.indexOf('.');
-            var expand;
-            var recurse;
-            var recursepath;
-            if(firstDotIndex == -1) {
-                expand = expandpath;
-                recurse = false;
-            } else {
-                expand = expandpath.substring(0,firstDotIndex);
-                recurse = true;
-                recursepath = expandpath.substring(firstDotIndex + 1, expandpath.length);
-            }
-            if(mapping.map[expand] == undefined) {
-                debug('** rejecting expand value [' + expand + ']');
-                deferred.reject();
-            } else {            
-                for(var i=0; i<elements.length; i++) {
-                    var element = elements[i];
-                    var permalink = element.$$meta.permalink;
-                    var targetlink = element[expand].href;
-                    var key = permalink.split('/')[2];
-                    var targetkey = targetlink.split('/')[2];
-                    // Remove duplicates and items that are already expanded.
-                    if(targetkeys.indexOf(targetkey) == -1 && element[expand].$$expanded == undefined) {
-                        targetkeys.push(targetkey);
-                    }
-                    keyToElement[key] = element;
-                }
-
-                var targetType = mapping.map[expand].references;
-                var typeToMapping = typeToConfig(resources);
-                var targetMapping = typeToMapping[targetType];
-                var table = targetMapping.type.substr(1);
-                var columns = sqlColumnNames(targetMapping);
-                var targetpermalinkToObject = {};
-                var expandedElements = [];
-                
-                debug(table);
-                query.sql('select ' + columns + ' from "' + table + '" where key in (').array(targetkeys).sql(')');
-                pgExec(database,query).then(function(result) {
-                    debug('expansion query done');
-                    var rows = result.rows;
-                    for(var i=0; i<rows.length; i++) {
-                        var row = rows[i];
-                        var expanded = {};
-                        var key = row['key'];
-                        mapColumnsToObject(resources, targetMapping, row, expanded);
-                        executeOnFunctions(resources, targetMapping, "onread", expanded);
-                        targetpermalinkToObject[targetType + '/' + key] = expanded;
-                        expanded.$$meta = {permalink: mapping.type + '/' + key};
-                        expandedElements.push(expanded);
-                    }
-                    
-                    debug('** executing afterread functions on expanded resources');
-                    return executeAfterReadFunctions(database, expandedElements, targetMapping);
-                }).then(function() {
-                    for(var i=0; i<elements.length; i++) {
-                        var element = elements[i];
-                        var targetlink = element[expand].href;
-                        element[expand].$$expanded = targetpermalinkToObject[targetlink];
-                    }
-                    if(recurse) {
-                        debug('** recursing to next level of expansion : ' + recursepath);
-                        executeSingleExpansion(database,expandedElements,targetMapping,resources,recursepath,keyToElement).then(function() {
-                            deferred.resolve();
-                        }).fail(function(e) {
-                            deferred.reject(e);
-                        });
-                    } else {
-                        debug('** executeSingleExpansion resolving');
-                        deferred.resolve();
-                    }
-                });
-            }
-        } else {
-            deferred.resolve();
-        }
-    } catch(e) {
-        debug("** executeSingleExpansion failed : ");
-        debug(e);
-        deferred.reject(e.toString());
-    }
-    
-    return deferred.promise;
-}
-
-/*
-Reduce comma-separated expand parameter to array, in lower case, and remove 'results.href' as prefix.
-The rest of the processing of expansion does not make a distinction between list resources and regular
-resources. Also rewrites 'none' and 'full' to the same format.
-If none appears anywhere in the list, an empty array is returned.
-*/
-function parseExpand(expand, mapping) {
-    var ret = [];
-    
-    var paths = expand.split(',');
-    var containsFull = false;
-    for(var i=0; i<paths.length; i++) {
-        var path = paths[i].toLowerCase();
-        if(path == 'none') {
-            return [];
-        } else if(path == 'full') {
-            // If this was a list resource full is already handled.
-        } else if(path == 'results.href') {
-            // If this was a list resource full is already handled.
-        } else {
-            var prefix = 'results.href.';
-            var index = paths[i].indexOf(prefix)
-            if(index == 0) {
-                var npath = path.substr(prefix.length);
-                if(npath && npath.length > 0) {
-                    debug(npath);
-                    ret.push(npath);
-                }
-            } else if(index == -1) {
-                ret.push(path);
-            }
-        }
-    }    
-    debug("** parseExpand() results in :");
-    debug(ret);
-    
-    return ret;
-}
-
-/*
-Execute expansion on an array of elements.
-Takes into account a comma-separated list of property paths.
-Currently only one level of items on the elements can be expanded.
-
-So for list resources : 
-- results.href.person is OK
-- results.href.community is OK
-- results.href.person,results.href.community is OK. (2 expansions - but both 1 level)
-- results.href.person.address is NOT OK - it has 1 expansion of 2 levels. This is not supported.
-
-For regular resources :
-- person is OK
-- community is OK
-- person,community is OK
-- person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
-*/
-function executeExpansion(database, elements, mapping, resources, expand) {
-    var deferred = Q.defer();
-    debug('** executeExpansion()');
-    try {    
-        if(expand) {
-            var paths = parseExpand(expand, mapping);
-            if(paths && paths.length > 0) {
-                var promises = [];
-                for(var i=0; i<paths.length; i++) {
-                    var path = paths[i];
-                    promises.push(executeSingleExpansion(database, elements, mapping, resources, path));
-                }
-
-                Q.allSettled(promises).then(function(results) {
-                    debug("allSettled :");
-                    debug(results);
-                    var errors = [];
-                    results.forEach(function(result) {
-                        if(result.state == 'rejected') {
-                            errors.push(result.reason);
-                        }
-                    });
-
-                    if(errors.length == 0) {
-                        debug('** executeExpansion() resolves.');
-                        debug('after expansion :');
-                        debug(elements);
-                        deferred.resolve();
-                    } else {
-                        deferred.reject({ 
-                            type: 'expansion.failed',
-                            status: 404,
-                            body: {
-                                errors: {
-                                    code: 'invalid.expand.value',
-                                    description: 'expand=' + expand + ' is not a valid expansion string.'
-                                }
-                            }
-                        });
-                    }
-                });
-            } else {
-                deferred.resolve();
-            }
-        } else {
-            // No expand value ? We're done !
-            deferred.resolve();
-        }
-    } catch(e) {
-        resolve.reject(e.toString());
-    }
-    
-    return deferred.promise;
-}
-    
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
     configure: function (app, postgres, config) {
+        var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
+        
         configuration = config;
         resources = config.resources;
         logsql = config.logsql;
@@ -1137,7 +880,7 @@ exports = module.exports = {
                         // full, or any set of expansion values that must 
                         // all start with "results.href" or "results.href.*" will result in inclusion
                         // of the regular resources in the list resources.
-                        if (!req.query.expand || (req.query.expand == 'full' || req.query.expand.indexOf('results.href') == 0)) {
+                        if (!req.query.expand || (req.query.expand.toLowerCase() == 'full' || req.query.expand.indexOf('results') == 0)) {
                             element.$$expanded = {
                                 $$meta: {
                                     permalink: mapping.type + '/' + currentrow.key
@@ -1146,7 +889,7 @@ exports = module.exports = {
                             mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
                             executeOnFunctions(resources, mapping, "onread", element.$$expanded);
                             elements.push(element.$$expanded);
-                        } else if(req.query.expand && req.query.expand == 'none') {
+                        } else if(req.query.expand && req.query.expand.toLowerCase() == 'none') {
                             // Intentionally left blank.
                         } else if(req.query.expand) {
                             // Error expand must be either 'full','none' or start with 'href'
@@ -1475,231 +1218,7 @@ exports = module.exports = {
         }
     },
     
-    queryUtils: {
-        filterHrefs : function (value, query) {
-            var deferred = Q.defer();
-            try {
-                debug(value);
-                var permalinks, keys, i;
-
-                if (value) {
-                    permalinks = value.split(",");
-                    keys = [];
-                    var reject = false;
-                    for (i = 0; i < permalinks.length; i++) {
-                        var key = permalinks[i].split('/')[2];
-                        if(key.length == 36) {
-                            keys.push(key);
-                        } else {
-                            deferred.reject({ code: "parameter." + param + ".invalid.value" });
-                            reject = true;
-                            break;
-                        }
-                    }
-                    if(!reject) {
-                        query.sql(' and key in (').array(keys).sql(') ');
-                        deferred.resolve();
-                    }
-                }
-            } catch(error) {
-                debug(error.stack);
-                deferred.reject({ code: 'internal.error', description: error.toString() });
-            }
-            
-            return deferred.promise;
-        },
-    
-        // filterReferencedType('/persons','person')
-        filterReferencedType : function (resourcetype, columnname) {
-            return function (value, query) {
-                var deferred = Q.defer();
-                
-                var permalinks, keys, i;
-
-                if (value) {
-                    debug('** filterReferencedType');
-                    debug('** resourcetype = [' + resourcetype + ']');
-                    permalinks = value.split(",");
-                    debug('** permalinks : ');
-                    debug(permalinks);
-                    keys = [];
-                    var reject = false;
-                    for (i = 0; i < permalinks.length; i++) {
-                        if(permalinks[i].indexOf(resourcetype + "/") === 0) {
-                            var key = permalinks[i].substr(resourcetype.length + 1);
-                            if(key.length == 36) {
-                                keys.push(key);
-                            } else {
-                                deferred.reject({ code: "parameter.invalid.value" });
-                                reject = true;
-                                break;
-                            }
-                        } else {
-                            deferred.reject({ code: "parameter.invalid.value" });
-                            reject = true;
-                            break;
-                        }
-                    }
-                    if(!reject) {
-                        query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
-                        deferred.resolve();
-                    }
-                }
-                
-                return deferred.promise;
-            }
-        },
-        
-        filterILike: function(columnname) {
-            return function(value, select) {
-                var deferred = Q.defer();
-                
-                if (value) {
-                    var values = value.split(',');
-                    select.sql(' AND (');
-                    for(var i=0; i<values.length; i++) {
-                        if(i>0) select.sql(' OR ');
-                        select.sql('"' + columnname + '" ILIKE ').param('%' + values[i] + '%');
-                    }
-                    select.sql(') ');
-                    deferred.resolve();
-                } else {
-                    deferred.resolve();
-                }
-                
-                return deferred.promise;
-            }
-        },
-        
-        filterIn: function(columnname) {
-            return function(value, select) {
-                var deferred = Q.defer();
-                
-                if(value) {
-                    var values = value.split(',');
-                    select.sql(' AND "' + columnname + '" IN (').array(values).sql(') ');
-                    deferred.resolve();
-                } else {
-                    deferred.resolve();
-                }
-                
-                return deferred.promise;
-            }
-        }
-    },
-
-    mapUtils : {
-        removeifnull : function(key, e) {
-            if(e[key] == null) delete e[key];
-        },
-        remove : function(key, e) {
-            delete e[key];
-        },
-        now : function(key, e) {
-            e[key] = new Date().toISOString();
-        },
-        value : function(value) {
-            return function(key, e) {
-                e[key] = value;
-            };
-        },
-        parse : function(key, e) {
-            e[key] = JSON.parse(e[key]);
-        },
-        stringify : function(key, e) {
-            e[key] = JSON.stringify(e[key]);
-        }
-    },
-
-    schemaUtils : {
-        permalink: function(type, description) {
-            var parts = type.split("/");
-            var name = parts[1];
-
-            return {
-                type: "object",
-                properties: {
-                    href: {
-                        type: "string",
-                        pattern: "^\/" + name + "\/[-0-9a-f].*$",
-                        minLength: name.length + 38,
-                        maxLength: name.length + 38,
-                        description: description
-                    }
-                },
-                required: ["href"]
-            };
-        },
-
-        string: function(description, min, max) {
-            ret = {
-                type: "string",
-                description: description
-            };
-            if(min) ret.minLength = min;
-            if(max) ret.maxLength = max;
-            return ret;
-        },
-
-        numeric: function(description) {
-            return {
-                type: "numeric",
-                multipleOf: "1.0",
-                description: description
-            }
-        },
-
-        email: function(description) {
-            return {
-                type: "string",
-                format: "email",
-                minLength: 1,
-                maxLength: 254,
-                description: description
-            }
-        },
-
-        url: function(description) {
-            return {
-                type: "string",
-                minLength: 1,
-                maxLength: 2000,
-                format: "uri",
-                description: description
-            }
-        },
-
-        belgianzipcode: function(description) {
-            return {
-                type: "string",
-                pattern: "^[0-9][0-9][0-9][0-9]$",
-                description: description
-            };
-        },
-
-        phone: function(description) {
-            return {
-                type: "string",
-                pattern: "^[0-9]*$",
-                minLength: 9,
-                maxLength: 10,
-                description: description
-            };
-        },
-
-        timestamp : function(description) {
-            return {
-                type: "string",
-                format: "date-time",
-                description: description
-            }
-        },
-
-        boolean : function(description) {
-            return {
-                type: "boolean",
-                description: description
-            }
-        }
-    }
+    queryUtils : require('./js/queryUtils.js'),
+    mapUtils : require('./js/mapUtils.js'),
+    schemaUtils : require('./js/schemaUtils.js')
 }

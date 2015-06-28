@@ -17,7 +17,7 @@ var doDelete = sriclient.delete;
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = true;
+logsql = logrequests = logdebug = false;
 context.serve(roa, port, logsql, logrequests, logdebug);
 
 /* Configuration of sri4node is done */
@@ -467,9 +467,9 @@ describe("Expansion", function() {
     });
     
     // Test expand=href on list resources
-    describe(' with results.href on list resources', function() {
+    describe(' with results on list resources', function() {
         it("should succeed with $$expanded in results array.", function() {
-            return doGet(base + '/messages?expand=results.href','sabine@email.be', 'pwd').then(function(response) {
+            return doGet(base + '/messages?expand=results','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 if(response.body.results[0].$$expanded == undefined) assert.fail('Expansion was not performed !');
                 if(response.body.results[1].$$expanded == undefined) assert.fail('Expansion was not performed !');
@@ -492,7 +492,7 @@ describe("Expansion", function() {
     // Test expand=results.href,results.href.community on lists of messages
     describe('on list resources', function() {
         it("should succeed with $$expanded as result.", function() {
-            return doGet(base + '/messages?expand=results.href,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+            return doGet(base + '/messages?expand=results.community','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 debug(response.body.results[0].$$expanded);
                 if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
@@ -514,7 +514,7 @@ describe("Expansion", function() {
     // Test expand=results.href.community,results.href.person
     describe('on list resources', function() {
         it("should allow expanding multiple keys.", function() {
-            return doGet(base + '/messages?expand=results.href.person,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+            return doGet(base + '/messages?expand=results.person,results.community','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 debug(response.body.results[0].$$expanded);
                 if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
@@ -529,7 +529,7 @@ describe("Expansion", function() {
     
     describe('on list resource', function() {
         it('should have executed afterread on expanded resources.', function() {
-            return doGet(base + '/messages?expand=results.href.person,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+            return doGet(base + '/messages?expand=results.person,results.community','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 if(response.body.results[0].$$expanded.community.$$expanded.$$messagecount == undefined) assert.fail("afterread was not executed on expanded resource !");
             });
@@ -538,7 +538,7 @@ describe("Expansion", function() {
     
     describe('with 2 level path (x.y)', function() {
         it('should expand recursively.', function() {
-            return doGet(base + '/messages?expand=results.href.person.community,results.href.community','sabine@email.be', 'pwd').then(function(response) {
+            return doGet(base + '/messages?expand=results.person.community,results.community','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
                 if(response.body.results[0].$$expanded.community.$$expanded == undefined) assert.fail('Expansion was not performed !');
                 if(response.body.results[0].$$expanded.person.$$expanded == undefined) assert.fail('Expansion was not performed !');
@@ -564,7 +564,7 @@ describe("query parameters", function() {
         it("to limit to a single key + another parameter, should handle re-sequencing of parameters well", function() {
             return doGet(base + '/messages?hrefs=/messages/d70c98ca-9559-47db-ade6-e5da590b2435&cteOneGuid=true','sabine@email.be', 'pwd').then(function(response) {
                 assert.equal(response.statusCode, 200);
-                assert.equal(response.body.$$meta.count, 1);
+                assert.equal(response.body.$$meta.count, 1);    
             });
         });
     });
