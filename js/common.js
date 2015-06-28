@@ -1,5 +1,7 @@
 /* Internal utilities for sri4node */
 
+var Q = require('q');
+
 exports = module.exports = {
     cl: function(x) {
         console.log(x)
@@ -61,5 +63,44 @@ exports = module.exports = {
                 }
             }
         }
+    },
+    
+    executeValidateMethods: function(mapping, body, db, logdebug) {
+        var deferred = Q.defer();
+    
+        function debug(x) {
+            if(logdebug) exports.cl(x);
+        }
+
+        if(mapping.validate && mapping.validate.length > 0) {
+            debug("Executing validation methods.");
+            var promises = [];
+            mapping.validate.forEach(function(f) {
+                promises.push(f(body, db));
+            });
+
+            Q.allSettled(promises).then(function(results) {
+                var errors = [];
+                results.forEach(function(result) {
+                    if(result.state == 'rejected') {
+                        errors.push(result.reason);
+                    }
+                });
+
+                if(errors.length == 0) {
+                    deferred.resolve();
+                } else {
+                    var ret = { errors: errors };
+                    debug("Some validate methods rejected : ");
+                    debug(ret);
+                    deferred.reject(ret);
+                }
+            });
+        } else {
+            debug("No validate methods were registered.");
+            deferred.resolve();
+        }
+
+        return deferred.promise;
     }
 }

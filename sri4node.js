@@ -14,6 +14,7 @@ var typeToConfig = common.typeToConfig;
 var sqlColumnNames = common.sqlColumnNames;
 var mapColumnsToObject = common.mapColumnsToObject;
 var executeOnFunctions = common.executeOnFunctions;
+var executeValidateMethods = common.executeValidateMethods;
 
 // Module variables.
 var configuration;
@@ -473,41 +474,6 @@ function logRequests(req, res, next) {
     next();
 }
 
-function executeValidateMethods(mapping, body, db) {
-    var deferred = Q.defer();
-
-    if(mapping.validate && mapping.validate.length > 0) {
-        debug("Executing validation methods.");
-        var promises = [];
-        mapping.validate.forEach(function(f) {
-            promises.push(f(body, db));
-        });
-        
-        Q.allSettled(promises).then(function(results) {
-            var errors = [];
-            results.forEach(function(result) {
-                if(result.state == 'rejected') {
-                    errors.push(result.reason);
-                }
-            });
-            
-            if(errors.length == 0) {
-                deferred.resolve();
-            } else {
-                var ret = { errors: errors };
-                debug("Some validate methods rejected : ");
-                debug(ret);
-                deferred.reject(ret);
-            }
-        });
-    } else {
-        debug("No validate methods were registered.");
-        deferred.resolve();
-    }
-
-    return deferred.promise;
-}
-
 function postProcess(functions, db, body) {
     var deferred = Q.defer();
 
@@ -557,7 +523,7 @@ function executePutInsideTransaction(db, url, body) {
         }
     }
     
-    return executeValidateMethods(mapping, body, db).then(function() {
+    return executeValidateMethods(mapping, body, db, configuration.logdebug).then(function() {
         // create an object that only has mapped properties
         var element = {};
         for (var k in mapping.map) {
