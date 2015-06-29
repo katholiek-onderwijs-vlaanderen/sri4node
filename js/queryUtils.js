@@ -108,5 +108,5 @@ exports = module.exports = {
 
             return deferred.promise;
         }
-    }    
+    }
 }
