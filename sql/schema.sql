@@ -5,6 +5,8 @@ DROP TABLE IF EXISTS "transactions" CASCADE;
 DROP TABLE IF EXISTS "persons" CASCADE;
 DROP TABLE IF EXISTS "communities" CASCADE;
 DROP TABLE IF EXISTS "table" CASCADE;
+DROP TABLE IF EXISTS "selfreferential" CASCADE;
+DROP TABLE IF EXISTS "jsonb" CASCADE;
 
 CREATE TABLE "communities" (
   "key" text unique,
@@ -71,4 +73,9 @@ CREATE TABLE "selfreferential" (
     "key" text unique,
     "name" text not null,
     "parent" text references "selfreferential"(key)
+);
+
+CREATE TABLE "jsonb" (
+    "key" text unique,
+    "details" jsonb
 );

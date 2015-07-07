@@ -40,3 +40,8 @@ INSERT INTO "selfreferential" VALUES ('247caf52-9c58-44f1-97f8-de1a9766e990','le
 INSERT INTO "selfreferential" VALUES ('b8c020bf-0505-407c-a8ad-88044d741712','level1','247caf52-9c58-44f1-97f8-de1a9766e990');
 INSERT INTO "selfreferential" VALUES ('55ac49a0-34c8-4c33-9c8b-acfcb1578a91','level2','b8c020bf-0505-407c-a8ad-88044d741712');
 INSERT INTO "selfreferential" VALUES ('ab142ea6-7e79-4f93-82d3-8866b0c8d46b','level3','55ac49a0-34c8-4c33-9c8b-acfcb1578a91');
+
+-- A table that contains a JSONB column, for testing JSONB column support
+insert into jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
+insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
+insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}');

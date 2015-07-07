@@ -378,11 +378,11 @@ var allowCrossDomain = function(req, res, next) {
         origin = req.headers['origin'];
     } else if(req.headers['Origin']) {
         origin = req.headers['Origin'];
+    } else if(req.headers['host']) {
+        origin = req.headers['host'];
+    } else if(req.headers['Host']) {
+        origin = req.headers['Host'];
     }
-    debug(req);
-    
-//    res.header('Access-Control-Allow-Origin', origin);
-    console.log(req.headers);
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
     res.header('Access-Control-Allow-Headers', 'Content-Type');

@@ -302,7 +302,7 @@ exports = module.exports = {
             logsql : logsql,
             logrequests : logrequests,
             logdebug : logdebug,
-            defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5432/postgres",
+            defaultdatabaseurl : "postgres://sri4node:sri4node@localhost:5433/postgres",
             identity : function(username, database) {
                 var query = $u.prepareSQL("me");
                 query.sql('select * from persons where email = ').param(username);
@@ -577,6 +577,14 @@ exports = module.exports = {
                     query: {
                         allParentsOf: allParentsOf
                     }
+                },
+                {
+                    type: '/jsonb',
+                    public: true,
+                    map: {
+                        key: {},
+                        details: { onread: $m.parse, onupdate: $m.stringify, oninsert: $m.stringify }
+                    },
                 }
             ]
         }
