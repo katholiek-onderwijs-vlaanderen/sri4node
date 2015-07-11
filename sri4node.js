@@ -7,6 +7,8 @@
 var validator = require('jsonschema').Validator;
 var Q = require('q');
 
+var env = require('./js/env.js');
+
 // Utility function.
 var common = require('./js/common.js');
 var cl = common.cl;
@@ -41,9 +43,10 @@ var pgConnect = function () {
 
   // ssl=true is required for heruko.com
   // ssl=false is required for development on local postgres (Cloud9)
+  var databaseUrl = env.databaseUrl;
   var dbUrl;
-  if (process.env.DATABASE_URL) {
-    dbUrl = process.env.DATABASE_URL + '?ssl=true';
+  if (databaseUrl) {
+    dbUrl = databaseUrl + '?ssl=true';
   } else {
     dbUrl = configuration.defaultdatabaseurl;
   }
@@ -255,7 +258,7 @@ function getSchemaValidationErrors(json, schema) {
     return ret;
   };
 
-  var v = new validator();
+  var v = new validator(); // eslint-disable-line
   var result = v.validate(json, schema);
 
   var ret, i, current, err;
@@ -441,145 +444,150 @@ function postProcess(functions, db, body) {
   return deferred.promise;
 }
 
+/* eslint-disable */
 function executePutInsideTransaction(db, url, body) {
-  'use strict';
-  var deferred, element, errors;
-  var type = '/' + url.split('/')[1];
-  var key = url.split('/')[2];
+    'use strict';
+    var deferred, element, errors;
+    var type = '/' + url.split('/')[1];
+    var key = url.split('/')[2];
 
-  debug('PUT processing starting. Request body :');
-  debug(body);
-  debug('Key received on URL : ' + key);
+    debug('PUT processing starting. Request body :');
+    debug(body);
+    debug('Key received on URL : ' + key);
 
-  var typeToMapping = typeToConfig(resources);
-  // var type = '/' + req.route.path.split("/")[1];
-  var mapping = typeToMapping[type];
-  var table = mapping.type.split('/')[1];
+    var typeToMapping = typeToConfig(resources);
+    // var type = '/' + req.route.path.split("/")[1];
+    var mapping = typeToMapping[type];
+    var table = mapping.type.split('/')[1];
 
-  debug('Validating schema.');
-  if (mapping.schema) {
-    errors = getSchemaValidationErrors(body, mapping.schema);
-    if (errors) {
-      deferred = Q.defer();
+    debug('Validating schema.');
+    if (mapping.schema) {
+      errors = getSchemaValidationErrors(body, mapping.schema);
+      if (errors) {
+        deferred = Q.defer();
+        deferred.reject(errors);
+        return deferred.promise;
+      } else {
+        debug('Schema validation passed.');
+      }
+    }
+
+    return executeValidateMethods(mapping, body, db, configuration.logdebug).then(function () {
+      // create an object that only has mapped properties
+      var k, value, referencedType, referencedMapping, parts, refkey;
+      element = {};
+      for (k in mapping.map) {
+        if (mapping.map.hasOwnProperty(k)) {
+          if (body[k]) {
+            element[k] = body[k];
+          }
+        }
+      }
+      debug('Mapped incomming object according to configuration');
+
+      // check and remove types from references.
+      for (k in mapping.map) {
+        if (mapping.map.hasOwnProperty(k)) {
+          if (mapping.map[k].references) {
+            value = element[k].href;
+            if (!value) {
+              throw new Error('No href found inside reference ' + k);
+            }
+            referencedType = mapping.map[k].references;
+            referencedMapping = typeToMapping[referencedType];
+            parts = value.split('/');
+            type = '/' + parts[1];
+            refkey = parts[2];
+            if (type === referencedMapping.type) {
+              element[k] = refkey;
+            } else {
+              cl('Faulty reference detected [' + element[key].href + '], ' +
+                'detected [' + type + '] expected [' + referencedMapping.type + ']');
+              return;
+            }
+          }
+        }
+      }
+      debug('Converted references to values for update');
+
+      var countquery = prepare('check-resource-exists-' + table);
+      countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
+      return pgExec(db, countquery).then(function (results) {
+        var deferred = Q.defer();
+
+        if (results.rows[0].count === 1) {
+          executeOnFunctions(resources, mapping, 'onupdate', element);
+
+          var update = prepare('update-' + table);
+          update.sql('update "' + table + '" set ');
+          var firstcolumn = true;
+          for (var k in element) {
+            if (element.hasOwnProperty(k)) {
+              if (!firstcolumn) {
+                update.sql(',');
+              } else {
+                firstcolumn = false;
+              }
+
+              update.sql(k + '=').param(element[k]);
+            }
+          }
+          update.sql(' where "key" = ').param(key);
+
+          return pgExec(db, update).then(function (results) {
+            if (results.rowCount != 1) {
+              debug('No row affected ?!');
+              var deferred = Q.defer();
+              deferred.reject('No row affected.');
+              return deferred.promise();
+            } else {
+              return postProcess(mapping.afterupdate, db, body);
+            }
+          });
+        } else {
+          element.key = key;
+          executeOnFunctions(resources, mapping, 'oninsert', element);
+
+          var insert = prepare('insert-' + table);
+          insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
+          return pgExec(db, insert).then(function (results) {
+            if (results.rowCount != 1) {
+              debug('No row affected ?!');
+              var deferred = Q.defer();
+              deferred.reject('No row affected.');
+              return deferred.promise();
+            } else {
+              return postProcess(mapping.afterinsert, db, body);
+            }
+          });
+        }
+      }); // pgExec(db,countquery)...
+    }).fail(function (errors) {
+      var deferred = Q.defer();
       deferred.reject(errors);
       return deferred.promise;
-    } else {
-      debug('Schema validation passed.');
-    }
+    });
   }
-
-  return executeValidateMethods(mapping, body, db, configuration.logdebug).then(function () {
-    // create an object that only has mapped properties
-    var k, value, referencedType, referencedMapping, parts, refkey;
-    element = {};
-    for (k in mapping.map) {
-      if (mapping.map.hasOwnProperty(k)) {
-        if (body[k]) {
-          element[k] = body[k];
-        }
-      }
-    }
-    debug('Mapped incomming object according to configuration');
-
-    // check and remove types from references.
-    for (k in mapping.map) {
-      if (mapping.map.hasOwnProperty(k)) {
-        if (mapping.map[k].references) {
-          value = element[k].href;
-          if (!value) {
-            throw new Error('No href found inside reference ' + k);
-          }
-          referencedType = mapping.map[k].references;
-          referencedMapping = typeToMapping[referencedType];
-          parts = value.split('/');
-          type = '/' + parts[1];
-          refkey = parts[2];
-          if (type === referencedMapping.type) {
-            element[k] = refkey;
-          } else {
-            cl('Faulty reference detected [' + element[key].href + '], detected [' + type + '] expected [' + referencedMapping.type + ']');
-            return;
-          }
-        }
-      }
-    }
-    debug('Converted references to values for update');
-
-    var countquery = prepare('check-resource-exists-' + table);
-    countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
-    return pgExec(db, countquery).then(function (results) {
-      var deferred = Q.defer();
-
-      if (results.rows[0].count == 1) {
-        executeOnFunctions(resources, mapping, 'onupdate', element);
-
-        var update = prepare('update-' + table);
-        update.sql('update "' + table + '" set ');
-        var firstcolumn = true;
-        for (var k in element) {
-          if (element.hasOwnProperty(k)) {
-            if (!firstcolumn) {
-              update.sql(',');
-            } else {
-              firstcolumn = false;
-            }
-
-            update.sql(k + '=').param(element[k]);
-          }
-        }
-        update.sql(' where "key" = ').param(key);
-
-        return pgExec(db, update).then(function (results) {
-          if (results.rowCount != 1) {
-            debug("No row affected ?!");
-            var deferred = Q.defer();
-            deferred.reject("No row affected.");
-            return deferred.promise();
-          } else {
-            return postProcess(mapping.afterupdate, db, body);
-          }
-        });
-      } else {
-        element.key = key;
-        executeOnFunctions(resources, mapping, "oninsert", element);
-
-        var insert = prepare("insert-" + table);
-        insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
-        return pgExec(db, insert).then(function (results) {
-          if (results.rowCount != 1) {
-            debug("No row affected ?!");
-            var deferred = Q.defer();
-            deferred.reject("No row affected.");
-            return deferred.promise();
-          } else {
-            return postProcess(mapping.afterinsert, db, body);
-          }
-        });
-      }
-    }); // pgExec(db,countquery)...
-  }).fail(function (errors) {
-    var deferred = Q.defer();
-    deferred.reject(errors);
-    return deferred.promise;
-  });
-}
+  /* eslint-enable */
 
 // Local cache of known identities.
 var knownIdentities = {};
 // Returns a JSON object with the identity of the current user.
 function getMe(req) {
+  'use strict';
   var deferred = Q.defer();
 
   var basic = req.headers.authorization;
   var encoded = basic.substr(6);
   var decoded = new Buffer(encoded, 'base64').toString('utf-8');
   var firstColonIndex = decoded.indexOf(':');
-  if (firstColonIndex != -1) {
-    var username = decoded.substr(0, firstColonIndex);
+  var database, username;
+
+  if (firstColonIndex !== -1) {
+    username = decoded.substr(0, firstColonIndex);
     if (knownIdentities[username]) {
       deferred.resolve(knownIdentities[username]);
     } else {
-      var database;
       pgConnect().then(function (db) {
         database = db;
         return configuration.identity(username, db);
@@ -588,7 +596,7 @@ function getMe(req) {
         database.done();
         deferred.resolve(me);
       }).fail(function (err) {
-        cl("Retrieving of identity had errors. Removing pg client from pool. Error : ")
+        cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
         cl(err);
         database.done(err);
         deferred.reject(err);
@@ -600,9 +608,10 @@ function getMe(req) {
 }
 
 function validateAccessAllowed(mapping, db, req, resp, me) {
+  'use strict';
   var deferred = Q.defer();
 
-  // Array of functions that returns promises. If any of the promises fail, 
+  // Array of functions that returns promises. If any of the promises fail,
   // the response will be 401 Forbidden. All promises must resolve (to empty values)
   var secure = mapping.secure;
 
@@ -612,13 +621,13 @@ function validateAccessAllowed(mapping, db, req, resp, me) {
   });
 
   if (secure.length > 0) {
-    Q.all(promises).then(function (result) {
+    Q.all(promises).then(function () {
       deferred.resolve();
-    }).catch(function (result) {
+    }).catch(function () {
       deferred.reject({
-        type: "access.denied",
+        type: 'access.denied',
         status: 403,
-        body: "Forbidden"
+        body: 'Forbidden'
       });
     });
   } else {
@@ -629,29 +638,31 @@ function validateAccessAllowed(mapping, db, req, resp, me) {
 }
 
 function executeAfterReadFunctions(database, elements, mapping) {
-  debug("executeAfterReadFunctions");
+  'use strict';
+  var promises, i, ret;
+  debug('executeAfterReadFunctions');
   var deferred = Q.defer();
 
   if (mapping.afterread && mapping.afterread.length > 0) {
-    var promises = [];
-    for (var i = 0; i < mapping.afterread.length; i++) {
+    promises = [];
+    for (i = 0; i < mapping.afterread.length; i++) {
       promises.push(mapping.afterread[i](database, elements));
     }
 
     Q.allSettled(promises).then(function (results) {
-      debug("allSettled :");
+      debug('allSettled :');
       debug(results);
       var errors = [];
       results.forEach(function (result) {
-        if (result.state == 'rejected') {
+        if (result.state === 'rejected') {
           errors.push(result.reason);
         }
       });
 
-      if (errors.length == 0) {
+      if (errors.length === 0) {
         deferred.resolve();
       } else {
-        var ret = {
+        ret = {
           // When rejecting we return an object with :
           // 'type' -> an internal code to identify the error. Useful in the fail() method.
           // 'status' -> the returned HTTP status code.
@@ -673,10 +684,396 @@ function executeAfterReadFunctions(database, elements, mapping) {
   return deferred.promise;
 }
 
+/* Handle GET /{type}/schema */
+function getSchema(req, resp) {
+  'use strict';
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + req.route.path.split('/')[1];
+  var mapping = typeToMapping[type];
+
+  resp.set('Content-Type', 'application/json');
+  resp.send(mapping.schema);
+}
+
+function getListResource(executeExpansion) {
+  'use strict';
+  return function (req, resp) {
+    var typeToMapping = typeToConfig(resources);
+    var type = '/' + req.route.path.split('/')[1];
+    var mapping = typeToMapping[type];
+    var columns = sqlColumnNames(mapping);
+    var table = mapping.type.split('/')[1];
+
+    var database;
+    var countquery;
+    var count;
+    var query;
+    var output;
+    var elements;
+    var valid;
+    var orders, order, o;
+
+    debug('GET list resource ' + type);
+    pgConnect().then(function (db) {
+      debug('pgConnect ... OK');
+      database = db;
+      var begin = prepare('begin-transaction');
+      begin.sql('BEGIN');
+      return pgExec(database, begin);
+    }).then(function () {
+      if (!mapping.public) {
+        debug('* getting security context');
+        return getMe(req);
+      }
+    }).then(function (me) {
+      // me == null if no authentication header was sent by the client.
+      if (!mapping.public) {
+        debug('* running config.secure functions');
+        return validateAccessAllowed(mapping, database, req, resp, me);
+      }
+    }).then(function () {
+      countquery = prepare();
+      countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+      debug('* applying URL parameters to WHERE clause');
+      return applyRequestParameters(mapping, req, countquery, database, true);
+    }).then(function () {
+      debug('* executing SELECT COUNT query on database');
+      return pgExec(database, countquery);
+    }).then(function (results) {
+      count = parseInt(results.rows[0].count, 10);
+      query = prepare();
+      query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
+      debug('* applying URL parameters to WHERE clause');
+      return applyRequestParameters(mapping, req, query, database, false);
+    }).then(function () {
+      // All list resources support orderby, limit and offset.
+      var orderby = req.query.orderby;
+      var descending = req.query.descending;
+      if (orderby) {
+        valid = true;
+        orders = orderby.split(',');
+        for (o = 0; o < orders.length; o++) {
+          order = orders[o];
+          if (!mapping.map[order]) {
+            valid = false;
+            break;
+          }
+        }
+        if (valid) {
+          query.sql(' order by ' + orders);
+          if (descending) {
+            query.sql(' desc');
+          }
+        } else {
+          cl('Can not order by [' + orderby + ']. One or more unknown properties. Ignoring orderby.');
+        }
+      }
+
+      if (req.query.limit) {
+        query.sql(' limit ').param(req.query.limit);
+      }
+      if (req.query.offset) {
+        query.sql(' offset ').param(req.query.offset);
+      }
+
+      debug('* executing SELECT query on database');
+      return pgExec(database, query);
+    }).then(function (result) {
+      debug('pgExec select ... OK');
+      debug(result);
+      var rows = result.rows;
+      var results = [];
+      var row, currentrow;
+      var element, msg;
+
+      elements = [];
+      for (row = 0; row < rows.length; row++) {
+        currentrow = rows[row];
+
+        element = {
+          href: mapping.type + '/' + currentrow.key
+        };
+
+        // full, or any set of expansion values that must
+        // all start with "results.href" or "results.href.*" will result in inclusion
+        // of the regular resources in the list resources.
+        if (!req.query.expand ||
+          (req.query.expand.toLowerCase() === 'full' || req.query.expand.indexOf('results') === 0)) {
+          element.$$expanded = {
+            $$meta: {
+              permalink: mapping.type + '/' + currentrow.key
+            }
+          };
+          mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
+          executeOnFunctions(resources, mapping, 'onread', element.$$expanded);
+          elements.push(element.$$expanded);
+        } else if (req.query.expand && req.query.expand.toLowerCase() === 'none') {
+          // Intentionally left blank.
+        } else if (req.query.expand) {
+          // Error expand must be either 'full','none' or start with 'href'
+          msg = 'expand value unknown : ' + req.query.expand;
+          debug(msg);
+          throw new Error(msg);
+        }
+        results.push(element);
+      }
+
+      output = {
+        $$meta: {
+          count: count,
+          schema: mapping.type + '/schema'
+        },
+        results: results
+      };
+      debug('* executing expansion : ' + req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+    }).then(function () {
+      debug('* executing afterread functions on results');
+      debug(elements);
+      return executeAfterReadFunctions(database, elements, mapping);
+    }).then(function () {
+      debug('* sending response to client :');
+      debug(output);
+      resp.set('Content-Type', 'application/json');
+      resp.send(output);
+      resp.end();
+
+      debug('* rolling back database transaction, GETs never have a side effect on the database.');
+      database.client.query('ROLLBACK', function (err) {
+        // If err is defined, client will be removed from pool.
+        database.done(err);
+      });
+      database.done();
+    }).fail(function (error) {
+      database.client.query('ROLLBACK', function (err) {
+        // If err is defined, client will be removed from pool.
+        database.done(err);
+      });
+
+      if (error.type && error.status && error.body) {
+        resp.status(error.status).send(error.body);
+        database.done();
+        resp.end();
+      } else {
+        cl('GET processing had errors. Removing pg client from pool. Error : ');
+        if (error.stack) {
+          cl(error.stack);
+        } else {
+          cl(error);
+        }
+        database.done(error);
+        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        resp.end();
+      }
+    });
+  };
+}
+
+function getRegularResource(executeExpansion) {
+  'use strict';
+  return function (req, resp) {
+    var typeToMapping = typeToConfig(resources);
+    var type = '/' + req.route.path.split('/')[1];
+    var mapping = typeToMapping[type];
+    var key = req.params.key;
+
+    var database;
+    var element;
+    var elements;
+    pgConnect().then(function (db) {
+      database = db;
+      if (!mapping.public) {
+        debug('* getting security context');
+        return getMe(req);
+      }
+    }).then(function (me) {
+      // me == null if no authentication header was sent by the client.
+      if (!mapping.public) {
+        debug('* running config.secure functions');
+        return validateAccessAllowed(mapping, database, req, resp, me);
+      }
+    }).then(function () {
+      debug('* query by key');
+      return queryByKey(resources, database, mapping, key);
+    }).then(function (result) {
+      element = result;
+      element.$$meta = {
+        permalink: mapping.type + '/' + key
+      };
+      elements = [];
+      elements.push(element);
+      debug('* executing expansion : ' + req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+    }).then(function () {
+      debug('* executing afterread functions');
+      return executeAfterReadFunctions(database, elements, mapping);
+    }).then(function () {
+      debug('* sending response to the client :');
+      debug(element);
+      resp.set('Content-Type', 'application/json');
+      resp.send(element);
+      database.done();
+      resp.end();
+    }).fail(function (error) {
+      if (error.type && error.status && error.body) {
+        resp.status(error.status).send(error.body);
+        database.done();
+        resp.end();
+      } else {
+        cl('GET processing had errors. Removing pg client from pool. Error : ');
+        cl(error);
+        database.done(error);
+        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        resp.end();
+      }
+    });
+  };
+}
+
+function createOrUpdate(req, resp) {
+  'use strict';
+  debug('* sri4node PUT processing invoked.');
+  var url = req.path;
+  pgConnect().then(function (db) {
+    var begin = prepare('begin-transaction');
+    begin.sql('BEGIN');
+    return pgExec(db, begin).then(function () {
+      return executePutInsideTransaction(db, url, req.body);
+    }).then(function () {
+      debug('PUT processing went OK. Committing database transaction.');
+      db.client.query('COMMIT', function (err) {
+        // If err is defined, client will be removed from pool.
+        db.done(err);
+        debug('COMMIT DONE.');
+        resp.send(true);
+        resp.end();
+      });
+    }).fail(function (puterr) {
+      cl('PUT processing failed. Rolling back database transaction. Error was :');
+      cl(puterr);
+      db.client.query('ROLLBACK', function (rollbackerr) {
+        // If err is defined, client will be removed from pool.
+        db.done(rollbackerr);
+        cl('ROLLBACK DONE.');
+        resp.status(409).send(puterr);
+        resp.end();
+      });
+    });
+  }); // pgConnect
+}
+
+function deleteResource(req, resp) {
+  'use strict';
+  debug('sri4node DELETE invoked');
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + req.route.path.split('/')[1];
+  var mapping = typeToMapping[type];
+  var table = mapping.type.split('/')[1];
+  var deferred;
+  var database;
+
+  pgConnect().then(function (db) {
+    database = db;
+    var begin = prepare('begin-transaction');
+    begin.sql('BEGIN');
+    return pgExec(database, begin);
+  }).then(function () {
+    var deletequery = prepare('delete-by-key-' + table);
+    deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
+    return pgExec(database, deletequery);
+  }).then(function (results) {
+    if (results.rowCount !== 1) {
+      debug('No row affected ?!');
+      deferred = Q.defer();
+      deferred.reject('No row affected.');
+      return deferred.promise();
+    } else { // eslint-disable-line
+      return postProcess(mapping.afterdelete, database, req.route.path);
+    }
+  }).then(function () {
+    debug('DELETE processing went OK. Committing database transaction.');
+    database.client.query('COMMIT', function (err) {
+      // If err is defined, client will be removed from pool.
+      database.done(err);
+      debug('COMMIT DONE.');
+      resp.send(true);
+      resp.end();
+    });
+  }).fail(function (delerr) {
+    cl('DELETE processing failed. Rolling back database transaction. Error was :');
+    cl(delerr);
+    database.client.query('ROLLBACK', function (rollbackerr) {
+      // If err is defined, client will be removed from pool.
+      database.done(rollbackerr);
+      cl('ROLLBACK DONE. Sending 500 Internal Server Error. [' + delerr.toString() + ']');
+      resp.status(500).send('Internal Server Error. [' + delerr.toString() + ']');
+      resp.end();
+    });
+  });
+}
+
+function batchOperation(req, resp) {
+  'use strict';
+  var database;
+
+  // An array of objects with 'href', 'verb' and 'body'
+  var batch = req.body;
+  batch.reverse();
+
+  pgConnect().then(function (db) {
+    database = db;
+    var begin = prepare('begin-transaction');
+    begin.sql('BEGIN');
+    return pgExec(database, begin);
+  }).then(function () {
+      function recurse() {
+        var element, url, body, verb;
+        if (batch.length > 0) {
+          element = batch.pop();
+          url = element.href;
+          cl('executing /batch section ' + url);
+          body = element.body;
+          verb = element.verb;
+          if (verb === 'PUT') {
+            return executePutInsideTransaction(database, url, body).then(function () {
+              return recurse();
+            });
+          } else { // eslint-disable-line
+            cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
+            throw new Error();
+          }
+        }
+      }
+
+      return recurse(batch);
+    }).then(function () {
+      cl('PUT processing went OK. Committing database transaction.');
+      database.client.query('COMMIT', function (err) {
+        // If err is defined, client will be removed from pool.
+        database.done(err);
+        cl('COMMIT DONE.');
+        resp.send(true);
+        resp.end();
+      });
+    }).fail(function (puterr) {
+      cl('PUT processing failed. Rolling back database transaction. Error was :');
+      cl(puterr);
+      database.client.query('ROLLBACK', function (rollbackerr) {
+        // If err is defined, client will be removed from pool.
+        database.done(rollbackerr);
+        cl('ROLLBACK DONE.');
+        resp.status(500).send(puterr);
+        resp.end();
+      });
+    });
+}
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: function (app, postgres, config) {
+    'use strict';
     var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
+    var configIndex, mapping, url;
 
     configuration = config;
     resources = config.resources;
@@ -687,389 +1084,47 @@ exports = module.exports = {
     app.use(forceSecureSockets);
     app.use(allowCrossDomain);
 
-    for (var configIndex = 0; configIndex < resources.length; configIndex++) {
-      var mapping = resources[configIndex];
-      var url;
+    for (configIndex = 0; configIndex < resources.length; configIndex++) {
+      mapping = resources[configIndex];
 
       // register schema for external usage. public.
       url = mapping.type + '/schema';
       app.use(url, logRequests);
-      app.get(url, function (req, resp) {
-        var typeToMapping = typeToConfig(resources);
-        var type = '/' + req.route.path.split("/")[1];
-        var mapping = typeToMapping[type];
 
-        resp.set('Content-Type', 'application/json');
-        resp.send(mapping.schema);
-      });
+      app.get(url, getSchema);
 
       // register list resource for this type.
       url = mapping.type;
-      app.get(url, logRequests, checkBasicAuthentication, function (req, resp) {
-        var typeToMapping = typeToConfig(resources);
-        var type = '/' + req.route.path.split("/")[1];
-        var mapping = typeToMapping[type];
-        var columns = sqlColumnNames(mapping);
-        var table = mapping.type.split("/")[1];
-
-        var database;
-        var countquery;
-        var count;
-        var query;
-        var output;
-        var elements;
-        debug('GET list resource ' + type);
-        pgConnect().then(function (db) {
-          debug("pgConnect ... OK");
-          database = db;
-          var begin = prepare("begin-transaction");
-          begin.sql('BEGIN');
-          return pgExec(database, begin);
-        }).then(function () {
-          if (!mapping.public) {
-            debug('* getting security context');
-            return getMe(req);
-          }
-        }).then(function (me) {
-          // me == null if no authentication header was sent by the client.
-          if (!mapping.public) {
-            debug("* running config.secure functions");
-            return validateAccessAllowed(mapping, database, req, resp, me);
-          }
-        }).then(function () {
-          countquery = prepare();
-          countquery.sql('select count(*) from "' + table + '" where 1=1 ');
-          debug('* applying URL parameters to WHERE clause');
-          return applyRequestParameters(mapping, req, countquery, database, true);
-        }).then(function () {
-          debug('* executing SELECT COUNT query on database');
-          return pgExec(database, countquery);
-        }).then(function (results) {
-          count = parseInt(results.rows[0].count);
-          query = prepare();
-          query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
-          debug('* applying URL parameters to WHERE clause');
-          return applyRequestParameters(mapping, req, query, database, false);
-        }).then(function () {
-          // All list resources support orderby, limit and offset.
-          var orderby = req.query.orderby;
-          var descending = req.query.descending;
-          if (orderby) {
-            var valid = true;
-            var orders = orderby.split(",");
-            for (var o = 0; o < orders.length; o++) {
-              var order = orders[o];
-              if (!mapping.map[order]) {
-                valid = false;
-                break;
-              }
-            }
-            if (valid) {
-              query.sql(" order by " + orders);
-              if (descending) query.sql(" desc");
-            } else {
-              cl("Can not order by [" + orderby + "]. One or more unknown properties. Ignoring orderby.");
-            }
-          }
-
-          if (req.query.limit) query.sql(" limit ").param(req.query.limit);
-          if (req.query.offset) query.sql(" offset ").param(req.query.offset);
-
-          debug('* executing SELECT query on database');
-          return pgExec(database, query);
-        }).then(function (result) {
-          debug("pgExec select ... OK");
-          debug(result);
-          var rows = result.rows;
-          var results = [];
-          elements = [];
-          for (var row = 0; row < rows.length; row++) {
-            var currentrow = rows[row];
-
-            var element = {
-              href: mapping.type + '/' + currentrow.key
-            };
-
-            // full, or any set of expansion values that must 
-            // all start with "results.href" or "results.href.*" will result in inclusion
-            // of the regular resources in the list resources.
-            if (!req.query.expand || (req.query.expand.toLowerCase() == 'full' || req.query.expand.indexOf('results') == 0)) {
-              element.$$expanded = {
-                $$meta: {
-                  permalink: mapping.type + '/' + currentrow.key
-                }
-              };
-              mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
-              executeOnFunctions(resources, mapping, "onread", element.$$expanded);
-              elements.push(element.$$expanded);
-            } else if (req.query.expand && req.query.expand.toLowerCase() == 'none') {
-              // Intentionally left blank.
-            } else if (req.query.expand) {
-              // Error expand must be either 'full','none' or start with 'href'
-              var msg = "expand value unknown : " + req.query.expand;
-              debug(msg);
-              throw new Error(msg);
-            }
-            results.push(element);
-          }
-
-          output = {
-            $$meta: {
-              count: count,
-              schema: mapping.type + '/schema'
-            },
-            results: results
-          };
-          debug('* executing expansion : ' + req.query.expand);
-          return executeExpansion(database, elements, mapping, resources, req.query.expand);
-        }).then(function () {
-          debug('* executing afterread functions on results');
-          debug(elements);
-          return executeAfterReadFunctions(database, elements, mapping);
-        }).then(function () {
-          debug('* sending response to client :');
-          debug(output);
-          resp.set('Content-Type', 'application/json');
-          resp.send(output);
-          resp.end();
-
-          debug('* rolling back database transaction, GETs never have a side effect on the database.');
-          database.client.query("ROLLBACK", function (err) {
-            // If err is defined, client will be removed from pool.
-            database.done(err);
-          });
-          database.done();
-        }).fail(function (error) {
-          database.client.query("ROLLBACK", function (err) {
-            // If err is defined, client will be removed from pool.
-            database.done(err);
-          });
-
-          if (error.type && error.status && error.body) {
-            resp.status(error.status).send(error.body);
-            database.done();
-            resp.end();
-          } else {
-            cl("GET processing had errors. Removing pg client from pool. Error : ");
-            if (error.stack) {
-              cl(error.stack);
-            } else {
-              cl(error);
-            }
-            database.done(error);
-            resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
-            resp.end();
-          }
-        });
-      }); // app.get - list resource
+      app.get(url, logRequests, checkBasicAuthentication, getListResource(executeExpansion)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
-      app.route(url).get(logRequests, checkBasicAuthentication, function (req, resp) {
-        var typeToMapping = typeToConfig(resources);
-        var type = '/' + req.route.path.split("/")[1];
-        var mapping = typeToMapping[type];
-        var key = req.params.key;
-
-        var database;
-        var element;
-        var elements;
-        pgConnect().then(function (db) {
-          database = db;
-          if (!mapping.public) {
-            debug('* getting security context');
-            return getMe(req);
-          }
-        }).then(function (me) {
-          // me == null if no authentication header was sent by the client.
-          if (!mapping.public) {
-            debug("* running config.secure functions");
-            return validateAccessAllowed(mapping, database, req, resp, me);
-          }
-        }).then(function () {
-          debug("* query by key");
-          return queryByKey(resources, database, mapping, key);
-        }).then(function (result) {
-          element = result;
-          element.$$meta = {
-            permalink: mapping.type + '/' + key
-          };
-          elements = [];
-          elements.push(element);
-          debug('* executing expansion : ' + req.query.expand);
-          return executeExpansion(database, elements, mapping, resources, req.query.expand);
-        }).then(function () {
-          debug('* executing afterread functions');
-          return executeAfterReadFunctions(database, elements, mapping);
-        }).then(function () {
-          debug('* sending response to the client :');
-          debug(element);
-          resp.set('Content-Type', 'application/json');
-          resp.send(element);
-          database.done();
-          resp.end();
-        }).fail(function (error) {
-          if (error.type && error.status && error.body) {
-            resp.status(error.status).send(error.body);
-            database.done();
-            resp.end();
-          } else {
-            cl("GET processing had errors. Removing pg client from pool. Error : ");
-            cl(errors);
-            database.done(errors);
-            resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
-            resp.end();
-          }
-        });
-      }).put(logRequests, checkBasicAuthentication, function (req, resp) {
-        debug("* sri4node PUT processing invoked.");
-        var url = req.path;
-        pgConnect().then(function (db) {
-          var begin = prepare("begin-transaction");
-          begin.sql('BEGIN');
-          return pgExec(db, begin).then(function () {
-            return executePutInsideTransaction(db, url, req.body);
-          }).then(function () {
-            debug("PUT processing went OK. Committing database transaction.");
-            db.client.query("COMMIT", function (err) {
-              // If err is defined, client will be removed from pool.
-              db.done(err);
-              debug("COMMIT DONE.");
-              resp.send(true);
-              resp.end();
-            });
-          }).fail(function (puterr) {
-            cl("PUT processing failed. Rolling back database transaction. Error was :");
-            cl(puterr);
-            db.client.query("ROLLBACK", function (rollbackerr) {
-              // If err is defined, client will be removed from pool.
-              db.done(rollbackerr);
-              cl("ROLLBACK DONE.");
-              resp.status(409).send(puterr);
-              resp.end();
-            });
-          });
-        }); // pgConnect
-      }).delete(logRequests, checkBasicAuthentication, function (req, resp) {
-        debug('sri4node DELETE invoked');
-        var typeToMapping = typeToConfig(resources);
-        var type = '/' + req.route.path.split("/")[1];
-        var mapping = typeToMapping[type];
-        var table = mapping.type.split("/")[1];
-
-        pgConnect().then(function (db) {
-          var begin = prepare("begin-transaction");
-          begin.sql("BEGIN");
-          return pgExec(db, begin).then(function () {
-            var deletequery = prepare("delete-by-key-" + table);
-            deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
-
-            return pgExec(db, deletequery).then(function (results) {
-              if (results.rowCount != 1) {
-                debug("No row affected ?!");
-                var deferred = Q.defer();
-                deferred.reject("No row affected.");
-                return deferred.promise();
-              } else {
-                return postProcess(mapping.afterdelete, db, req.route.path);
-              }
-            }); // pgExec delete
-          }).then(function () {
-            debug("DELETE processing went OK. Committing database transaction.");
-            db.client.query("COMMIT", function (err) {
-              // If err is defined, client will be removed from pool.
-              db.done(err);
-              debug("COMMIT DONE.");
-              resp.send(true);
-              resp.end();
-            });
-          }).fail(function (delerr) {
-            cl("DELETE processing failed. Rolling back database transaction. Error was :");
-            cl(delerr);
-            db.client.query("ROLLBACK", function (rollbackerr) {
-              // If err is defined, client will be removed from pool.
-              db.done(rollbackerr);
-              cl("ROLLBACK DONE. Sending 500 Internal Server Error. [" + delerr.toString() + "]");
-              resp.status(500).send("Internal Server Error. [" + delerr.toString() + "]");
-              resp.end();
-            });
-          });
-        }); // pgConnect
-      }); // app.delete
+      app.route(url)
+        .get(logRequests, checkBasicAuthentication, getRegularResource(executeExpansion))
+        .put(logRequests, checkBasicAuthentication, createOrUpdate)
+        .delete(logRequests, checkBasicAuthentication, deleteResource); // app.delete
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, checkBasicAuthentication, function (req, resp) {
-      // An array of objects with 'href', 'verb' and 'body'
-      var batch = req.body;
-      batch.reverse();
-
-      pgConnect().then(function (db) {
-        var begin = prepare('begin-transaction');
-        begin.sql("BEGIN");
-        return pgExec(db, begin).then(function () {
-            var promises = [];
-
-            function recurse(batch) {
-              if (batch.length > 0) {
-                var element = batch.pop();
-                var url = element.href;
-                cl("executing /batch section " + url);
-                var body = element.body;
-                var verb = element.verb;
-                if (verb === "PUT") {
-                  return executePutInsideTransaction(db, url, body).then(function () {
-                    return recurse(batch);
-                  });
-                } else {
-                  cl("UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!");
-                  throw new Error();
-                }
-              }
-            }
-
-            return recurse(batch);
-          }) // pgExec(db,SQL("BEGIN")...
-          .then(function () {
-            cl("PUT processing went OK. Committing database transaction.");
-            db.client.query("COMMIT", function (err) {
-              // If err is defined, client will be removed from pool.
-              db.done(err);
-              cl("COMMIT DONE.");
-              resp.send(true);
-              resp.end();
-            });
-          })
-          .fail(function (puterr) {
-            cl("PUT processing failed. Rolling back database transaction. Error was :");
-            cl(puterr);
-            db.client.query("ROLLBACK", function (rollbackerr) {
-              // If err is defined, client will be removed from pool.
-              db.done(rollbackerr);
-              cl("ROLLBACK DONE.");
-              resp.status(500).send(puterr);
-              resp.end();
-            });
-          });
-      }); // pgConnect
-    }); // app.put('/batch');
+    app.put(url, logRequests, checkBasicAuthentication, batchOperation); // app.put('/batch');
 
     url = '/me';
     app.get(url, logRequests, checkBasicAuthentication, function (req, resp) {
       getMe(req).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);
-      }).fail(function () {
-        resp.status(500).send("Internal Server Error. [" + error.toString() + "]");
+      }).fail(function (error) {
+        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
         resp.end();
       });
     });
 
     app.put('/log', function (req, resp) {
+      var i;
       var error = req.body;
-      cl("Client side error :");
-      var lines = error.stack.split("\n");
-      for (var i = 0; i < lines.length; i++) {
+      cl('Client side error :');
+      var lines = error.stack.split('\n');
+      for (i = 0; i < lines.length; i++) {
         cl(lines[i]);
       }
       resp.end();
@@ -1079,6 +1134,7 @@ exports = module.exports = {
   utils: {
     // Call this is you want to clear the password and identity cache for the API.
     clearPasswordCache: function () {
+      'use strict';
       knownPasswords = {};
       knownIdentities = {};
     },
@@ -1094,46 +1150,50 @@ exports = module.exports = {
         * key : the name of the key to add to the retrieved elements.
     */
     addReferencingResources: function (type, column, targetkey) {
+      'use strict';
       return function (database, elements) {
-        var deferred = Q.defer()
+        var tablename, query, elementKeys, elementKeysToElement;
+        var permalink, elementKey;
+        var deferred = Q.defer();
 
         if (elements && elements.length && elements.length > 0) {
-          var tablename = type.split('/')[1]
-          var query = prepare()
-          var elementKeys = []
-          var elementKeysToElement = {}
+          tablename = type.split('/')[1];
+          query = prepare();
+          elementKeys = [];
+          elementKeysToElement = {};
           elements.forEach(function (element) {
-            var permalink = element.$$meta.permalink
-            var elementKey = permalink.split('/')[2]
-            elementKeys.push(elementKey)
-            elementKeysToElement[elementKey] = element
+            permalink = element.$$meta.permalink;
+            elementKey = permalink.split('/')[2];
+            elementKeys.push(elementKey);
+            elementKeysToElement[elementKey] = element;
           });
-          console.log(elements)
-          console.log(elementKeys)
-          query.sql('select key,' + column + ' as fkey from ' + tablename + ' where ' + column + ' in (').array(elementKeys).sql(')')
+          cl(elements);
+          cl(elementKeys);
+          query.sql('select key,' + column + ' as fkey from ' +
+                    tablename + ' where ' + column + ' in (').array(elementKeys).sql(')');
           pgExec(database, query).then(function (result) {
             result.rows.forEach(function (row) {
-              var element = elementKeysToElement[row.fkey]
+              var element = elementKeysToElement[row.fkey];
               if (!element[targetkey]) {
-                element[targetkey] = []
+                element[targetkey] = [];
               }
-              element[targetkey].push(type + '/' + row.key)
+              element[targetkey].push(type + '/' + row.key);
             });
-            deferred.resolve()
+            deferred.resolve();
           }).fail(function (e) {
-            console.log(e.stack)
-            deferred.reject()
-          })
+            cl(e.stack);
+            deferred.reject();
+          });
         } else {
-          deferred.resolve()
+          deferred.resolve();
         }
 
-        return deferred.promise
-      }
+        return deferred.promise;
+      };
     }
   },
 
   queryUtils: require('./js/queryUtils.js'),
   mapUtils: require('./js/mapUtils.js'),
   schemaUtils: require('./js/schemaUtils.js')
-}
+};
