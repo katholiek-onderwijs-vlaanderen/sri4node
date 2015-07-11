@@ -722,66 +722,6 @@ describe('query parameters', function () {
   });
 });
 
-describe('Using queryUtils', function () {
-  'use strict';
-  describe('function filterILike', function () {
-    it('should should match substrings case-insensitive', function () {
-      return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&firstnameILike=NgRi',
-                   'sabine@email.be', 'pwd')
-        .then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.$$meta.count, 1);
-      });
-    });
-  });
-
-  describe('function filterILike', function () {
-    it('should support matching on 2 possible values', function () {
-      return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&' +
-          'firstnameILike=NgRi,iCoL', 'sabine@email.be', 'pwd')
-        .then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.$$meta.count, 2);
-      });
-    });
-  });
-
-  describe('function filterIn', function () {
-    it('should match on exact values', function () {
-      return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849&' +
-                   'firstnameIn=Ingrid', 'sabine@email.be', 'pwd').then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.$$meta.count, 1);
-      });
-    });
-  });
-
-  describe('function filterIn', function () {
-    it('should ONLY match on exact values', function () {
-      return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849' +
-                   '&firstnameIn=Gobeldigook', 'sabine@email.be', 'pwd').then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.$$meta.count, 0);
-      });
-    });
-  });
-
-  describe('function filterIn', function () {
-    it('should support matching on 2 possible values', function () {
-      return doGet(base + '/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849' +
-                   '&firstnameIn=Ingrid,Nicole', 'sabine@email.be', 'pwd').then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.$$meta.count, 2);
-      });
-    });
-  });
-});
-
 describe('utils.addReferencingResources ', function () {
   'use strict';
   describe('on afterread /persons', function () {
@@ -845,3 +785,5 @@ describe('JSONB support', function () {
     });
   });
 });
+
+require('./testQueryUtils.js')(base);
