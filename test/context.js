@@ -5,7 +5,6 @@ You can require it, and start serving the reference API :
 var context = require('./context.js');
 context.serve();
 */
-"use strict";
 
 // External includes
 var express = require('express');
@@ -17,6 +16,7 @@ var $u, $m, $s, $q;
 
 exports = module.exports = {
   serve: function (roa, port, logsql, logrequests, logdebug) {
+    'use strict';
     $u = roa.utils;
     $m = roa.mapUtils;
     $s = roa.schemaUtils;
@@ -27,81 +27,85 @@ exports = module.exports = {
     app.use(bodyParser.json());
 
     function cl(x) {
-      console.log(x);
+      console.log(x); // eslint-disable-line
     }
 
     function debug(x) {
-      if (logdebug) cl(x);
+      if (logdebug) {
+        cl(x);
+      }
     }
 
     // node-postgres defaults to 10 clients in the pool, but heroku.com allows 20.
     pg.defaults.poolSize = 20;
 
-    var invalidQueryParameter = function (value, select, param, database) {
+    var invalidQueryParameter = function () {
       var deferred = Q.defer();
       deferred.reject({
-        code: "invalid.query.parameter"
+        code: 'invalid.query.parameter'
       });
       return deferred.promise;
     };
 
     // Don't really need the extra parameters when using CTE.
-    var cteOneGuid = function (value, select, param) {
+    var cteOneGuid = function (value, select) {
       var deferred = Q.defer();
 
       var cte = $u.prepareSQL();
-      cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
-      select.with(cte, "cte");
+      cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
+      select.with(cte, 'cte');
       select.sql(' AND "key" IN (SELECT key FROM cte)');
       deferred.resolve();
 
       return deferred.promise;
-    }
+    };
 
-    var cteOneGuid2 = function (value, select, param) {
+    var cteOneGuid2 = function (value, select) {
       var deferred = Q.defer();
 
       var cte = $u.prepareSQL();
-      cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
-      select.with(cte, "cte2");
+      cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
+      select.with(cte, 'cte2');
       select.sql(' AND "key" IN (SELECT key FROM cte2)');
       deferred.resolve();
 
       return deferred.promise;
-    }
+    };
 
-    var allParentsOf = function (value, select, param, database, count) {
+    var allParentsOf = function (value, select) {
       var deferred = Q.defer();
 
       var key = value.split('/')[2];
       var nonrecursive = $u.prepareSQL();
       nonrecursive.sql('VALUES (').param(key).sql(')');
       var recursive = $u.prepareSQL();
-      recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p WHERE sr.key = p.key AND sr.parent IS NOT NULL');
+      recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p' +
+        ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
       select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
       select.sql(' AND key IN (SELECT key FROM parentsof)');
-      console.log(select.text);
+      cl(select.text);
       deferred.resolve();
 
       return deferred.promise;
-    }
+    };
 
 
     var parameterWithExtraQuery = function (value, select, param, database, count) {
       var deferred = Q.defer();
+      var q;
 
       if (count) {
-        var q = $u.prepareSQL("create-allcommunitykeys");
+        q = $u.prepareSQL('create-allcommunitykeys');
         q.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
-        $u.executeSQL(database, q).then(function (results) {
+        $u.executeSQL(database, q).then(function () {
           select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
           deferred.resolve();
         }).catch(function (error) {
-          debug("Catch creating temp table");
+          debug('Catch creating temp table');
           debug(error);
           deferred.reject(error);
         }).fail(function (error) {
-          debug("Fail creating temp table");
+          debug('Fail creating temp table');
           debug(error);
           deferred.reject(error);
         });
@@ -115,19 +119,20 @@ exports = module.exports = {
 
     var parameterWithExtraQuery2 = function (value, select, param, database, count) {
       var deferred = Q.defer();
+      var q;
 
       if (count) {
-        var q = $u.prepareSQL("create-allcommunitykeys2");
+        q = $u.prepareSQL('create-allcommunitykeys2');
         q.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
-        $u.executeSQL(database, q).then(function (results) {
+        $u.executeSQL(database, q).then(function () {
           select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
           deferred.resolve();
         }).catch(function (error) {
-          debug("Catch creating temp table");
+          debug('Catch creating temp table');
           debug(error);
           deferred.reject(error);
         }).fail(function (error) {
-          debug("Fail creating temp table");
+          debug('Fail creating temp table');
           debug(error);
           deferred.reject(error);
         });
@@ -147,10 +152,7 @@ exports = module.exports = {
       return deferred.promise;
     };
 
-
-    var validateCommunities = function (req, resp, elasBackend) {};
-
-    var clearPasswordCache = function (db, element) {
+    var clearPasswordCache = function () {
       var deferred = Q.defer();
       $u.clearPasswordCache();
       deferred.resolve();
@@ -161,19 +163,21 @@ exports = module.exports = {
       // A secure function must take into account that a GET operation
       // can be either a GET for a regular resource, or a GET for a
       // list resource.
+      var url, key, myCommunityKey, query;
+
       debug('** restrictReadPersons ');
       var deferred = Q.defer();
       if (req.method === 'GET') {
         debug('** req.path = ' + req.path);
-        var url = req.path;
-        if (url == '/persons') {
+        url = req.path;
+        if (url === '/persons') {
           // Should allways restrict to /me community.
           debug('** req.query :');
           debug(req.query);
           if (req.query.communities) {
             debug('** me :');
             debug(me);
-            if (req.query.communities == me.community.href) {
+            if (req.query.communities === me.community.href) {
               debug('** restrictReadPersons resolves.');
               deferred.resolve();
             } else {
@@ -185,14 +189,14 @@ exports = module.exports = {
             deferred.reject();
           }
         } else {
-          var type = '/' + url.split("/")[1];
-          var key = url.split("/")[2];
-          var myCommunityKey = me.community.href.split("/")[2];
+          key = url.split('/')[2];
+          myCommunityKey = me.community.href.split('/')[2];
 
-          var query = $u.prepareSQL("check-person-is-in-my-community");
-          query.sql("select count(*) from persons where key = ").param(key).sql(" and community = ").param(myCommunityKey);
+          query = $u.prepareSQL('check-person-is-in-my-community');
+          query.sql('select count(*) from persons where key = ')
+            .param(key).sql(' and community = ').param(myCommunityKey);
           $u.executeSQL(db, query).then(function (result) {
-            if (result.rows[0].count == 1) {
+            if (result.rows[0].count === 1) {
               debug('** restrictReadPersons resolves.');
               deferred.resolve();
             } else {
@@ -210,12 +214,13 @@ exports = module.exports = {
     };
 
     function disallowOnePerson(permalink) {
-      return function (req, resp, db, me) {
+      return function (req) {
         var deferred = Q.defer();
+        var url;
 
         if (req.method === 'GET') {
-          var url = req.path;
-          if (url == permalink) {
+          url = req.path;
+          if (url === permalink) {
             cl('security method disallowedOnePerson for ' + permalink + ' denies access');
             deferred.reject();
           } else {
@@ -227,16 +232,16 @@ exports = module.exports = {
 
         return deferred.promise;
       };
-    };
+    }
 
     function validateMoreThan(field, max) {
-      return function (body, db) {
+      return function (body) {
         var deferred = Q.defer();
         if (body.amount <= max) {
-          debug("Should be more, or equal to " + max);
+          debug('Should be more, or equal to ' + max);
           deferred.reject({
             path: field,
-            code: "not.enough"
+            code: 'not.enough'
           });
         } else {
           deferred.resolve();
@@ -247,35 +252,38 @@ exports = module.exports = {
     }
 
     function addMessageCountToCommunities(database, elements) {
-      debug("addMessageCountToCommunities");
+      debug('addMessageCountToCommunities');
       debug(elements);
       var deferred = Q.defer();
+      var query, keyToElement, keys, i, element, key;
+      var row;
 
-      // Lets do this efficiently. Remember that we receive an array of elements. 
+      // Lets do this efficiently. Remember that we receive an array of elements.
       // We query the message counts in a single select.
-      // e.g. select community,count(*) from messages group by community having community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
+      // e.g. select community,count(*) from messages group by community having
+      // community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
       if (elements && elements.length > 0) {
-        var query = $u.prepareSQL();
-        var keyToElement = {};
-        var keys = [];
-        for (var i = 0; i < elements.length; i++) {
-          var element = elements[i];
-          var key = element.$$meta.permalink.split('/')[2];
+        query = $u.prepareSQL();
+        keyToElement = {};
+        keys = [];
+        for (i = 0; i < elements.length; i++) {
+          element = elements[i];
+          key = element.$$meta.permalink.split('/')[2];
           keys.push(key);
           keyToElement[key] = element;
           // Default to 0, The query will not return a row for those.
           element.$$messagecount = 0;
         }
-        query.sql("SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (");
+        query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
         query.array(keys);
-        query.sql(")");
+        query.sql(')');
 
         $u.executeSQL(database, query).then(function (result) {
           debug(result);
           var rows = result.rows;
-          for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            keyToElement[row.community].$$messagecount = parseInt(row.messagecount);
+          for (i = 0; i < rows.length; i++) {
+            row = rows[i];
+            keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10);
           }
           deferred.resolve();
         }).fail(function (error) {
@@ -292,23 +300,24 @@ exports = module.exports = {
 
     var addExtraKeysAfterRead = function (database, elements) {
       var deferred = Q.defer();
+      var i;
 
-      for (var i = 0; i < elements.length; i++) {
+      for (i = 0; i < elements.length; i++) {
         elements[i].$$afterread = 'added by afterread method';
       }
       deferred.resolve();
 
       return deferred.promise;
-    }
+    };
 
     var config = {
       // For debugging SQL can be logged.
       logsql: logsql,
       logrequests: logrequests,
       logdebug: logdebug,
-      defaultdatabaseurl: "postgres://sri4node:sri4node@localhost:5433/postgres",
+      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5433/postgres',
       identity: function (username, database) {
-        var query = $u.prepareSQL("me");
+        var query = $u.prepareSQL('me');
         query.sql('select * from persons where email = ').param(username);
         return $u.executeSQL(database, query).then(function (result) {
           var row = result.rows[0];
@@ -326,8 +335,8 @@ exports = module.exports = {
       },
       resources: [
         {
-          type: "/persons",
-          public: false,
+          type: '/persons',
+          'public': false, // eslint-disable-line
           map: {
             firstname: {},
             lastname: {},
@@ -359,26 +368,28 @@ exports = module.exports = {
                         disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
                     ],
           schema: {
-            $schema: "http://json-schema.org/schema#",
-            title: "An object representing a person taking part in the LETS system.",
-            type: "object",
+            $schema: 'http://json-schema.org/schema#',
+            title: 'An object representing a person taking part in the LETS system.',
+            type: 'object',
             properties: {
-              firstname: $s.string("First name of the person."),
-              lastname: $s.string("Last name of the person."),
-              street: $s.string("Streetname of the address of residence."),
-              streetnumber: $s.string("Street number of the address of residence."),
-              streetbus: $s.string("Postal box of the address of residence."),
-              zipcode: $s.belgianzipcode("4 digit postal code of the city for the address of residence."),
-              city: $s.string("City for the address of residence."),
-              phone: $s.phone("The telephone number for this person. Can be a fixed or mobile phone number."),
-              email: $s.email("The email address the person can be reached on. It should be unique to this person. The email should not be shared with others."),
+              firstname: $s.string('First name of the person.'),
+              lastname: $s.string('Last name of the person.'),
+              street: $s.string('Streetname of the address of residence.'),
+              streetnumber: $s.string('Street number of the address of residence.'),
+              streetbus: $s.string('Postal box of the address of residence.'),
+              zipcode: $s.belgianzipcode('4 digit postal code of the city for the address of residence.'),
+              city: $s.string('City for the address of residence.'),
+              phone: $s.phone('The telephone number for this person. Can be a fixed or mobile phone number.'),
+              email: $s.email('The email address the person can be reached on. ' +
+                'It should be unique to this person. ' +
+                'The email should not be shared with others.'),
               mail4elas: {
-                type: "string",
-                description: "Describes if, and how often this person wants messages to be emailed.",
-                enum: ["never", "daily", "weekly", "instant"]
+                type: 'string',
+                description: 'Describes if, and how often this person wants messages to be emailed.',
+                'enum': ['never', 'daily', 'weekly', 'instant']
               }
             },
-            required: ["firstname", "lastname", "street", "streetnumber", "zipcode", "city", "mail4elas"]
+            required: ['firstname', 'lastname', 'street', 'streetnumber', 'zipcode', 'city', 'mail4elas']
           },
           validate: [
                     ],
@@ -399,8 +410,8 @@ exports = module.exports = {
                     ]
                 },
         {
-          type: "/messages",
-          public: false,
+          type: '/messages',
+          'public': false, // eslint-disable-line
           map: {
             person: {
               references: '/persons'
@@ -420,36 +431,37 @@ exports = module.exports = {
               onread: $m.removeifnull
             },
             community: {
-              references: "/communities"
+              references: '/communities'
             }
           },
           secure: [
                     ],
           schema: {
-            $schema: "http://json-schema.org/schema#",
-            title: "A messages posted to the LETS members.",
-            type: "object",
+            $schema: 'http://json-schema.org/schema#',
+            title: 'A messages posted to the LETS members.',
+            type: 'object',
             properties: {
-              person: $s.permalink("/persons", "A permalink to the person that placed the message."),
+              person: $s.permalink('/persons', 'A permalink to the person that placed the message.'),
               type: {
-                type: "string",
-                description: "Is this message offering something, or is it requesting something ?",
-                enum: ["offer", "request"]
+                type: 'string',
+                description: 'Is this message offering something, or is it requesting something ?',
+                'enum': ['offer', 'request']
               },
-              title: $s.string("A short summary of the message. A plain text string."),
-              description: $s.string("A more elaborate description. An HTML string."),
-              amount: $s.numeric("Amount suggested by the author."),
-              unit: $s.string("Unit in which amount was suggested by the author."),
-              community: $s.permalink("/communities", "In what community was the message placed ? The permalink to the community.")
+              title: $s.string('A short summary of the message. A plain text string.'),
+              description: $s.string('A more elaborate description. An HTML string.'),
+              amount: $s.numeric('Amount suggested by the author.'),
+              unit: $s.string('Unit in which amount was suggested by the author.'),
+              community: $s.permalink('/communities', 'In what community was the message placed ? ' +
+                                      'The permalink to the community.')
             },
-            required: ["person", "type", "title", "community"]
+            required: ['person', 'type', 'title', 'community']
           },
           validate: [
                         validateMoreThan('amount', 10),
                         validateMoreThan('amount', 20)
                     ],
           query: {
-            communities: $q.filterReferencedType("/communities", "community"),
+            communities: $q.filterReferencedType('/communities', 'community'),
             postedSince: messagesPostedSince, // For compatability, to be removed.
             modifiedsince: messagesPostedSince,
             cteOneGuid: cteOneGuid,
@@ -460,28 +472,29 @@ exports = module.exports = {
                     ]
                 },
         {
-          type: "/communities",
-          public: true, // remove authorisation check.
+          type: '/communities',
+          'public': true, // eslint-disable-line
           secure: [],
           schema: {
-            $schema: "http://json-schema.org/schema#",
-            title: "A local group in the LETS system.",
-            type: "object",
+            $schema: 'http://json-schema.org/schema#',
+            title: 'A local group in the LETS system.',
+            type: 'object',
             properties: {
-              name: $s.string("Name of this group. Normally named 'LETS [locale]'."),
-              street: $s.string("Street of the organisational seat address."),
-              streetnumber: $s.string("Street number of the organisational seat address."),
-              streetbus: $s.string("Postal box of the organisational seat address."),
-              zipcode: $s.belgianzipcode("4 digit postal code of the city for the organisational seat address."),
-              city: $s.string("City for the organisational seat address."),
-              phone: $s.phone("Contact phone number for the group."),
-              email: $s.email("Contact email for the group."),
-              adminpassword: $s.string("Administrative password for the group."),
-              website: $s.url("Website URL for the group."),
-              facebook: $s.url("URL to the facebook page of the group."),
-              currencyname: $s.string("Name of the local currency for the group.")
+              name: $s.string('Name of this group. Normally named \'LETS [locale]\'.'),
+              street: $s.string('Street of the organisational seat address.'),
+              streetnumber: $s.string('Street number of the organisational seat address.'),
+              streetbus: $s.string('Postal box of the organisational seat address.'),
+              zipcode: $s.belgianzipcode('4 digit postal code of the city for the organisational seat address.'),
+              city: $s.string('City for the organisational seat address.'),
+              phone: $s.phone('Contact phone number for the group.'),
+              email: $s.email('Contact email for the group.'),
+              adminpassword: $s.string('Administrative password for the group.'),
+              website: $s.url('Website URL for the group.'),
+              facebook: $s.url('URL to the facebook page of the group.'),
+              currencyname: $s.string('Name of the local currency for the group.')
             },
-            required: ["name", "street", "streetnumber", "zipcode", "city", "phone", "email", "adminpassword", "currencyname"]
+            required: ['name', 'street', 'streetnumber', 'zipcode',
+                       'city', 'phone', 'email', 'adminpassword', 'currencyname']
           },
           validate: [],
           map: {
@@ -518,14 +531,14 @@ exports = module.exports = {
           afterread: [
                         // Add the result of a select query to the outgoing resource
                         // SELECT count(*) FROM messages where community = [this community]
-                        // For example : 
+                        // For example :
                         // $$messagecount: 17
                         addMessageCountToCommunities
                     ]
                 },
         {
-          type: "/transactions",
-          public: false,
+          type: '/transactions',
+          'public': false, // eslint-disable-line
           map: {
             transactiontimestamp: {
               onupdate: $m.now
@@ -542,71 +555,75 @@ exports = module.exports = {
           secure: [
                     ],
           schema: {
-            $schema: "http://json-schema.org/schema#",
-            title: "A single transaction between 2 people.",
-            type: "object",
+            $schema: 'http://json-schema.org/schema#',
+            title: 'A single transaction between 2 people.',
+            type: 'object',
             properties: {
-              transactiontimestamp: $s.timestamp("Date and time when the transaction was recorded."),
-              fromperson: $s.permalink("/persons", "A permalink to the person that sent currency."),
-              toperson: $s.permalink("/persons", "A permalink to the person that received currency."),
-              description: $s.string("A description, entered by the person sending, of the transaction."),
-              amount: $s.numeric("The amount of currency sent. This unit is expressed as 20 units/hour, irrelevant of the group's currency settings.")
+              transactiontimestamp: $s.timestamp('Date and time when the transaction was recorded.'),
+              fromperson: $s.permalink('/persons', 'A permalink to the person that sent currency.'),
+              toperson: $s.permalink('/persons', 'A permalink to the person that received currency.'),
+              description: $s.string('A description, entered by the person sending, of the transaction.'),
+              amount: $s.numeric('The amount of currency sent. ' +
+                                 'This unit is expressed as 20 units/hour, ' +
+                                 'irrelevant of the group\'s currency settings.')
             },
-            required: ["fromperson", "toperson", "description", "amount"]
+            required: ['fromperson', 'toperson', 'description', 'amount']
           },
           afterinsert: [
-                        function (db, element) {
-              var amount = element.amount;
-              var tokey = element.toperson.href;
-              tokey = tokey.split("/")[2];
+              function (db, element) {
+                var amount = element.amount;
+                var tokey = element.toperson.href;
+                tokey = tokey.split('/')[2];
 
-              var updateto = $u.prepareSQL();
-              updateto.sql('update persons set balance = (balance + ').param(amount).sql(') where key = ').param(tokey);
-              return $u.executeSQL(db, updateto);
-                        },
-                        function (db, element) {
-              var amount = element.amount;
-              var fromkey = element.fromperson.href;
-              fromkey = fromkey.split("/")[2];
+                var updateto = $u.prepareSQL();
+                updateto.sql('update persons set balance = (balance + ')
+                  .param(amount).sql(') where key = ').param(tokey);
+                return $u.executeSQL(db, updateto);
+              },
+              function (db, element) {
+                var amount = element.amount;
+                var fromkey = element.fromperson.href;
+                fromkey = fromkey.split('/')[2];
 
-              var updatefrom = $u.prepareSQL();
-              updatefrom.sql('update persons set balance = (balance - ').param(amount).sql(') where key = ').param(fromkey);
-              return $u.executeSQL(db, updatefrom);
-                        }
-                    ],
+                var updatefrom = $u.prepareSQL();
+                updatefrom.sql('update persons set balance = (balance - ')
+                  .param(amount).sql(') where key = ').param(fromkey);
+                return $u.executeSQL(db, updatefrom);
+              }
+          ],
           // TODO : Check if updates are blocked.
           afterupdate: [
-                        function (db, element) {
-              var deferred = Q.defer();
-              deferred.reject("Updates on transactions are not allowed.");
-              return deferred.promise;
-                        }
-                    ]
-                },
+              function () {
+                var deferred = Q.defer();
+                deferred.reject('Updates on transactions are not allowed.');
+                return deferred.promise;
+              }
+            ]
+        },
         {
-          type: "/table",
-          public: true,
+          type: '/table',
+          'public': true, // eslint-disable-line
           map: {
-            "select": {},
-            "from": {}
+            select: {},
+            from: {}
           },
           secure: [],
           schema: {
-            $schema: "http://json-schema.org/schema#",
-            title: "A table with protected keywords, to check escaping of sri4node",
-            type: "object",
+            $schema: 'http://json-schema.org/schema#',
+            title: 'A table with protected keywords, to check escaping of sri4node',
+            type: 'object',
             properties: {
-              "select": $s.string(""),
-              "from": $s.string("")
+              select: $s.string(''),
+              from: $s.string('')
             },
-            required: ["select", "from"]
+            required: ['select', 'from']
           },
           afterinsert: [],
           afterupdate: []
                 },
         {
           type: '/selfreferential',
-          public: true,
+          'public': true, // eslint-disable-line
           map: {
             key: {},
             name: {},
@@ -620,7 +637,7 @@ exports = module.exports = {
                 },
         {
           type: '/jsonb',
-          public: true,
+          'public': true, // eslint-disable-line
           map: {
             key: {},
             details: {
@@ -628,18 +645,18 @@ exports = module.exports = {
               onupdate: $m.stringify,
               oninsert: $m.stringify
             }
-          },
-                }
-            ]
-    }
+          }
+        }
+      ]
+    };
 
     // Need to pass in express.js and node-postgress as dependencies.
     roa.configure(app, pg, config);
 
-    var port = app.get('port');
+    port = app.get('port');
 
-    var server = app.listen(port, function () {
-      debug("Node app is running at localhost:" + app.get('port'))
+    app.listen(port, function () {
+      debug('Node app is running at localhost:' + app.get('port'));
     });
   }
-}
+};

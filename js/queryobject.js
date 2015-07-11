@@ -1,4 +1,4 @@
-/* 
+/*
 A query object used to allow multiple functions to annotate a common piece for SQL
 independently from each other. For example : all 'query' functions in an sri4node
 configuration can add pieces to the WHERE clause of a list resource.
@@ -10,6 +10,7 @@ exports = module.exports = {
   // Creates a config object for q node-postgres prepared statement.
   // It also adds some convenience functions for handling appending of SQL and parameters.
   prepareSQL: function (name) {
+    'use strict';
     return {
       name: name,
       text: '',
@@ -18,7 +19,6 @@ exports = module.exports = {
         // Convenience function for adding a parameter to the text, it
         // automatically adds $x to the SQL text, and adds the supplied value
         // to the 'value'-array.
-        var index = this.params.length + 1;
         this.params.push(x);
         this.text = this.text + exports.parameterPattern;
 
@@ -31,13 +31,14 @@ exports = module.exports = {
         return this;
       },
       array: function (x) {
+        var i;
         // Convenience function for adding an array of values to a SQL statement.
         // The values are added comma-separated.
 
         if (x && x.length && x.length > 0) {
-          for (var i = 0; i < x.length; i++) {
+          for (i = 0; i < x.length; i++) {
             this.param(x[i]);
-            if (i < (x.length - 1)) {
+            if (i < x.length - 1) {
               this.text = this.text + ',';
             }
           }
@@ -48,17 +49,18 @@ exports = module.exports = {
       keys: function (o) {
         // Convenience function for adding all keys in an object (comma-separated)
         var columnNames = [];
+        var key, j;
 
-        for (var key in o) {
+        for (key in o) {
           if (o.hasOwnProperty(key)) {
             columnNames.push(key);
           }
         }
         var sqlColumnNames = '';
-        for (var j = 0; j < columnNames.length; j++) {
+        for (j = 0; j < columnNames.length; j++) {
           sqlColumnNames += columnNames[j];
           if (j < columnNames.length - 1) {
-            sqlColumnNames += ",";
+            sqlColumnNames += ',';
           }
         }
         this.text = this.text + sqlColumnNames;
@@ -68,11 +70,13 @@ exports = module.exports = {
       values: function (o) {
         // Convenience function for adding all values of an object as parameters.
         // Same iteration order as 'columns'.
+        var key;
+
         var firstcolumn = true;
-        for (var key in o) {
+        for (key in o) {
           if (o.hasOwnProperty(key)) {
             if (!firstcolumn) {
-              this.text += ",";
+              this.text += ',';
             } else {
               firstcolumn = false;
             }
@@ -82,14 +86,16 @@ exports = module.exports = {
 
         return this;
       },
-      with: function (nonrecursivequery, unionclause, recursivequery, virtualtablename) {
+      'with': function (nonrecursivequery, unionclause, recursivequery, virtualtablename) {
         // Form : select.with(nonrecursiveterm,virtualtablename)
+        var tablename, cte;
+
         if (nonrecursivequery && unionclause && !recursivequery && !virtualtablename) {
-          var tablename = unionclause;
-          if (this.text.indexOf('WITH RECURSIVE') == -1) {
+          tablename = unionclause;
+          if (this.text.indexOf('WITH RECURSIVE') === -1) {
             this.text = 'WITH RECURSIVE ' + tablename + ' AS (' + nonrecursivequery.text + ') /*LASTCTE*/ ' + this.text;
           } else {
-            var cte = ', ' + tablename + ' AS (' + nonrecursivequery.text + ') /*LASTCTE*/ ';
+            cte = ', ' + tablename + ' AS (' + nonrecursivequery.text + ') /*LASTCTE*/ ';
             this.text = this.text.replace('/*LASTCTE*/', cte);
           }
           this.params = nonrecursivequery.params.concat(this.params);
@@ -97,25 +103,28 @@ exports = module.exports = {
         // Format : select.with(nonrecursiveterm, 'UNION' or 'UNION ALL', recursiveterm, virtualtablename)
         if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
           unionclause = unionclause.toLowerCase().trim();
-          if (unionclause == 'union' || unionclause == 'union all') {
-            if (this.text.indexOf('WITH RECURSIVE') == -1) {
-              this.text = 'WITH RECURSIVE ' + virtualtablename + ' AS (' + nonrecursivequery.text + ' ' + unionclause + ' ' + recursivequery.text + ') /*LASTCTE*/ ' + this.text;
+          if (unionclause === 'union' || unionclause === 'union all') {
+            if (this.text.indexOf('WITH RECURSIVE') === -1) {
+              this.text = 'WITH RECURSIVE ' + virtualtablename +
+                ' AS (' + nonrecursivequery.text + ' ' + unionclause + ' ' + recursivequery.text + ') /*LASTCTE*/ ' +
+                this.text;
             } else {
-              var cte = ', ' + virtualtablename + ' AS (' + nonrecursivequery.text + ' ' + unionclause + ' ' + recursivequery.text + ') /*LASTCTE*/ ';
+              cte = ', ' + virtualtablename +
+                  ' AS (' + nonrecursivequery.text + ' ' + unionclause + ' ' + recursivequery.text + ') /*LASTCTE*/ ';
               this.text = this.text.replace('/*LASTCTE*/', cte);
             }
-            this.params = nonrecursivequery.params.concat(this.params)
-            this.params = recursivequery.params.concat(this.params)
+            this.params = nonrecursivequery.params.concat(this.params);
+            this.params = recursivequery.params.concat(this.params);
           } else {
-            throw new Error("Must use UNION or UNION ALL as union-clause");
+            throw new Error('Must use UNION or UNION ALL as union-clause');
           }
           tablename = virtualtablename;
         } else {
-          throw new Error("Parameter combination not supported...");
+          throw new Error('Parameter combination not supported...');
         }
 
         return this;
       }
-    }
+    };
   }
-}
+};

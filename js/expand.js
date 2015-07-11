@@ -1,7 +1,8 @@
 /* Handles the ?expand parameter */
 
 exports = module.exports = function (logdebug, prepare, pgExec, executeAfterReadFunctions) {
-  var Q = require("q");
+  'use strict';
+  var Q = require('q');
   var common = require('./common.js');
   var cl = common.cl;
   var typeToConfig = common.typeToConfig;
@@ -10,7 +11,9 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   var executeOnFunctions = common.executeOnFunctions;
 
   function debug(x) {
-    if (logdebug) cl(x);
+    if (logdebug) {
+      cl(x);
+    }
   }
 
   // Expands a single path on an array of elements.
@@ -19,16 +22,19 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   function executeSingleExpansion(database, elements, mapping, resources, expandpath) {
     var deferred = Q.defer();
 
+    var query, targetkeys, keyToElement, firstDotIndex, expand, recurse, recursepath;
+    var permalink, element, key, targetkey, targetlink;
+    var i;
+    var targetType, typeToMapping, targetMapping, table, columns;
+    var targetpermalinkToObject, expandedElements;
+
     try {
       if (elements && elements.length > 0) {
-        var query = prepare();
-        var targetkeys = [];
-        var keyToElement = {};
-        var firstDotIndex = expandpath.indexOf('.');
-        var expand;
-        var recurse;
-        var recursepath;
-        if (firstDotIndex == -1) {
+        query = prepare();
+        targetkeys = [];
+        keyToElement = {};
+        firstDotIndex = expandpath.indexOf('.');
+        if (firstDotIndex === -1) {
           expand = expandpath;
           recurse = false;
         } else {
@@ -36,45 +42,47 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
           recurse = true;
           recursepath = expandpath.substring(firstDotIndex + 1, expandpath.length);
         }
-        if (mapping.map[expand] == undefined) {
+        if (!mapping.map[expand]) {
           debug('** rejecting expand value [' + expand + ']');
           deferred.reject();
         } else {
-          for (var i = 0; i < elements.length; i++) {
-            var element = elements[i];
-            var permalink = element.$$meta.permalink;
-            var targetlink = element[expand].href;
-            var key = permalink.split('/')[2];
-            var targetkey = targetlink.split('/')[2];
+          for (i = 0; i < elements.length; i++) {
+            element = elements[i];
+            permalink = element.$$meta.permalink;
+            targetlink = element[expand].href;
+            key = permalink.split('/')[2];
+            targetkey = targetlink.split('/')[2];
             // Remove duplicates and items that are already expanded.
-            if (targetkeys.indexOf(targetkey) == -1 && element[expand].$$expanded == undefined) {
+            if (targetkeys.indexOf(targetkey) === -1 && !element[expand].$$expanded) {
               targetkeys.push(targetkey);
             }
             keyToElement[key] = element;
           }
 
-          var targetType = mapping.map[expand].references;
-          var typeToMapping = typeToConfig(resources);
-          var targetMapping = typeToMapping[targetType];
-          var table = targetMapping.type.substr(1);
-          var columns = sqlColumnNames(targetMapping);
-          var targetpermalinkToObject = {};
-          var expandedElements = [];
+          targetType = mapping.map[expand].references;
+          typeToMapping = typeToConfig(resources);
+          targetMapping = typeToMapping[targetType];
+          table = targetMapping.type.substr(1);
+          columns = sqlColumnNames(targetMapping);
+          targetpermalinkToObject = {};
+          expandedElements = [];
 
           debug(table);
           query.sql('select ' + columns + ' from "' + table + '" where key in (').array(targetkeys).sql(')');
           pgExec(database, query).then(function (result) {
             debug('expansion query done');
             var rows = result.rows;
-            for (var i = 0; i < rows.length; i++) {
-              var row = rows[i];
-              var expanded = {};
-              var key = row['key'];
+            var row, expanded, k, j;
+
+            for (j = 0; j < rows.length; j++) {
+              row = rows[j];
+              expanded = {};
+              k = row.key;
               mapColumnsToObject(resources, targetMapping, row, expanded);
-              executeOnFunctions(resources, targetMapping, "onread", expanded);
-              targetpermalinkToObject[targetType + '/' + key] = expanded;
+              executeOnFunctions(resources, targetMapping, 'onread', expanded);
+              targetpermalinkToObject[targetType + '/' + k] = expanded;
               expanded.$$meta = {
-                permalink: mapping.type + '/' + key
+                permalink: mapping.type + '/' + k
               };
               expandedElements.push(expanded);
             }
@@ -82,14 +90,16 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             debug('** executing afterread functions on expanded resources');
             return executeAfterReadFunctions(database, expandedElements, targetMapping);
           }).then(function () {
-            for (var i = 0; i < elements.length; i++) {
-              var element = elements[i];
-              var targetlink = element[expand].href;
-              element[expand].$$expanded = targetpermalinkToObject[targetlink];
+            var z, elem, target;
+            for (z = 0; z < elements.length; z++) {
+              elem = elements[z];
+              target = element[expand].href;
+              elem[expand].$$expanded = targetpermalinkToObject[target];
             }
             if (recurse) {
               debug('** recursing to next level of expansion : ' + recursepath);
-              executeSingleExpansion(database, expandedElements, targetMapping, resources, recursepath, keyToElement).then(function () {
+              executeSingleExpansion(database, expandedElements, targetMapping,
+                                     resources, recursepath, keyToElement).then(function () {
                 deferred.resolve();
               }).fail(function (e) {
                 deferred.reject(e);
@@ -104,7 +114,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
         deferred.resolve();
       }
     } catch (e) {
-      debug("** executeSingleExpansion failed : ");
+      debug('** executeSingleExpansion failed : ');
       debug(e);
       deferred.reject(e.toString());
     }
@@ -118,34 +128,34 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   resources. Also rewrites 'none' and 'full' to the same format.
   If none appears anywhere in the list, an empty array is returned.
   */
-  function parseExpand(expand, mapping) {
+  function parseExpand(expand) {
     var ret = [];
+    var i, path, prefix, index, npath;
 
     var paths = expand.split(',');
-    var containsFull = false;
-    for (var i = 0; i < paths.length; i++) {
-      var path = paths[i].toLowerCase();
-      if (path == 'none') {
+    for (i = 0; i < paths.length; i++) {
+      path = paths[i].toLowerCase();
+      if (path === 'none') {
         return [];
-      } else if (path == 'full') {
+      } else if (path === 'full') {
         // If this was a list resource full is already handled.
-      } else if (path == 'results') {
+      } else if (path === 'results') {
         // If this was a list resource full is already handled.
       } else {
-        var prefix = 'results.';
-        var index = paths[i].indexOf(prefix)
-        if (index == 0) {
-          var npath = path.substr(prefix.length);
+        prefix = 'results.';
+        index = paths[i].indexOf(prefix);
+        if (index === 0) {
+          npath = path.substr(prefix.length);
           if (npath && npath.length > 0) {
             debug(npath);
             ret.push(npath);
           }
-        } else if (index == -1) {
+        } else if (index === -1) {
           ret.push(path);
         }
       }
     }
-    debug("** parseExpand() results in :");
+    debug('** parseExpand() results in :');
     debug(ret);
 
     return ret;
@@ -156,7 +166,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   Takes into account a comma-separated list of property paths.
   Currently only one level of items on the elements can be expanded.
 
-  So for list resources : 
+  So for list resources :
   - results.href.person is OK
   - results.href.community is OK
   - results.href.person,results.href.community is OK. (2 expansions - but both 1 level)
@@ -168,30 +178,31 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   - person,community is OK
   - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
   */
-  function executeExpansion(database, elements, mapping, resources, expand, executeAfterReadFunctions) {
+  function executeExpansion(database, elements, mapping, resources, expand, executeAfterReadFunctions) { // eslint-disable-line
+    var paths, path, promises, i, errors;
     var deferred = Q.defer();
     debug('** executeExpansion()');
     try {
       if (expand) {
-        var paths = parseExpand(expand, mapping);
+        paths = parseExpand(expand, mapping);
         if (paths && paths.length > 0) {
-          var promises = [];
-          for (var i = 0; i < paths.length; i++) {
-            var path = paths[i];
+          promises = [];
+          for (i = 0; i < paths.length; i++) {
+            path = paths[i];
             promises.push(executeSingleExpansion(database, elements, mapping, resources, path));
           }
 
           Q.allSettled(promises).then(function (results) {
-            debug("allSettled :");
+            debug('allSettled :');
             debug(results);
-            var errors = [];
+            errors = [];
             results.forEach(function (result) {
-              if (result.state == 'rejected') {
+              if (result.state === 'rejected') {
                 errors.push(result.reason);
               }
             });
 
-            if (errors.length == 0) {
+            if (errors.length === 0) {
               debug('** executeExpansion() resolves.');
               debug('after expansion :');
               debug(elements);
@@ -217,11 +228,11 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
         deferred.resolve();
       }
     } catch (e) {
-      resolve.reject(e.toString());
+      deferred.reject(e.toString());
     }
 
     return deferred.promise;
   }
 
   return executeExpansion;
-}
+};

@@ -5,7 +5,7 @@ var Q = require('q');
 exports = module.exports = {
   cl: function (x) {
     'use strict';
-    console.log(x);
+    console.log(x); // eslint-disable-line
   },
 
   // Converts the configuration object for roa4node into an array per resource type.
