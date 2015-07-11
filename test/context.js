@@ -196,7 +196,7 @@ exports = module.exports = {
           query.sql('select count(*) from persons where key = ')
             .param(key).sql(' and community = ').param(myCommunityKey);
           $u.executeSQL(db, query).then(function (result) {
-            if (result.rows[0].count === 1) {
+            if (parseInt(result.rows[0].count, 10) === 1) {
               debug('** restrictReadPersons resolves.');
               deferred.resolve();
             } else {
@@ -315,7 +315,7 @@ exports = module.exports = {
       logsql: logsql,
       logrequests: logrequests,
       logdebug: logdebug,
-      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5433/postgres',
+      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
       identity: function (username, database) {
         var query = $u.prepareSQL('me');
         query.sql('select * from persons where email = ').param(username);
