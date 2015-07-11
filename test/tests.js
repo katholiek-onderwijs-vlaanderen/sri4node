@@ -4,6 +4,8 @@ var uuid = require('node-uuid');
 
 // Local includes
 var roa = require('../sri4node.js');
+var common = require('../js/common.js');
+var cl = common.cl;
 // Reference API, used in the test suite.
 var context = require('./context.js');
 // Utility methods for calling the SRI interface
@@ -21,17 +23,13 @@ context.serve(roa, port, logsql, logrequests, logdebug);
 /* Now let's test it... */
 var base = 'http://localhost:' + port;
 
-function cl(x) {
-  'use strict';
-  console.log(x); // eslint-disable-line
-}
-
 function debug(x) {
   'use strict';
   if (logdebug) {
     cl(x);
   }
 }
+
 var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
 var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
 
@@ -786,4 +784,5 @@ describe('JSONB support', function () {
   });
 });
 
-require('./testQueryUtils.js')(base);
+require('./testQueryUtils.js')(base, logdebug);
+require('./testInformationSchema.js')(logdebug);

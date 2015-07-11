@@ -11,24 +11,49 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var pg = require('pg');
 var Q = require('q');
+var common = require('../js/common.js');
+var cl = common.cl;
 
 var $u, $m, $s, $q;
+var configCache = null;
 
 exports = module.exports = {
   serve: function (roa, port, logsql, logrequests, logdebug) {
     'use strict';
+    var config = exports.config(roa, port, logsql, logrequests, logdebug);
+
+    // Need to pass in express.js and node-postgress as dependencies.
+    var app = express();
+    app.set('port', port);
+    app.use(bodyParser.json());
+    
+    roa.configure(app, pg, config);
+    port = app.get('port');
+    app.listen(port, function () {
+      cl('Node app is running at localhost:' + app.get('port'));
+    });
+  },
+
+  getConfiguration: function () {
+    'use strict';
+    if (configCache == null) {
+      throw new Error('please first configure the context');
+    }
+
+    return configCache;
+  },
+
+  config: function (roa, port, logsql, logrequests, logdebug) {
+    'use strict';
+    if (configCache !== null) {
+      cl('config cached');
+      return configCache;
+    }
+
     $u = roa.utils;
     $m = roa.mapUtils;
     $s = roa.schemaUtils;
     $q = roa.queryUtils;
-
-    var app = express();
-    app.set('port', port);
-    app.use(bodyParser.json());
-
-    function cl(x) {
-      console.log(x); // eslint-disable-line
-    }
 
     function debug(x) {
       if (logdebug) {
@@ -363,10 +388,10 @@ exports = module.exports = {
             }
           },
           secure: [
-                        restrictReadPersons,
-                        // Ingrid Ohno
-                        disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
-                    ],
+            restrictReadPersons,
+            // Ingrid Ohno
+            disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
+          ],
           schema: {
             $schema: 'http://json-schema.org/schema#',
             title: 'An object representing a person taking part in the LETS system.',
@@ -392,7 +417,7 @@ exports = module.exports = {
             required: ['firstname', 'lastname', 'street', 'streetnumber', 'zipcode', 'city', 'mail4elas']
           },
           validate: [
-                    ],
+          ],
           query: {
             communities: $q.filterReferencedType('/communities', 'community'),
             firstnameILike: $q.filterILike('firstname'),
@@ -650,13 +675,7 @@ exports = module.exports = {
       ]
     };
 
-    // Need to pass in express.js and node-postgress as dependencies.
-    roa.configure(app, pg, config);
-
-    port = app.get('port');
-
-    app.listen(port, function () {
-      debug('Node app is running at localhost:' + app.get('port'));
-    });
+    configCache = config;
+    return config;
   }
 };

@@ -7,26 +7,26 @@
 var validator = require('jsonschema').Validator;
 var Q = require('q');
 
-var env = require('./js/env.js');
-
 // Utility function.
 var common = require('./js/common.js');
 var cl = common.cl;
+var pgConnect = common.pgConnect;
+var pgExec = common.pgExec;
 var typeToConfig = common.typeToConfig;
 var sqlColumnNames = common.sqlColumnNames;
 var mapColumnsToObject = common.mapColumnsToObject;
 var executeOnFunctions = common.executeOnFunctions;
 var executeValidateMethods = common.executeValidateMethods;
 
-var queryobject = require('./js/queryobject');
-var parameterPattern = queryobject.parameterPattern;
+var queryobject = require('./js/queryObject.js');
 var prepare = queryobject.prepareSQL;
 
 // Module variables.
 var configuration;
 var resources;
 var logsql;
-var pg;
+var logdebug;
+var postgres;
 
 function debug(x) {
   'use strict';
@@ -34,102 +34,6 @@ function debug(x) {
     cl(x);
   }
 }
-
-// Q wrapper to get a node-postgres client from the client pool.
-// It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-var pgConnect = function () {
-  'use strict';
-  var deferred = Q.defer();
-
-  // ssl=true is required for heruko.com
-  // ssl=false is required for development on local postgres (Cloud9)
-  var databaseUrl = env.databaseUrl;
-  var dbUrl;
-  if (databaseUrl) {
-    dbUrl = databaseUrl + '?ssl=true';
-  } else {
-    dbUrl = configuration.defaultdatabaseurl;
-  }
-  cl('Using database connection string : [' + dbUrl + ']');
-
-  pg.connect(dbUrl, function (err, client, done) {
-    if (err) {
-      cl('Unable to connect to database on URL : ' + dbUrl);
-      deferred.reject(err);
-    } else {
-      deferred.resolve({
-        client: client,
-        done: done
-      });
-    }
-  });
-
-  return deferred.promise;
-};
-
-// Q wrapper for executing SQL statement on a node-postgres client.
-//
-// Instead the db object is a node-postgres Query config object.
-// See : https://github.com/brianc/node-postgres/wiki/Client#method-query-prepared.
-//
-// name : the name for caching as prepared statement, if desired.
-// text : The SQL statement, use $1,$2, etc.. for adding parameters.
-// values : An array of java values to be inserted in $1,$2, etc..
-//
-// It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-var pgExec = function (db, query) {
-  'use strict';
-  var deferred = Q.defer();
-  var q = {};
-  var i, index, msg, prefix, postfix;
-
-  q.text = query.text;
-  q.values = query.params;
-  var paramCount = 1;
-  if (q.values && q.values.length > 0) {
-    for (i = 0; i < q.values.length; i++) {
-      index = q.text.indexOf(parameterPattern);
-      if (index === -1) {
-        msg = 'Parameter count in query does not add up. Too few parameters in the query string';
-        debug('** ' + msg);
-        deferred.reject(msg);
-      } else {
-        prefix = q.text.substring(0, index);
-        postfix = q.text.substring(index + parameterPattern.length, q.text.length);
-        q.text = prefix + '$' + paramCount + postfix;
-        paramCount++;
-      }
-    }
-    index = q.text.indexOf(parameterPattern);
-    if (index !== -1) {
-      msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
-      debug('** ' + msg);
-      deferred.reject();
-    }
-  }
-
-  if (logsql) {
-    cl(q);
-  }
-
-  db.client.query(q, function (err, result) {
-    if (err) {
-      if (logsql) {
-        cl('SQL error :');
-        cl(err);
-      }
-      deferred.reject(err);
-    } else {
-      if (logsql) {
-        cl('SQL result : ');
-        cl(result.rows);
-      }
-      deferred.resolve(result);
-    }
-  });
-
-  return deferred.promise;
-};
 
 // apply extra parameters on request URL for a list-resource to a sselect.
 function applyRequestParameters(mapping, req, select, database, count) {
@@ -215,7 +119,7 @@ function queryByKey(config, db, mapping, key) {
 
   var query = prepare('select-row-by-key-from-' + table);
   query.sql('select ' + columns + ' from "' + table + '" where "key" = ').param(key);
-  return pgExec(db, query).then(function (result) {
+  return pgExec(db, query, logsql, logdebug).then(function (result) {
     var deferred = Q.defer();
 
     var rows = result.rows;
@@ -340,13 +244,13 @@ function checkBasicAuthentication(req, res, next) {
             unauthorized();
           }
         } else {
-          pgConnect().then(function (db) {
+          pgConnect(postgres, configuration).then(function (db) {
             database = db;
 
             var q = prepare('select-count-from-persons-where-email-and-password');
             q.sql('select count(*) from persons where email = ').param(email).sql(' and password = ').param(password);
 
-            return pgExec(db, q).then(function (result) {
+            return pgExec(db, q, logsql, logdebug).then(function (result) {
               var count = parseInt(result.rows[0].count, 10);
               if (count === 1) {
                 // Found matching record, add to cache for subsequent requests.
@@ -512,7 +416,7 @@ function executePutInsideTransaction(db, url, body) {
 
       var countquery = prepare('check-resource-exists-' + table);
       countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
-      return pgExec(db, countquery).then(function (results) {
+      return pgExec(db, countquery, logsql, logdebug).then(function (results) {
         var deferred = Q.defer();
 
         if (results.rows[0].count === 1) {
@@ -534,7 +438,7 @@ function executePutInsideTransaction(db, url, body) {
           }
           update.sql(' where "key" = ').param(key);
 
-          return pgExec(db, update).then(function (results) {
+          return pgExec(db, update, logsql, logdebug).then(function (results) {
             if (results.rowCount != 1) {
               debug('No row affected ?!');
               var deferred = Q.defer();
@@ -550,7 +454,7 @@ function executePutInsideTransaction(db, url, body) {
 
           var insert = prepare('insert-' + table);
           insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
-          return pgExec(db, insert).then(function (results) {
+          return pgExec(db, insert, logsql, logdebug).then(function (results) {
             if (results.rowCount != 1) {
               debug('No row affected ?!');
               var deferred = Q.defer();
@@ -588,7 +492,7 @@ function getMe(req) {
     if (knownIdentities[username]) {
       deferred.resolve(knownIdentities[username]);
     } else {
-      pgConnect().then(function (db) {
+      pgConnect(postgres, configuration).then(function (db) {
         database = db;
         return configuration.identity(username, db);
       }).then(function (me) {
@@ -714,12 +618,12 @@ function getListResource(executeExpansion) {
     var orders, order, o;
 
     debug('GET list resource ' + type);
-    pgConnect().then(function (db) {
+    pgConnect(postgres, configuration).then(function (db) {
       debug('pgConnect ... OK');
       database = db;
       var begin = prepare('begin-transaction');
       begin.sql('BEGIN');
-      return pgExec(database, begin);
+      return pgExec(database, begin, logsql, logdebug);
     }).then(function () {
       if (!mapping.public) {
         debug('* getting security context');
@@ -738,7 +642,7 @@ function getListResource(executeExpansion) {
       return applyRequestParameters(mapping, req, countquery, database, true);
     }).then(function () {
       debug('* executing SELECT COUNT query on database');
-      return pgExec(database, countquery);
+      return pgExec(database, countquery, logsql, logdebug);
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
@@ -777,7 +681,7 @@ function getListResource(executeExpansion) {
       }
 
       debug('* executing SELECT query on database');
-      return pgExec(database, query);
+      return pgExec(database, query, logsql, logdebug);
     }).then(function (result) {
       debug('pgExec select ... OK');
       debug(result);
@@ -880,7 +784,7 @@ function getRegularResource(executeExpansion) {
     var database;
     var element;
     var elements;
-    pgConnect().then(function (db) {
+    pgConnect(postgres, configuration).then(function (db) {
       database = db;
       if (!mapping.public) {
         debug('* getting security context');
@@ -934,10 +838,10 @@ function createOrUpdate(req, resp) {
   'use strict';
   debug('* sri4node PUT processing invoked.');
   var url = req.path;
-  pgConnect().then(function (db) {
+  pgConnect(postgres, configuration).then(function (db) {
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
-    return pgExec(db, begin).then(function () {
+    return pgExec(db, begin, logsql, logdebug).then(function () {
       return executePutInsideTransaction(db, url, req.body);
     }).then(function () {
       debug('PUT processing went OK. Committing database transaction.');
@@ -972,15 +876,15 @@ function deleteResource(req, resp) {
   var deferred;
   var database;
 
-  pgConnect().then(function (db) {
+  pgConnect(postgres, configuration).then(function (db) {
     database = db;
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
-    return pgExec(database, begin);
+    return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
     var deletequery = prepare('delete-by-key-' + table);
     deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
-    return pgExec(database, deletequery);
+    return pgExec(database, deletequery, logsql, logdebug);
   }).then(function (results) {
     if (results.rowCount !== 1) {
       debug('No row affected ?!');
@@ -1020,11 +924,11 @@ function batchOperation(req, resp) {
   var batch = req.body;
   batch.reverse();
 
-  pgConnect().then(function (db) {
+  pgConnect(postgres, configuration).then(function (db) {
     database = db;
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
-    return pgExec(database, begin);
+    return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
       function recurse() {
         var element, url, body, verb;
@@ -1070,7 +974,7 @@ function batchOperation(req, resp) {
 
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
-  configure: function (app, postgres, config) {
+  configure: function (app, pg, config) {
     'use strict';
     var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
     var configIndex, mapping, url;
@@ -1078,7 +982,8 @@ exports = module.exports = {
     configuration = config;
     resources = config.resources;
     logsql = config.logsql;
-    pg = postgres;
+    logdebug = config.logdebug;
+    postgres = pg;
 
     // All URLs force SSL and allow cross origin access.
     app.use(forceSecureSockets);
@@ -1171,7 +1076,7 @@ exports = module.exports = {
           cl(elementKeys);
           query.sql('select key,' + column + ' as fkey from ' +
                     tablename + ' where ' + column + ' in (').array(elementKeys).sql(')');
-          pgExec(database, query).then(function (result) {
+          pgExec(database, query, logsql, logdebug).then(function (result) {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
               if (!element[targetkey]) {

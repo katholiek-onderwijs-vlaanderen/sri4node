@@ -1,6 +1,9 @@
 /* Internal utilities for sri4node */
 
 var Q = require('q');
+var env = require('./env.js');
+var qo = require('./queryObject.js');
+var parameterPattern = qo.parameterPattern;
 
 exports = module.exports = {
   cl: function (x) {
@@ -117,6 +120,110 @@ exports = module.exports = {
       debug('No validate methods were registered.');
       deferred.resolve();
     }
+
+    return deferred.promise;
+  },
+
+  // Q wrapper to get a node-postgres client from the client pool.
+  // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
+  pgConnect: function (pg, configuration) {
+    'use strict';
+    var deferred = Q.defer();
+    var cl = exports.cl;
+
+    // ssl=true is required for heruko.com
+    // ssl=false is required for development on local postgres (Cloud9)
+    var databaseUrl = env.databaseUrl;
+    var dbUrl;
+    if (databaseUrl) {
+      dbUrl = databaseUrl + '?ssl=true';
+    } else {
+      dbUrl = configuration.defaultdatabaseurl;
+    }
+    cl('Using database connection string : [' + dbUrl + ']');
+
+    pg.connect(dbUrl, function (err, client, done) {
+      if (err) {
+        cl('Unable to connect to database on URL : ' + dbUrl);
+        deferred.reject(err);
+      } else {
+        deferred.resolve({
+          client: client,
+          done: done
+        });
+      }
+    });
+
+    return deferred.promise;
+  },
+
+  // Q wrapper for executing SQL statement on a node-postgres client.
+  //
+  // Instead the db object is a node-postgres Query config object.
+  // See : https://github.com/brianc/node-postgres/wiki/Client#method-query-prepared.
+  //
+  // name : the name for caching as prepared statement, if desired.
+  // text : The SQL statement, use $1,$2, etc.. for adding parameters.
+  // values : An array of java values to be inserted in $1,$2, etc..
+  //
+  // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
+  pgExec: function (db, query, logsql, logdebug) {
+    'use strict';
+    var deferred = Q.defer();
+    var q = {};
+    var i, index, msg, prefix, postfix;
+    var cl = exports.cl;
+
+    function debug(x) {
+      if (logdebug) {
+        cl(x);
+      }
+    }
+
+    q.text = query.text;
+    q.values = query.params;
+    var paramCount = 1;
+    if (q.values && q.values.length > 0) {
+      for (i = 0; i < q.values.length; i++) {
+        index = q.text.indexOf(parameterPattern);
+        if (index === -1) {
+          msg = 'Parameter count in query does not add up. Too few parameters in the query string';
+          debug('** ' + msg);
+          deferred.reject(msg);
+        } else {
+          prefix = q.text.substring(0, index);
+          postfix = q.text.substring(index + parameterPattern.length, q.text.length);
+          q.text = prefix + '$' + paramCount + postfix;
+          paramCount++;
+        }
+      }
+      index = q.text.indexOf(parameterPattern);
+      if (index !== -1) {
+        msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
+        debug('** ' + msg);
+        deferred.reject();
+      }
+    }
+
+    if (logsql) {
+      cl(q);
+    }
+
+    db.client.query(q, function (err, result) {
+      if (err) {
+        if (logsql) {
+          cl('SQL error :');
+          cl(err);
+        }
+        deferred.reject(err);
+      } else {
+        if (logsql) {
+          cl('SQL result : ');
+          cl(result.rows);
+        }
+        deferred.resolve(result);
+      }
+    });
 
     return deferred.promise;
   }
