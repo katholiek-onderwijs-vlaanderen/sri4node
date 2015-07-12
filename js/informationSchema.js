@@ -14,6 +14,7 @@ if(type === 'text') {
 */
 
 var qo = require('./queryObject.js');
+var Q = require('q');
 var common = require('./common.js');
 var cl = common.cl;
 var pgExec = common.pgExec;
@@ -21,9 +22,7 @@ var cache;
 
 exports = module.exports = function (database, configuration, logverbose) {
   'use strict';
-  if (cache != null) {
-    return cache;
-  }
+  var deferred = Q.defer();
 
   function debug(x) {
     if (logverbose) {
@@ -31,9 +30,14 @@ exports = module.exports = function (database, configuration, logverbose) {
     }
   }
 
+  if (cache != null) {
+    deferred.resolve(cache);
+    return deferred.promise;
+  }
+
   var q = qo.prepareSQL('information-schema');
   var tableNames = [];
-  var i, type, tableName;
+  var i, type, tableName, row, typeCache, columnCache;
 
   for (i = 0; i < configuration.resources.length; i++) {
     type = configuration.resources[i].type;
@@ -43,14 +47,28 @@ exports = module.exports = function (database, configuration, logverbose) {
   debug(tableName);
   q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
     .array(tableNames).sql(')');
-  debug(q);
-
-  cl(database);
-  cl(q);
   pgExec(database, q).then(function (results) {
-    debug(results);
+    cache = {};
+    for (i = 0; i < results.rows.length; i++) {
+      row = results.rows[i];
+
+      if (cache['/' + row.table_name] == null) {
+        cache['/' + row.table_name] = {};
+      }
+      typeCache = cache['/' + row.table_name];
+
+      if (typeCache[row.column_name] == null) {
+        typeCache[row.column_name] = {};
+      }
+      columnCache = typeCache[row.column_name];
+
+      // We may add extra fields like precision, etc.. in the future.
+      columnCache.type = row.data_type;
+    }
+    deferred.resolve(cache);
+  }).fail(function () {
+    deferred.reject();
   });
 
-  cache = {};
-  return cache;
+  return deferred.promise;
 };

@@ -3,7 +3,7 @@ var context = require('./context.js');
 
 var port = 5000;
 var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = true;
+logsql = logrequests = logdebug = false;
 
 var base = 'http://localhost:' + port;
 context.serve(roa, port, logsql, logrequests, logdebug);
@@ -17,4 +17,4 @@ require('./testAfterRead.js')(base, logdebug);
 require('./testSecurityContext.js')(base, logdebug);
 require('./testPutAndDelete.js')(base, logdebug);
 require('./testJSONB.js')(base, logdebug);
-//require('./testInformationSchema.js')(logdebug);
+require('./testInformationSchema.js')(logdebug);
