@@ -72,4 +72,17 @@ exports = module.exports = function (base, logverbose) {
       });
     });
   });
+
+  describe('utils.addReferencingResources ', function () {
+    describe('on afterread /persons', function () {
+      it('should include related transactions', function () {
+        return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6',
+                     'sabine@email.be', 'pwd').then(function (response) {
+          debug(response.body);
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.$$transactions.length, 1);
+        });
+      });
+    });
+  });
 };

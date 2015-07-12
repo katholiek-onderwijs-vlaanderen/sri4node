@@ -7,21 +7,21 @@ var context = require('./context.js');
 exports = module.exports = function (logverbose) {
   'use strict';
   var configuration = context.getConfiguration();
-  var database = common.pgConnect(postgres, configuration);
-  var is = require('../js/informationSchema.js')(database, configuration, logverbose);
+  return common.pgConnect(postgres, configuration).then(function (database) {
+    var is = require('../js/informationSchema.js')(database, configuration, logverbose);
 
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
+    function debug(x) {
+      if (logverbose) {
+        cl(x);
+      }
     }
-  }
-/*
-  describe('Information Schema', function () {
-    it('should correctly show text columns', function () {
-      var type = is['/communities'].zipcode;
-      debug('type : ' + type);
-      assert.equal(type, 'text');
+
+    describe('Information Schema', function () {
+      it('should correctly show text columns', function () {
+        var type = is['/communities'].zipcode;
+        debug('type : ' + type);
+        assert.equal(type, 'text');
+      });
     });
   });
-  */
 };

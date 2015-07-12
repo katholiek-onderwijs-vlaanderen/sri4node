@@ -44,11 +44,13 @@ exports = module.exports = function (database, configuration, logverbose) {
   q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
     .array(tableNames).sql(')');
   debug(q);
-/*
+
+  cl(database);
+  cl(q);
   pgExec(database, q).then(function (results) {
     debug(results);
   });
-*/
+
   cache = {};
   return cache;
 };
