@@ -5,7 +5,7 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "./runtests.sh"
+    "test": "mocha"
   },
   "dependencies": {
     "body-parser": "^1.9.0",
