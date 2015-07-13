@@ -504,7 +504,7 @@ exports = module.exports = {
             allParentsOf: allParentsOf
           }
         },
-        require('./context/selfreferential.js'),
+        require('./context/jsonb.js'),
         require('./context/alldatatypes.js')
       ]
     };
