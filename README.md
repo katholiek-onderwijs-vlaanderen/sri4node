@@ -123,7 +123,8 @@ Finally we configure handlers for 1 example resource :
                         authors: $q.filterILike('authors'),
                         themes: $q.filterILike('themes'),
                         html: $q.filterILike('html'),
-                        editor: $q.filterReferencedType('/persons','editor')
+                        editor: $q.filterReferencedType('/persons','editor'),
+                        defaultFilter: $q.defaultFilter
                     },
                     // All columns in the table that appear in the
                     // resource should be declared in the 'map' object.

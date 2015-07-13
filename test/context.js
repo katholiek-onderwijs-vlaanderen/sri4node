@@ -672,7 +672,8 @@ exports = module.exports = {
               oninsert: $m.stringify
             }
           }
-        }
+        },
+        require('./context/alldatatypes.js')
       ]
     };
 
