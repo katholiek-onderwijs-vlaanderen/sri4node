@@ -660,19 +660,8 @@ exports = module.exports = {
           query: {
             allParentsOf: allParentsOf
           }
-                },
-        {
-          type: '/jsonb',
-          'public': true, // eslint-disable-line
-          map: {
-            key: {},
-            details: {
-              onread: $m.parse,
-              onupdate: $m.stringify,
-              oninsert: $m.stringify
-            }
-          }
         },
+        require('./context/selfreferential.js'),
         require('./context/alldatatypes.js')
       ]
     };
