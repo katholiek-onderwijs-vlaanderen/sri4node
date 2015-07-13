@@ -54,7 +54,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
           if (mapping.query[key]) {
             // Execute the configured function that will apply this URL parameter
             // to the SELECT statement
-            promises.push(mapping.query[key](urlparameters[key], select, key, database, count));
+            promises.push(mapping.query[key](urlparameters[key], select, key, database, count, mapping));
           } else {
             debug('rejecting unknown query parameter : [' + key + ']');
             reject = true;

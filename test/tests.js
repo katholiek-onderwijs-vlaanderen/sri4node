@@ -18,3 +18,4 @@ require('./testSecurityContext.js')(base, logdebug);
 require('./testPutAndDelete.js')(base, logdebug);
 require('./testJSONB.js')(base, logdebug);
 require('./testInformationSchema.js')(logdebug);
+require('./testDefaultFilter.js')(base, logdebug);
