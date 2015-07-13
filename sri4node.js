@@ -51,11 +51,11 @@ function applyRequestParameters(mapping, req, select, database, count) {
     for (key in urlparameters) {
       if (urlparameters.hasOwnProperty(key)) {
         if (standardParameters.indexOf(key) === -1) {
-          if (mapping.query[key] || mapping.query.default) {
+          if (mapping.query[key] || mapping.query.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
             // to the SELECT statement
-            if (mapping.query[key] == null && mapping.query.default) { // eslint-disable-line
-              promises.push(mapping.query.default(urlparameters[key], select, key, database, count, mapping));
+            if (mapping.query[key] == null && mapping.query.defaultFilter) { // eslint-disable-line
+              promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, count, mapping));
             } else {
               promises.push(mapping.query[key](urlparameters[key], select, key, database, count, mapping));
             }

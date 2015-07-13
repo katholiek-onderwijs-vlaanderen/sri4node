@@ -26,7 +26,7 @@ exports = module.exports = {
     var app = express();
     app.set('port', port);
     app.use(bodyParser.json());
-    
+
     roa.configure(app, pg, config);
     port = app.get('port');
     app.listen(port, function () {
@@ -421,7 +421,8 @@ exports = module.exports = {
           query: {
             communities: $q.filterReferencedType('/communities', 'community'),
             firstnameILike: $q.filterILike('firstname'),
-            firstnameIn: $q.filterIn('firstname')
+            firstnameIn: $q.filterIn('firstname'),
+            defaultFilter: $q.defaultFilter
           },
           afterread: [
                         $u.addReferencingResources('/transactions', 'fromperson', '$$transactions')

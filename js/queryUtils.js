@@ -124,5 +124,7 @@ exports = module.exports = {
 
       return deferred.promise;
     };
-  }
+  },
+
+  defaultFilter: require('./defaultFilter.js')
 };
