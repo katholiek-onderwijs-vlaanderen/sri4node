@@ -1,18 +1,10 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
 var sriclient = require('sri4node-client');
 var doGet = sriclient.get;
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('Generic Filters', function () {
 
@@ -171,6 +163,85 @@ exports = module.exports = function (base, logverbose) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
+        });
+
+      });
+    });
+
+    describe('GreaterOrEqual match', function () {
+      describe('String fields', function () {
+        it('should find resources that are greater', function () {
+          return doGet(base + '/alldatatypes?textGreaterOrEqual=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should find resources that are equal', function () {
+          return doGet(base + '/alldatatypes?textGreaterOrEqual=Value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should find resources that are equal with operator After (alias)', function () {
+          return doGet(base + '/alldatatypes?textAfter=Value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+      });
+
+      describe('Numeric fields', function () {
+        it('should find resources that are greater', function () {
+          return doGet(base + '/alldatatypes?numberGreaterOrEqual=1000').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 1611);
+          });
+        });
+
+        it('should find resources that are equal', function () {
+          return doGet(base + '/alldatatypes?numberGreaterOrEqual=1611').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 1611);
+          });
+        });
+
+        it('should find resources that are equal with operator After (alias)', function () {
+          return doGet(base + '/alldatatypes?numberAfter=1611').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 1611);
+          });
+        });
+
+      });
+
+      describe('Timestamp fields', function () {
+        it('should find resources that are greater', function () {
+          return doGet(base + '/alldatatypes?publicationGreaterOrEqual=2015-02-01T00:00:00%2B02:00')
+            .then(function (response) {
+              assert.equal(response.statusCode, 200);
+              assert.equal(response.body.results.length, 1);
+              assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+                new Date('2015-03-04T22:00:00-03:00').getTime());
+            });
+        });
+
+        it('should find resources that are equal', function () {
+          return doGet(base + '/alldatatypes?publicationGreaterOrEqual=2015-03-04T22:00:00-03:00')
+            .then(function (response) {
+              assert.equal(response.statusCode, 200);
+              assert.equal(response.body.results.length, 1);
+              assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+                new Date('2015-03-04T22:00:00-03:00').getTime());
+            });
         });
 
       });
