@@ -140,7 +140,9 @@ exports = module.exports = {
     } else {
       dbUrl = configuration.defaultdatabaseurl;
     }
-    cl('Using database connection string : [' + dbUrl + ']');
+    if (configuration.logsql) {
+      cl('Using database connection string : [' + dbUrl + ']');
+    }
 
     pg.connect(dbUrl, function (err, client, done) {
       if (err) {
