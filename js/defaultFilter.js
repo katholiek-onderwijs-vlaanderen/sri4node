@@ -1,31 +1,98 @@
+var Q = require('q');
+
+function analyseParameter(parameter) {
+  'use strict';
+
+  var key = parameter;
+  var operator = null;
+  var matches;
+
+  if ((matches = key.match(/^(.*)(Greater)$/)) !== null) {
+    key = matches[1];
+    operator = matches[2];
+  }
+
+  return {
+    key: key,
+    operator: operator
+  };
+}
+
+function filterString(select, filter, value) {
+  'use strict';
+  if (filter.operator === 'Greater') {
+    select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
+  } else {
+    select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
+  }
+}
+
+function filterNumeric(select, filter, value) {
+  'use strict';
+  if (filter.operator === 'Greater') {
+    select.sql(' AND ' + filter.key + ' > ').param(value);
+  } else {
+    select.sql(' AND ' + filter.key + ' = ').param(value);
+  }
+
+}
+
+function filterTimestamp(select, filter, value) {
+  'use strict';
+  if (filter.operator === 'Greater') {
+    select.sql(' AND ' + filter.key + ' > ').param(value);
+  } else {
+    select.sql(' AND ' + filter.key + ' = ').param(value);
+  }
+}
+
+function filterArray(select, filter, value) {
+  'use strict';
+  var values = value.split(',');
+  var i;
+
+  for (i = 0; i < values.length; i++) {
+    select.sql(' AND \'' + values[i] + '\' = ANY(' + filter.key + ')');
+  }
+  select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+}
+
 exports = module.exports = function (value, select, parameter, database, count, mapping, configuration) { // eslint-disable-line
   'use strict';
 
-  return require('./informationSchema.js')(database, configuration).then(function (informationSchema) {
-    var key, field, values, i;
+  var deferred = Q.defer();
+
+  require('./informationSchema.js')(database, configuration).then(function (informationSchema) {
+    var filter;
+    var field;
+    var filterFn;
 
     // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
-    key = parameter;
+    filter = analyseParameter(parameter);
 
     // 2) Find data type on database from information schema;
-    field = informationSchema[mapping.type][key];
+    field = informationSchema[mapping.type][filter.key];
 
     // 3) Extend the sql query with the correct WHERE clause.
-
-    if (field.type.toLowerCase() === 'text') {
-      select.sql(' AND ' + key + ' ILIKE ').param(value);
-    } else if (field.type.toLowerCase() === 'numeric') {
-      select.sql(' AND ' + key + ' = ').param(value);
-    } else if (field.type.toLowerCase().match(/^timestamp/)) {
-      select.sql(' AND ' + key + ' = ').param(value);
-    } else if (field.type.toLowerCase() === 'array') {
-      values = value.split(',');
-
-      for (i = 0; i < values.length; i++) {
-        select.sql(' AND \'' + values[i] + '\' = ANY(' + key + ')');
+    if (field) {
+      if (field.type.toLowerCase() === 'text') {
+        filterFn = filterString;
+      } else if (field.type.toLowerCase() === 'numeric') {
+        filterFn = filterNumeric;
+      } else if (field.type.toLowerCase().match(/^timestamp/)) {
+        filterFn = filterTimestamp;
+      } else if (field.type.toLowerCase() === 'array') {
+        filterFn = filterArray;
       }
-      select.sql(' AND array_length(' + key + ', 1) = ').param(values.length);
+
+      if (filterFn) {
+        filterFn(select, filter, value);
+      }
     }
 
+    deferred.resolve();
+
   });
+
+  return deferred.promise;
 };
