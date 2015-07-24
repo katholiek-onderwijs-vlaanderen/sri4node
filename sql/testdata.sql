@@ -45,3 +45,13 @@ INSERT INTO "selfreferential" VALUES ('ab142ea6-7e79-4f93-82d3-8866b0c8d46b','le
 insert into jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
 insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
 insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}');
+
+-- Data for the generic Filters
+insert into alldatatypes (key, text) values (1, 'Value');
+insert into alldatatypes (key, text) values (2, 'A value with spaces');
+insert into alldatatypes (key, number) values (3, 1611);
+insert into alldatatypes (key, number) values (4, 11);
+insert into alldatatypes (key, publication) values (5, '2015-01-01T00:00:00+02:00');
+insert into alldatatypes (key, publication) values (6, '2015-03-04T22:00:00-03:00');
+insert into alldatatypes (key, texts) values (7, '{"Standard", "ROA", "interface"}');
+insert into alldatatypes (key, texts) values (8, '{"Resource", "oriented", "architecture"}');

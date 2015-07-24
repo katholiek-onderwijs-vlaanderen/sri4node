@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS "communities" CASCADE;
 DROP TABLE IF EXISTS "table" CASCADE;
 DROP TABLE IF EXISTS "selfreferential" CASCADE;
 DROP TABLE IF EXISTS "jsonb" CASCADE;
+DROP TABLE IF EXISTS "alldatatypes" CASCADE;
 
 CREATE TABLE "communities" (
   "key" text unique,
@@ -80,6 +81,12 @@ CREATE TABLE "jsonb" (
     "details" jsonb
 );
 
-CREATE TABLE "alldatatype" (
-    "key" text unique
+CREATE TABLE "alldatatypes" (
+    "key" numeric unique,
+    "text" text,
+    "texts" text[],
+    "publication" timestamp with time zone,
+    "publications" timestamp with time zone[],
+    "number" numeric,
+    "numbers" numeric[]
 );

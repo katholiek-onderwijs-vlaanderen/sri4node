@@ -82,7 +82,7 @@ exports = module.exports = {
         require('./context/table.js')(roa),
         require('./context/selfreferential.js'),
         require('./context/jsonb.js'),
-        require('./context/alldatatypes.js')
+        require('./context/alldatatypes.js')(roa)
       ]
     };
 
