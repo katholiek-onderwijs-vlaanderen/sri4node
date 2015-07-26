@@ -40,7 +40,7 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
 
 Finally we configure handlers for 1 example resource. 
 This example shows a resource for storing text (content). 
-It declares a reference to a second resource (person), which itself is not shown here.
+It declares a reference to a second resource (/person), which itself is not shown here.
 
     sri4node.configure(app,pg,
         {
