@@ -39,8 +39,8 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
     var $q = sri4node.queryUtils;
 
 Finally we configure handlers for 1 example resource. 
-This example shows a resource for storing text (content). 
-It declares a reference to a second resource (/person), which itself is not shown here.
+This example shows a resource for storing content as `html` with meta-data like `authors`, `themes` and `editor`. 
+The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
 
     sri4node.configure(app,pg,
         {
@@ -191,7 +191,7 @@ This will include related *regular* resources.
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
 1. Check if you have permission by executing all registered `secure` functions in the configuration.
-If any of these functions rejects it's promise, the client will receive 403 Forbidden.
+If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name). 
 All standard postgreSQL datatypes are converted automatically to JSON. 
 Values can be transformed by an *onread* function (if configured). 
@@ -203,11 +203,11 @@ As they are mapped with `{ references: '/type' }`.
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
 1. Check if you have permission by executing all registered `secure` functions.
-If any of these functions rejects it's promise, the client will receive 403 Forbidden.
+If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Perform schema validation on the incoming resource.
 If the schema is violated, the client will receive a 409 Conflict.
 3. Execute `validate` functions. 
-If any of of the `validate` functions rejects it's promise, the client receives a 409 Conflict.
+If any of of the `validate` functions rejects its promise, the client receives a 409 Conflict.
 4. Convert the JSON document into a simple key-value object. 
 Keys map 1:1 with database columns. 
 All incoming values are passed through the `onwrite`/`oninsert` function for conversion (if configured). 
@@ -218,14 +218,14 @@ By default references to other resources (relative links in the JSON document) a
 When deleting a *regular* resource :
 
 1. Check if you have permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects it's promise, the client will receive 403 Forbidden.
+If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Delete the row from the database.
 3. Execute any `afterdelete` functions.
 
 When reading a *list* resource :
 
 1. Check if you have read permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects it's promise, the client will receive 403 Forbidden.
+If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 The `query` functions are executed if they appear in the request URL as parameters.
@@ -325,7 +325,7 @@ All the configured `query` functions should extend the SQL statement with an `AN
 
 The function must return a [Q promise][kriskowal-q].
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
-If one query function rejects it's promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
+If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
 It should reject with one or an array of error objects that correspond to the [SRI definition][sri-error]. 
 Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
 
@@ -341,7 +341,7 @@ The function receives these parameters :
 - `elements` is an array of one or more resources that you can manipulate.
 
 The function must return a [Q promise][kriskowal-q].
-If one of the `afterread` methods rejects it's promise, all error objects are returned to the client, who receives a 500 Internal Error response.
+If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
 It should `reject()` with an object that correspond to the SRI definition of an [error][sri-error].
 Mind you that *path* does not makes sense for errors in afterread methods, so you should ommit it.
 
@@ -356,8 +356,8 @@ The function receives these parameters :
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
-The function should `reject()` it's promise with an object that correspond to the SRI definition of an [error][sri-error].
-If any of the functions rejects it's promise the client receives 409 Conflict, an a combination of all error objects in the response body.
+The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
+If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
 ### afterdelete
 
@@ -369,8 +369,8 @@ The function receives these parameters :
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
-The function should `reject()` it's promise with an object that correspond to the SRI definition of an [error][sri-error].
-If any of the functions rejects it's promise the client receives 409 Conflict, an a combination of all error objects in the response body.
+The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
+If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
 ## identity
 
@@ -387,7 +387,7 @@ The function receives these parameters :
 - `database` is a database object, allowing you to execute extra SQL statements.
 
 The function must return a [Q promise][kriskowal-q].
-The format of the object when the function resolves it's promise, is up to the user to determine.
+The format of the object when the function resolves its promise, is up to the user to determine.
 
 ## Bundled Utility Functions
 
