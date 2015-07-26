@@ -38,7 +38,9 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
     var $s = sri4node.schemaUtils;
     var $q = sri4node.queryUtils;
 
-Finally we configure handlers for 1 example resource :
+Finally we configure handlers for 1 example resource. 
+This example shows a resource for storing text (content). 
+It shows a reference to a second resource (person), which is not shown here.
 
     sri4node.configure(app,pg,
         {
@@ -287,7 +289,7 @@ A `secure` function receives these parameters :
 The function must return a [Q promise][kriskowal-q].
 It should `resolve()` the promise if the function allows the HTTP operation.
 It should `reject()` the promise if the function disallows the HTTP operation.
-In the later case the client will receive a 401 Forbidden as response to his operation.
+In the later case the client will receive a 403 Forbidden as response to his operation.
 
 ### validate
 
@@ -313,7 +315,7 @@ The functions can annotate the `WHERE` clause of the query executed.
 The functions receive these parameters :
 
 - `value` is the value of the request parameter (string).
-- `select` is a query object (as returned by `sri4node.prepareSQL()`) for adding SQL to the `WHERE` clause. See below for more details.
+- `select` is a query object (as returned by `sri4node.prepareSQL()`) for adding SQL to the `WHERE` clause. See [below](#### preapreSQL()) for more details.
 - `parameter` is the name of the URL parameter.
 - `database` is a database object that you can use to execute extra SQL statements.
 - `count` is a boolean telling you if you are currently decorating the `SELECT COUNT` query, or the final `SELECT` query. Useful for making sure some statements are not executed twice (when using the database object)
