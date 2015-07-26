@@ -7,9 +7,10 @@ DROP TABLE IF EXISTS "communities" CASCADE;
 DROP TABLE IF EXISTS "table" CASCADE;
 DROP TABLE IF EXISTS "selfreferential" CASCADE;
 DROP TABLE IF EXISTS "jsonb" CASCADE;
+DROP TABLE IF EXISTS "alldatatype" CASCADE;
 
 CREATE TABLE "communities" (
-  "key" text unique,
+  "key" uuid unique,
   "name" text unique,
   "street" text not null,
   "streetnumber" text not null,
@@ -25,7 +26,7 @@ CREATE TABLE "communities" (
 );
 
 CREATE TABLE "persons" (
-  "key" text unique,
+  "key" uuid unique,
   "firstname" text not null,
   "lastname" text not null,
   "street" text,
@@ -37,49 +38,49 @@ CREATE TABLE "persons" (
   "email" text unique,
   "balance" integer not null,
   "password" text,
-  "community" text references "communities"(key),
+  "community" uuid references "communities"(key),
   -- never, daily, weekly, instant
   "mail4elas" text default 'never' -- default : don't spam.
 );
 
 CREATE TABLE "transactions" (
-  "key" text unique,
+  "key" uuid unique,
   "transactiontimestamp" timestamp with time zone not null default (now() at time zone 'utc'),
-  "fromperson" text references "persons"(key),
-  "toperson" text references "persons"(key),
+  "fromperson" uuid references "persons"(key),
+  "toperson" uuid references "persons"(key),
   "description" text,
   "amount" integer not null
 );
 
 CREATE TABLE "messages" (
-  "key" text unique,
-  "person" text references "persons"(key),
+  "key" uuid unique,
+  "person" uuid references "persons"(key),
   "posted" timestamp with time zone not null default (now() at time zone 'utc'),
   "type" text not null,
   "title" text not null,
   "description" text,
   "amount" integer,
   "unit" text,
-  "community" text references "communities"(key)
+  "community" uuid references "communities"(key)
 );
 
 CREATE TABLE "table" (
-  "key" text unique,
+  "key" uuid unique,
   "select" text,
   "from" text
 );
 
 CREATE TABLE "selfreferential" (
-    "key" text unique,
+    "key" uuid unique,
     "name" text not null,
-    "parent" text references "selfreferential"(key)
+    "parent" uuid references "selfreferential"(key)
 );
 
 CREATE TABLE "jsonb" (
-    "key" text unique,
+    "key" uuid unique,
     "details" jsonb
 );
 
 CREATE TABLE "alldatatype" (
-    "key" text unique
+    "key" uuid unique
 );
