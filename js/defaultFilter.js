@@ -1,5 +1,3 @@
-var Q = require('q');
-
 function analyseParameter(parameter) {
   'use strict';
 
@@ -78,9 +76,7 @@ function filterArray(select, filter, value) {
 exports = module.exports = function (value, select, parameter, database, count, mapping, configuration) { // eslint-disable-line
   'use strict';
 
-  var deferred = Q.defer();
-
-  require('./informationSchema.js')(database, configuration).then(function (informationSchema) {
+  return require('./informationSchema.js')(database, configuration).then(function (informationSchema) {
     var filter;
     var field;
     var filterFn;
@@ -108,9 +104,6 @@ exports = module.exports = function (value, select, parameter, database, count, 
       }
     }
 
-    deferred.resolve();
-
   });
 
-  return deferred.promise;
 };
