@@ -5,7 +5,7 @@ function analyseParameter(parameter) {
   var operator = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before)$/)) !== null) {
+  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In)$/)) !== null) {
     key = matches[1];
     operator = matches[2];
   }
@@ -18,6 +18,8 @@ function analyseParameter(parameter) {
 
 function filterString(select, filter, value) {
   'use strict';
+  var values;
+
   if (filter.operator === 'Greater') {
     select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
@@ -26,6 +28,11 @@ function filterString(select, filter, value) {
     select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
   } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
     select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
+  } else if (filter.operator === 'In') {
+    values = value.split(',').map(function (v) {
+      return v.toLowerCase();
+    });
+    select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }
@@ -41,6 +48,8 @@ function filterNumeric(select, filter, value) {
     select.sql(' AND ' + filter.key + ' < ').param(value);
   } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
     select.sql(' AND ' + filter.key + ' <= ').param(value);
+  } else if (filter.operator === 'In') {
+    select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
   } else {
     select.sql(' AND ' + filter.key + ' = ').param(value);
   }
@@ -57,6 +66,8 @@ function filterTimestamp(select, filter, value) {
     select.sql(' AND ' + filter.key + ' < ').param(value);
   } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
     select.sql(' AND ' + filter.key + ' <= ').param(value);
+  } else if (filter.operator === 'In') {
+    select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
   } else {
     select.sql(' AND ' + filter.key + ' = ').param(value);
   }
@@ -73,10 +84,10 @@ function filterArray(select, filter, value) {
   select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
 }
 
-exports = module.exports = function (value, select, parameter, database, count, mapping, configuration) { // eslint-disable-line
-  'use strict';
+function parseFilters(value, select, parameter, mapping) {
 
-  return require('./informationSchema.js')(database, configuration).then(function (informationSchema) {
+  'use strict';
+  return function (informationSchema) {
     var filter;
     var field;
     var filterFn;
@@ -104,6 +115,13 @@ exports = module.exports = function (value, select, parameter, database, count, 
       }
     }
 
-  });
+  };
+}
+
+exports = module.exports = function (value, select, parameter, database, mapping, configuration) { // eslint-disable-line
+  'use strict';
+
+  return require('./informationSchema.js')(database, configuration)
+    .then(parseFilters(value, select, parameter, mapping));
 
 };

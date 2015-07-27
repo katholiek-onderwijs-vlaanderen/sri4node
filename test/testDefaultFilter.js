@@ -435,4 +435,100 @@ exports = module.exports = function (base) {
       });
     });
   });
+
+  describe('In match', function () {
+
+    describe('String fields', function () {
+
+      it('should find one resource among options that do not exist', function () {
+        return doGet(base + '/alldatatypes?textIn=value,another,thing').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+        });
+      });
+
+      it('should find all the resources that match', function () {
+        return doGet(base + '/alldatatypes?textIn=test,Value,A%20value%20with%20spaces').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should not find resources with a value that does not match', function () {
+        return doGet(base + '/alldatatypes?textIn=not-present,nothing,no').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+    });
+
+    describe('Numeric fields', function () {
+
+      it('should find one resource among options that do not exist', function () {
+        return doGet(base + '/alldatatypes?numberIn=1611,413,45').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.number, 1611);
+        });
+      });
+
+      it('should find all the resources that match', function () {
+        return doGet(base + '/alldatatypes?numberIn=0,1611,34,11').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.number, 1611);
+          assert.equal(response.body.results[1].$$expanded.number, 11);
+        });
+      });
+
+      it('should not find resources with a value that does not match', function () {
+        return doGet(base + '/alldatatypes?numberIn=1511,413,45').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+    });
+
+    describe('Timestamp fields', function () {
+
+      it('should find one resource among options that do not exist', function () {
+        return doGet(base + '/alldatatypes?publicationIn=2015-01-01T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00')
+          .then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+              new Date('2015-01-01T00:00:00+02:00').getTime());
+          });
+      });
+
+      it('should find all the resources that match', function () {
+        var q = '/alldatatypes?publicationIn=2015-01-01T00:00:00-03:00,2015-01-01T00:00:00%2B02:00,';
+        q += '2015-03-04T22:00:00-03:00';
+        return doGet(base + q)
+          .then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 2);
+            assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+              new Date('2015-01-01T00:00:00+02:00').getTime());
+            assert.equal(new Date(response.body.results[1].$$expanded.publication).getTime(),
+              new Date('2015-03-04T22:00:00-03:00').getTime());
+          });
+      });
+
+      it('should not find resources with a value that does not match', function () {
+        return doGet(base + '/alldatatypes?publicationIn=2015-01-21T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00')
+          .then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+      });
+
+    });
+
+  });
 };
