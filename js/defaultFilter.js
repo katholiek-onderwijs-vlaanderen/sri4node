@@ -7,7 +7,7 @@ function analyseParameter(parameter) {
   var operator = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater|GreaterOrEqual|After|Less|LessOrEqual|Before)$/)) !== null) {
+  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before)$/)) !== null) {
     key = matches[1];
     operator = matches[2];
   }
