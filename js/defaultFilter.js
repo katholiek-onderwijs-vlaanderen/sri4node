@@ -5,7 +5,7 @@ function analyseParameter(parameter) {
   var operator = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In)$/)) !== null) {
+  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx)$/)) !== null) {
     key = matches[1];
     operator = matches[2];
   }
@@ -33,6 +33,8 @@ function filterString(select, filter, value) {
       return v.toLowerCase();
     });
     select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
+  } else if (filter.operator === 'RegEx') {
+    select.sql(' AND ' + filter.key + ' ~* ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }

@@ -531,4 +531,35 @@ exports = module.exports = function (base) {
     });
 
   });
+
+  describe('RegEx match', function () {
+
+    describe('String fields', function () {
+
+      it('should find resources with a regex', function () {
+        return doGet(base + '/alldatatypes?textRegEx=%5E(.*)%5Bv%7CV%5Dalue(.*)%24').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should find only one resource with a regex', function () {
+        return doGet(base + '/alldatatypes?textRegEx=%5E(.%20)%5Bv%7CV%5Dalue(.*)%24').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should not find resources with a regex', function () {
+        return doGet(base + '/alldatatypes?textRegEx=%5E%5B0-9%5D*%24').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+    });
+  });
 };
