@@ -5,7 +5,7 @@ function analyseParameter(parameter) {
   var operator = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx)$/)) !== null) {
+  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)$/)) !== null) {
     key = matches[1];
     operator = matches[2];
   }
@@ -35,6 +35,8 @@ function filterString(select, filter, value) {
     select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
   } else if (filter.operator === 'RegEx') {
     select.sql(' AND ' + filter.key + ' ~* ').param(value);
+  } else if (filter.operator === 'Contains') {
+    select.sql(' AND ' + filter.key + ' ILIKE \'%' + value + '%\'');
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }
@@ -83,7 +85,11 @@ function filterArray(select, filter, value) {
   for (i = 0; i < values.length; i++) {
     select.sql(' AND \'' + values[i] + '\' = ANY(' + filter.key + ')');
   }
-  select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+
+  if (filter.operator !== 'Contains') {
+    select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+  }
+
 }
 
 function parseFilters(value, select, parameter, mapping) {

@@ -90,7 +90,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?texts=Standard,interface,ROA').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.texts.length, 3);
+            assert.equal(response.body.results[0].$$expanded.key, 7);
           });
         });
 
@@ -112,7 +112,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numbers=8,13,5,3').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.numbers.length, 4);
+            assert.equal(response.body.results[0].$$expanded.key, 9);
           });
         });
 
@@ -561,5 +561,102 @@ exports = module.exports = function (base) {
       });
 
     });
+  });
+
+  describe('Contains match', function () {
+
+    describe('String fields', function () {
+
+      it('should find resources that contain a substring', function () {
+        return doGet(base + '/alldatatypes?textContains=lu').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should find resources that start with a substring', function () {
+        return doGet(base + '/alldatatypes?textContains=va').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should find resources that end with a substring', function () {
+        return doGet(base + '/alldatatypes?textContains=Aces').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should not find resources that do not contain a substring', function () {
+        return doGet(base + '/alldatatypes?textContains=mor').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+    });
+
+    describe('Timestamp fields', function () {
+      // TBD
+    });
+
+    describe('Array fields', function () {
+
+      it('should find strings', function () {
+        return doGet(base + '/alldatatypes?textsContains=Standard,interface').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.key, 7);
+        });
+      });
+
+      it('should not find strings', function () {
+        return doGet(base + '/alldatatypes?textsContains=Standard,definition').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find numbers', function () {
+        return doGet(base + '/alldatatypes?numbersContains=5,3').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.key, 9);
+          assert.equal(response.body.results[1].$$expanded.key, 10);
+        });
+      });
+
+      it('should not find numbers', function () {
+        return doGet(base + '/alldatatypes?numbersContains=12').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find timestamps', function () {
+        var q = '/alldatatypes?publicationsContains=2015-04-01T00:00:00%2B02:00';
+        q += ',2015-01-01T00:00:00%2B02:00';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.key, 11);
+        });
+      });
+
+      it('should not find timestamps', function () {
+        return doGet(base + '/alldatatypes?publicationsContains=2013-01-01T00:00:00%2B02:00').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+    });
+
   });
 };
