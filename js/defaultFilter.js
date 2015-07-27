@@ -7,7 +7,7 @@ function analyseParameter(parameter) {
   var operator = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater|GreaterOrEqual|After)$/)) !== null) {
+  if ((matches = key.match(/^(.*)(Greater|GreaterOrEqual|After|Less|LessOrEqual|Before)$/)) !== null) {
     key = matches[1];
     operator = matches[2];
   }
@@ -24,6 +24,10 @@ function filterString(select, filter, value) {
     select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
     select.sql(' AND LOWER(' + filter.key + ') >= LOWER(\'' + value + '\')');
+  } else if (filter.operator === 'Less') {
+    select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
+  } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
+    select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }
@@ -35,6 +39,10 @@ function filterNumeric(select, filter, value) {
     select.sql(' AND ' + filter.key + ' > ').param(value);
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
     select.sql(' AND ' + filter.key + ' >= ').param(value);
+  } else if (filter.operator === 'Less') {
+    select.sql(' AND ' + filter.key + ' < ').param(value);
+  } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
+    select.sql(' AND ' + filter.key + ' <= ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' = ').param(value);
   }
@@ -47,6 +55,10 @@ function filterTimestamp(select, filter, value) {
     select.sql(' AND ' + filter.key + ' > ').param(value);
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
     select.sql(' AND ' + filter.key + ' >= ').param(value);
+  } else if (filter.operator === 'Less') {
+    select.sql(' AND ' + filter.key + ' < ').param(value);
+  } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
+    select.sql(' AND ' + filter.key + ' <= ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' = ').param(value);
   }

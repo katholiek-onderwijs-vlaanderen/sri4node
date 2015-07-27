@@ -55,3 +55,6 @@ insert into alldatatypes (key, publication) values (5, '2015-01-01T00:00:00+02:0
 insert into alldatatypes (key, publication) values (6, '2015-03-04T22:00:00-03:00');
 insert into alldatatypes (key, texts) values (7, '{"Standard", "ROA", "interface"}');
 insert into alldatatypes (key, texts) values (8, '{"Resource", "oriented", "architecture"}');
+insert into alldatatypes (key, numbers) values (9, '{3, 5, 8, 13}');
+insert into alldatatypes (key, numbers) values (10, '{2, 3, 5, 7, 11}');
+insert into alldatatypes (key, publications) values (11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
