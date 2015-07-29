@@ -58,6 +58,22 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?textNot=value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should find resources with a not match and case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNot=Value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -74,6 +90,14 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?number=314').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?numberNot=1611').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
 
@@ -97,6 +121,15 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?publicationNot=2015-01-01T00:00:00%2B02:00').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+              new Date('2015-03-04T22:00:00-03:00').getTime());
+          });
+        });
+
       });
 
       describe('Array fields', function () {
@@ -105,7 +138,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?texts=Standard,interface,ROA').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.key, 7);
+            assert.equal(response.body.results[0].$$expanded.id, 7);
           });
         });
 
@@ -113,6 +146,14 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?texts=Standard,interface').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find strings with a not match', function () {
+          return doGet(base + '/alldatatypes?textsNot=Standard,interface,ROA').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.id, 8);
           });
         });
 
@@ -127,7 +168,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numbers=8,13,5,3').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.key, 9);
+            assert.equal(response.body.results[0].$$expanded.id, 9);
           });
         });
 
@@ -138,13 +179,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find numbers with a not match', function () {
+          return doGet(base + '/alldatatypes?numbersNot=8,13,5,3').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.id, 10);
+          });
+        });
+
         it('should find timestamps with an exact match', function () {
           var q = '/alldatatypes?publications=2015-01-01T00:00:00%2B02:00';
           q += ',2015-07-01T00:00:00%2B02:00,2015-04-01T00:00:00%2B02:00';
           return doGet(base + q).then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.key, 11);
+            assert.equal(response.body.results[0].$$expanded.id, 11);
           });
         });
 
@@ -152,6 +201,16 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?publications=2015-01-01T00:00:00%2B02:00').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find timestamps with a not match', function () {
+          var q = '/alldatatypes?publicationsNot=2015-01-01T00:00:00%2B02:00';
+          q += ',2015-07-01T00:00:00%2B02:00,2015-04-01T00:00:00%2B02:00';
+          return doGet(base + q).then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.id, 12);
           });
         });
 
@@ -190,6 +249,23 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?textNotGreater=Test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should find resources with a not match case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotGreater=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+            assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -205,6 +281,14 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberGreater=1611').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?numberNotGreater=1000').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
 
@@ -224,6 +308,16 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?publicationGreater=2015-03-04T22:00:00-03:00').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find resources that are greater', function () {
+          var q = '/alldatatypes?publicationNotGreater=2015-02-01T00:00:00%2B02:00';
+          return doGet(base + q).then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+              new Date('2015-01-01T00:00:00+02:00').getTime());
           });
         });
 
@@ -271,6 +365,24 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?textNotGreaterOrEqual=value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+            assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should find resources with a not match case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotGreaterOrEqual=value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+            assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -295,6 +407,14 @@ exports = module.exports = function (base) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.number, 1611);
+          });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?numberNotGreaterOrEqual=1000').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
 
@@ -328,6 +448,16 @@ exports = module.exports = function (base) {
               assert.equal(response.body.results.length, 1);
               assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
                 new Date('2015-03-04T22:00:00-03:00').getTime());
+            });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?publicationNotGreaterOrEqual=2015-02-01T00:00:00%2B02:00')
+            .then(function (response) {
+              assert.equal(response.statusCode, 200);
+              assert.equal(response.body.results.length, 1);
+              assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+                new Date('2015-01-01T00:00:00+02:00').getTime());
             });
         });
 
@@ -366,6 +496,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?textNotLess=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should find resources with a not match case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotLess=Yes').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -381,6 +526,14 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberLess=11').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?numberNotLess=1000').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 1611);
           });
         });
 
@@ -403,6 +556,12 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?publicationNotLess=2015-03-04T22:00:00-03:00').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
       });
     });
 
@@ -447,6 +606,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?textNotLessOrEqual=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should find resources with a not match case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotLessOrEqual=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -471,6 +645,14 @@ exports = module.exports = function (base) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.number, 11);
+          });
+        });
+
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?numberNotLessOrEqual=1000').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.number, 1611);
           });
         });
 
@@ -507,6 +689,15 @@ exports = module.exports = function (base) {
             });
         });
 
+        it('should find resources with a not match', function () {
+          return doGet(base + '/alldatatypes?publicationNotLessOrEqual=2015-02-01T00:00:00-02:00').then(
+            function (response) {
+              assert.equal(response.statusCode, 200);
+              assert.equal(response.body.results.length, 1);
+              assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+                new Date('2015-03-04T22:00:00-03:00').getTime());
+            });
+        });
       });
     });
   });
@@ -557,6 +748,25 @@ exports = module.exports = function (base) {
         });
       });
 
+      it('should find all the resources with a not match', function () {
+        var q = '/alldatatypes?textNotIn=test,a%20value%20with%20spaces';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+        });
+      });
+
+      it('should find all the resources with a not match case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveNotIn=test,value';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
     });
 
     describe('Numeric fields', function () {
@@ -582,6 +792,14 @@ exports = module.exports = function (base) {
         return doGet(base + '/alldatatypes?numberIn=1511,413,45').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find all the resources with a not match', function () {
+        return doGet(base + '/alldatatypes?numberNotIn=1611,413,45').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.number, 11);
         });
       });
 
@@ -618,6 +836,17 @@ exports = module.exports = function (base) {
           .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
+          });
+      });
+
+      it('should find all the resources with a not match', function () {
+        var q = '/alldatatypes?publicationNotIn=2015-01-01T00:00:00%2B02:00';
+        return doGet(base + q)
+          .then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
+              new Date('2015-03-04T22:00:00-03:00').getTime());
           });
       });
 
@@ -670,6 +899,23 @@ exports = module.exports = function (base) {
         });
       });
 
+      it('should find resources with a regex with a not match', function () {
+        var q = '/alldatatypes?textNotRegEx=%5E(.*)value(.*)%24';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find resources with a regex with a not match case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveNotRegEx=%5E(.*)VALUE(.*)%24';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
     });
   });
 
@@ -726,6 +972,22 @@ exports = module.exports = function (base) {
         });
       });
 
+      it('should find resources that contain a substring with a not match', function () {
+        return doGet(base + '/alldatatypes?textNotContains=LU').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find resources that contain a substring with a not match case sensitive', function () {
+        return doGet(base + '/alldatatypes?textCaseSensitiveNotContains=LU').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
     });
 
     describe('Timestamp fields', function () {
@@ -738,7 +1000,7 @@ exports = module.exports = function (base) {
         return doGet(base + '/alldatatypes?textsContains=Standard,interface').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.key, 7);
+          assert.equal(response.body.results[0].$$expanded.id, 7);
         });
       });
 
@@ -749,17 +1011,32 @@ exports = module.exports = function (base) {
         });
       });
 
+      it('should find strings with a not match', function () {
+        return doGet(base + '/alldatatypes?textsNotContains=Standard,interface').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 8);
+        });
+      });
+
       it('should find numbers', function () {
         return doGet(base + '/alldatatypes?numbersContains=5,3').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.key, 9);
-          assert.equal(response.body.results[1].$$expanded.key, 10);
+          assert.equal(response.body.results[0].$$expanded.id, 9);
+          assert.equal(response.body.results[1].$$expanded.id, 10);
         });
       });
 
       it('should not find numbers', function () {
         return doGet(base + '/alldatatypes?numbersContains=12').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find numbers with a not match', function () {
+        return doGet(base + '/alldatatypes?numbersNotContains=5,3').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
         });
@@ -771,14 +1048,24 @@ exports = module.exports = function (base) {
         return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.key, 11);
+          assert.equal(response.body.results[0].$$expanded.id, 11);
         });
       });
 
       it('should not find timestamps', function () {
-        return doGet(base + '/alldatatypes?publicationsContains=2013-01-01T00:00:00%2B02:00').then(function (response) {
+        return doGet(base + '/alldatatypes?publicationsContains=2012-01-01T00:00:00%2B02:00').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find timestamps with a not match', function () {
+        var q = '/alldatatypes?publicationsNotContains=2015-04-01T00:00:00%2B02:00';
+        q += ',2015-01-01T00:00:00%2B02:00';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 12);
         });
       });
 

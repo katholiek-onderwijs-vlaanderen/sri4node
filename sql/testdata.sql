@@ -47,14 +47,15 @@ insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliv
 insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}');
 
 -- Data for the generic Filters
-insert into alldatatypes (key, text) values (1, 'Value');
-insert into alldatatypes (key, text) values (2, 'A value with spaces');
-insert into alldatatypes (key, number) values (3, 1611);
-insert into alldatatypes (key, number) values (4, 11);
-insert into alldatatypes (key, publication) values (5, '2015-01-01T00:00:00+02:00');
-insert into alldatatypes (key, publication) values (6, '2015-03-04T22:00:00-03:00');
-insert into alldatatypes (key, texts) values (7, '{"Standard", "ROA", "interface"}');
-insert into alldatatypes (key, texts) values (8, '{"Resource", "oriented", "architecture"}');
-insert into alldatatypes (key, numbers) values (9, '{3, 5, 8, 13}');
-insert into alldatatypes (key, numbers) values (10, '{2, 3, 5, 7, 11}');
-insert into alldatatypes (key, publications) values (11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
+insert into alldatatypes (key, id, text) values ('fd7e38e1-26c3-425e-9443-8a80722dfb16', 1, 'Value');
+insert into alldatatypes (key, id, text) values ('de3d49e0-70df-4cf1-ad1e-6e8645049977', 2, 'A value with spaces');
+insert into alldatatypes (key, id, number) values ('fc548cf1-67ca-4a19-be94-2e27c52b4826', 3, 1611);
+insert into alldatatypes (key, id, number) values ('aa9bd4a4-1f3d-4de2-b574-e99258907ec8', 4, 11);
+insert into alldatatypes (key, id, publication) values ('c18388fb-69ec-49f0-8ef6-b4ae6c31cb51', 5, '2015-01-01T00:00:00+02:00');
+insert into alldatatypes (key, id, publication) values ('45cb050f-cb40-455e-8456-75bf438dfd7b', 6, '2015-03-04T22:00:00-03:00');
+insert into alldatatypes (key, id, texts) values ('5cd4aa7d-1bcf-472e-9684-0a2f2429a67d', 7, '{"Standard", "ROA", "interface"}');
+insert into alldatatypes (key, id, texts) values ('1bd7c289-4f84-4e1b-94a4-f9df3ade3cd1', 8, '{"Resource", "oriented", "architecture"}');
+insert into alldatatypes (key, id, numbers) values ('a8aa8ac4-0819-457e-9b23-c285bc62cdd1', 9, '{3, 5, 8, 13}');
+insert into alldatatypes (key, id, numbers) values ('c4aec3a2-3901-47d6-9e5e-a2e9e6fef17d', 10, '{2, 3, 5, 7, 11}');
+insert into alldatatypes (key, id, publications) values ('b8277193-13b8-4c9a-ba5e-78487fb5eb94', 11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
+insert into alldatatypes (key, id, publications) values ('693ae016-44ec-4eed-aa92-6a1c20a387c4', 12, '{"2013-01-01T00:00:00+02:00", "2013-04-01T00:00:00+02:00", "2013-07-01T00:00:00+02:00"}');

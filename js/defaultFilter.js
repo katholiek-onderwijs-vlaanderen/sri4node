@@ -7,12 +7,13 @@ function analyseParameter(parameter) {
   var postfix = null;
   var matches;
 
-  var pattern = /^(.*?)(CaseSensitive)?(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)?$/;
+  var pattern = /^(.*?)(CaseSensitive)?(Not)?(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)?$/;
 
   if ((matches = key.match(pattern)) !== null) {
     key = matches[1];
     prefix = matches[2];
-    operator = matches[3];
+    postfix = matches[3];
+    operator = matches[4];
   }
 
   return {
@@ -29,97 +30,144 @@ function filterString(select, filter, value) {
 
   if (filter.operator === 'Greater') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' > ').param(value);
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' < ').param(value);
+      } else {
+        select.sql(' AND ' + filter.key + ' > ').param(value);
+      }
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
     } else {
       select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
     }
-
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' >= ').param(value);
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' <= ').param(value);
+      } else {
+        select.sql(' AND ' + filter.key + ' >= ').param(value);
+      }
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
     } else {
       select.sql(' AND LOWER(' + filter.key + ') >= LOWER(\'' + value + '\')');
     }
-
   } else if (filter.operator === 'Less') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' < ').param(value);
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' > ').param(value);
+      } else {
+        select.sql(' AND ' + filter.key + ' < ').param(value);
+      }
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
     } else {
       select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
     }
-
   } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' <= ').param(value);
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' >= ').param(value);
+      } else {
+        select.sql(' AND ' + filter.key + ' <= ').param(value);
+      }
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND LOWER(' + filter.key + ') >= LOWER(\'' + value + '\')');
     } else {
       select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
     }
   } else if (filter.operator === 'In') {
     values = value.split(',');
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' IN (').array(values).sql(')');
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' NOT IN (').array(values).sql(')');
+      } else {
+        select.sql(' AND ' + filter.key + ' IN (').array(values).sql(')');
+      }
     } else {
       values = values.map(function (v) {
         return v.toLowerCase();
       });
-      select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
-    }
+      if (filter.postfix === 'Not') {
+        select.sql(' AND LOWER(' + filter.key + ') NOT IN (').array(values).sql(')');
+      } else {
+        select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
+      }
 
+    }
   } else if (filter.operator === 'RegEx') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' ~ ').param(value);
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' !~ ').param(value);
+      } else {
+        select.sql(' AND ' + filter.key + ' ~ ').param(value);
+      }
+
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND ' + filter.key + ' !~* ').param(value);
     } else {
       select.sql(' AND ' + filter.key + ' ~* ').param(value);
     }
-
   } else if (filter.operator === 'Contains') {
     if (filter.prefix === 'CaseSensitive') {
-      select.sql(' AND ' + filter.key + ' LIKE \'%' + value + '%\'');
+      if (filter.postfix === 'Not') {
+        select.sql(' AND ' + filter.key + ' NOT LIKE \'%' + value + '%\'');
+      } else {
+        select.sql(' AND ' + filter.key + ' LIKE \'%' + value + '%\'');
+      }
+
+    } else if (filter.postfix === 'Not') {
+      select.sql(' AND ' + filter.key + ' NOT ILIKE \'%' + value + '%\'');
     } else {
       select.sql(' AND ' + filter.key + ' ILIKE \'%' + value + '%\'');
     }
-
   } else if (filter.prefix === 'CaseSensitive') {
-    select.sql(' AND ' + filter.key + ' LIKE ').param(value);
+    if (filter.postfix === 'Not') {
+      select.sql(' AND ' + filter.key + ' NOT LIKE ').param(value);
+    } else {
+      select.sql(' AND ' + filter.key + ' LIKE ').param(value);
+    }
+  } else if (filter.postfix === 'Not') {
+    select.sql(' AND ' + filter.key + ' NOT ILIKE ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }
 
 }
 
-function filterNumeric(select, filter, value) {
+function filterNumericOrTimestamp(select, filter, value) {
   'use strict';
-  if (filter.operator === 'Greater') {
-    select.sql(' AND ' + filter.key + ' > ').param(value);
-  } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
-    select.sql(' AND ' + filter.key + ' >= ').param(value);
-  } else if (filter.operator === 'Less') {
+
+  if (!filter.postfix && filter.operator === 'Less' || filter.operator === 'Greater' && filter.postfix === 'Not') {
+
     select.sql(' AND ' + filter.key + ' < ').param(value);
-  } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
+
+  } else if (!filter.postfix && (filter.operator === 'LessOrEqual' || filter.operator === 'Before') || (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && filter.postfix === 'Not') {
+
     select.sql(' AND ' + filter.key + ' <= ').param(value);
+
+  } else if (!filter.postfix && filter.operator === 'Greater' || filter.operator === 'Less' && filter.postfix === 'Not') {
+
+    select.sql(' AND ' + filter.key + ' > ').param(value);
+
+  } else if (!filter.postfix && (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && filter.postfix === 'Not') {
+
+    select.sql(' AND ' + filter.key + ' >= ').param(value);
+
   } else if (filter.operator === 'In') {
-    select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
+
+    if (filter.postfix === 'Not') {
+      select.sql(' AND ' + filter.key + ' NOT IN (').array(value.split(',')).sql(')');
+    } else {
+      select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
+    }
+
+  } else if (filter.postfix === 'Not') {
+    select.sql(' AND ' + filter.key + ' <> ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' = ').param(value);
   }
 
-}
-
-function filterTimestamp(select, filter, value) {
-  'use strict';
-  if (filter.operator === 'Greater') {
-    select.sql(' AND ' + filter.key + ' > ').param(value);
-  } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
-    select.sql(' AND ' + filter.key + ' >= ').param(value);
-  } else if (filter.operator === 'Less') {
-    select.sql(' AND ' + filter.key + ' < ').param(value);
-  } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
-    select.sql(' AND ' + filter.key + ' <= ').param(value);
-  } else if (filter.operator === 'In') {
-    select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
-  } else {
-    select.sql(' AND ' + filter.key + ' = ').param(value);
-  }
 }
 
 function filterArray(select, filter, value) {
@@ -127,12 +175,22 @@ function filterArray(select, filter, value) {
   var values = value.split(',');
   var i;
 
-  for (i = 0; i < values.length; i++) {
-    select.sql(' AND \'' + values[i] + '\' = ANY(' + filter.key + ')');
-  }
-
-  if (filter.operator !== 'Contains') {
-    select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+  if (values.length > 0) {
+    if (filter.postfix === 'Not') {
+      select.sql(' AND NOT (');
+    } else {
+      select.sql(' AND (');
+    }
+    for (i = 0; i < values.length; i++) {
+      if (i > 0) {
+        select.sql(' AND');
+      }
+      select.sql(' \'' + values[i] + '\' = ANY(' + filter.key + ')');
+    }
+    if (filter.operator !== 'Contains') {
+      select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+    }
+    select.sql(')');
   }
 
 }
@@ -155,10 +213,8 @@ function parseFilters(value, select, parameter, mapping) {
     if (field) {
       if (field.type.toLowerCase() === 'text') {
         filterFn = filterString;
-      } else if (field.type.toLowerCase() === 'numeric') {
-        filterFn = filterNumeric;
-      } else if (field.type.toLowerCase().match(/^timestamp/)) {
-        filterFn = filterTimestamp;
+      } else if (field.type.toLowerCase() === 'numeric' || field.type.toLowerCase().match(/^timestamp/)) {
+        filterFn = filterNumericOrTimestamp;
       } else if (field.type.toLowerCase() === 'array') {
         filterFn = filterArray;
       }

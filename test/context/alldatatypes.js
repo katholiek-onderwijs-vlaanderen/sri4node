@@ -13,7 +13,7 @@ exports = module.exports = function (roa) {
       title: 'A set of resources for the generic filters',
       type: 'object',
       properties: {
-        key: $s.numeric('Identificator'),
+        id: $s.numeric('Identificator'),
         text: $s.string('A text field.'),
         texts: $s.array('A collection of text.'),
         publication: $s.timestamp('A timestamp field.'),
@@ -25,7 +25,7 @@ exports = module.exports = function (roa) {
     },
     validate: [],
     map: {
-      key: {},
+      id: {},
       text: {},
       texts: {},
       publication: {},

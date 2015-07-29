@@ -83,6 +83,7 @@ CREATE TABLE "jsonb" (
 
 CREATE TABLE "alldatatypes" (
     "key" uuid unique,
+    "id" numeric,
     "text" text,
     "texts" text[],
     "publication" timestamp with time zone,
