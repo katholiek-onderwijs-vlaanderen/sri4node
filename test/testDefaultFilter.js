@@ -43,6 +43,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources with a case sensitive match', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitive=Value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should not find resources with a case sensitive match', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitive=value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -160,6 +175,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveGreater=Test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should not find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveGreater=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -223,6 +253,21 @@ exports = module.exports = function (base) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveGreaterOrEqual=Value').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          });
+        });
+
+        it('should not find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveGreaterOrEqual=test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
           });
         });
 
@@ -306,6 +351,21 @@ exports = module.exports = function (base) {
           });
         });
 
+        it('should find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveLess=Test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should not find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveLess=1').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
+          });
+        });
+
       });
 
       describe('Numeric fields', function () {
@@ -369,6 +429,21 @@ exports = module.exports = function (base) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveLessOrEqual=Test').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
+          });
+        });
+
+        it('should not find resources case sensitive', function () {
+          return doGet(base + '/alldatatypes?textCaseSensitiveLessOrEqual=1').then(function (response) {
+            assert.equal(response.statusCode, 200);
+            assert.equal(response.body.results.length, 0);
           });
         });
 
@@ -459,6 +534,24 @@ exports = module.exports = function (base) {
 
       it('should not find resources with a value that does not match', function () {
         return doGet(base + '/alldatatypes?textIn=not-present,nothing,no').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find all the resources case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveIn=test,Value,A%20value%20with%20spaces';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should not find all the resources case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveIn=test,value,a%20value%20with%20spaces';
+        return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
         });
@@ -560,6 +653,23 @@ exports = module.exports = function (base) {
         });
       });
 
+      it('should find resources with a regex case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveRegEx=%5E(.*)Value(.*)%24';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+        });
+      });
+
+      it('should not find resources with a regex case sensitive', function () {
+        var q = '/alldatatypes?textCaseSensitiveRegEx=%5E(.*)VALUE(.*)%24';
+        return doGet(base + q).then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
     });
   });
 
@@ -595,6 +705,22 @@ exports = module.exports = function (base) {
 
       it('should not find resources that do not contain a substring', function () {
         return doGet(base + '/alldatatypes?textContains=mor').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        });
+      });
+
+      it('should find resources that contain a substring case sensitive', function () {
+        return doGet(base + '/alldatatypes?textCaseSensitiveContains=lu').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+        });
+      });
+
+      it('should not find resources that contain a substring case sensitive', function () {
+        return doGet(base + '/alldatatypes?textCaseSensitiveContains=LU').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
         });

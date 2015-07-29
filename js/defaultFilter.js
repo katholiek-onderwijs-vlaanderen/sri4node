@@ -3,16 +3,23 @@ function analyseParameter(parameter) {
 
   var key = parameter;
   var operator = null;
+  var prefix = null;
+  var postfix = null;
   var matches;
 
-  if ((matches = key.match(/^(.*)(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)$/)) !== null) {
+  var pattern = /^(.*?)(CaseSensitive)?(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)?$/;
+
+  if ((matches = key.match(pattern)) !== null) {
     key = matches[1];
-    operator = matches[2];
+    prefix = matches[2];
+    operator = matches[3];
   }
 
   return {
     key: key,
-    operator: operator
+    operator: operator,
+    prefix: prefix,
+    postfix: postfix
   };
 }
 
@@ -21,25 +28,63 @@ function filterString(select, filter, value) {
   var values;
 
   if (filter.operator === 'Greater') {
-    select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' > ').param(value);
+    } else {
+      select.sql(' AND LOWER(' + filter.key + ') > LOWER(\'' + value + '\')');
+    }
+
   } else if (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') {
-    select.sql(' AND LOWER(' + filter.key + ') >= LOWER(\'' + value + '\')');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' >= ').param(value);
+    } else {
+      select.sql(' AND LOWER(' + filter.key + ') >= LOWER(\'' + value + '\')');
+    }
+
   } else if (filter.operator === 'Less') {
-    select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' < ').param(value);
+    } else {
+      select.sql(' AND LOWER(' + filter.key + ') < LOWER(\'' + value + '\')');
+    }
+
   } else if (filter.operator === 'LessOrEqual' || filter.operator === 'Before') {
-    select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' <= ').param(value);
+    } else {
+      select.sql(' AND LOWER(' + filter.key + ') <= LOWER(\'' + value + '\')');
+    }
   } else if (filter.operator === 'In') {
-    values = value.split(',').map(function (v) {
-      return v.toLowerCase();
-    });
-    select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
+    values = value.split(',');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' IN (').array(values).sql(')');
+    } else {
+      values = values.map(function (v) {
+        return v.toLowerCase();
+      });
+      select.sql(' AND LOWER(' + filter.key + ') IN (').array(values).sql(')');
+    }
+
   } else if (filter.operator === 'RegEx') {
-    select.sql(' AND ' + filter.key + ' ~* ').param(value);
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' ~ ').param(value);
+    } else {
+      select.sql(' AND ' + filter.key + ' ~* ').param(value);
+    }
+
   } else if (filter.operator === 'Contains') {
-    select.sql(' AND ' + filter.key + ' ILIKE \'%' + value + '%\'');
+    if (filter.prefix === 'CaseSensitive') {
+      select.sql(' AND ' + filter.key + ' LIKE \'%' + value + '%\'');
+    } else {
+      select.sql(' AND ' + filter.key + ' ILIKE \'%' + value + '%\'');
+    }
+
+  } else if (filter.prefix === 'CaseSensitive') {
+    select.sql(' AND ' + filter.key + ' LIKE ').param(value);
   } else {
     select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
   }
+
 }
 
 function filterNumeric(select, filter, value) {
