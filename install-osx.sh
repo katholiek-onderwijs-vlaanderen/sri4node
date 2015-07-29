@@ -1,6 +1,6 @@
 #!/bin/bash
 npm install
-echo "CREATE EXTENSION 'uuid-ossp'" | psql -U postgres
+echo "CREATE EXTENSION \"uuid-ossp\"" | psql -U postgres
 echo "CREATE SCHEMA sri4node" | psql -U postgres
 echo "REVOKE ALL PRIVILEGES ON SCHEMA sri4node FROM sri4node" | psql -U postgres
 echo "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA sri4node FROM sri4node" | psql -U postgres
