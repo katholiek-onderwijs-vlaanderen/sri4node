@@ -100,5 +100,14 @@ exports = module.exports = {
       type: 'boolean',
       description: description
     };
+  },
+
+  array: function (description) {
+    'use strict';
+    var ret = {
+      type: 'array',
+      description: description
+    };
+    return ret;
   }
 };

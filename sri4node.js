@@ -54,8 +54,9 @@ function applyRequestParameters(mapping, req, select, database, count) {
           if (mapping.query[key] || mapping.query.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
             // to the SELECT statement
-            if (mapping.query[key] == null && mapping.query.defaultFilter) { // eslint-disable-line
-              promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, count, mapping));
+            if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
+              promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, mapping,
+                configuration));
             } else {
               promises.push(mapping.query[key](urlparameters[key], select, key, database, count, mapping));
             }
