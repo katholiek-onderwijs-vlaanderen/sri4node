@@ -59,3 +59,6 @@ insert into alldatatypes (key, id, numbers) values ('a8aa8ac4-0819-457e-9b23-c28
 insert into alldatatypes (key, id, numbers) values ('c4aec3a2-3901-47d6-9e5e-a2e9e6fef17d', 10, '{2, 3, 5, 7, 11}');
 insert into alldatatypes (key, id, publications) values ('b8277193-13b8-4c9a-ba5e-78487fb5eb94', 11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
 insert into alldatatypes (key, id, publications) values ('693ae016-44ec-4eed-aa92-6a1c20a387c4', 12, '{"2013-01-01T00:00:00+02:00", "2013-04-01T00:00:00+02:00", "2013-07-01T00:00:00+02:00"}');
+insert into alldatatypes (key, id, text, text2, number) values ('10a54b9a-59b0-43f4-a799-0e83708aca26', 13, 'VSKO', 'this is for testing multiple', 450);
+insert into alldatatypes (key, id, text, text2, number) values ('310338e1-37b0-4b26-a43c-75a6ba8b4bd0', 14, 'dienst informatica', 'for multiple q queries', 230);
+insert into alldatatypes (key, id, text, text2, number) values ('5331b27e-36c9-4f51-a806-ae228367a79b', 15, 'combined unit', 'out of ideas', 1000);

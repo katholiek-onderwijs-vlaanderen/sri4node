@@ -85,6 +85,7 @@ CREATE TABLE "alldatatypes" (
     "key" uuid unique,
     "id" numeric,
     "text" text,
+    "text2" text,
     "texts" text[],
     "publication" timestamp with time zone,
     "publications" timestamp with time zone[],

@@ -61,7 +61,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?textNot=value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -69,7 +69,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match and case sensitive', function () {
           return doGet(base + '/alldatatypes?textCaseSensitiveNot=Value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -96,7 +96,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?numberNot=1611').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
@@ -222,13 +222,13 @@ exports = module.exports = function (base) {
         it('should find resources that are greater', function () {
           return doGet(base + '/alldatatypes?textGreater=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
         it('should not find resources that are equal', function () {
-          return doGet(base + '/alldatatypes?textGreater=Value').then(function (response) {
+          return doGet(base + '/alldatatypes?textGreater=X').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
@@ -237,7 +237,7 @@ exports = module.exports = function (base) {
         it('should find resources case sensitive', function () {
           return doGet(base + '/alldatatypes?textCaseSensitiveGreater=Test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -252,7 +252,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?textNotGreater=Test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -260,7 +260,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match case sensitive', function () {
           return doGet(base + '/alldatatypes?textCaseSensitiveNotGreater=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
             assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
           });
@@ -287,7 +287,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?numberNotGreater=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
@@ -329,7 +329,7 @@ exports = module.exports = function (base) {
         it('should find resources that are greater', function () {
           return doGet(base + '/alldatatypes?textGreaterOrEqual=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -337,7 +337,7 @@ exports = module.exports = function (base) {
         it('should find resources that are equal', function () {
           return doGet(base + '/alldatatypes?textGreaterOrEqual=Value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -345,7 +345,7 @@ exports = module.exports = function (base) {
         it('should find resources that are greater with operator After (alias)', function () {
           return doGet(base + '/alldatatypes?textAfter=Test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -353,7 +353,7 @@ exports = module.exports = function (base) {
         it('should find resources case sensitive', function () {
           return doGet(base + '/alldatatypes?textCaseSensitiveGreaterOrEqual=Value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -368,7 +368,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?textNotGreaterOrEqual=value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
             assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
           });
@@ -377,7 +377,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match case sensitive', function () {
           return doGet(base + '/alldatatypes?textCaseSensitiveNotGreaterOrEqual=value').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
+            assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
             assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
           });
@@ -389,7 +389,7 @@ exports = module.exports = function (base) {
         it('should find resources that are greater', function () {
           return doGet(base + '/alldatatypes?numberGreaterOrEqual=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.number, 1611);
           });
         });
@@ -413,7 +413,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?numberNotGreaterOrEqual=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
@@ -469,7 +469,7 @@ exports = module.exports = function (base) {
         it('should find resources that are lower', function () {
           return doGet(base + '/alldatatypes?textLess=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -499,13 +499,13 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?textNotLess=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
         it('should find resources with a not match case sensitive', function () {
-          return doGet(base + '/alldatatypes?textCaseSensitiveNotLess=Yes').then(function (response) {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotLess=yes').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
@@ -517,7 +517,7 @@ exports = module.exports = function (base) {
         it('should find resources that are lower', function () {
           return doGet(base + '/alldatatypes?numberLess=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
@@ -570,7 +570,7 @@ exports = module.exports = function (base) {
         it('should find resources that are lower', function () {
           return doGet(base + '/alldatatypes?textLessOrEqual=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 3);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -609,7 +609,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?textNotLessOrEqual=test').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -627,7 +627,7 @@ exports = module.exports = function (base) {
         it('should find resources that are lower', function () {
           return doGet(base + '/alldatatypes?numberLessOrEqual=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 4);
             assert.equal(response.body.results[0].$$expanded.number, 11);
           });
         });
@@ -651,7 +651,7 @@ exports = module.exports = function (base) {
         it('should find resources with a not match', function () {
           return doGet(base + '/alldatatypes?numberNotLessOrEqual=1000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.number, 1611);
           });
         });
@@ -752,7 +752,7 @@ exports = module.exports = function (base) {
         var q = '/alldatatypes?textNotIn=test,a%20value%20with%20spaces';
         return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results.length, 4);
           assert.equal(response.body.results[0].$$expanded.text, 'Value');
         });
       });
@@ -761,7 +761,7 @@ exports = module.exports = function (base) {
         var q = '/alldatatypes?textCaseSensitiveNotIn=test,value';
         return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.text, 'Value');
           assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
         });
@@ -798,7 +798,7 @@ exports = module.exports = function (base) {
       it('should find all the resources with a not match', function () {
         return doGet(base + '/alldatatypes?numberNotIn=1611,413,45').then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results.length, 4);
           assert.equal(response.body.results[0].$$expanded.number, 11);
         });
       });
@@ -903,7 +903,7 @@ exports = module.exports = function (base) {
         var q = '/alldatatypes?textNotRegEx=%5E(.*)value(.*)%24';
         return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 0);
+          assert.equal(response.body.results.length, 3);
         });
       });
 
@@ -911,7 +911,7 @@ exports = module.exports = function (base) {
         var q = '/alldatatypes?textCaseSensitiveNotRegEx=%5E(.*)VALUE(.*)%24';
         return doGet(base + q).then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.text, 'Value');
           assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
         });
@@ -975,14 +975,14 @@ exports = module.exports = function (base) {
       it('should find resources that contain a substring with a not match', function () {
         return doGet(base + '/alldatatypes?textNotContains=LU').then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 0);
+          assert.equal(response.body.results.length, 3);
         });
       });
 
       it('should find resources that contain a substring with a not match case sensitive', function () {
         return doGet(base + '/alldatatypes?textCaseSensitiveNotContains=LU').then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.text, 'Value');
           assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
         });
@@ -1069,6 +1069,37 @@ exports = module.exports = function (base) {
         });
       });
 
+    });
+
+  });
+
+  describe('Combination match', function () {
+
+    it('should find resources with a combined match', function () {
+      return doGet(base + '/alldatatypes?text=vsko&number=450').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 1);
+        assert.equal(response.body.results[0].$$expanded.text, 'VSKO');
+        assert.equal(response.body.results[0].$$expanded.number, 450);
+      });
+    });
+
+    it('should find resources with a combined match and modifiers', function () {
+      return doGet(base + '/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 2);
+        assert.equal(response.body.results[0].$$expanded.text, 'dienst informatica');
+        assert.equal(response.body.results[0].$$expanded.number, 230);
+        assert.equal(response.body.results[1].$$expanded.text, 'combined unit');
+        assert.equal(response.body.results[1].$$expanded.number, 1000);
+      });
+    });
+
+    it('should not find resources with a combined match', function () {
+      return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=10').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 0);
+      });
     });
 
   });
