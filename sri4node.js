@@ -993,6 +993,7 @@ exports = module.exports = {
     // All URLs force SSL and allow cross origin access.
     app.use(forceSecureSockets);
     app.use(allowCrossDomain);
+    app.use(require('body-parser').json());
 
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
