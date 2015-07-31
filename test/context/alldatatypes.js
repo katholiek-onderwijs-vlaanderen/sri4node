@@ -15,6 +15,7 @@ exports = module.exports = function (roa) {
       properties: {
         id: $s.numeric('Identificator'),
         text: $s.string('A text field.'),
+        text2: $s.string('Another text field.'),
         texts: $s.array('A collection of text.'),
         publication: $s.timestamp('A timestamp field.'),
         publications: $s.array('A collection of timestamps.'),
@@ -27,6 +28,7 @@ exports = module.exports = function (roa) {
     map: {
       id: {},
       text: {},
+      text2: {},
       texts: {},
       publication: {},
       publications: {},

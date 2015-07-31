@@ -1,3 +1,4 @@
+// analyses parameter and return its parts (key, operator, prefix and postfix)
 function analyseParameter(parameter) {
   'use strict';
 
@@ -24,6 +25,7 @@ function analyseParameter(parameter) {
   };
 }
 
+// filter function for text fields
 function filterString(select, filter, value) {
   'use strict';
   var values;
@@ -142,6 +144,7 @@ function filterString(select, filter, value) {
 
 }
 
+// filter function for fields of type numeric or timestamp (the logic is the same)
 function filterNumericOrTimestamp(select, filter, value) {
   'use strict';
 
@@ -180,6 +183,8 @@ function filterNumericOrTimestamp(select, filter, value) {
 
 }
 
+// filter function for arrays. Important: since the schema doesn't specify the type of field of the array
+// we treat each object in a generic way (no string manipulation, only exact matches)
 function filterArray(select, filter, value) {
   'use strict';
   var values = value.split(',');
@@ -201,6 +206,55 @@ function filterArray(select, filter, value) {
       select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
     }
     select.sql(')');
+  }
+
+}
+
+// returns all the fields that are of type text (for the q= filter)
+function getTextFieldsFromTable(informationSchema) {
+  'use strict';
+
+  var textFields = [];
+  var field;
+
+  for (field in informationSchema) {
+    if (informationSchema.hasOwnProperty(field)) {
+      if (informationSchema[field].type === 'text') {
+        textFields.push(field);
+      }
+    }
+  }
+
+  return textFields;
+}
+
+// filter all the textfields by a value (for the q= filter)
+function filterFieldByValues(select, value, textFields) {
+  'use strict';
+  var i;
+
+  select.sql(' AND (');
+  for (i = 0; i < textFields.length; i++) {
+    if (i > 0) {
+      select.sql(' OR ');
+    }
+    select.sql(textFields[i] + ' ILIKE \'%' + value + '%\'');
+  }
+  select.sql(')');
+}
+
+// filter general (q=): filters in all the fields of type text, with multiple values supported
+// i.e. if the filter is q=test+value it will find records with both field AND value in any of the text fields
+function filterGeneral(select, value, textFields) {
+  'use strict';
+
+  var values = value.split(/[ +]/);
+  var i;
+
+  for (i = 0; i < values.length; i++) {
+
+    filterFieldByValues(select, values[i], textFields);
+
   }
 
 }
@@ -232,6 +286,8 @@ function parseFilters(value, select, parameter, mapping) {
       if (filterFn) {
         filterFn(select, filter, value);
       }
+    } else if (filter.key === 'q') {
+      filterGeneral(select, value, getTextFieldsFromTable(informationSchema[mapping.type]));
     }
 
   };

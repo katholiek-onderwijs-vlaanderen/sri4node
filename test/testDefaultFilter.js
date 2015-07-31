@@ -1096,7 +1096,35 @@ exports = module.exports = function (base) {
     });
 
     it('should not find resources with a combined match', function () {
-      return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=10').then(function (response) {
+      return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=230').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 0);
+      });
+    });
+
+  });
+
+  describe('Q query', function () {
+
+    it('should find resources with a general match', function () {
+      return doGet(base + '/alldatatypes?q=multiple').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 2);
+        assert.equal(response.body.results[0].$$expanded.id, 13);
+        assert.equal(response.body.results[1].$$expanded.id, 14);
+      });
+    });
+
+    it('should find resources with a general match and multiple values', function () {
+      return doGet(base + '/alldatatypes?q=MULTIPLE+vsko').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 1);
+        assert.equal(response.body.results[0].$$expanded.id, 13);
+      });
+    });
+
+    it('should not find resources with a general match', function () {
+      return doGet(base + '/alldatatypes?q=general').then(function (response) {
         assert.equal(response.statusCode, 200);
         assert.equal(response.body.results.length, 0);
       });
