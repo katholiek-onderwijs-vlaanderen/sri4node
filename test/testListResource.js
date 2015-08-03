@@ -141,4 +141,67 @@ exports = module.exports = function (base, logverbose) {
       });
     });
   });
+
+  describe('Paging', function () {
+
+    it('should limit resources by default', function () {
+      return doGet(base + '/alldatatypes').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 5);
+        assert.equal(response.body.$$meta.next, '/alldatatypes?offset=5');
+      });
+    });
+
+    it('should limit resources', function () {
+      return doGet(base + '/alldatatypes?limit=3').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 3);
+        assert.equal(response.body.$$meta.next, '/alldatatypes?limit=3&offset=3');
+      });
+    });
+
+    it('should offset resources', function () {
+      return doGet(base + '/alldatatypes?offset=3').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 5);
+        assert.equal(response.body.$$meta.previous, '/alldatatypes');
+        assert.equal(response.body.results[0].$$expanded.id, 4);
+      });
+    });
+
+    it('should limit & offset resources', function () {
+      return doGet(base + '/alldatatypes?limit=3&offset=3').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 3);
+        assert.equal(response.body.$$meta.next, '/alldatatypes?limit=3&offset=6');
+        assert.equal(response.body.$$meta.previous, '/alldatatypes?limit=3');
+        assert.equal(response.body.results.length, 3);
+        assert.equal(response.body.results[0].$$expanded.id, 4);
+      });
+    });
+
+    it('should forbid a limit over the maximum', function () {
+      return doGet(base + '/alldatatypes?limit=100').then(function (response) {
+        assert.equal(response.statusCode, 404);
+        assert.equal(response.body[0].code, 'invalid.limit.parameter');
+        assert.equal(response.body[0].message, 'The maximum allowed limit is 50');
+      });
+    });
+
+    it('should propagate parameters in the next page', function () {
+      return doGet(base + '/alldatatypes?textContains=a&limit=2').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 2);
+        assert.equal(response.body.$$meta.next, '/alldatatypes?textContains=a&limit=2&offset=2');
+      });
+    });
+
+    it('should propagate parameters in the previous page', function () {
+      return doGet(base + '/alldatatypes?textContains=a&limit=2&offset=2').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 1);
+        assert.equal(response.body.$$meta.previous, '/alldatatypes?textContains=a&limit=2');
+      });
+    });
+  });
 };
