@@ -3,6 +3,10 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
+// Constants
+var DEFAULT_LIMIT = 30;
+var MAX_LIMIT = 500;
+
 // External dependencies.
 var validator = require('jsonschema').Validator;
 var Q = require('q');
@@ -604,7 +608,7 @@ function getSchema(req, resp) {
   resp.send(mapping.schema);
 }
 
-function getListResource(executeExpansion) {
+function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
@@ -621,6 +625,8 @@ function getListResource(executeExpansion) {
     var elements;
     var valid;
     var orders, order, o;
+    var queryLimit;
+    var offset;
 
     debug('GET list resource ' + type);
     pgConnect(postgres, configuration).then(function (db) {
@@ -678,11 +684,32 @@ function getListResource(executeExpansion) {
         }
       }
 
-      if (req.query.limit) {
-        query.sql(' limit ').param(req.query.limit);
+      queryLimit = req.query.limit || defaultlimit;
+
+      offset = req.query.offset || 0;
+      var error;
+
+      if (queryLimit > maxlimit) {
+
+        error = {
+          status: 404,
+          type: 'ERROR',
+          body: [
+            {
+              code: 'invalid.limit.parameter',
+              type: 'ERROR',
+              message: 'The maximum allowed limit is ' + maxlimit
+            }
+          ]
+        };
+
+        throw error;
       }
-      if (req.query.offset) {
-        query.sql(' offset ').param(req.query.offset);
+
+      query.sql(' limit ').param(queryLimit);
+
+      if (offset) {
+        query.sql(' offset ').param(offset);
       }
 
       debug('* executing SELECT query on database');
@@ -734,6 +761,32 @@ function getListResource(executeExpansion) {
         },
         results: results
       };
+
+      var newOffset = queryLimit * 1 + offset * 1;
+
+      if (newOffset < count) {
+        if (req.originalUrl.match(/offset/)) {
+          output.$$meta.next = req.originalUrl.replace(/offset=(\d+)/, 'offset=' + newOffset);
+        } else {
+          output.$$meta.next = req.originalUrl + (req.originalUrl.match(/\?/) ? '&' : '?') +
+            'offset=' + newOffset;
+        }
+
+      }
+
+      if (offset > 0) {
+        newOffset = offset - queryLimit;
+        if (req.originalUrl.match(/offset/)) {
+          output.$$meta.previous = req.originalUrl.replace(/offset=(\d+)/, newOffset > 0 ? 'offset=' + newOffset : '');
+          output.$$meta.previous = output.$$meta.previous.replace(/[\?&]$/, '');
+        } else {
+          output.$$meta.previous = req.originalUrl;
+          if (newOffset > 0) {
+            output.$$meta.previous += (req.originalUrl.match(/\?/) ? '&' : '?') + 'offset=' + newOffset;
+          }
+        }
+      }
+
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand);
     }).then(function () {
@@ -983,6 +1036,8 @@ exports = module.exports = {
     'use strict';
     var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
     var configIndex, mapping, url;
+    var defaultlimit;
+    var maxlimit;
 
     configuration = config;
     resources = config.resources;
@@ -1006,7 +1061,10 @@ exports = module.exports = {
 
       // register list resource for this type.
       url = mapping.type;
-      app.get(url, logRequests, checkBasicAuthentication, getListResource(executeExpansion)); // app.get - list resource
+      maxlimit = mapping.maxlimit || MAX_LIMIT;
+      defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+      app.get(url, logRequests, checkBasicAuthentication,
+        getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';

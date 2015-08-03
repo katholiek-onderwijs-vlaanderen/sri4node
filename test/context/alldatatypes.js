@@ -37,7 +37,9 @@ exports = module.exports = function (roa) {
     },
     query: {
       defaultFilter: $q.defaultFilter
-    }
+    },
+    defaultlimit: 5,
+    maxlimit: 50
   };
 
   return ret;
