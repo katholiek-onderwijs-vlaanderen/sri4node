@@ -428,7 +428,9 @@ function executePutInsideTransaction(db, url, body) {
       return pgExec(db, countquery, logsql, logdebug).then(function (results) {
         var deferred = Q.defer();
 
-        if (results.rows[0].count === 1) {
+        var count = parseInt(results.rows[0].count, 10);
+
+        if (count === 1) {
           executeOnFunctions(resources, mapping, 'onupdate', element);
 
           var update = prepare('update-' + table);
