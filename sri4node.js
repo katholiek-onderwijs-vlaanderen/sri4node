@@ -692,7 +692,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       if (queryLimit > maxlimit) {
 
         error = {
-          status: 404,
+          status: 409,
           type: 'ERROR',
           body: [
             {
