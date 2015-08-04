@@ -182,7 +182,7 @@ exports = module.exports = function (base, logverbose) {
 
     it('should forbid a limit over the maximum', function () {
       return doGet(base + '/alldatatypes?limit=100').then(function (response) {
-        assert.equal(response.statusCode, 404);
+        assert.equal(response.statusCode, 409);
         assert.equal(response.body[0].code, 'invalid.limit.parameter');
         assert.equal(response.body[0].message, 'The maximum allowed limit is 50');
       });
