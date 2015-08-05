@@ -444,7 +444,7 @@ function executePutInsideTransaction(db, url, body) {
                 firstcolumn = false;
               }
 
-              update.sql(k + '=').param(element[k]);
+              update.sql('\"' + k + '\"' + '=').param(element[k]);
             }
           }
           update.sql(' where "key" = ').param(key);
