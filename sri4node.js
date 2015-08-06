@@ -1140,8 +1140,8 @@ exports = module.exports = {
           });
           cl(elements);
           cl(elementKeys);
-          query.sql('select key,' + column + ' as fkey from ' +
-                    tablename + ' where ' + column + ' in (').array(elementKeys).sql(')');
+          query.sql('select key, \"' + column + '\" as fkey from ' +
+                    tablename + ' where \"' + column + '\" in (').array(elementKeys).sql(')');
           pgExec(database, query, logsql, logdebug).then(function (result) {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
