@@ -9,10 +9,13 @@ var MAX_LIMIT = 500;
 
 // External dependencies.
 var validator = require('jsonschema').Validator;
+var compression = require('compression');
+var bodyParser = require('body-parser');
 var Q = require('q');
 
 // Utility function.
 var common = require('./js/common.js');
+var cache = require('./js/cache');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -1040,6 +1043,8 @@ exports = module.exports = {
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
+    var cacheResource;
+    var cacheHandler = function (req, res, next) { next(); };
 
     configuration = config;
     resources = config.resources;
@@ -1050,7 +1055,10 @@ exports = module.exports = {
     // All URLs force SSL and allow cross origin access.
     app.use(forceSecureSockets);
     app.use(allowCrossDomain);
-    app.use(require('body-parser').json());
+    app.use(bodyParser.json());
+
+    // compress output
+    app.use(compression());
 
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
@@ -1061,19 +1069,26 @@ exports = module.exports = {
 
       app.get(url, getSchema);
 
-      // register list resource for this type.
       url = mapping.type;
+
+      cacheResource = mapping.cacheResource !== false;
+
+      if (cacheResource) {
+        cacheHandler = cache(mapping.type);
+      }
+
+      // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, checkBasicAuthentication,
+      app.get(url, logRequests, checkBasicAuthentication, cacheHandler,
         getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, checkBasicAuthentication, getRegularResource(executeExpansion))
-        .put(logRequests, checkBasicAuthentication, createOrUpdate)
-        .delete(logRequests, checkBasicAuthentication, deleteResource); // app.delete
+        .get(logRequests, checkBasicAuthentication, cacheHandler, getRegularResource(executeExpansion))
+        .put(logRequests, checkBasicAuthentication, cacheHandler, createOrUpdate)
+        .delete(logRequests, checkBasicAuthentication, cacheHandler, deleteResource); // app.delete
     } // for all mappings.
 
     url = '/batch';
