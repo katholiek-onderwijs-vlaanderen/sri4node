@@ -1,7 +1,6 @@
 /* Cache middleware */
 
-var RESOURCE_TTL = 120;
-var LIST_TTL = 120;
+var DEFAULT_TTL = 120;
 
 var NodeCache = require('node-cache');
 var cacheStore = [];
@@ -38,12 +37,12 @@ function store(url, cache, res) {
 
 }
 
-exports = module.exports = function (resource) {
+exports = module.exports = function (resource, ttl) {
   'use strict';
 
   cacheStore[resource] = {
-    resources: new NodeCache({stdTTL: RESOURCE_TTL}),
-    list: new NodeCache({stdTTL: LIST_TTL})
+    resources: new NodeCache({stdTTL: ttl || DEFAULT_TTL}),
+    list: new NodeCache({stdTTL: ttl || DEFAULT_TTL})
   };
 
   return function (req, res, next) {

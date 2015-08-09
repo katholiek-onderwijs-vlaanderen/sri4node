@@ -1074,7 +1074,7 @@ exports = module.exports = {
       cacheResource = mapping.cacheResource !== false;
 
       if (cacheResource) {
-        cacheHandler = cache(mapping.type);
+        cacheHandler = cache(mapping.type, mapping.cacheTTL);
       }
 
       // register list resource for this type.

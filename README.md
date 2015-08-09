@@ -92,8 +92,10 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     ],
                     // Enable cache (default true)
                     // Will store sent results in memory to avoid hitting
-                    // the database until they change or expire (ttl 120 seconds)
+                    // the database until they change or expire
                     cacheResource: false,
+                    // TTL for cached resources (default 120)
+                    cacheTTL: 180,
                     // Standard JSON Schema definition.
                     // It uses utility functions, for compactness.
                     schema: {
