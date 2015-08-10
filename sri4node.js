@@ -1057,9 +1057,6 @@ exports = module.exports = {
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
-    // compress output
-    app.use(compression());
-
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
 
@@ -1080,13 +1077,13 @@ exports = module.exports = {
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, checkBasicAuthentication, cacheHandler,
+      app.get(url, logRequests, checkBasicAuthentication, cacheHandler, compression(),
         getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, checkBasicAuthentication, cacheHandler, getRegularResource(executeExpansion))
+        .get(logRequests, checkBasicAuthentication, cacheHandler, compression(), getRegularResource(executeExpansion))
         .put(logRequests, checkBasicAuthentication, cacheHandler, createOrUpdate)
         .delete(logRequests, checkBasicAuthentication, cacheHandler, deleteResource); // app.delete
     } // for all mappings.

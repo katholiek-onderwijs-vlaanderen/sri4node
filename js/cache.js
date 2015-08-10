@@ -5,19 +5,64 @@ var DEFAULT_TTL = 120;
 var NodeCache = require('node-cache');
 var cacheStore = [];
 
+// used to determine where to store the cached object (there are two stores, list
+// and resource. The purge logic is different)
 function responseIsList(response) {
   'use strict';
-  return response.$$meta && response.$$meta.count;
+  return response.$$meta && response.$$meta.hasOwnProperty('count');
+}
+
+function createStorableObject(res, buffer) {
+  'use strict';
+  var object = {
+    headers: [],
+    data: buffer
+  };
+
+  // used to know if the sotred object is compressed or not
+  if (res.getHeader('Content-Encoding')) {
+    object.headers['Content-Encoding'] = res.getHeader('Content-Encoding');
+  }
+
+  return object;
+
 }
 
 function store(url, cache, res) {
   'use strict';
 
   var send = res.send; // hijack!
+  var write = res.write;
+  var end = res.end;
   var isList;
   var cacheSection;
+  var buffer;
 
   // proxy
+
+  res.write = function (chunk, encoding) {
+
+    if (chunk) {
+      if (!buffer) {
+        buffer = new Buffer(chunk);
+      } else {
+        buffer = Buffer.concat([buffer, chunk]);
+      }
+    }
+
+    return write.call(this, chunk, encoding);
+
+  };
+
+  res.end = function (chunk, encoding) {
+
+    if (buffer) {
+      cache[cacheSection].set(url, createStorableObject(res, buffer));
+    }
+
+    return end.call(this, chunk, encoding);
+
+  };
 
   res.send = function (output) {
 
@@ -28,8 +73,6 @@ function store(url, cache, res) {
       isList = responseIsList(output);
 
       cacheSection = isList ? 'list' : 'resources';
-
-      cache[cacheSection].set(url, output);
     }
 
     return send.call(this, output);
@@ -39,6 +82,8 @@ function store(url, cache, res) {
 
 exports = module.exports = function (resource, ttl) {
   'use strict';
+
+  var header;
 
   cacheStore[resource] = {
     resources: new NodeCache({stdTTL: ttl || DEFAULT_TTL}),
@@ -54,8 +99,18 @@ exports = module.exports = function (resource, ttl) {
       value = cacheStore[resource].resources.get(req.originalUrl) || cacheStore[resource].list.get(req.originalUrl);
 
       if (value) {
+        // we're only caching the API responses
         res.set('Content-Type', 'application/json');
-        res.send(value);
+
+        for (header in value.headers) {
+
+          if (value.headers.hasOwnProperty(header)) {
+
+            res.set(header, value.headers[header]);
+          }
+        }
+
+        res.send(value.data);
         res.end();
       } else {
         // register handler to store in cache when responding
