@@ -58,7 +58,7 @@ exports = module.exports = {
         }
         var sqlColumnNames = '';
         for (j = 0; j < columnNames.length; j++) {
-          sqlColumnNames += columnNames[j];
+          sqlColumnNames += '\"' + columnNames[j] + '\"';
           if (j < columnNames.length - 1) {
             sqlColumnNames += ',';
           }

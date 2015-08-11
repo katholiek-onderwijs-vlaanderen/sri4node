@@ -3,12 +3,19 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
+// Constants
+var DEFAULT_LIMIT = 30;
+var MAX_LIMIT = 500;
+
 // External dependencies.
 var validator = require('jsonschema').Validator;
+var compression = require('compression');
+var bodyParser = require('body-parser');
 var Q = require('q');
 
 // Utility function.
 var common = require('./js/common.js');
+var cache = require('./js/cache');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -54,8 +61,9 @@ function applyRequestParameters(mapping, req, select, database, count) {
           if (mapping.query[key] || mapping.query.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
             // to the SELECT statement
-            if (mapping.query[key] == null && mapping.query.defaultFilter) { // eslint-disable-line
-              promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, count, mapping));
+            if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
+              promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, mapping,
+                configuration));
             } else {
               promises.push(mapping.query[key](urlparameters[key], select, key, database, count, mapping));
             }
@@ -423,7 +431,9 @@ function executePutInsideTransaction(db, url, body) {
       return pgExec(db, countquery, logsql, logdebug).then(function (results) {
         var deferred = Q.defer();
 
-        if (results.rows[0].count === 1) {
+        var count = parseInt(results.rows[0].count, 10);
+
+        if (count === 1) {
           executeOnFunctions(resources, mapping, 'onupdate', element);
 
           var update = prepare('update-' + table);
@@ -437,7 +447,7 @@ function executePutInsideTransaction(db, url, body) {
                 firstcolumn = false;
               }
 
-              update.sql(k + '=').param(element[k]);
+              update.sql('\"' + k + '\"' + '=').param(element[k]);
             }
           }
           update.sql(' where "key" = ').param(key);
@@ -603,7 +613,7 @@ function getSchema(req, resp) {
   resp.send(mapping.schema);
 }
 
-function getListResource(executeExpansion) {
+function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
@@ -620,6 +630,8 @@ function getListResource(executeExpansion) {
     var elements;
     var valid;
     var orders, order, o;
+    var queryLimit;
+    var offset;
 
     debug('GET list resource ' + type);
     pgConnect(postgres, configuration).then(function (db) {
@@ -677,11 +689,32 @@ function getListResource(executeExpansion) {
         }
       }
 
-      if (req.query.limit) {
-        query.sql(' limit ').param(req.query.limit);
+      queryLimit = req.query.limit || defaultlimit;
+
+      offset = req.query.offset || 0;
+      var error;
+
+      if (queryLimit > maxlimit) {
+
+        error = {
+          status: 409,
+          type: 'ERROR',
+          body: [
+            {
+              code: 'invalid.limit.parameter',
+              type: 'ERROR',
+              message: 'The maximum allowed limit is ' + maxlimit
+            }
+          ]
+        };
+
+        throw error;
       }
-      if (req.query.offset) {
-        query.sql(' offset ').param(req.query.offset);
+
+      query.sql(' limit ').param(queryLimit);
+
+      if (offset) {
+        query.sql(' offset ').param(offset);
       }
 
       debug('* executing SELECT query on database');
@@ -733,6 +766,32 @@ function getListResource(executeExpansion) {
         },
         results: results
       };
+
+      var newOffset = queryLimit * 1 + offset * 1;
+
+      if (newOffset < count) {
+        if (req.originalUrl.match(/offset/)) {
+          output.$$meta.next = req.originalUrl.replace(/offset=(\d+)/, 'offset=' + newOffset);
+        } else {
+          output.$$meta.next = req.originalUrl + (req.originalUrl.match(/\?/) ? '&' : '?') +
+            'offset=' + newOffset;
+        }
+
+      }
+
+      if (offset > 0) {
+        newOffset = offset - queryLimit;
+        if (req.originalUrl.match(/offset/)) {
+          output.$$meta.previous = req.originalUrl.replace(/offset=(\d+)/, newOffset > 0 ? 'offset=' + newOffset : '');
+          output.$$meta.previous = output.$$meta.previous.replace(/[\?&]$/, '');
+        } else {
+          output.$$meta.previous = req.originalUrl;
+          if (newOffset > 0) {
+            output.$$meta.previous += (req.originalUrl.match(/\?/) ? '&' : '?') + 'offset=' + newOffset;
+          }
+        }
+      }
+
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand);
     }).then(function () {
@@ -982,6 +1041,10 @@ exports = module.exports = {
     'use strict';
     var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
     var configIndex, mapping, url;
+    var defaultlimit;
+    var maxlimit;
+    var cacheResource;
+    var cacheHandler = function (req, res, next) { next(); };
 
     configuration = config;
     resources = config.resources;
@@ -992,6 +1055,7 @@ exports = module.exports = {
     // All URLs force SSL and allow cross origin access.
     app.use(forceSecureSockets);
     app.use(allowCrossDomain);
+    app.use(bodyParser.json());
 
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
@@ -1002,16 +1066,26 @@ exports = module.exports = {
 
       app.get(url, getSchema);
 
-      // register list resource for this type.
       url = mapping.type;
-      app.get(url, logRequests, checkBasicAuthentication, getListResource(executeExpansion)); // app.get - list resource
+
+      cacheResource = mapping.cacheResource !== false;
+
+      if (cacheResource) {
+        cacheHandler = cache(mapping.type, mapping.cacheTTL);
+      }
+
+      // register list resource for this type.
+      maxlimit = mapping.maxlimit || MAX_LIMIT;
+      defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+      app.get(url, logRequests, checkBasicAuthentication, cacheHandler, compression(),
+        getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, checkBasicAuthentication, getRegularResource(executeExpansion))
-        .put(logRequests, checkBasicAuthentication, createOrUpdate)
-        .delete(logRequests, checkBasicAuthentication, deleteResource); // app.delete
+        .get(logRequests, checkBasicAuthentication, cacheHandler, compression(), getRegularResource(executeExpansion))
+        .put(logRequests, checkBasicAuthentication, cacheHandler, createOrUpdate)
+        .delete(logRequests, checkBasicAuthentication, cacheHandler, deleteResource); // app.delete
     } // for all mappings.
 
     url = '/batch';
@@ -1078,8 +1152,8 @@ exports = module.exports = {
           });
           cl(elements);
           cl(elementKeys);
-          query.sql('select key,' + column + ' as fkey from ' +
-                    tablename + ' where ' + column + ' in (').array(elementKeys).sql(')');
+          query.sql('select key, \"' + column + '\" as fkey from ' +
+                    tablename + ' where \"' + column + '\" in (').array(elementKeys).sql(')');
           pgExec(database, query, logsql, logdebug).then(function (result) {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];

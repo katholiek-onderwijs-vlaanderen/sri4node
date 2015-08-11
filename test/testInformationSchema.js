@@ -17,7 +17,7 @@ exports = module.exports = function (logverbose) {
     it('should correctly show text columns', function () {
       var configuration = context.getConfiguration();
       return common.pgConnect(postgres, configuration).then(function (database) {
-        return require('../js/informationSchema.js')(database, configuration, logverbose);
+        return require('../js/informationSchema.js')(database, configuration);
       }).then(function (is) {
         var type = is['/communities'].zipcode.type;
         debug('type : ' + type);
