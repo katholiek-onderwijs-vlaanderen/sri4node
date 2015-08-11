@@ -19,7 +19,7 @@ function createStorableObject(res, buffer) {
     data: buffer
   };
 
-  // used to know if the sotred object is compressed or not
+  // used to know if the stored object is compressed or not
   if (res.getHeader('Content-Encoding')) {
     object.headers['Content-Encoding'] = res.getHeader('Content-Encoding');
   }
