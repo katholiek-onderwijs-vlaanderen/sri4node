@@ -8,7 +8,7 @@ var DEFAULT_LIMIT = 30;
 var MAX_LIMIT = 500;
 
 // External dependencies.
-var validator = require('jsonschema').Validator;
+var Validator = require('jsonschema').Validator;
 var compression = require('compression');
 var bodyParser = require('body-parser');
 var Q = require('q');
@@ -42,6 +42,23 @@ function debug(x) {
   }
 }
 
+var generateError = function (status, type, errors) {
+  'use strict';
+  // errors can be array with errors or a string, in which case error array with one element will be created
+  if (typeof errors == 'string') {
+    errors = [{code: type, message: errors}];
+  }
+  var err = {
+    type: type,
+    status: status,
+    body: {
+      errors: errors,
+      status: status
+    }
+  };
+  return err;
+};
+
 // apply extra parameters on request URL for a list-resource to a sselect.
 function applyRequestParameters(mapping, req, select, database, count) {
   'use strict';
@@ -74,12 +91,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
               type: 'unknown.query.parameter',
               status: 404,
               body: {
-                errors: [
-                  {
-                    code: 'invalid.query.parameter',
-                    parameter: key
-                                    }
-                                ]
+                errors: [{code: 'invalid.query.parameter', parameter: key}]
               }
             });
             break;
@@ -122,32 +134,64 @@ function applyRequestParameters(mapping, req, select, database, count) {
   return deferred.promise;
 }
 
+var errorAsCode = function (s) {
+  'use strict';
+  // return any string as code for REST API error object.
+  var ret = s;
+
+  ret = ret.toLowerCase().trim();
+  ret = ret.replace(/[^a-z0-9 ]/gmi, '');
+  ret = ret.replace(/ /gmi, '.');
+
+  return ret;
+};
+
 function queryByKey(config, db, mapping, key) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
-  var table = mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
   var row, output, msg;
+  var v;
+  var result;
+  var deferred;
+
+  if (mapping.schema && mapping.schema.properties.key) {
+    v = new Validator();
+    result = v.validate(key, mapping.schema.properties.key);
+    if (result.errors.length > 0) {
+      deferred = Q.defer();
+      deferred.reject(generateError(
+        400,
+        'key.invalid',
+        result.errors.map(function (e) {
+          msg = 'key ' + e.message;
+          return {code: errorAsCode(msg), message: msg};
+        })
+      ));
+      return deferred.promise;
+    }
+  }
 
   var query = prepare('select-row-by-key-from-' + table);
   query.sql('select ' + columns + ' from "' + table + '" where "key" = ').param(key);
-  return pgExec(db, query, logsql, logdebug).then(function (result) {
-    var deferred = Q.defer();
+  return pgExec(db, query, logsql, logdebug).then(function (queryResult) {
+    var queryDeferred = Q.defer();
 
-    var rows = result.rows;
+    var rows = queryResult.rows;
     if (rows.length === 1) {
-      row = result.rows[0];
+      row = queryResult.rows[0];
 
       output = {};
       debug('** mapping columns to JSON object');
       mapColumnsToObject(config, mapping, row, output);
       debug('** executing onread functions');
       executeOnFunctions(config, mapping, 'onread', output);
-      debug('** result of queryByKey() : ');
+      debug('** queryResult of queryByKey() : ');
       debug(output);
-      deferred.resolve(output);
+      queryDeferred.resolve(output);
     } else if (rows.length === 0) {
-      deferred.reject({
+      queryDeferred.reject({
         type: 'not.found',
         status: 404,
         body: 'Not Found'
@@ -155,26 +199,15 @@ function queryByKey(config, db, mapping, key) {
     } else {
       msg = 'More than one entry with key ' + key + ' found for ' + mapping.type;
       debug(msg);
-      deferred.reject(new Error(msg));
+      queryDeferred.reject(new Error(msg));
     }
-    return deferred.promise;
+    return queryDeferred.promise;
   });
 }
 
 function getSchemaValidationErrors(json, schema) {
   'use strict';
-  var asCode = function (s) {
-    // return any string as code for REST API error object.
-    var ret = s;
-
-    ret = ret.toLowerCase().trim();
-    ret = ret.replace(/[^a-z0-9 ]/gmi, '');
-    ret = ret.replace(/ /gmi, '.');
-
-    return ret;
-  };
-
-  var v = new validator(); // eslint-disable-line
+  var v = new Validator();
   var result = v.validate(json, schema);
 
   var ret, i, current, err;
@@ -192,7 +225,7 @@ function getSchemaValidationErrors(json, schema) {
     for (i = 0; i < result.errors.length; i++) {
       current = result.errors[i];
       err = {};
-      err.code = asCode(current.message);
+      err.code = errorAsCode(current.message);
       if (current.property && current.property.indexOf('instance.') === 0) {
         err.path = current.property.substring(9);
       }
@@ -299,6 +332,26 @@ function checkBasicAuthentication(req, res, next) {
 // TODO : Change temporary URL into final deploy URL.
 var allowCrossDomain = function (req, res, next) {
   'use strict';
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + req.path.split('/')[1];
+  // console.log(req.path);
+  // console.log(type);
+  var mapping = typeToMapping[type];
+  var methods;
+  var allowedMethods;
+
+  if (mapping && mapping.methods) {
+    methods = mapping.methods.slice();
+    methods.push('HEAD', 'OPTIONS');
+    allowedMethods = methods.join(',');
+    if (methods.indexOf(req.method) === -1) {
+      res.header('Allow', allowedMethods);
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+  } else {
+    allowedMethods = 'GET,PUT,POST,DELETE,HEAD,OPTIONS';
+  }
   var origin = '*';
   if (req.headers['x-forwarded-for']) {
     origin = req.headers['x-forwarded-for'];
@@ -314,10 +367,15 @@ var allowCrossDomain = function (req, res, next) {
     origin = req.headers.Host;
   }
   res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+  res.header('Access-Control-Allow-Methods', allowedMethods);
   res.header('Access-Control-Allow-Headers', 'Content-Type');
 
-  next();
+  if (req.method === 'OPTIONS') {
+    res.header('Allow', allowedMethods);
+    res.status(200).send(allowedMethods);
+  } else {
+    next();
+  }
 };
 
 function logRequests(req, res, next) {
@@ -348,9 +406,9 @@ function postProcess(functions, db, body) {
     Q.all(promises).then(function () {
       debug('all post processing functions resolved.');
       deferred.resolve();
-    }).catch(function () {
+    }).catch(function (error) {
       debug('one of the post processing functions rejected.');
-      deferred.reject();
+      deferred.reject(error);
     });
   } else {
     debug('no post processing functions registered.');
@@ -374,7 +432,7 @@ function executePutInsideTransaction(db, url, body) {
     var typeToMapping = typeToConfig(resources);
     // var type = '/' + req.route.path.split("/")[1];
     var mapping = typeToMapping[type];
-    var table = mapping.type.split('/')[1];
+    var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
 
     debug('Validating schema.');
     if (mapping.schema) {
@@ -525,6 +583,39 @@ function getMe(req) {
   return deferred.promise;
 }
 
+function execBeforeQueryFunctions(mapping, db, req, resp) {
+  'use strict';
+  var deferred = Q.defer();
+
+  var beforequery = mapping.beforequery ? mapping.beforequery : [];
+
+  var promises = [];
+  beforequery.forEach(function (f) {
+    promises.push(f(req, resp, db));
+  });
+
+  if (beforequery.length > 0) {
+    Q.all(promises).then(function () {
+      deferred.resolve();
+    }).catch(function (error) {
+      // console.log(error);
+      if (error.type && error.status && error.body) {
+        deferred.reject(error);
+      } else {
+        deferred.reject({
+          type: 'internal.error',
+          status: 500,
+          body: 'Internal Server Error. [' + error.toString() + ']'
+        });
+      }
+    });
+  } else {
+    deferred.resolve();
+  }
+
+  return deferred.promise;
+}
+
 function validateAccessAllowed(mapping, db, req, resp, me) {
   'use strict';
   var deferred = Q.defer();
@@ -573,7 +664,11 @@ function executeAfterReadFunctions(database, elements, mapping) {
       var errors = [];
       results.forEach(function (result) {
         if (result.state === 'rejected') {
-          errors.push(result.reason);
+          // console.log('_______________________');
+          // console.log('afterRead function rejected:');
+          // console.log(result.reason.stack);
+          // console.log('_______________________');
+          errors.push(result.reason.message);
         }
       });
 
@@ -588,7 +683,9 @@ function executeAfterReadFunctions(database, elements, mapping) {
           type: 'afterread.failed',
           status: 500,
           body: {
-            errors: errors
+            code: 'afterread.failed',
+            errors: errors,
+            status: 500
           }
         };
         deferred.reject(ret);
@@ -620,7 +717,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     var type = '/' + req.route.path.split('/')[1];
     var mapping = typeToMapping[type];
     var columns = sqlColumnNames(mapping);
-    var table = mapping.type.split('/')[1];
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
 
     var database;
     var countquery;
@@ -643,7 +740,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function () {
       if (!mapping.public) {
         debug('* getting security context');
-        return getMe(req);
+        return mapping.getme(req);
       }
     }).then(function (me) {
       // me == null if no authentication header was sent by the client.
@@ -651,6 +748,9 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         debug('* running config.secure functions');
         return validateAccessAllowed(mapping, database, req, resp, me);
       }
+    }).then(function () {
+      debug('* running before query functions');
+      return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
       countquery.sql('select count(*) from "' + table + '" where 1=1 ');
@@ -720,8 +820,19 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* executing SELECT query on database');
       return pgExec(database, query, logsql, logdebug);
     }).then(function (result) {
+      var deferred;
       debug('pgExec select ... OK');
       debug(result);
+      if (mapping.handlelistqueryresult) {
+        deferred = Q.defer();
+        mapping.handlelistqueryresult(req, result).then(function (ret) {
+          output = ret;
+          deferred.resolve();
+        }).catch(function (error) {
+          deferred.reject(error);
+        });
+        return deferred.promise;
+      }
       var rows = result.rows;
       var results = [];
       var row, currentrow;
@@ -851,7 +962,7 @@ function getRegularResource(executeExpansion) {
       database = db;
       if (!mapping.public) {
         debug('* getting security context');
-        return getMe(req);
+        return mapping.getme(req);
       }
     }).then(function (me) {
       // me == null if no authentication header was sent by the client.
@@ -859,6 +970,9 @@ function getRegularResource(executeExpansion) {
         debug('* running config.secure functions');
         return validateAccessAllowed(mapping, database, req, resp, me);
       }
+    }).then(function () {
+      debug('* running before query functions');
+      return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
       return queryByKey(resources, database, mapping, key);
@@ -935,7 +1049,7 @@ function deleteResource(req, resp) {
   var typeToMapping = typeToConfig(resources);
   var type = '/' + req.route.path.split('/')[1];
   var mapping = typeToMapping[type];
-  var table = mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
   var deferred;
   var database;
 
@@ -1057,8 +1171,36 @@ exports = module.exports = {
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
+    // a global error handler to catch among others JSON errors
+    //  => log stack trace and send JSON error message tp client
+    // (unfortunatly the JSON errors cannot be distinguished from other errors ?!)
+    app.use(function (error, req, res, next) {
+      var body;
+      if (error) {
+        // console.log('_______________________');
+        // console.log('Generic error handler catched error:');
+        // console.log(error.stack);
+        // console.log('_______________________');
+        body = {
+          errors: [{code: 'generic.error', message: error.name + ':' + error.message, body: error.body}],
+          status: error.status || 500
+        };
+        res.status(error.status).send(body);
+      } else {
+        next();
+      }
+    });
+
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
+
+      // when no custom checkauthentication and getme defined, use the default ones
+      if (!mapping.checkauthentication) {
+        mapping.checkauthentication = checkBasicAuthentication;
+      }
+      if (!mapping.getme) {
+        mapping.getme = getMe;
+      }
 
       // register schema for external usage. public.
       url = mapping.type + '/schema';
@@ -1066,6 +1208,7 @@ exports = module.exports = {
 
       app.get(url, getSchema);
 
+      // register list resource for this type.
       url = mapping.type;
 
       cacheResource = mapping.cacheResource !== false;
@@ -1077,23 +1220,24 @@ exports = module.exports = {
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, checkBasicAuthentication, cacheHandler, compression(),
+      app.get(url, logRequests, mapping.checkauthentication, cacheHandler, compression(),
         getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, checkBasicAuthentication, cacheHandler, compression(), getRegularResource(executeExpansion))
-        .put(logRequests, checkBasicAuthentication, cacheHandler, createOrUpdate)
-        .delete(logRequests, checkBasicAuthentication, cacheHandler, deleteResource); // app.delete
+        .get(logRequests, mapping.checkauthentication, cacheHandler, compression(),
+          getRegularResource(executeExpansion))
+        .put(logRequests, mapping.checkauthentication, cacheHandler, createOrUpdate)
+        .delete(logRequests, mapping.checkauthentication, cacheHandler, deleteResource); // app.delete
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, checkBasicAuthentication, batchOperation); // app.put('/batch');
+    app.put(url, logRequests, mapping.checkauthentication, batchOperation); // app.put('/batch');
 
     url = '/me';
-    app.get(url, logRequests, checkBasicAuthentication, function (req, resp) {
-      getMe(req).then(function (me) {
+    app.get(url, logRequests, mapping.checkauthentication, function (req, resp) {
+      mapping.getme(req).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);
       }).fail(function (error) {
@@ -1125,6 +1269,8 @@ exports = module.exports = {
     // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
     executeSQL: pgExec,
     prepareSQL: queryobject.prepareSQL,
+
+    generateError: generateError,
 
     /*
         Add references from a different resource to this resource.
