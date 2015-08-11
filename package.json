@@ -1,10 +1,11 @@
 {
   "name": "sri4node",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
   "main": "sri4node.js",
   "scripts": {
-    "test": "./runtests.sh"
+    "start": "node index.js",
+    "test": "mocha"
   },
   "dependencies": {
     "body-parser": "^1.9.0",

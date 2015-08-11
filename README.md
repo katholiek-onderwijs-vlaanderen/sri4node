@@ -123,7 +123,8 @@ Finally we configure handlers for 1 example resource :
                         authors: $q.filterILike('authors'),
                         themes: $q.filterILike('themes'),
                         html: $q.filterILike('html'),
-                        editor: $q.filterReferencedType('/persons','editor')
+                        editor: $q.filterReferencedType('/persons','editor'),
+                        defaultFilter: $q.defaultFilter
                     },
                     // All columns in the table that appear in the
                     // resource should be declared in the 'map' object.
@@ -316,6 +317,7 @@ The functions receive these parameters :
 - `parameter` is the name of the URL parameter.
 - `database` is a database object that you can use to execute extra SQL statements.
 - `count` is a boolean telling you if you are currently decorating the `SELECT COUNT` query, or the final `SELECT` query. Useful for making sure some statements are not executed twice (when using the database object)
+- `mapping` is the mapping in the configuration of sri4node.
 
 All the configured `query` functions should extend the SQL statement with an `AND` clause.
 

@@ -79,3 +79,7 @@ CREATE TABLE "jsonb" (
     "key" text unique,
     "details" jsonb
 );
+
+CREATE TABLE "alldatatype" (
+    "key" text unique
+);
