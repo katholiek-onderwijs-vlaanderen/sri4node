@@ -914,7 +914,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug(output);
       resp.set('Content-Type', 'application/json');
       resp.send(output);
-      resp.end();
 
       debug('* rolling back database transaction, GETs never have a side effect on the database.');
       database.client.query('ROLLBACK', function (err) {
@@ -931,7 +930,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       if (error.type && error.status && error.body) {
         resp.status(error.status).send(error.body);
         database.done();
-        resp.end();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
         if (error.stack) {
@@ -941,7 +939,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         }
         database.done(error);
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
-        resp.end();
       }
     });
   };
@@ -994,18 +991,15 @@ function getRegularResource(executeExpansion) {
       resp.set('Content-Type', 'application/json');
       resp.send(element);
       database.done();
-      resp.end();
     }).fail(function (error) {
       if (error.type && error.status && error.body) {
         resp.status(error.status).send(error.body);
         database.done();
-        resp.end();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
         cl(error);
         database.done(error);
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
-        resp.end();
       }
     });
   };
@@ -1027,7 +1021,6 @@ function createOrUpdate(req, resp) {
         db.done(err);
         debug('COMMIT DONE.');
         resp.send(true);
-        resp.end();
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
@@ -1037,7 +1030,6 @@ function createOrUpdate(req, resp) {
         db.done(rollbackerr);
         cl('ROLLBACK DONE.');
         resp.status(409).send(puterr);
-        resp.end();
       });
     });
   }); // pgConnect
@@ -1078,7 +1070,6 @@ function deleteResource(req, resp) {
       database.done(err);
       debug('COMMIT DONE.');
       resp.send(true);
-      resp.end();
     });
   }).fail(function (delerr) {
     cl('DELETE processing failed. Rolling back database transaction. Error was :');
@@ -1088,7 +1079,6 @@ function deleteResource(req, resp) {
       database.done(rollbackerr);
       cl('ROLLBACK DONE. Sending 500 Internal Server Error. [' + delerr.toString() + ']');
       resp.status(500).send('Internal Server Error. [' + delerr.toString() + ']');
-      resp.end();
     });
   });
 }
@@ -1134,7 +1124,6 @@ function batchOperation(req, resp) {
         database.done(err);
         cl('COMMIT DONE.');
         resp.send(true);
-        resp.end();
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
@@ -1144,7 +1133,6 @@ function batchOperation(req, resp) {
         database.done(rollbackerr);
         cl('ROLLBACK DONE.');
         resp.status(500).send(puterr);
-        resp.end();
       });
     });
 }
@@ -1242,7 +1230,6 @@ exports = module.exports = {
         resp.send(me);
       }).fail(function (error) {
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
-        resp.end();
       });
     });
 
