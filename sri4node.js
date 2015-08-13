@@ -334,8 +334,6 @@ var allowCrossDomain = function (req, res, next) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
   var type = '/' + req.path.split('/')[1];
-  // console.log(req.path);
-  // console.log(type);
   var mapping = typeToMapping[type];
   var methods;
   var allowedMethods;
@@ -598,7 +596,6 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
     Q.all(promises).then(function () {
       deferred.resolve();
     }).catch(function (error) {
-      // console.log(error);
       if (error.type && error.status && error.body) {
         deferred.reject(error);
       } else {
@@ -664,10 +661,6 @@ function executeAfterReadFunctions(database, elements, mapping) {
       var errors = [];
       results.forEach(function (result) {
         if (result.state === 'rejected') {
-          // console.log('_______________________');
-          // console.log('afterRead function rejected:');
-          // console.log(result.reason.stack);
-          // console.log('_______________________');
           errors.push(result.reason.message);
         }
       });
@@ -1165,10 +1158,6 @@ exports = module.exports = {
     app.use(function (error, req, res, next) {
       var body;
       if (error) {
-        // console.log('_______________________');
-        // console.log('Generic error handler catched error:');
-        // console.log(error.stack);
-        // console.log('_______________________');
         body = {
           errors: [{code: 'generic.error', message: error.name + ':' + error.message, body: error.body}],
           status: error.status || 500
