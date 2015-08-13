@@ -37,12 +37,13 @@ function store(url, cache, res) {
   var isList;
   var cacheSection;
   var buffer;
+  var ended = false;
 
   // proxy
 
   res.write = function (chunk, encoding) {
 
-    if (chunk) {
+    if (!ended && chunk) {
       if (!buffer) {
         buffer = new Buffer(chunk);
       } else {
@@ -55,9 +56,14 @@ function store(url, cache, res) {
   };
 
   res.end = function (chunk, encoding) {
+    ended = true;
 
-    if (buffer) {
-      cache[cacheSection].set(url, createStorableObject(res, buffer));
+    if (res.statusCode === 200) {
+      if (chunk) {
+        cache[cacheSection].set(url, createStorableObject(res, new Buffer(chunk)));
+      } else if (buffer) {
+        cache[cacheSection].set(url, createStorableObject(res, buffer));
+      }
     }
 
     return end.call(this, chunk, encoding);
@@ -111,7 +117,6 @@ exports = module.exports = function (resource, ttl) {
         }
 
         res.send(value.data);
-        res.end();
       } else {
         // register handler to store in cache when responding
         store(req.originalUrl, cacheStore[resource], res);
