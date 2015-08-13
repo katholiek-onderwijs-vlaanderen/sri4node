@@ -1293,7 +1293,7 @@ exports = module.exports = {
               if (!element[targetkey]) {
                 element[targetkey] = [];
               }
-              element[targetkey].push(type + '/' + row.key);
+              element[targetkey].push({href: type + '/' + row.key});
             });
             deferred.resolve();
           }).fail(function (e) {
