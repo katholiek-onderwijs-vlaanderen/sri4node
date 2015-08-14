@@ -613,34 +613,54 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function validateAccessAllowed(mapping, db, req, resp, me) {
+function validateAccessAllowed(mapping) {
   'use strict';
-  var deferred = Q.defer();
 
-  // Array of functions that returns promises. If any of the promises fail,
-  // the response will be 401 Forbidden. All promises must resolve (to empty values)
-  var secure = mapping.secure;
+  return function (req, res, next) {
 
-  var promises = [];
-  secure.forEach(function (f) {
-    promises.push(f(req, resp, db, me));
-  });
+    var secure;
+    var promises;
 
-  if (secure.length > 0) {
-    Q.all(promises).then(function () {
-      deferred.resolve();
-    }).catch(function () {
-      deferred.reject({
-        type: 'access.denied',
-        status: 403,
-        body: 'Forbidden'
-      });
-    });
-  } else {
-    deferred.resolve();
-  }
+    if (mapping.public) {
+      next();
+    } else {
 
-  return deferred.promise;
+      // Array of functions that returns promises. If any of the promises fail,
+      // the response will be 401 Forbidden. All promises must resolve (to empty values)
+      secure = mapping.secure;
+
+      if (secure.length > 0) {
+
+        mapping.getme(req).then(function (me) {
+          promises = [];
+          pgConnect(postgres, configuration).then(function (db) {
+            secure.forEach(function (f) {
+              promises.push(f(req, res, db, me));
+            });
+
+            Q.all(promises).then(function () {
+              db.done();
+              next();
+            }).catch(function () {
+              db.done();
+              res.status(403).send({
+                type: 'access.denied',
+                status: 403,
+                body: 'Forbidden'
+              });
+            });
+          });
+
+        });
+
+      } else {
+        next();
+      }
+
+    }
+
+  };
+
 }
 
 function executeAfterReadFunctions(database, elements, mapping) {
@@ -730,17 +750,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var begin = prepare('begin-transaction');
       begin.sql('BEGIN');
       return pgExec(database, begin, logsql, logdebug);
-    }).then(function () {
-      if (!mapping.public) {
-        debug('* getting security context');
-        return mapping.getme(req);
-      }
-    }).then(function (me) {
-      // me == null if no authentication header was sent by the client.
-      if (!mapping.public) {
-        debug('* running config.secure functions');
-        return validateAccessAllowed(mapping, database, req, resp, me);
-      }
     }).then(function () {
       debug('* running before query functions');
       return execBeforeQueryFunctions(mapping, database, req, resp);
@@ -950,16 +959,6 @@ function getRegularResource(executeExpansion) {
     var elements;
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
-      if (!mapping.public) {
-        debug('* getting security context');
-        return mapping.getme(req);
-      }
-    }).then(function (me) {
-      // me == null if no authentication header was sent by the client.
-      if (!mapping.public) {
-        debug('* running config.secure functions');
-        return validateAccessAllowed(mapping, database, req, resp, me);
-      }
     }).then(function () {
       debug('* running before query functions');
       return execBeforeQueryFunctions(mapping, database, req, resp);
@@ -1197,13 +1196,13 @@ exports = module.exports = {
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, mapping.checkauthentication, cacheHandler, compression(),
-        getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
+      app.get(url, logRequests, mapping.checkauthentication, validateAccessAllowed(mapping), cacheHandler,
+        compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, mapping.checkauthentication, cacheHandler, compression(),
+        .get(logRequests, mapping.checkauthentication, validateAccessAllowed(mapping), cacheHandler, compression(),
           getRegularResource(executeExpansion))
         .put(logRequests, mapping.checkauthentication, cacheHandler, createOrUpdate)
         .delete(logRequests, mapping.checkauthentication, cacheHandler, deleteResource); // app.delete
