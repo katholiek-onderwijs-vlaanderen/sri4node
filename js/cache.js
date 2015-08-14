@@ -24,6 +24,11 @@ function createStorableObject(res, buffer) {
     object.headers['Content-Encoding'] = res.getHeader('Content-Encoding');
   }
 
+  // for binary transfers
+  if (res.getHeader('Content-Disposition')) {
+    object.headers['Content-Disposition'] = res.getHeader('Content-Disposition');
+  }
+
   return object;
 
 }
@@ -35,7 +40,7 @@ function store(url, cache, res) {
   var write = res.write;
   var end = res.end;
   var isList;
-  var cacheSection;
+  var cacheSection = 'custom';
   var buffer;
   var ended = false;
 
@@ -93,7 +98,8 @@ exports = module.exports = function (resource, ttl) {
 
   cacheStore[resource] = {
     resources: new NodeCache({stdTTL: ttl || DEFAULT_TTL}),
-    list: new NodeCache({stdTTL: ttl || DEFAULT_TTL})
+    list: new NodeCache({stdTTL: ttl || DEFAULT_TTL}),
+    custom: new NodeCache({stdTTL: ttl || DEFAULT_TTL})
   };
 
   return function (req, res, next) {
@@ -102,7 +108,8 @@ exports = module.exports = function (resource, ttl) {
 
     if (req.method === 'GET') {
 
-      value = cacheStore[resource].resources.get(req.originalUrl) || cacheStore[resource].list.get(req.originalUrl);
+      value = cacheStore[resource].resources.get(req.originalUrl) || cacheStore[resource].list.get(req.originalUrl) ||
+        cacheStore[resource].custom.get(req.originalUrl);
 
       if (value) {
         // we're only caching the API responses
