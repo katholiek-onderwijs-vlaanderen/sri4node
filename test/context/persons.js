@@ -77,15 +77,15 @@ exports = module.exports = function (roa, logverbose) {
     return deferred.promise;
   };
 
-  function disallowOnePerson(permalink) {
+  function disallowOnePerson(forbiddenKey) {
     return function (req) {
       var deferred = Q.defer();
-      var url;
+      var key;
 
       if (req.method === 'GET') {
-        url = req.path;
-        if (url === permalink) {
-          cl('security method disallowedOnePerson for ' + permalink + ' denies access');
+        key = req.params.key;
+        if (key === forbiddenKey) {
+          cl('security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
           deferred.reject();
         } else {
           deferred.resolve();
@@ -96,6 +96,44 @@ exports = module.exports = function (roa, logverbose) {
 
       return deferred.promise;
     };
+  }
+
+  function simpleOutput(req, res, db) {
+
+    var query;
+
+    query = $u.prepareSQL('get-simple-person');
+    query.sql('select firstname, lastname from persons where key = ')
+      .param(req.params.key);
+    $u.executeSQL(db, query).then(function (result) {
+      db.done();
+      if (result.rows.length === 1) {
+        res.send({firstname: result.rows[0].firstname, lastname: result.rows[0].lastname});
+      } else {
+        res.status(409).end();
+      }
+    });
+
+  }
+
+  function wrongHandler(req, res, db) {
+
+    var query;
+
+    query = $u.prepareSQL('get-simple-person');
+    query.sql('select firstname, lastname from person where key = ')
+      .param(req.params.key);
+    $u.executeSQL(db, query).then(function (result) {
+      db.done();
+      if (result.rows.length === 1) {
+        res.send({firstname: result.rows[0].firstname, lastname: result.rows[0].lastname});
+      } else {
+        res.status(409).end();
+      }
+    }).catch(function () {
+      res.status(500).end();
+    });
+
   }
 
   var ret = {
@@ -129,7 +167,11 @@ exports = module.exports = function (roa, logverbose) {
     secure: [
       restrictReadPersons,
       // Ingrid Ohno
-      disallowOnePerson('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
+      disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')
+    ],
+    customroutes: [
+      {route: '/persons/:key/simple', handler: simpleOutput},
+      {route: '/persons/:key/wrong-handler', handler: wrongHandler}
     ],
     schema: {
       $schema: 'http://json-schema.org/schema#',

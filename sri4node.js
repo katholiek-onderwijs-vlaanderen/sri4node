@@ -1075,6 +1075,26 @@ function deleteResource(req, resp) {
   });
 }
 
+function wrapCustomRouteHandler(customRouteHandler, mapping) {
+
+  'use strict';
+
+  return function (req, res) {
+
+    mapping.getme(req).then(function (me) {
+
+      pgConnect(postgres, configuration).then(function (db) {
+
+        customRouteHandler(req, res, db, me);
+        db.done();
+
+      });
+
+    });
+
+  };
+}
+
 function batchOperation(req, resp) {
   'use strict';
   var database;
@@ -1139,6 +1159,8 @@ exports = module.exports = {
     var maxlimit;
     var cacheResource;
     var cacheHandler = function (req, res, next) { next(); };
+    var customroute;
+    var i;
 
     configuration = config;
     resources = config.resources;
@@ -1206,6 +1228,19 @@ exports = module.exports = {
           getRegularResource(executeExpansion))
         .put(logRequests, mapping.checkauthentication, cacheHandler, createOrUpdate)
         .delete(logRequests, mapping.checkauthentication, cacheHandler, deleteResource); // app.delete
+
+      // register custom routes (if any)
+
+      if (mapping.customroutes && mapping.customroutes instanceof Array) {
+        for (i = 0; i < mapping.customroutes.length; i++) {
+          customroute = mapping.customroutes[i];
+          if (customroute.route && customroute.handler) {
+            app.get(customroute.route, logRequests, mapping.checkauthentication, validateAccessAllowed(mapping),
+              cacheHandler, compression(), wrapCustomRouteHandler(customroute.handler, mapping));
+          }
+        }
+      }
+
     } // for all mappings.
 
     url = '/batch';
@@ -1222,12 +1257,12 @@ exports = module.exports = {
     });
 
     app.put('/log', function (req, resp) {
-      var i;
+      var j;
       var error = req.body;
       cl('Client side error :');
       var lines = error.stack.split('\n');
-      for (i = 0; i < lines.length; i++) {
-        cl(lines[i]);
+      for (j = 0; i < lines.length; j++) {
+        cl(lines[j]);
       }
       resp.end();
     });
