@@ -15,7 +15,7 @@ var Q = require('q');
 
 // Utility function.
 var common = require('./js/common.js');
-var cache = require('./js/cache');
+var responseHandler = require('./js/responseHandler');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -613,56 +613,6 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function validateAccessAllowed(mapping) {
-  'use strict';
-
-  return function (req, res, next) {
-
-    var secure;
-    var promises;
-
-    if (mapping.public) {
-      next();
-    } else {
-
-      // Array of functions that returns promises. If any of the promises fail,
-      // the response will be 401 Forbidden. All promises must resolve (to empty values)
-      secure = mapping.secure;
-
-      if (secure.length > 0) {
-
-        mapping.getme(req).then(function (me) {
-          promises = [];
-          pgConnect(postgres, configuration).then(function (db) {
-            secure.forEach(function (f) {
-              promises.push(f(req, res, db, me));
-            });
-
-            Q.all(promises).then(function () {
-              db.done();
-              next();
-            }).catch(function () {
-              db.done();
-              res.status(403).send({
-                type: 'access.denied',
-                status: 403,
-                body: 'Forbidden'
-              });
-            });
-          });
-
-        });
-
-      } else {
-        next();
-      }
-
-    }
-
-  };
-
-}
-
 function executeAfterReadFunctions(database, elements, mapping) {
   'use strict';
   var promises, i, ret;
@@ -1081,16 +1031,12 @@ function wrapCustomRouteHandler(customRouteHandler, mapping) {
 
   return function (req, res) {
 
-    mapping.getme(req).then(function (me) {
-
-      pgConnect(postgres, configuration).then(function (db) {
-
-        customRouteHandler(req, res, db, me);
-        db.done();
-
-      });
-
-    });
+    Q.all([pgConnect(postgres, configuration, mapping.getme(req))]).done(
+      function (results) {
+        customRouteHandler(req, res, results[0], results[1]);
+        results[0].done();
+      }
+    );
 
   };
 }
@@ -1157,8 +1103,7 @@ exports = module.exports = {
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
-    var cacheResource;
-    var cacheHandler = function (req, res, next) { next(); };
+    var responseHandlerFn;
     var customroute;
     var i;
 
@@ -1209,25 +1154,21 @@ exports = module.exports = {
       // register list resource for this type.
       url = mapping.type;
 
-      cacheResource = mapping.cacheResource !== false;
-
-      if (cacheResource) {
-        cacheHandler = cache(mapping.type, mapping.cacheTTL);
-      }
+      responseHandlerFn = responseHandler(mapping, configuration, postgres);
 
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, mapping.checkauthentication, validateAccessAllowed(mapping), cacheHandler,
+      app.get(url, logRequests, mapping.checkauthentication, responseHandlerFn,
         compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, mapping.checkauthentication, validateAccessAllowed(mapping), cacheHandler, compression(),
+        .get(logRequests, mapping.checkauthentication, responseHandlerFn, compression(),
           getRegularResource(executeExpansion))
-        .put(logRequests, mapping.checkauthentication, cacheHandler, createOrUpdate)
-        .delete(logRequests, mapping.checkauthentication, cacheHandler, deleteResource); // app.delete
+        .put(logRequests, mapping.checkauthentication, responseHandlerFn, createOrUpdate)
+        .delete(logRequests, mapping.checkauthentication, responseHandlerFn, deleteResource); // app.delete
 
       // register custom routes (if any)
 
@@ -1235,8 +1176,8 @@ exports = module.exports = {
         for (i = 0; i < mapping.customroutes.length; i++) {
           customroute = mapping.customroutes[i];
           if (customroute.route && customroute.handler) {
-            app.get(customroute.route, logRequests, mapping.checkauthentication, validateAccessAllowed(mapping),
-              cacheHandler, compression(), wrapCustomRouteHandler(customroute.handler, mapping));
+            app.get(customroute.route, logRequests, mapping.checkauthentication,
+              responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, mapping));
           }
         }
       }
