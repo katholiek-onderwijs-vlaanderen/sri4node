@@ -87,7 +87,10 @@ function getResources(response) {
       return [response.$$meta.permalink];
     } else if (response.results) {
       for (i = 0; i < response.results.length; i++) {
-        results.push(response.results[i].href);
+        // only check access on expanded resources, anyone can see a href
+        if (response.results[i].$$expanded) {
+          results.push(response.results[i].href);
+        }
       }
     }
   }
