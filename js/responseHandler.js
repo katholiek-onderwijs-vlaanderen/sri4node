@@ -35,7 +35,7 @@ function validateRequest(mapping, req, res, resources) {
           deferred.resolve();
         }).catch(function () {
           deferred.reject();
-        }).fin(function () {
+        }).finally(function () {
           results[0].done();
         });
       }
