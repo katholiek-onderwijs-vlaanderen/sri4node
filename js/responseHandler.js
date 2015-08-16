@@ -32,11 +32,11 @@ function validateRequest(mapping, req, res, resources) {
         });
 
         Q.all(promises).then(function () {
-          results[0].done();
           deferred.resolve();
         }).catch(function () {
-          results[0].done();
           deferred.reject();
+        }).fin(function () {
+          results[0].done();
         });
       }
     );
