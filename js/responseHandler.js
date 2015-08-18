@@ -1,7 +1,5 @@
 /* Response handler (cache and validation) middleware */
 
-var DEFAULT_TTL = 120;
-
 var localCacheImpl = require('./cache/localCache');
 var redisCacheImpl = require('./cache/redisCache');
 var Q = require('q');
@@ -185,7 +183,6 @@ exports = module.exports = function (mapping, config, pg) {
   var header;
 
   var cache = false;
-  var ttl;
   var cacheImpl;
   var cacheStore;
   configuration = config;
@@ -193,13 +190,12 @@ exports = module.exports = function (mapping, config, pg) {
 
   if (mapping.cache) {
     cache = true;
-    ttl = mapping.cache.ttl || DEFAULT_TTL;
     switch (mapping.cache.type) {
       case 'redis':
-        cacheImpl = function () { return redisCacheImpl(ttl, mapping.cache.redis); };
+        cacheImpl = function () { return redisCacheImpl(mapping.cache.ttl, mapping.cache.redis); };
         break;
       default:
-        cacheImpl = function () { return localCacheImpl(ttl); };
+        cacheImpl = function () { return localCacheImpl(mapping.cache.ttl); };
         break;
     }
   }

@@ -10,7 +10,7 @@ exports = module.exports = function (ttl, url) {
 
   var objectTTL;
 
-  if (typeof ttl === 'undefined') {
+  if (typeof ttl !== 'undefined') {
     objectTTL = ttl;
   } else {
     objectTTL = DEFAULT_TTL;

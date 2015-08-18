@@ -131,7 +131,7 @@ exports = module.exports = function (roa, logverbose) {
     'public': true, // eslint-disable-line
     secure: [],
     cache: {
-      ttl: 60,
+      ttl: 0,
       type: 'local'
     },
     schema: {
