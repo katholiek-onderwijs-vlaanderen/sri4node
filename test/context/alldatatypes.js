@@ -8,6 +8,10 @@ exports = module.exports = function (roa) {
     type: '/alldatatypes',
     'public': true, // eslint-disable-line
     secure: [],
+    cache: {
+      ttl: 60,
+      type: 'local'
+    },
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A set of resources for the generic filters',

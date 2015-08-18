@@ -90,12 +90,11 @@ The declaration of the editor is a reference to a second resource (/person), whi
                         checkAccessOnResource,
                         checkSomeMoreRules
                     ],
-                    // Enable cache (default true)
-                    // Will store sent results in memory to avoid hitting
-                    // the database until they change or expire
-                    cacheResource: false,
-                    // TTL for cached resources (default 120)
-                    cacheTTL: 180,
+                    // Enable cache (default false)
+                    cache: {
+                      ttl: 60, // in seconds, the time the objects live (0 means forever)
+                      type: 'local' // will store in an in-memory local cache
+                    },
                     // Standard JSON Schema definition.
                     // It uses utility functions, for compactness.
                     schema: {
@@ -295,6 +294,7 @@ A `secure` function receives these parameters :
 - `response` is the Express.js [response][express-response] object for this operation.
 - `database` is a database object (see above) that you can use for querying the database.
 - `me` is the security context of the user performing the current HTTP operation. This is the result of the `identity` function.
+- `resources` an array of the resources' href that will be returned (so that the function can decide depending on the returned resources)
 
 The function must return a [Q promise][kriskowal-q].
 It should `resolve()` the promise if the function allows the HTTP operation.
@@ -381,6 +381,34 @@ The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
+
+## cache
+
+By default resources are not cached. By defining a `cache` section we can store results in a cache not to hit the database.
+The key of the cache is the requested url.
+
+There are currently two supported types of caches: local and redis.
+
+- `local` stores the output in a local in-memory cache.
+- `redis` connects to a Redis store and stores objects there. This allows for horizontal scalability since multiple application
+instances can share the cache.
+
+### Examples
+
+cache: {
+  ttl: 0,
+  type: 'local'
+}
+
+Will store objects in a local cache without an expiration time. The object will live in the cache until replaced by a new version
+
+cache: {
+  ttl: 60, // store objects for 60 seconds. After 60 seconds the objects are purged.
+  type: 'redis',
+  redis: 'redis://user@host.com:9000'
+}
+
+If type is redis the URL to a Redis server must be provided.
 
 ## identity
 

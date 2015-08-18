@@ -25,7 +25,7 @@ exports = module.exports = function (base, logverbose) {
     });
 
     describe('with authentication', function () {
-      it('should return LETS Regio Dendermonde', function () {
+      it('should return LETS Hamme', function () {
         return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
                      'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.body.name, 'LETS Hamme');
@@ -34,7 +34,7 @@ exports = module.exports = function (base, logverbose) {
     });
 
     describe('with invalid authentication - non-existing user', function () {
-      it('should return LETS Regio Dendermonde', function () {
+      it('should return LETS Hamme', function () {
         return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
                      'unknown@email.be', 'pwd').then(function (response) {
           assert.equal(response.body.name, 'LETS Hamme');
@@ -43,7 +43,7 @@ exports = module.exports = function (base, logverbose) {
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
-      it('should return LETS Regio Dendermonde', function () {
+      it('should return LETS Hamme', function () {
         return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
                      'sabine@email.be', 'INVALID').then(function (response) {
           assert.equal(response.body.name, 'LETS Hamme');

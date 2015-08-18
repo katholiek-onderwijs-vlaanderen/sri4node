@@ -9,6 +9,7 @@ var common = require('./common.js');
 var pgConnect = common.pgConnect;
 var configuration;
 var postgres;
+var util = require('util');
 
 // used to determine where to store the cached object (there are two stores, list
 // and resource. The purge logic is different)
@@ -51,7 +52,7 @@ function validateRequest(mapping, req, res, resources) {
 function createStorableObject(res, buffer, resources) {
   'use strict';
   var object = {
-    headers: {},
+    headers: [],
     data: buffer
   };
 
@@ -196,9 +197,11 @@ exports = module.exports = function (mapping, config, pg) {
     ttl = mapping.cache.ttl || DEFAULT_TTL;
     switch (mapping.cache.type) {
       case 'redis':
+        console.log('cache redis for type ' + mapping.type);
         cacheImpl = function () { return redisCacheImpl(ttl, mapping.cache.redis); };
         break;
       default:
+        console.log('cache local for type ' + mapping.type);
         cacheImpl = function () { return localCacheImpl(ttl); };
         break;
     }
@@ -219,6 +222,7 @@ exports = module.exports = function (mapping, config, pg) {
       if (req.method === 'GET') {
 
         if (value) {
+          console.log(util.inspect(value));
           validateRequest(mapping, req, res, value.resources).then(function () {
             for (header in value.headers) {
 

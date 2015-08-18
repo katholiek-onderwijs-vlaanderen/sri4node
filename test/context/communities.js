@@ -130,6 +130,10 @@ exports = module.exports = function (roa, logverbose) {
     type: '/communities',
     'public': true, // eslint-disable-line
     secure: [],
+    cache: {
+      ttl: 60,
+      type: 'local'
+    },
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A local group in the LETS system.',

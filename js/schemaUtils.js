@@ -86,6 +86,16 @@ exports = module.exports = {
     };
   },
 
+  'key': function (description) {
+    return {
+      type: "string",
+      description: description,
+      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+
+    };
+  },
+
+
   timestamp: function (description) {
     'use strict';
     return {
