@@ -236,7 +236,7 @@ When reading a *list* resource :
 If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
-The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `default` function. It is this default function that will be called if no other query function was registered.
+The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `defaultFilter` function. It is this default function that will be called if no other query function was registered.
 4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`).
 See the [SRI specification][sri-specs-list-resources] for more details.
 5. Build a list resource with a `$$meta` section + a `results` section.
@@ -335,7 +335,7 @@ All the configured `query` functions should extend the SQL statement with an `AN
 The function must return a [Q promise][kriskowal-q].
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
 If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
-It should reject with one or an array of error objects that correspond to the [SRI definition][sri-error].
+It should reject with one or an array of error objects that correspond to the [SRI definition][sri-errors].
 Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
 
 If a query parameter is supplied that is not supported, the client also receives a 404 Not Found and a listing of supported query parameters.
@@ -731,6 +731,17 @@ Generated schema fragment :
     {
         type: "boolean",
         description: description
+    }
+
+#### guid(description)
+Defines a column as GUID.
+Example: `$s.guid('API-key for a plugin')`
+Generated schema fragment :
+
+    {
+      type: 'string',
+      description: description,
+      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
     }
 
 ### Query functions
