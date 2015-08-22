@@ -335,7 +335,7 @@ All the configured `query` functions should extend the SQL statement with an `AN
 The function must return a [Q promise][kriskowal-q].
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
 If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
-It should reject with one or an array of error objects that correspond to the [SRI definition][sri-error].
+It should reject with one or an array of error objects that correspond to the [SRI definition][sri-errors].
 Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
 
 If a query parameter is supplied that is not supported, the client also receives a 404 Not Found and a listing of supported query parameters.
