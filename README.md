@@ -775,6 +775,8 @@ A list resource `/content?creator=/persons/{guid}` can be created by adding this
 Do a query to retrieve all content, created by person X :
 
     GET /content?creator=/persons/{guid-X}
+    
+The value being passed in as a URL parameter can be a single href, or a comma-separated list of hrefs. The filter will match on any of the given permalinks.
 
 #### filterILike(columnname)
 Can be used to filter an a case-insensitive substring of a certain column.
