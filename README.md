@@ -382,7 +382,7 @@ In case the returned promise is rejected, the database transaction (including th
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
-## cache
+## Caching
 
 By default resources are not cached. By defining a `cache` section we can store results in a cache not to hit the database.
 The key of the cache is the requested url.
@@ -809,7 +809,7 @@ In order to filter down to the school with exactly one institutionNumber :
         },
         ...
         query: [
-            institutionNumber: filterEquals('insititionNumber')
+            institutionNumber: $q.filterEquals('insititionNumber')
         ]
     }
 
@@ -821,6 +821,28 @@ This filter supports multiple, comma-separated, values.
 The resulting list resource will contain items that has *one of* the supplied values.
 
     GET /schools?institutionNumber=128256,036456
+    
+#### defaultFilter
+
+An implementation of [sri-query][sri-query]. SRI-query defines default, basic filternig on list resources. The function is a default, shared implementation of that.
+
+    {
+        type: '/schools',
+        map: {
+            ...
+        },
+        ...
+        query: [
+            ...
+            'default': $q.defaultFilter
+        ]
+    }
+
+Read the specification for details. Example queries are :
+
+    GET /schools?institutionNumberGreater=100000
+    GET /schools?nameContains=vbs
+    GET /schools?nameCaseInsensitive=Minnestraal
 
 # Contributions
 
@@ -838,3 +860,4 @@ The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.
 [sri-specs-list-resources]: https://github.com/dimitrydhondt/sri#list-resources
 [sri-specs-batch]: https://github.com/dimitrydhondt/sri#batch-operations
 [sri-errors]: https://github.com/dimitrydhondt/sri#errors
+[sri-query]: https://github.com/dimitrydhondt/sri-query
