@@ -5,8 +5,7 @@ SRI is a set of standards to make RESTful interfaces.
 It specifies how resources are accesses, queried, updated, deleted.
 The specification can [be found here][sri-specs].
 
-Currently the implementation supports storage on a postgres database.
-Support for more databases/datastores may be added in the future.
+The implementation supports storage on a postgres database.
 
 # Installing
 
@@ -237,7 +236,7 @@ When reading a *list* resource :
 If any of these functions rejects its promise, the client will receive 403 Forbidden.
 2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
-The `query` functions are executed if they appear in the request URL as parameters.
+The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `default` function. It is this default function that will be called if no other query function was registered.
 4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`).
 See the [SRI specification][sri-specs-list-resources] for more details.
 5. Build a list resource with a `$$meta` section + a `results` section.
@@ -382,7 +381,7 @@ In case the returned promise is rejected, the database transaction (including th
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
-## cache
+## Caching
 
 By default resources are not cached. By defining a `cache` section we can store results in a cache not to hit the database.
 The key of the cache is the requested url.
@@ -809,7 +808,7 @@ In order to filter down to the school with exactly one institutionNumber :
         },
         ...
         query: [
-            institutionNumber: filterEquals('insititionNumber')
+            institutionNumber: $q.filterEquals('insititionNumber')
         ]
     }
 
@@ -821,6 +820,28 @@ This filter supports multiple, comma-separated, values.
 The resulting list resource will contain items that has *one of* the supplied values.
 
     GET /schools?institutionNumber=128256,036456
+    
+#### defaultFilter
+
+An implementation of [sri-query][sri-query]. SRI-query defines default, basic filternig on list resources. The function is a default, shared implementation of that.
+
+    {
+        type: '/schools',
+        map: {
+            ...
+        },
+        ...
+        query: [
+            ...
+            'default': $q.defaultFilter
+        ]
+    }
+
+Read the specification for details. Example queries are :
+
+    GET /schools?institutionNumberGreater=100000
+    GET /schools?nameContains=vbs
+    GET /schools?nameCaseInsensitive=Minnestraal
 
 # Contributions
 
@@ -838,3 +859,4 @@ The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.
 [sri-specs-list-resources]: https://github.com/dimitrydhondt/sri#list-resources
 [sri-specs-batch]: https://github.com/dimitrydhondt/sri#batch-operations
 [sri-errors]: https://github.com/dimitrydhondt/sri#errors
+[sri-query]: https://github.com/dimitrydhondt/sri-query
