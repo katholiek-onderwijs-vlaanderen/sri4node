@@ -733,6 +733,17 @@ Generated schema fragment :
         description: description
     }
 
+#### guid(description)
+Defines a column as GUID.
+Example: `$s.guid('API-key for a plugin')`
+Generated schema fragment :
+
+    {
+      type: 'string',
+      description: description,
+      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+    }
+
 ### Query functions
 The functions are found in `sri4node.queryUtils`.
 Provides pre-packaged filters for use as `query` function in a resource configuration.
