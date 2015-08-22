@@ -5,8 +5,7 @@ SRI is a set of standards to make RESTful interfaces.
 It specifies how resources are accesses, queried, updated, deleted.
 The specification can [be found here][sri-specs].
 
-Currently the implementation supports storage on a postgres database.
-Support for more databases/datastores may be added in the future.
+The implementation supports storage on a postgres database.
 
 # Installing
 
