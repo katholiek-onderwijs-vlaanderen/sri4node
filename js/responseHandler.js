@@ -4,6 +4,7 @@ var localCacheImpl = require('./cache/localCache');
 var redisCacheImpl = require('./cache/redisCache');
 var Q = require('q');
 var common = require('./common.js');
+var cl = common.cl;
 var pgConnect = common.pgConnect;
 var configuration;
 var postgres;
@@ -190,6 +191,7 @@ exports = module.exports = function (mapping, config, pg) {
 
   if (mapping.cache) {
     cache = true;
+    cl('sri4node cache active for resource ' + mapping.type);
     switch (mapping.cache.type) {
       case 'redis':
         cacheImpl = function () { return redisCacheImpl(mapping.cache.ttl, mapping.cache.redis); };
@@ -211,7 +213,6 @@ exports = module.exports = function (mapping, config, pg) {
   return function (req, res, next) {
 
     function handleResponse(value) {
-
       if (req.method === 'GET') {
 
         if (value) {
@@ -239,7 +240,6 @@ exports = module.exports = function (mapping, config, pg) {
           next();
         }
       } else if (req.method === 'PUT' || req.method === 'DELETE') {
-
         validateRequest(mapping, req, res).then(function () {
           if (cache) {
             cacheStore.resources.del(req.originalUrl);
@@ -254,16 +254,19 @@ exports = module.exports = function (mapping, config, pg) {
             body: 'Forbidden'
           });
         });
-
       } else {
         next();
       }
     }
 
     if (cache) {
-      Q.all([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl),
+      Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl),
         cacheStore.custom.get(req.originalUrl)]).done(function (results) {
-          handleResponse(results[0] || results[1] || results[2]);
+          if (results[0].state === 'rejected' || results[2].state === 'rejected' || results[2].state === 'rejected') {
+            cl('cache promise rejected !');
+            cl(results);
+          }
+          handleResponse(results[0].value || results[1].value || results[2].value);
         });
     } else {
       handleResponse();

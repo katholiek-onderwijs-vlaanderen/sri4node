@@ -126,19 +126,19 @@ function filterString(select, filter, value) {
 
   } else if (not && sensitive) {
 
-    select.sql(' AND ' + filter.key + ' NOT LIKE ').param(value);
+    select.sql(' AND TRIM(' + filter.key + ') NOT LIKE ').param(value);
 
   } else if (!not && sensitive) {
 
-    select.sql(' AND ' + filter.key + ' LIKE ').param(value);
+    select.sql(' AND TRIM(' + filter.key + ') LIKE ').param(value);
 
   } else if (not && !sensitive) {
 
-    select.sql(' AND ' + filter.key + ' NOT ILIKE ').param(value);
+    select.sql(' AND TRIM(' + filter.key + ') NOT ILIKE ').param(value);
 
   } else {
 
-    select.sql(' AND ' + filter.key + ' ILIKE ').param(value);
+    select.sql(' AND TRIM(' + filter.key + ') ILIKE ').param(value);
 
   }
 
@@ -216,10 +216,14 @@ function getTextFieldsFromTable(informationSchema) {
 
   var textFields = [];
   var field;
+  var type;
 
   for (field in informationSchema) {
     if (informationSchema.hasOwnProperty(field)) {
-      if (informationSchema[field].type === 'text') {
+      type = informationSchema[field].type;
+
+      if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char' ||
+        type === 'character') {
         textFields.push(field);
       }
     }
@@ -259,6 +263,33 @@ function filterGeneral(select, value, textFields) {
 
 }
 
+function getFieldBaseType(fieldType) {
+  'use strict';
+
+  var type = fieldType.trim().toLowerCase();
+
+  if (type.match(/^timestamp/)) {
+    return 'timestamp';
+  }
+
+  if (type === 'array') {
+    return 'array';
+  }
+
+  if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char' ||
+    type === 'character') {
+    return 'text';
+  }
+
+  if (type === 'numeric' || type === 'integer' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
+    type === 'real' || type === 'double precision' || type === 'smallserial' || type === 'serial' ||
+      type === 'bigserial') {
+    return 'numeric';
+  }
+
+  return null;
+}
+
 function parseFilters(value, select, parameter, mapping) {
 
   'use strict';
@@ -266,6 +297,7 @@ function parseFilters(value, select, parameter, mapping) {
     var filter;
     var field;
     var filterFn;
+    var baseType;
 
     // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
     filter = analyseParameter(parameter);
@@ -275,11 +307,14 @@ function parseFilters(value, select, parameter, mapping) {
 
     // 3) Extend the sql query with the correct WHERE clause.
     if (field) {
-      if (field.type.toLowerCase() === 'text') {
+
+      baseType = getFieldBaseType(field.type);
+
+      if (baseType === 'text') {
         filterFn = filterString;
-      } else if (field.type.toLowerCase() === 'numeric' || field.type.toLowerCase().match(/^timestamp/)) {
+      } else if (baseType === 'numeric' || baseType === 'timestamp') {
         filterFn = filterNumericOrTimestamp;
-      } else if (field.type.toLowerCase() === 'array') {
+      } else if (baseType === 'array') {
         filterFn = filterArray;
       }
 

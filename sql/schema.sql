@@ -90,5 +90,16 @@ CREATE TABLE "alldatatypes" (
     "publication" timestamp with time zone,
     "publications" timestamp with time zone[],
     "number" numeric,
-    "numbers" numeric[]
+    "numbers" numeric[],
+    "numberint" integer,
+    "numberbigint" bigint,
+    "numbersmallint" smallint,
+    "numberdecimal" decimal,
+    "numberreal" real,
+    "numberdoubleprecision" double precision,
+    "numbersmallserial" smallserial,
+    "numberserial" serial,
+    "numberbigserial" bigserial,
+    "textvarchar" varchar,
+    "textchar" char(64)
 );
