@@ -19,12 +19,23 @@ exports = module.exports = function (roa) {
       properties: {
         id: $s.numeric('Identificator'),
         text: $s.string('A text field.'),
+        textvarchar: $s.string('A text field.'),
+        textchar: $s.string('A text field.'),
         text2: $s.string('Another text field.'),
         texts: $s.array('A collection of text.'),
         publication: $s.timestamp('A timestamp field.'),
         publications: $s.array('A collection of timestamps.'),
         number: $s.numeric('A numeric field.'),
-        numbers: $s.array('A collection of numbers.')
+        numbers: $s.array('A collection of numbers.'),
+        numberint: $s.numeric('A numeric field.'),
+        numberbigint: $s.numeric('A numeric field.'),
+        numbersmallint: $s.numeric('A numeric field.'),
+        numberdecimal: $s.numeric('A numeric field.'),
+        numberreal: $s.numeric('A numeric field.'),
+        numberdoubleprecision: $s.numeric('A numeric field.'),
+        numbersmallserial: $s.numeric('A numeric field.'),
+        numberserial: $s.numeric('A numeric field.'),
+        numberbigserial: $s.numeric('A numeric field.')
       },
       required: []
     },
@@ -32,12 +43,23 @@ exports = module.exports = function (roa) {
     map: {
       id: {},
       text: {},
+      textvarchar: {},
+      textchar: {},
       text2: {},
       texts: {},
       publication: {},
       publications: {},
       number: {},
-      numbers: {}
+      numbers: {},
+      numberint: {},
+      numberbigint: {},
+      numbersmallint: {},
+      numberdecimal: {},
+      numberreal: {},
+      numberdoubleprecision: {},
+      numbersmallserial: {},
+      numberserial: {},
+      numberbigserial: {}
     },
     query: {
       defaultFilter: $q.defaultFilter

@@ -820,7 +820,7 @@ This filter supports multiple, comma-separated, values.
 The resulting list resource will contain items that has *one of* the supplied values.
 
     GET /schools?institutionNumber=128256,036456
-    
+
 #### defaultFilter
 
 An implementation of [sri-query][sri-query]. SRI-query defines default, basic filternig on list resources. The function is a default, shared implementation of that.
