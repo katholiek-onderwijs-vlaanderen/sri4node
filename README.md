@@ -335,7 +335,7 @@ All the configured `query` functions should extend the SQL statement with an `AN
 The function must return a [Q promise][kriskowal-q].
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
 If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
-It should reject with one or an array of error objects that correspond to the [SRI definition][sri-error].
+It should reject with one or an array of error objects that correspond to the [SRI definition][sri-errors].
 Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
 
 If a query parameter is supplied that is not supported, the client also receives a 404 Not Found and a listing of supported query parameters.
@@ -733,6 +733,17 @@ Generated schema fragment :
         description: description
     }
 
+#### guid(description)
+Defines a column as GUID.
+Example: `$s.guid('API-key for a plugin')`
+Generated schema fragment :
+
+    {
+      type: 'string',
+      description: description,
+      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+    }
+
 ### Query functions
 The functions are found in `sri4node.queryUtils`.
 Provides pre-packaged filters for use as `query` function in a resource configuration.
@@ -764,6 +775,8 @@ A list resource `/content?creator=/persons/{guid}` can be created by adding this
 Do a query to retrieve all content, created by person X :
 
     GET /content?creator=/persons/{guid-X}
+    
+The value being passed in as a URL parameter can be a single href, or a comma-separated list of hrefs. The filter will match on any of the given permalinks.
 
 #### filterILike(columnname)
 Can be used to filter an a case-insensitive substring of a certain column.

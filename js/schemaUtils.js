@@ -86,15 +86,15 @@ exports = module.exports = {
     };
   },
 
-  'key': function (description) {
+  guid: function (description) {
+    'use strict';
     return {
-      type: "string",
+      type: 'string',
       description: description,
       pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
 
     };
   },
-
 
   timestamp: function (description) {
     'use strict';
