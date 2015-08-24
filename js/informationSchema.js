@@ -16,7 +16,7 @@ if(type === 'text') {
 var qo = require('./queryObject.js');
 var Q = require('q');
 var common = require('./common.js');
-var cl = common.cl;
+//var cl = common.cl;
 var pgExec = common.pgExec;
 var cache = null;
 
@@ -24,11 +24,11 @@ exports = module.exports = function (database, configuration) {
   'use strict';
   var deferred = Q.defer();
 
-  function debug(x) {
+  /*function debug(x) {
     if (configuration.logdebug) {
       cl(x);
     }
-  }
+  }*/
 
   if (cache !== null) {
     deferred.resolve(cache);
