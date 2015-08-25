@@ -95,7 +95,7 @@ exports = module.exports = function (base, logverbose) {
     describe('that reject their promise', function () {
       it('should return 404 and the error message.', function () {
         return doGet(base + '/communities?invalidQueryParameter=true').then(function (response) {
-          assert.equal(response.statusCode, 404);
+          assert.equal(response.statusCode, 400);
           debug(response.body);
           assert.equal(response.body.errors[0].code, 'invalid.query.parameter');
         });
@@ -105,7 +105,7 @@ exports = module.exports = function (base, logverbose) {
     describe('that were not configured', function () {
       it('should return 404 with code [invalid.query.parameter]', function () {
         return doGet(base + '/communities?nonexistingparameter=x').then(function (response) {
-          assert.equal(response.statusCode, 404);
+          assert.equal(response.statusCode, 400);
           assert.equal(response.body.errors[0].code, 'invalid.query.parameter');
           assert.equal(response.body.errors[0].parameter, 'nonexistingparameter');
         });

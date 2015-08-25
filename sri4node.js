@@ -89,7 +89,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
             reject = true;
             deferred.reject({
               type: 'unknown.query.parameter',
-              status: 404,
+              status: 400,
               body: {
                 errors: [{code: 'invalid.query.parameter', parameter: key}]
               }
@@ -121,7 +121,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
           // 'status' -> the returned HTTP status code.
           // 'body' -> the response body that will be returned to the client.
           type: 'query.functions.rejected',
-          status: 404,
+          status: 400,
           body: {
             errors: errors
           }

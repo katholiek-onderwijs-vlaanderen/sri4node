@@ -29,3 +29,4 @@ require('./defaultFilter/testDefaultFilterLess.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterLessOrEqual.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterQ.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
+require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);

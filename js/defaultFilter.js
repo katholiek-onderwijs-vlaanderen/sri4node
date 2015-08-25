@@ -323,6 +323,8 @@ function parseFilters(value, select, parameter, mapping) {
       }
     } else if (filter.key === 'q') {
       filterGeneral(select, value, getTextFieldsFromTable(informationSchema[mapping.type]));
+    } else {
+      throw {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
     }
 
   };
