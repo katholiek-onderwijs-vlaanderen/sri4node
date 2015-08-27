@@ -1045,7 +1045,7 @@ function handleBatchOperations(responseHandlers) {
   'use strict';
 
   return function (req, res, next) {
-    var batch = req.body;
+    var batch = req.body.slice(); //cloning the array
     batch.reverse();
 
     function nextElement() {
