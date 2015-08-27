@@ -262,7 +262,7 @@ exports = module.exports = function (mapping, config, pg) {
     if (cache) {
       Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl),
         cacheStore.custom.get(req.originalUrl)]).done(function (results) {
-          if (results[0].state === 'rejected' || results[2].state === 'rejected' || results[2].state === 'rejected') {
+          if (results[0].state === 'rejected' || results[1].state === 'rejected' || results[2].state === 'rejected') {
             cl('cache promise rejected !');
             cl(results);
           }
