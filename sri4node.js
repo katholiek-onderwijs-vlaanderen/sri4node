@@ -1041,6 +1041,39 @@ function wrapCustomRouteHandler(customRouteHandler, mapping) {
   };
 }
 
+function handleBatchOperations(responseHandlers) {
+  'use strict';
+
+  return function (req, res, next) {
+    var batch = req.body;
+    batch.reverse();
+
+    function nextElement() {
+      var element, url;
+      var type;
+      var elementReq;
+      if (batch.length > 0) {
+        element = batch.pop();
+        url = element.href;
+        type = '/' + url.split('/')[1];
+        elementReq = {
+          method: element.verb,
+          params: {
+            key: url.split('/')[2]
+          },
+          originalUrl: url
+        };
+        responseHandlers[type](elementReq, res, nextElement);
+      } else {
+        return next();
+      }
+    }
+
+    return nextElement(batch);
+  };
+
+}
+
 function batchOperation(req, resp) {
   'use strict';
   var database;
@@ -1106,6 +1139,7 @@ exports = module.exports = {
     var responseHandlerFn;
     var customroute;
     var i;
+    var responseHandlers = [];
 
     configuration = config;
     resources = config.resources;
@@ -1155,6 +1189,7 @@ exports = module.exports = {
       url = mapping.type;
 
       responseHandlerFn = responseHandler(mapping, configuration, postgres);
+      responseHandlers[url] = responseHandlerFn;
 
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
@@ -1185,7 +1220,7 @@ exports = module.exports = {
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, mapping.checkauthentication, batchOperation); // app.put('/batch');
+    app.put(url, logRequests, mapping.checkauthentication, handleBatchOperations(responseHandlers), batchOperation);
 
     url = '/me';
     app.get(url, logRequests, mapping.checkauthentication, function (req, resp) {
