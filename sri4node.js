@@ -1061,7 +1061,8 @@ function handleBatchOperations(responseHandlers) {
           params: {
             key: url.split('/')[2]
           },
-          originalUrl: url
+          originalUrl: url,
+          user: req.user
         };
         responseHandlers[type](elementReq, res, nextElement);
       } else {
