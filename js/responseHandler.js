@@ -67,11 +67,6 @@ function createStorableObject(res, buffer, resources) {
     object.headers['Content-Encoding'] = res.getHeader('Content-Encoding');
   }
 
-  // for binary transfers
-  if (res.getHeader('Content-Disposition')) {
-    object.headers['Content-Disposition'] = res.getHeader('Content-Disposition');
-  }
-
   return object;
 
 }
@@ -104,7 +99,7 @@ function store(url, cache, req, res, mapping) {
   var write = res.write;
   var end = res.end;
   var isList;
-  var cacheSection = 'custom';
+  var cacheSection;
   var buffer;
   var ended = false;
   var resources;
@@ -130,7 +125,7 @@ function store(url, cache, req, res, mapping) {
     res.end = function (chunk, encoding) {
       ended = true;
 
-      if (res.statusCode === 200) {
+      if (res.statusCode === 200 && cacheSection) {
         if (chunk) {
           cache[cacheSection].set(url, createStorableObject(res, new Buffer(chunk), resources));
         } else if (buffer) {
@@ -205,8 +200,7 @@ exports = module.exports = function (mapping, config, pg) {
   if (cache) {
     cacheStore = {
       resources: cacheImpl(),
-      list: cacheImpl(),
-      custom: cacheImpl()
+      list: cacheImpl()
     };
   }
 
@@ -260,13 +254,13 @@ exports = module.exports = function (mapping, config, pg) {
     }
 
     if (cache) {
-      Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl),
-        cacheStore.custom.get(req.originalUrl)]).done(function (results) {
-          if (results[0].state === 'rejected' || results[1].state === 'rejected' || results[2].state === 'rejected') {
+      Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl)]).done(
+        function (results) {
+          if (results[0].state === 'rejected' || results[1].state === 'rejected') {
             cl('cache promise rejected !');
             cl(results);
           }
-          handleResponse(results[0].value || results[1].value || results[2].value);
+          handleResponse(results[0].value || results[1].value);
         });
     } else {
       handleResponse();
