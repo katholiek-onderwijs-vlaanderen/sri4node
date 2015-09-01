@@ -189,18 +189,18 @@ exports = module.exports = function (mapping, config, pg) {
     cl('sri4node cache active for resource ' + mapping.type);
     switch (mapping.cache.type) {
       case 'redis':
-        cacheImpl = function () { return redisCacheImpl(mapping.cache.ttl, mapping.cache.redis); };
+        cacheImpl = redisCacheImpl(mapping.cache.ttl, mapping.cache.redis);
         break;
       default:
-        cacheImpl = function () { return localCacheImpl(mapping.cache.ttl); };
+        cacheImpl = localCacheImpl(mapping.cache.ttl);
         break;
     }
   }
 
   if (cache) {
     cacheStore = {
-      resources: cacheImpl(),
-      list: cacheImpl()
+      resources: cacheImpl,
+      list: cacheImpl
     };
   }
 
