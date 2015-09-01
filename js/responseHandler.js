@@ -16,7 +16,7 @@ function responseIsList(response) {
   return response.$$meta && response.$$meta.hasOwnProperty('count');
 }
 
-function validateRequest(mapping, req, res, resources) {
+function validateRequest(mapping, req, res, batch) {
   'use strict';
   var promises;
   var deferred = Q.defer();
@@ -27,7 +27,7 @@ function validateRequest(mapping, req, res, resources) {
 
         promises = [];
         mapping.secure.forEach(function (f) {
-          promises.push(f(req, res, results[0], results[1], resources));
+          promises.push(f(req, res, results[0], results[1], batch));
         });
 
         Q.all(promises).then(function () {
@@ -92,6 +92,21 @@ function getResources(response) {
   return results;
 }
 
+function createBatch(resources, verb) {
+  'use strict';
+  var batch = [];
+  var i;
+
+  for (i = 0; i < resources.length; i++) {
+    batch.push({
+      href: resources[i],
+      verb: verb
+    });
+  }
+
+  return batch;
+}
+
 function store(url, cache, req, res, mapping) {
   'use strict';
 
@@ -141,6 +156,7 @@ function store(url, cache, req, res, mapping) {
   res.send = function (output) {
 
     var self;
+    var batch;
 
     // express first send call tranforms a json into a string and calls send again
     // we only process the first send to store the object
@@ -156,7 +172,11 @@ function store(url, cache, req, res, mapping) {
       validated = true;
       self = this; //eslint-disable-line
 
-      validateRequest(mapping, req, res, resources).then(function () {
+      if (resources) {
+        batch = createBatch(resources, 'GET');
+      }
+
+      validateRequest(mapping, req, res, batch).then(function () {
         send.call(self, output);
       }).catch(function () {
         res.status(403).send({
@@ -207,10 +227,13 @@ exports = module.exports = function (mapping, config, pg) {
   return function (req, res, next) {
 
     function handleResponse(value) {
+
+      var i;
+
       if (req.method === 'GET') {
 
         if (value) {
-          validateRequest(mapping, req, res, value.resources).then(function () {
+          validateRequest(mapping, req, res, createBatch(value.resources, 'GET')).then(function () {
             for (header in value.headers) {
 
               if (value.headers.hasOwnProperty(header)) {
@@ -233,7 +256,47 @@ exports = module.exports = function (mapping, config, pg) {
           store(req.originalUrl, cacheStore, req, res, mapping);
           next();
         }
-      } else if (req.method === 'PUT' || req.method === 'DELETE') {
+      } else if (req.method === 'PUT') {
+
+        // is it a batch?
+        if (req.path === 'batch') {
+
+          validateRequest(mapping, req, res, req.body).then(function () {
+            if (cache) {
+              for (i = 0; i < req.body.length; i++) {
+                cacheStore.resources.del(req.body[i].href);
+              }
+
+              // TODO do this more efficiently? (only delete the entries where this resource is present)
+              cacheStore.list.flushAll();
+            }
+            next();
+          }).catch(function () {
+            res.status(403).send({
+              type: 'access.denied',
+              status: 403,
+              body: 'Forbidden'
+            });
+          });
+
+        } else {
+          validateRequest(mapping, req, res).then(function () {
+            if (cache) {
+              cacheStore.resources.del(req.originalUrl);
+              // TODO do this more efficiently? (only delete the entries where this resource is present)
+              cacheStore.list.flushAll();
+            }
+            next();
+          }).catch(function () {
+            res.status(403).send({
+              type: 'access.denied',
+              status: 403,
+              body: 'Forbidden'
+            });
+          });
+        }
+
+      } else if (req.method === 'DELETE') {
         validateRequest(mapping, req, res).then(function () {
           if (cache) {
             cacheStore.resources.del(req.originalUrl);
@@ -253,7 +316,7 @@ exports = module.exports = function (mapping, config, pg) {
       }
     }
 
-    if (cache) {
+    if (cache && req.method === 'GET') {
       Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl)]).done(
         function (results) {
           if (results[0].state === 'rejected' || results[1].state === 'rejected') {
