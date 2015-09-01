@@ -1045,23 +1045,34 @@ function handleBatchOperations(responseHandlers) {
   'use strict';
 
   return function (req, res, next) {
-    var batch = req.body;
+    var batch = req.body.slice();
     batch.reverse();
+    var i;
+    var batches = [];
+    var url;
+    var type;
+
+    // split batch into different response handlers (per resource)
+    for (i = 0; i < batch.length; i++) {
+      url = batch[i].href;
+      type = '/' + url.split('/')[1];
+      batches.push({
+        type: type,
+        batch: batch[i]
+      });
+    }
 
     function nextElement() {
-      var element, url;
-      var type;
+      var element;
       var elementReq;
-      if (batch.length > 0) {
-        element = batch.pop();
-        url = element.href;
-        type = '/' + url.split('/')[1];
+
+      if (batches.length > 0) {
+        element = batches.pop();
+        type = element.type;
         elementReq = {
-          method: element.verb,
-          params: {
-            key: url.split('/')[2]
-          },
-          originalUrl: url,
+          method: 'PUT',
+          path: 'batch',
+          body: element.batch,
           user: req.user
         };
         responseHandlers[type](elementReq, res, nextElement);
@@ -1070,7 +1081,7 @@ function handleBatchOperations(responseHandlers) {
       }
     }
 
-    return nextElement(batch);
+    return nextElement();
   };
 
 }

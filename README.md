@@ -293,7 +293,7 @@ A `secure` function receives these parameters :
 - `response` is the Express.js [response][express-response] object for this operation.
 - `database` is a database object (see above) that you can use for querying the database.
 - `me` is the security context of the user performing the current HTTP operation. This is the result of the `identity` function.
-- `resources` an array of the resources' href that will be returned (so that the function can decide depending on the returned resources)
+- `batch` an array of the operations requested. Each element has attributes `href` and `verb`.
 
 The function must return a [Q promise][kriskowal-q].
 It should `resolve()` the promise if the function allows the HTTP operation.
@@ -775,7 +775,7 @@ A list resource `/content?creator=/persons/{guid}` can be created by adding this
 Do a query to retrieve all content, created by person X :
 
     GET /content?creator=/persons/{guid-X}
-    
+
 The value being passed in as a URL parameter can be a single href, or a comma-separated list of hrefs. The filter will match on any of the given permalinks.
 
 #### filterILike(columnname)
