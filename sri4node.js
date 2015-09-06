@@ -977,7 +977,7 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
 
   return function (req, res) {
 
-    Q.all([pgConnect(postgres, configuration, config.getme(req))]).done(
+    Q.all([pgConnect(postgres, configuration), config.getme(req)]).done(
       function (results) {
         customRouteHandler(req, res, results[0], results[1]);
         results[0].done();
