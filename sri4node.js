@@ -15,7 +15,7 @@ var Q = require('q');
 
 // Utility function.
 var common = require('./js/common.js');
-var responseHandler = require('./js/responseHandler');
+var secureCache = require('./js/secureCache');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -1094,10 +1094,10 @@ exports = module.exports = {
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
-    var responseHandlerFn;
+    var secureCacheFn;
     var customroute;
     var i;
-    var responseHandlers = [];
+    var secureCacheFns = [];
     var msg;
 
     configuration = config;
@@ -1150,22 +1150,22 @@ exports = module.exports = {
       // register list resource for this type.
       url = mapping.type;
 
-      responseHandlerFn = responseHandler(mapping, configuration, postgres);
-      responseHandlers[url] = responseHandlerFn;
+      secureCacheFn = secureCache(mapping, configuration, postgres);
+      secureCacheFns[url] = secureCacheFn;
 
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, config.authenticate, responseHandlerFn,
+      app.get(url, logRequests, config.authenticate, secureCacheFn,
         compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, config.authenticate, responseHandlerFn, compression(),
+        .get(logRequests, config.authenticate, secureCacheFn, compression(),
           getRegularResource(executeExpansion))
-        .put(logRequests, config.authenticate, responseHandlerFn, createOrUpdate)
-        .delete(logRequests, config.authenticate, responseHandlerFn, deleteResource); // app.delete
+        .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
+        .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
 
       // register custom routes (if any)
 
@@ -1174,7 +1174,7 @@ exports = module.exports = {
           customroute = mapping.customroutes[i];
           if (customroute.route && customroute.handler) {
             app.get(customroute.route, logRequests, config.authenticate,
-              responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
+              secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
           }
         }
       }
@@ -1182,7 +1182,7 @@ exports = module.exports = {
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, config.authenticate, handleBatchOperations(responseHandlers), batchOperation);
+    app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
 
     url = '/me';
     app.get(url, logRequests, config.authenticate, function (req, resp) {
