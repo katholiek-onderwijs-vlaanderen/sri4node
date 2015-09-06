@@ -235,10 +235,6 @@ function getSchemaValidationErrors(json, schema) {
   }
 }
 
-// Security cache; stores a map 'e-mail' -> 'password'
-// To avoid a database query for all API calls.
-var knownPasswords = {};
-
 // Force https in production.
 function forceSecureSockets(req, res, next) {
   'use strict';
@@ -284,7 +280,7 @@ function checkBasicAuthentication(authenticator) {
         if (username && password && username.length > 0 && password.length > 0) {
           pgConnect(postgres, configuration).then(function (db) {
             database = db;
-            return authenticator(database, knownPasswords, username, password).then(function (result) {
+            return authenticator(database, username, password).then(function (result) {
               if (result) {
                 next();
               } else {
@@ -1220,12 +1216,6 @@ exports = module.exports = {
   },
 
   utils: {
-    // Call this is you want to clear the password and identity cache for the API.
-    clearPasswordCache: function () {
-      'use strict';
-      knownPasswords = {};
-    },
-
     // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
     executeSQL: pgExec,
     prepareSQL: queryobject.prepareSQL,

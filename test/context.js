@@ -18,6 +18,7 @@ var $u;
 var configCache = null;
 // Local cache of known identities.
 var knownIdentities = {};
+var knownPasswords = {};
 
 exports = module.exports = {
   serve: function (roa, port, logsql, logrequests, logdebug) {
@@ -60,7 +61,7 @@ exports = module.exports = {
      the correctness of the username/password combination.
      It should reject it's promise with a standard SRI error object if anything goes wrong.
      */
-    var testAuthenticator = function (db, knownPasswords, username, password) {
+    var testAuthenticator = function (db, username, password) {
       var deferred = Q.defer();
       var q;
 

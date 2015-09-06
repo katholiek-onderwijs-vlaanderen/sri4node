@@ -421,10 +421,6 @@ reading the source for one of these functions should contain no surprises.
 ### General Utilities
 The utilities are found in `sri4node.utils`.
 
-#### clearPasswordCache
-Used for clearing the security cache. Call when updating anything where the security context of a user depends on.
-To avoid retrieving the security context of all users on every request, `sri4node` keeps a cache of all security contexts of all users identities used to call the API.
-
 #### prepareSQL()
 Used for preparing SQL. Supply a `name` to keep the query in the database as a prepared statement.
 It returns a query object with these functions :
@@ -466,7 +462,6 @@ It accepts a single parameter, that is in turn a function that is responsible fo
 The function `authenticator`, receives these parameters :
 
 - `database` is a database connection, that may be used to perform queries.
-- `knownPasswords` is an associative array that maps username to password. It should be used to avoid hitting the database as much as possible.
 - `username` the username, that sent on the HTTP `Authentication` header.
 - `password` the password, that was sent on the HTTP `Authentication` header.
 
