@@ -51,29 +51,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             logdebug: false,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            // A function to determine the security context.
-            // The return value of this function
-            // is passed into 'secure' functions (see below).
-            // It is also returned as when "GET /me" is performed by clients.
-            identity : function(username, database) {
-                var deferred = Q.defer();
-
-                var query = $u.prepareSQL("me");
-                query.sql('select * from persons where login = ').param(username);
-                $u.executeSQL(database, query).then(function (result) {
-                    var row = result.rows[0];
-                    var output = {};
-                    output.$$meta = {};
-                    output.$$meta.permalink = '/persons/' + row.key;
-                    output.firstname = row.firstname;
-                    output.lastname = row.lastname;
-                    output.email = row.email;
-                    ...
-                    promise.resolve(output);
-                });
-
-                return deferred.promise;
-            },
+            checkauthentication: $u.basicAuthentication(myAuthenticator),
+            getme : functionToConstructSecurityContext,
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres
@@ -86,7 +65,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     getme:
                     // Multiple function that check access control
                     // They receive a database object and the security context
-                    // as determined by the 'identity' function above.
+                    // as determined by the 'getme' function above.
                     secure : [
                         checkAccessOnResource,
                         checkSomeMoreRules
@@ -294,7 +273,7 @@ A `secure` function receives these parameters :
 - `request` is the Express.js [request][express-request] object for this operation.
 - `response` is the Express.js [response][express-response] object for this operation.
 - `database` is a database object (see above) that you can use for querying the database.
-- `me` is the security context of the user performing the current HTTP operation. This is the result of the `identity` function.
+- `me` is the security context of the user performing the current HTTP operation. This is the result of the `getme` function.
 - `batch` an array of the operations requested. Each element has attributes `href` and `verb`.
 
 The function must return a [Q promise][kriskowal-q].
@@ -385,7 +364,7 @@ If any of the functions rejects its promise the client receives 409 Conflict, an
 
 ### checkauthentication
 
-On every resource that is not public, you should register as `checkauthentication` a function that handles authentication of the current user.
+This function handles authentication of the current user.
 This function receives these parameters :
 
 - `req` the express.js request object.
@@ -394,7 +373,14 @@ This function receives these parameters :
 
 ### getme
 
-On every resource that is not public, you should register a
+This function determines the /me resource. The same information is also passed into `query` functions as an argument.
+It receives these parameter :
+
+- `req` the express.js request object, allowing you to analyze any headers on the request.
+- `database` a database obejct, allowing you to perform queries.
+
+The function must return a [Q promise][kriskowal-q], with the `me` object. 
+This will be returned in the body of a request to /me, and it will also be passed into your `secure` functions. 
 
 ## Caching
 
@@ -423,23 +409,6 @@ cache: {
 }
 
 If type is redis the URL to a Redis server must be provided.
-
-## identity
-
-A function to construct the `/me` resource (and the security context of `secure` functions, which are identical) must be registered in your configuration :
-
-    config.identity = function(username,database) {
-        // Use the database connection and username.
-        // return a promise that resolves to the desired JSON for /me (and the 'secure' functions)
-    }
-
-The function receives these parameters :
-
-- `username` is the user's login.
-- `database` is a database object, allowing you to execute extra SQL statements.
-
-The function must return a [Q promise][kriskowal-q].
-The format of the object when the function resolves its promise, is up to the user to determine.
 
 ## Bundled Utility Functions
 
