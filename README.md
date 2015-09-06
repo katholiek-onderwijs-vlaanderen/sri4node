@@ -51,8 +51,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             logdebug: false,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            checkauthentication: $u.basicAuthentication(myAuthenticator),
-            getme : functionToConstructSecurityContext,
+            authenticate: $u.basicAuthentication(myAuthenticator),
+            identify : functionToConstructSecurityContext,
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres
@@ -61,11 +61,9 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
-                    checkauthentication: $u.basicAuthentication(myAuthenticator),
-                    getme:
                     // Multiple function that check access control
                     // They receive a database object and the security context
-                    // as determined by the 'getme' function above.
+                    // as determined by the 'identify' function above.
                     secure : [
                         checkAccessOnResource,
                         checkSomeMoreRules
@@ -273,7 +271,7 @@ A `secure` function receives these parameters :
 - `request` is the Express.js [request][express-request] object for this operation.
 - `response` is the Express.js [response][express-response] object for this operation.
 - `database` is a database object (see above) that you can use for querying the database.
-- `me` is the security context of the user performing the current HTTP operation. This is the result of the `getme` function.
+- `me` is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
 - `batch` an array of the operations requested. Each element has attributes `href` and `verb`.
 
 The function must return a [Q promise][kriskowal-q].
@@ -362,7 +360,7 @@ In case the returned promise is rejected, the database transaction (including th
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
-### checkauthentication
+### authenticate
 
 This function handles authentication of the current user.
 This function receives these parameters :
@@ -371,7 +369,7 @@ This function receives these parameters :
 - `res` the express.js response object.
 - `next` a function that can be called to delegate response handling to the next handler in the chain.
 
-### getme
+### identify
 
 This function determines the /me resource. The same information is also passed into `query` functions as an argument.
 It receives these parameter :
@@ -457,7 +455,7 @@ Specify the foreign key column (in the table of those referencing resource) via 
 Specify the desired key (should be `$$somekey`, as it is not actually a part of the resource, but provided for convenience) to add to the currently retrieved resource(s) via `targetkey`.
 
 #### basicAuthentication(authenticator)
-Used for protecting a resource with BASIC authentication. It can be configured in a resource's `checkauthentication` option.
+Used for protecting a resource with BASIC authentication.
 It accepts a single parameter, that is in turn a function that is responsible for checking username/password.
 The function `authenticator`, receives these parameters :
 

@@ -26,7 +26,7 @@ function validateRequest(config, mapping, req, res, batch) {
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
-      return config.getme(req,database);
+      return config.identify(req,database);
     }).then(function (me) {
       promises = [];
       mapping.secure.forEach(function (f) {

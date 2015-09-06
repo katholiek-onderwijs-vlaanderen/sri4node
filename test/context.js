@@ -146,8 +146,8 @@ exports = module.exports = {
       logrequests: logrequests,
       logdebug: logdebug,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
-      checkauthentication: $u.basicAuthentication(testAuthenticator),
-      getme: getMe,
+      authenticate: $u.basicAuthentication(testAuthenticator),
+      identify: getMe,
       resources: [
         require('./context/persons.js')(roa, logdebug, commonResourceConfig),
         require('./context/messages.js')(roa, logdebug, commonResourceConfig),

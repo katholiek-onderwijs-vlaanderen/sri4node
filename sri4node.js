@@ -977,7 +977,7 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
 
   return function (req, res) {
 
-    Q.all([pgConnect(postgres, configuration, config.getme(req))]).done(
+    Q.all([pgConnect(postgres, configuration, config.identify(req))]).done(
       function (results) {
         customRouteHandler(req, res, results[0], results[1]);
         results[0].done();
@@ -1127,14 +1127,13 @@ exports = module.exports = {
       }
     });
 
-    // when no custom checkauthentication and getme defined, use the default ones
-    if (!config.checkauthentication) {
-      msg = 'No checkauthentication function installed !';
+    if (!config.authenticate) {
+      msg = 'No authenticate function installed !';
       cl(msg);
       throw new Error(msg);
     }
-    if (!config.getme) {
-      msg = 'No getme function installed !';
+    if (!config.identify) {
+      msg = 'No identify function installed !';
       cl(msg);
       throw new Error(msg);
     }
@@ -1157,16 +1156,16 @@ exports = module.exports = {
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, config.checkauthentication, responseHandlerFn,
+      app.get(url, logRequests, config.authenticate, responseHandlerFn,
         compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, config.checkauthentication, responseHandlerFn, compression(),
+        .get(logRequests, config.authenticate, responseHandlerFn, compression(),
           getRegularResource(executeExpansion))
-        .put(logRequests, config.checkauthentication, responseHandlerFn, createOrUpdate)
-        .delete(logRequests, config.checkauthentication, responseHandlerFn, deleteResource); // app.delete
+        .put(logRequests, config.authenticate, responseHandlerFn, createOrUpdate)
+        .delete(logRequests, config.authenticate, responseHandlerFn, deleteResource); // app.delete
 
       // register custom routes (if any)
 
@@ -1174,7 +1173,7 @@ exports = module.exports = {
         for (i = 0; i < mapping.customroutes.length; i++) {
           customroute = mapping.customroutes[i];
           if (customroute.route && customroute.handler) {
-            app.get(customroute.route, logRequests, config.checkauthentication,
+            app.get(customroute.route, logRequests, config.authenticate,
               responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
           }
         }
@@ -1183,15 +1182,15 @@ exports = module.exports = {
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, config.checkauthentication, handleBatchOperations(responseHandlers), batchOperation);
+    app.put(url, logRequests, config.authenticate, handleBatchOperations(responseHandlers), batchOperation);
 
     url = '/me';
-    app.get(url, logRequests, config.checkauthentication, function (req, resp) {
+    app.get(url, logRequests, config.authenticate, function (req, resp) {
       var database;
       pgConnect(postgres, configuration).then(function (db) {
         database = db;
       }).then(function () {
-        return config.getme(req, database);
+        return config.identify(req, database);
       }).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);
