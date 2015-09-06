@@ -250,59 +250,45 @@ function forceSecureSockets(req, res, next) {
   next();
 }
 
-function checkBasicAuthentication(req, res, next) {
+function checkBasicAuthentication(authenticator) {
   'use strict';
-  var basic, encoded, decoded, firstColonIndex, email, password;
-  var typeToMapping, type, mapping;
-  var path = req.route.path;
-  var database;
+  return function (req, res, next) {
+    var basic, encoded, decoded, firstColonIndex, username, password;
+    var typeToMapping, type, mapping;
+    var path = req.route.path;
+    var database;
 
-  if (path !== '/me' && path !== '/batch') {
-    typeToMapping = typeToConfig(resources);
-    type = '/' + req.route.path.split('/')[1];
-    mapping = typeToMapping[type];
-    if (mapping.public) {
-      next();
-      return;
+    if (path !== '/me' && path !== '/batch') {
+      typeToMapping = typeToConfig(resources);
+      type = '/' + req.route.path.split('/')[1];
+      mapping = typeToMapping[type];
+      if (mapping.public) {
+        next();
+        return;
+      }
     }
-  }
 
-  var unauthorized = function () {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-    res.status(401).send('Unauthorized');
-  };
+    var unauthorized = function () {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+      res.status(401).send('Unauthorized');
+    };
 
-  if (req.headers.authorization) {
-    basic = req.headers.authorization;
-    encoded = basic.substr(6);
-    decoded = new Buffer(encoded, 'base64').toString('utf-8');
-    firstColonIndex = decoded.indexOf(':');
-    if (firstColonIndex !== -1) {
-      email = decoded.substr(0, firstColonIndex);
-      password = decoded.substr(firstColonIndex + 1);
-      if (email && password && email.length > 0 && password.length > 0) {
-        if (knownPasswords[email]) {
-          if (knownPasswords[email] === password) {
-            next();
-          } else {
-            debug('Invalid password');
-            unauthorized();
-          }
-        } else {
+    if (req.headers.authorization) {
+      basic = req.headers.authorization;
+      encoded = basic.substr(6);
+      decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      firstColonIndex = decoded.indexOf(':');
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        password = decoded.substr(firstColonIndex + 1);
+        if (username && password && username.length > 0 && password.length > 0) {
           pgConnect(postgres, configuration).then(function (db) {
             database = db;
-
-            var q = prepare('select-count-from-persons-where-email-and-password');
-            q.sql('select count(*) from persons where email = ').param(email).sql(' and password = ').param(password);
-
-            return pgExec(db, q, logsql, logdebug).then(function (result) {
-              var count = parseInt(result.rows[0].count, 10);
-              if (count === 1) {
-                // Found matching record, add to cache for subsequent requests.
-                knownPasswords[email] = password;
+            return authenticator(database, knownPasswords, username, password).then(function (result) {
+              if (result) {
                 next();
               } else {
-                debug('Wrong combination of email / password. Found ' + count + ' records.');
+                debug('Authentication failed, wrong password');
                 unauthorized();
               }
             });
@@ -315,18 +301,19 @@ function checkBasicAuthentication(req, res, next) {
             database.done(err);
             unauthorized();
           });
+        } else {
+          unauthorized();
         }
       } else {
         unauthorized();
       }
     } else {
+      debug('No authorization header received from client. Rejecting.');
       unauthorized();
     }
-  } else {
-    debug('No authorization header received from client. Rejecting.');
-    unauthorized();
-  }
+  };
 }
+
 
 // Apply CORS headers.
 // TODO : Change temporary URL into final deploy URL.
@@ -1152,6 +1139,7 @@ exports = module.exports = {
     var customroute;
     var i;
     var responseHandlers = [];
+    var msg;
 
     configuration = config;
     resources = config.resources;
@@ -1185,7 +1173,10 @@ exports = module.exports = {
 
       // when no custom checkauthentication and getme defined, use the default ones
       if (!mapping.checkauthentication) {
-        mapping.checkauthentication = checkBasicAuthentication;
+        msg = 'No Authentication function installed, please set [checkauthentication] ' +
+            'in your mapping [' + mapping.type + '] !';
+        cl(msg);
+        throw new Error(msg);
       }
       if (!mapping.getme) {
         mapping.getme = getMe;
@@ -1316,7 +1307,9 @@ exports = module.exports = {
 
         return deferred.promise;
       };
-    }
+    },
+
+    basicAuthentication: checkBasicAuthentication
   },
 
   queryUtils: require('./js/queryUtils.js'),

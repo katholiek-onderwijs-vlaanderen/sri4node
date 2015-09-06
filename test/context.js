@@ -7,6 +7,7 @@ context.serve();
 */
 
 // External includes
+var Q = require('q');
 var express = require('express');
 var bodyParser = require('body-parser');
 var pg = require('pg');
@@ -51,6 +52,44 @@ exports = module.exports = {
 
     $u = roa.utils;
 
+    /*
+     Authentication function should return a promise.
+     It should resolve it's promise with a single boolean value true/false if it can determine
+     the correctness of the username/password combination.
+     It should reject it's promise with a standard SRI error object if anything goes wrong.
+     */
+    var testAuthenticator = function (db, knownPasswords, username, password) {
+      var deferred = Q.defer();
+      var q;
+
+      if (knownPasswords[username]) {
+        if (knownPasswords[username] === password) {
+          deferred.resolve(true);
+        } else {
+          deferred.resolve(false);
+        }
+      } else {
+        q = $u.prepareSQL('select-count-from-persons-where-email-and-password');
+        q.sql('select count(*) from persons where email = ').param(username).sql(' and password = ').param(password);
+        $u.executeSQL(db, q).then(function (result) {
+          var count = parseInt(result.rows[0].count, 10);
+          if (count === 1) {
+            // Found matching record, add to cache for subsequent requests.
+            knownPasswords[username] = password;
+            deferred.resolve(true);
+          } else {
+            deferred.resolve(false);
+          }
+        });
+      }
+
+      return deferred.promise;
+    };
+
+    var commonResourceConfig = {
+      checkauthentication: $u.basicAuthentication(testAuthenticator)
+    };
+
     var config = {
       // For debugging SQL can be logged.
       logsql: logsql,
@@ -75,14 +114,14 @@ exports = module.exports = {
         });
       },
       resources: [
-        require('./context/persons.js')(roa, logdebug),
-        require('./context/messages.js')(roa, logdebug),
-        require('./context/communities.js')(roa, logdebug),
-        require('./context/transactions.js')(roa),
-        require('./context/table.js')(roa),
-        require('./context/selfreferential.js'),
-        require('./context/jsonb.js'),
-        require('./context/alldatatypes.js')(roa)
+        require('./context/persons.js')(roa, logdebug, commonResourceConfig),
+        require('./context/messages.js')(roa, logdebug, commonResourceConfig),
+        require('./context/communities.js')(roa, logdebug, commonResourceConfig),
+        require('./context/transactions.js')(roa, commonResourceConfig),
+        require('./context/table.js')(roa, commonResourceConfig),
+        require('./context/selfreferential.js')(commonResourceConfig),
+        require('./context/jsonb.js')(commonResourceConfig),
+        require('./context/alldatatypes.js')(roa, commonResourceConfig)
       ]
     };
 

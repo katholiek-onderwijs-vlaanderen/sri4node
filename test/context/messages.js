@@ -2,7 +2,7 @@ var Q = require('q');
 var common = require('../../js/common.js');
 var cl = common.cl;
 
-exports = module.exports = function (roa, logverbose) {
+exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
 
   function debug(x) {
@@ -139,5 +139,6 @@ exports = module.exports = function (roa, logverbose) {
     ]
   };
 
+  common.mergeObject(extra, ret);
   return ret;
 };

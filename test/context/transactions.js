@@ -1,6 +1,7 @@
 var Q = require('q');
+var common = require('../../js/common.js');
 
-exports = module.exports = function (roa) {
+exports = module.exports = function (roa, extra) {
   'use strict';
 
   var $m = roa.mapUtils;
@@ -72,5 +73,6 @@ exports = module.exports = function (roa) {
       ]
   };
 
+  common.mergeObject(extra, ret);
   return ret;
 };

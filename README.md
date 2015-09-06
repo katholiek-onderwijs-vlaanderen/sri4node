@@ -82,6 +82,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
+                    checkauthentication: $u.basicAuthentication(myAuthenticator),
+                    getme:
                     // Multiple function that check access control
                     // They receive a database object and the security context
                     // as determined by the 'identity' function above.
@@ -381,6 +383,17 @@ In case the returned promise is rejected, the database transaction (including th
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
+### checkauthentication
+
+On every resource that is not public, you should register as `checkauthentication` a function that handles authentication of the current user.
+This function receives these parameters :
+
+- `req` the express.js request object.
+- `res` the express.js response object.
+- `next` a function that can be called to delegate response handling to the next handler in the chain.
+
+
+
 ## Caching
 
 By default resources are not cached. By defining a `cache` section we can store results in a cache not to hit the database.
@@ -475,6 +488,19 @@ Afterread utility function. Adds, for convenience, an array of referencing resou
 It will add an array of references to resource of `type` to the currently retrieved resource.
 Specify the foreign key column (in the table of those referencing resource) via `foreignkey`.
 Specify the desired key (should be `$$somekey`, as it is not actually a part of the resource, but provided for convenience) to add to the currently retrieved resource(s) via `targetkey`.
+
+#### basicAuthentication(authenticator)
+Used for protecting a resource with BASIC authentication. It can be configured in a resource's `checkauthentication` option.
+It accepts a single parameter, that is in turn a function that is responsible for checking username/password.
+The function `authenticator`, receives these parameters :
+
+- `database` is a database connection, that may be used to perform queries.
+- `knownPasswords` is an associative array that maps username to password. It should be used to avoid hitting the database as much as possible.
+- `username` the username, that sent on the HTTP `Authentication` header.
+- `password` the password, that was sent on the HTTP `Authentication` header.
+
+The `authenticator` function should return a [Q promise][kriskowal-q] that is resolved with a boolean `true` or `false` to indicate that username and password match, or do not match.
+It should reject the promise in any other case.
 
 ### Mapping Utilities
 Provides various utilities for mapping between postgres and JSON.
