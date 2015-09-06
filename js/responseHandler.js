@@ -18,28 +18,33 @@ function responseIsList(response) {
 
 function validateRequest(mapping, req, res, batch) {
   'use strict';
+  cl('validateRequest');
   var promises;
   var deferred = Q.defer();
+  var database;
+
   if (!mapping.public && mapping.secure && mapping.secure.length > 0) {
+    pgConnect(postgres, configuration).then(function (db) {
+      database = db;
+    }).then(function () {
+      cl('calling getme');
+      return mapping.getme(req,database);
+    }).then(function (me) {
+      cl('me :');
+      cl(me);
+      promises = [];
+      mapping.secure.forEach(function (f) {
+        promises.push(f(req, res, database, me, batch));
+      });
 
-    Q.all([pgConnect(postgres, configuration), mapping.getme(req)]).done(
-      function (results) {
-
-        promises = [];
-        mapping.secure.forEach(function (f) {
-          promises.push(f(req, res, results[0], results[1], batch));
-        });
-
-        Q.all(promises).then(function () {
-          deferred.resolve();
-        }).catch(function () {
-          deferred.reject();
-        }).finally(function () {
-          results[0].done();
-        });
-      }
-    );
-
+      return Q.all(promises);
+    }).then(function () {
+      deferred.resolve();
+    }).catch(function () {
+      deferred.reject();
+    }).finally(function () {
+      database.done();
+    })
   } else {
     deferred.resolve();
   }
@@ -227,17 +232,13 @@ exports = module.exports = function (mapping, config, pg) {
   return function (req, res, next) {
 
     function handleResponse(value) {
-
       var i;
 
       if (req.method === 'GET') {
-
         if (value) {
           validateRequest(mapping, req, res, createBatch(value.resources, 'GET')).then(function () {
             for (header in value.headers) {
-
               if (value.headers.hasOwnProperty(header)) {
-
                 res.set(header, value.headers[header]);
               }
             }
@@ -250,17 +251,15 @@ exports = module.exports = function (mapping, config, pg) {
               body: 'Forbidden'
             });
           });
-
         } else {
           // register handler to process response when responding
           store(req.originalUrl, cacheStore, req, res, mapping);
           next();
         }
-      } else if (req.method === 'PUT') {
 
+      } else if (req.method === 'PUT') {
         // is it a batch?
         if (req.path === 'batch') {
-
           validateRequest(mapping, req, res, req.body).then(function () {
             if (cache) {
               for (i = 0; i < req.body.length; i++) {
@@ -278,7 +277,6 @@ exports = module.exports = function (mapping, config, pg) {
               body: 'Forbidden'
             });
           });
-
         } else {
           validateRequest(mapping, req, res).then(function () {
             if (cache) {
@@ -304,7 +302,7 @@ exports = module.exports = function (mapping, config, pg) {
             cacheStore.list.flushAll();
           }
           next();
-        }).catch(function () {
+        }).catch(function (error) {
           res.status(403).send({
             type: 'access.denied',
             status: 403,
@@ -328,7 +326,5 @@ exports = module.exports = function (mapping, config, pg) {
     } else {
       handleResponse();
     }
-
   };
-
 };

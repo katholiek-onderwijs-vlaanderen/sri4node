@@ -16,6 +16,8 @@ var cl = common.cl;
 
 var $u;
 var configCache = null;
+// Local cache of known identities.
+var knownIdentities = {};
 
 exports = module.exports = {
   serve: function (roa, port, logsql, logrequests, logdebug) {
@@ -86,8 +88,58 @@ exports = module.exports = {
       return deferred.promise;
     };
 
+    var identity = function (username, database) {
+      var query = $u.prepareSQL('me');
+      query.sql('select * from persons where email = ').param(username);
+      return $u.executeSQL(database, query).then(function (result) {
+        var row = result.rows[0];
+        var output = {};
+        output.$$meta = {};
+        output.$$meta.permalink = '/persons/' + row.key;
+        output.firstname = row.firstname;
+        output.lastname = row.lastname;
+        output.email = row.email;
+        output.community = {
+          href: '/communities/' + row.community
+        };
+        return output;
+      });
+    };
+
+    // Returns a JSON object with the identity of the current user.
+    var getMe = function(req, database) {
+      'use strict';
+      var deferred = Q.defer();
+      cl('getMe');
+
+      var basic = req.headers.authorization;
+      var encoded = basic.substr(6);
+      var decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      var firstColonIndex = decoded.indexOf(':');
+      var username;
+
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        if (knownIdentities[username]) {
+          deferred.resolve(knownIdentities[username]);
+        } else {
+          identity(username, database).then(function (me) {
+            knownIdentities[username] = me;
+            deferred.resolve(me);
+          }).fail(function (err) {
+            cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
+            cl(err);
+            deferred.reject(err);
+          });
+        }
+      }
+
+      return deferred.promise;
+    };
+
     var commonResourceConfig = {
-      checkauthentication: $u.basicAuthentication(testAuthenticator)
+      checkauthentication: $u.basicAuthentication(testAuthenticator),
+      getme: getMe
     };
 
     var config = {
@@ -96,23 +148,6 @@ exports = module.exports = {
       logrequests: logrequests,
       logdebug: logdebug,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
-      identity: function (username, database) {
-        var query = $u.prepareSQL('me');
-        query.sql('select * from persons where email = ').param(username);
-        return $u.executeSQL(database, query).then(function (result) {
-          var row = result.rows[0];
-          var output = {};
-          output.$$meta = {};
-          output.$$meta.permalink = '/persons/' + row.key;
-          output.firstname = row.firstname;
-          output.lastname = row.lastname;
-          output.email = row.email;
-          output.community = {
-            href: '/communities/' + row.community
-          };
-          return output;
-        });
-      },
       resources: [
         require('./context/persons.js')(roa, logdebug, commonResourceConfig),
         require('./context/messages.js')(roa, logdebug, commonResourceConfig),

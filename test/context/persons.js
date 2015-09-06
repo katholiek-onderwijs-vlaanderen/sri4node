@@ -55,6 +55,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       } else {
         key = url.split('/')[2];
         myCommunityKey = me.community.href.split('/')[2];
+        debug('community key = ' + myCommunityKey);
 
         query = $u.prepareSQL('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
@@ -68,6 +69,10 @@ exports = module.exports = function (roa, logverbose, extra) {
             cl('** security method restrictedReadPersons denies access.');
             deferred.reject();
           }
+        }).fail(function (error) {
+          debug('Unable to execute query for restrictedReadPersons :');
+          debug(error);
+          debug(error.stack);
         });
       } /* end handling regular resource request */
     } else {

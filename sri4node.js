@@ -531,43 +531,6 @@ function executePutInsideTransaction(db, url, body) {
   }
   /* eslint-enable */
 
-// Local cache of known identities.
-var knownIdentities = {};
-// Returns a JSON object with the identity of the current user.
-function getMe(req) {
-  'use strict';
-  var deferred = Q.defer();
-
-  var basic = req.headers.authorization;
-  var encoded = basic.substr(6);
-  var decoded = new Buffer(encoded, 'base64').toString('utf-8');
-  var firstColonIndex = decoded.indexOf(':');
-  var database, username;
-
-  if (firstColonIndex !== -1) {
-    username = decoded.substr(0, firstColonIndex);
-    if (knownIdentities[username]) {
-      deferred.resolve(knownIdentities[username]);
-    } else {
-      pgConnect(postgres, configuration).then(function (db) {
-        database = db;
-        return configuration.identity(username, db);
-      }).then(function (me) {
-        knownIdentities[username] = me;
-        database.done();
-        deferred.resolve(me);
-      }).fail(function (err) {
-        cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
-        cl(err);
-        database.done(err);
-        deferred.reject(err);
-      });
-    }
-  }
-
-  return deferred.promise;
-}
-
 function execBeforeQueryFunctions(mapping, db, req, resp) {
   'use strict';
   var deferred = Q.defer();
@@ -1173,13 +1136,14 @@ exports = module.exports = {
 
       // when no custom checkauthentication and getme defined, use the default ones
       if (!mapping.checkauthentication) {
-        msg = 'No Authentication function installed, please set [checkauthentication] ' +
-            'in your mapping [' + mapping.type + '] !';
+        msg = 'No checkauthentication function installed for resource [' + mapping.type + '] !';
         cl(msg);
         throw new Error(msg);
       }
       if (!mapping.getme) {
-        mapping.getme = getMe;
+        msg = 'No getme function installed for resource [' + mapping.type + '] !';
+        cl(msg);
+        throw new Error(msg);
       }
 
       // register schema for external usage. public.
@@ -1227,11 +1191,19 @@ exports = module.exports = {
 
     url = '/me';
     app.get(url, logRequests, mapping.checkauthentication, function (req, resp) {
-      mapping.getme(req).then(function (me) {
+      var database;
+      pgConnect(postgres, configuration).then(function (db) {
+        database = db;
+      }).then(function () {
+        return mapping.getme(req, database);
+      }).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);
+        resp.end();
+        database.done();
       }).fail(function (error) {
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        database.done(error);
       });
     });
 
@@ -1252,7 +1224,6 @@ exports = module.exports = {
     clearPasswordCache: function () {
       'use strict';
       knownPasswords = {};
-      knownIdentities = {};
     },
 
     // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
