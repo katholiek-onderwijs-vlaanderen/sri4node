@@ -110,7 +110,6 @@ exports = module.exports = {
     var getMe = function(req, database) {
       'use strict';
       var deferred = Q.defer();
-      cl('getMe');
 
       var basic = req.headers.authorization;
       var encoded = basic.substr(6);
@@ -138,8 +137,6 @@ exports = module.exports = {
     };
 
     var commonResourceConfig = {
-      checkauthentication: $u.basicAuthentication(testAuthenticator),
-      getme: getMe
     };
 
     var config = {
@@ -148,6 +145,8 @@ exports = module.exports = {
       logrequests: logrequests,
       logdebug: logdebug,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
+      checkauthentication: $u.basicAuthentication(testAuthenticator),
+      getme: getMe,
       resources: [
         require('./context/persons.js')(roa, logdebug, commonResourceConfig),
         require('./context/messages.js')(roa, logdebug, commonResourceConfig),

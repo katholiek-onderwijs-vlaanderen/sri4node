@@ -975,13 +975,13 @@ function deleteResource(req, resp) {
   });
 }
 
-function wrapCustomRouteHandler(customRouteHandler, mapping) {
+function wrapCustomRouteHandler(customRouteHandler, config) {
 
   'use strict';
 
   return function (req, res) {
 
-    Q.all([pgConnect(postgres, configuration, mapping.getme(req))]).done(
+    Q.all([pgConnect(postgres, configuration, config.getme(req))]).done(
       function (results) {
         customRouteHandler(req, res, results[0], results[1]);
         results[0].done();
@@ -1131,20 +1131,20 @@ exports = module.exports = {
       }
     });
 
+    // when no custom checkauthentication and getme defined, use the default ones
+    if (!config.checkauthentication) {
+      msg = 'No checkauthentication function installed !';
+      cl(msg);
+      throw new Error(msg);
+    }
+    if (!config.getme) {
+      msg = 'No getme function installed !';
+      cl(msg);
+      throw new Error(msg);
+    }
+
     for (configIndex = 0; configIndex < resources.length; configIndex++) {
       mapping = resources[configIndex];
-
-      // when no custom checkauthentication and getme defined, use the default ones
-      if (!mapping.checkauthentication) {
-        msg = 'No checkauthentication function installed for resource [' + mapping.type + '] !';
-        cl(msg);
-        throw new Error(msg);
-      }
-      if (!mapping.getme) {
-        msg = 'No getme function installed for resource [' + mapping.type + '] !';
-        cl(msg);
-        throw new Error(msg);
-      }
 
       // register schema for external usage. public.
       url = mapping.type + '/schema';
@@ -1161,16 +1161,16 @@ exports = module.exports = {
       // register list resource for this type.
       maxlimit = mapping.maxlimit || MAX_LIMIT;
       defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, mapping.checkauthentication, responseHandlerFn,
+      app.get(url, logRequests, config.checkauthentication, responseHandlerFn,
         compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
 
       // register single resource
       url = mapping.type + '/:key';
       app.route(url)
-        .get(logRequests, mapping.checkauthentication, responseHandlerFn, compression(),
+        .get(logRequests, config.checkauthentication, responseHandlerFn, compression(),
           getRegularResource(executeExpansion))
-        .put(logRequests, mapping.checkauthentication, responseHandlerFn, createOrUpdate)
-        .delete(logRequests, mapping.checkauthentication, responseHandlerFn, deleteResource); // app.delete
+        .put(logRequests, config.checkauthentication, responseHandlerFn, createOrUpdate)
+        .delete(logRequests, config.checkauthentication, responseHandlerFn, deleteResource); // app.delete
 
       // register custom routes (if any)
 
@@ -1178,8 +1178,8 @@ exports = module.exports = {
         for (i = 0; i < mapping.customroutes.length; i++) {
           customroute = mapping.customroutes[i];
           if (customroute.route && customroute.handler) {
-            app.get(customroute.route, logRequests, mapping.checkauthentication,
-              responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, mapping));
+            app.get(customroute.route, logRequests, config.checkauthentication,
+              responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
           }
         }
       }
@@ -1187,15 +1187,15 @@ exports = module.exports = {
     } // for all mappings.
 
     url = '/batch';
-    app.put(url, logRequests, mapping.checkauthentication, handleBatchOperations(responseHandlers), batchOperation);
+    app.put(url, logRequests, config.checkauthentication, handleBatchOperations(responseHandlers), batchOperation);
 
     url = '/me';
-    app.get(url, logRequests, mapping.checkauthentication, function (req, resp) {
+    app.get(url, logRequests, config.checkauthentication, function (req, resp) {
       var database;
       pgConnect(postgres, configuration).then(function (db) {
         database = db;
       }).then(function () {
-        return mapping.getme(req, database);
+        return config.getme(req, database);
       }).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);

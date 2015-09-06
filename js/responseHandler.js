@@ -16,9 +16,8 @@ function responseIsList(response) {
   return response.$$meta && response.$$meta.hasOwnProperty('count');
 }
 
-function validateRequest(mapping, req, res, batch) {
+function validateRequest(config, mapping, req, res, batch) {
   'use strict';
-  cl('validateRequest');
   var promises;
   var deferred = Q.defer();
   var database;
@@ -27,11 +26,8 @@ function validateRequest(mapping, req, res, batch) {
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
-      cl('calling getme');
-      return mapping.getme(req,database);
+      return config.getme(req,database);
     }).then(function (me) {
-      cl('me :');
-      cl(me);
       promises = [];
       mapping.secure.forEach(function (f) {
         promises.push(f(req, res, database, me, batch));
@@ -112,7 +108,7 @@ function createBatch(resources, verb) {
   return batch;
 }
 
-function store(url, cache, req, res, mapping) {
+function store(url, cache, req, res, config, mapping) {
   'use strict';
 
   var send = res.send; // hijack!
@@ -181,7 +177,7 @@ function store(url, cache, req, res, mapping) {
         batch = createBatch(resources, 'GET');
       }
 
-      validateRequest(mapping, req, res, batch).then(function () {
+      validateRequest(config, mapping, req, res, batch).then(function () {
         send.call(self, output);
       }).catch(function () {
         res.status(403).send({
@@ -236,7 +232,7 @@ exports = module.exports = function (mapping, config, pg) {
 
       if (req.method === 'GET') {
         if (value) {
-          validateRequest(mapping, req, res, createBatch(value.resources, 'GET')).then(function () {
+          validateRequest(config, mapping, req, res, createBatch(value.resources, 'GET')).then(function () {
             for (header in value.headers) {
               if (value.headers.hasOwnProperty(header)) {
                 res.set(header, value.headers[header]);
@@ -253,14 +249,14 @@ exports = module.exports = function (mapping, config, pg) {
           });
         } else {
           // register handler to process response when responding
-          store(req.originalUrl, cacheStore, req, res, mapping);
+          store(req.originalUrl, cacheStore, req, res, config, mapping);
           next();
         }
 
       } else if (req.method === 'PUT') {
         // is it a batch?
         if (req.path === 'batch') {
-          validateRequest(mapping, req, res, req.body).then(function () {
+          validateRequest(config, mapping, req, res, req.body).then(function () {
             if (cache) {
               for (i = 0; i < req.body.length; i++) {
                 cacheStore.resources.del(req.body[i].href);
@@ -278,7 +274,7 @@ exports = module.exports = function (mapping, config, pg) {
             });
           });
         } else {
-          validateRequest(mapping, req, res).then(function () {
+          validateRequest(config, mapping, req, res).then(function () {
             if (cache) {
               cacheStore.resources.del(req.originalUrl);
               // TODO do this more efficiently? (only delete the entries where this resource is present)
@@ -295,7 +291,7 @@ exports = module.exports = function (mapping, config, pg) {
         }
 
       } else if (req.method === 'DELETE') {
-        validateRequest(mapping, req, res).then(function () {
+        validateRequest(config, mapping, req, res).then(function () {
           if (cache) {
             cacheStore.resources.del(req.originalUrl);
             // TODO do this more efficiently? (only delete the entries where this resource is present)

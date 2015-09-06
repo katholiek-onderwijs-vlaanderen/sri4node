@@ -1,5 +1,5 @@
 /* Response handler (cache and validation) middleware */
-
+/*
 var DEFAULT_TTL = 120;
 
 var localCacheImpl = require('./cache/localCache');
@@ -19,13 +19,13 @@ function responseIsList(response) {
   return response.$$meta && response.$$meta.hasOwnProperty('count');
 }
 
-function validateRequest(mapping, req, res, resources) {
+function validateRequest(config, mapping, req, res, resources) {
   'use strict';
   var promises;
   var deferred = Q.defer();
   if (!mapping.public && mapping.secure && mapping.secure.length > 0) {
 
-    Q.all([pgConnect(postgres, configuration), mapping.getme(req)]).done(
+    Q.all([pgConnect(postgres, configuration), config.getme(req)]).done(
       function (results) {
 
         promises = [];
@@ -100,7 +100,7 @@ function getResources(response) {
   return results;
 }
 
-function store(url, cache, req, res, mapping) {
+function store(url, cache, req, res, mapping, config) {
   'use strict';
 
   var send = res.send; // hijack!
@@ -281,3 +281,4 @@ exports = module.exports = function (mapping, config, pg) {
   };
 
 };
+*/

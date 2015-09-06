@@ -392,7 +392,9 @@ This function receives these parameters :
 - `res` the express.js response object.
 - `next` a function that can be called to delegate response handling to the next handler in the chain.
 
+### getme
 
+On every resource that is not public, you should register a
 
 ## Caching
 
