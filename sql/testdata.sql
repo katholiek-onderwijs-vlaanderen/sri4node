@@ -84,3 +84,4 @@ insert into alldatatypes (key, id, textvarchar) values ('5ff7f6e2-0280-4a1c-b659
 insert into alldatatypes (key, id, textvarchar) values ('2778802a-524f-47f5-a1c0-4e685ae53cf3', 35, 'not a text varchar');
 insert into alldatatypes (key, id, textchar) values ('a419889a-314a-4b46-95c2-d860683a81c7', 36, 'char');
 insert into alldatatypes (key, id, textchar) values ('628f96ef-7bbd-4d85-903d-eb290a402261', 37, 'not a text char');
+insert into alldatatypes (key, id) values ('e7e49d48-010b-480d-9f90-cdcd802a3096', 38);

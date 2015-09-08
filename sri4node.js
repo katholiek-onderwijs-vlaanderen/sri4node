@@ -16,6 +16,7 @@ var Q = require('q');
 // Utility function.
 var common = require('./js/common.js');
 var secureCache = require('./js/secureCache');
+var informationSchema = require('./js/informationSchema.js');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -65,7 +66,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
   var deferred = Q.defer();
 
   var urlparameters = req.query;
-  var standardParameters = ['orderby', 'descending', 'limit', 'offset', 'expand', 'hrefs'];
+  var standardParameters = ['orderby', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   var key, ret;
 
@@ -98,6 +99,8 @@ function applyRequestParameters(mapping, req, select, database, count) {
           }
         } else if (key === 'hrefs') {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count));
+        } else if (key === 'modifiedSince') {
+          promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select));
         }
       }
     }
@@ -476,17 +479,10 @@ function executePutInsideTransaction(db, url, body) {
           executeOnFunctions(resources, mapping, 'onupdate', element);
 
           var update = prepare('update-' + table);
-          update.sql('update "' + table + '" set ');
-          var firstcolumn = true;
+          update.sql('update "' + table + '" set modified = current_timestamp ');
           for (var k in element) {
-            if (element.hasOwnProperty(k)) {
-              if (!firstcolumn) {
-                update.sql(',');
-              } else {
-                firstcolumn = false;
-              }
-
-              update.sql('\"' + k + '\"' + '=').param(element[k]);
+            if (k !== 'created' && k !== 'modified' && element.hasOwnProperty(k)) {
+              update.sql(',\"' + k + '\"' + '=').param(element[k]);
             }
           }
           update.sql(' where "key" = ').param(key);
@@ -1086,6 +1082,18 @@ function batchOperation(req, resp) {
     });
 }
 
+function checkRequiredFields(mapping, information) {
+  'use strict';
+  var mandatoryFields = ['key', 'created', 'modified', 'deleted'];
+  var i;
+  for (i = 0; i < mandatoryFields.length; i++) {
+    if (!information[mapping.type].hasOwnProperty(mandatoryFields[i])) {
+      throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
+    }
+  }
+
+}
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: function (app, pg, config) {
@@ -1099,6 +1107,8 @@ exports = module.exports = {
     var i;
     var secureCacheFns = [];
     var msg;
+    var database;
+    var d = Q.defer();
 
     configuration = config;
     resources = config.resources;
@@ -1138,55 +1148,11 @@ exports = module.exports = {
       throw new Error(msg);
     }
 
-    for (configIndex = 0; configIndex < resources.length; configIndex++) {
-      mapping = resources[configIndex];
-
-      // register schema for external usage. public.
-      url = mapping.type + '/schema';
-      app.use(url, logRequests);
-
-      app.get(url, getSchema);
-
-      // register list resource for this type.
-      url = mapping.type;
-
-      secureCacheFn = secureCache(mapping, configuration, postgres);
-      secureCacheFns[url] = secureCacheFn;
-
-      // register list resource for this type.
-      maxlimit = mapping.maxlimit || MAX_LIMIT;
-      defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, config.authenticate, secureCacheFn,
-        compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
-
-      // register single resource
-      url = mapping.type + '/:key';
-      app.route(url)
-        .get(logRequests, config.authenticate, secureCacheFn, compression(),
-          getRegularResource(executeExpansion))
-        .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
-        .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
-
-      // register custom routes (if any)
-
-      if (mapping.customroutes && mapping.customroutes instanceof Array) {
-        for (i = 0; i < mapping.customroutes.length; i++) {
-          customroute = mapping.customroutes[i];
-          if (customroute.route && customroute.handler) {
-            app.get(customroute.route, logRequests, config.authenticate,
-              secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
-          }
-        }
-      }
-
-    } // for all mappings.
-
     url = '/batch';
     app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
 
     url = '/me';
     app.get(url, logRequests, config.authenticate, function (req, resp) {
-      var database;
       pgConnect(postgres, configuration).then(function (db) {
         database = db;
       }).then(function () {
@@ -1212,6 +1178,69 @@ exports = module.exports = {
       }
       resp.end();
     });
+
+    pgConnect(postgres, configuration).then(function (db) {
+      database = db;
+      return informationSchema(database, configuration);
+    }).then(function (information) {
+      for (configIndex = 0; configIndex < resources.length; configIndex++) {
+        mapping = resources[configIndex];
+
+        try {
+          checkRequiredFields(mapping, information);
+
+          // register schema for external usage. public.
+          url = mapping.type + '/schema';
+          app.use(url, logRequests);
+
+          app.get(url, getSchema);
+
+          // register list resource for this type.
+          url = mapping.type;
+
+          secureCacheFn = secureCache(mapping, configuration, postgres);
+          secureCacheFns[url] = secureCacheFn;
+
+          // register list resource for this type.
+          maxlimit = mapping.maxlimit || MAX_LIMIT;
+          defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+          app.get(url, logRequests, config.authenticate, secureCacheFn,
+            compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
+
+          // register single resource
+          url = mapping.type + '/:key';
+          app.route(url)
+            .get(logRequests, config.authenticate, secureCacheFn, compression(),
+              getRegularResource(executeExpansion))
+            .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
+            .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+
+          // register custom routes (if any)
+
+          if (mapping.customroutes && mapping.customroutes instanceof Array) {
+            for (i = 0; i < mapping.customroutes.length; i++) {
+              customroute = mapping.customroutes[i];
+              if (customroute.route && customroute.handler) {
+                app.get(customroute.route, logRequests, config.authenticate,
+                  secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
+              }
+            }
+          }
+        } catch (e) {
+          cl(e);
+        }
+
+      } // for all mappings.
+      d.resolve();
+    })
+    .fail(function (error) {
+      d.reject(error);
+    })
+    .finally(function () {
+      database.done();
+    });
+
+    return d.promise;
   },
 
   utils: {
