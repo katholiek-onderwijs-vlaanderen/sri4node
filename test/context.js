@@ -39,7 +39,7 @@ exports = module.exports = {
 
   getConfiguration: function () {
     'use strict';
-    if (configCache == null) {
+    if (configCache === null) {
       throw new Error('please first configure the context');
     }
 
@@ -108,8 +108,7 @@ exports = module.exports = {
     };
 
     // Returns a JSON object with the identity of the current user.
-    var getMe = function(req, database) {
-      'use strict';
+    var getMe = function (req, database) {
       var deferred = Q.defer();
 
       var basic = req.headers.authorization;

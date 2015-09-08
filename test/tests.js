@@ -30,18 +30,3 @@ require('./defaultFilter/testDefaultFilterLessOrEqual.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterQ.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
 require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);
-
-/*
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
-var assert = require('assert');
-
-describe('/persons/{key} from different community', function () {
-    it('should be 403 Forbidden', function () {
-        return doGet(base + '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb',
-            'kevin@email.be', 'pwd').then(function (response) {
-                assert.equal(response.statusCode, 403);
-            });
-    });
-});
-*/
