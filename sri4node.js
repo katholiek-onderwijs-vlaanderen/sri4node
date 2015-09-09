@@ -899,7 +899,7 @@ function getRegularResource(executeExpansion) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
-      return queryByKey(resources, database, mapping, key, req.query['$$meta.deleted']);
+      return queryByKey(resources, database, mapping, key, req.query['$$meta.deleted'] === 'true');
     }).then(function (result) {
       element = result.object;
       element.$$meta = {
