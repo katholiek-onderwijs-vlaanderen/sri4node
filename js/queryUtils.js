@@ -129,7 +129,7 @@ exports = module.exports = {
   modifiedSince: function (value, select) {
     'use strict';
 
-    return select.sql(' AND modified >= ').param(value);
+    return select.sql(' AND "$$meta.modified" >= ').param(value);
 
   },
 

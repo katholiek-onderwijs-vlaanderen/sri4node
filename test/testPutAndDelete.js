@@ -125,7 +125,7 @@ exports = module.exports = function (base, logverbose) {
     });
 
     it('retrieving a deleted resource with deleted=true should return the resource', function () {
-      return doGet(base + '/communities/' + key + '?deleted=true', 'sabine@email.be', 'pwd').then(
+      return doGet(base + '/communities/' + key + '?$$meta.deleted=true', 'sabine@email.be', 'pwd').then(
         function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.email, key + '@email.com');
@@ -143,13 +143,36 @@ exports = module.exports = function (base, logverbose) {
       );
     });
 
-    it('listing a deleted resource with deleted=true should return it', function () {
-      return doGet(base + '/communities?deleted=true&email=' + key + '@email.com', 'sabine@email.be', 'pwd').then(
+    it('listing a deleted resource with deleted=true should return it only', function () {
+      return doGet(base + '/communities?$$meta.deleted=true&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
+      .then(
         function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.email, key + '@email.com');
           assert.equal(response.body.results[0].$$expanded.$$meta.deleted, true);
+        }
+      );
+    });
+
+    it('listing a deleted resource with deleted=any should return everything', function () {
+      return doGet(base + '/communities?$$meta.deleted=any&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
+      .then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.email, key + '@email.com');
+          assert.equal(response.body.results[0].$$expanded.$$meta.deleted, true);
+        }
+      );
+    });
+
+    it('listing a deleted resource with deleted=false should not return it', function () {
+      return doGet(base + '/communities?$$meta.deleted=false&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
+      .then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
         }
       );
     });

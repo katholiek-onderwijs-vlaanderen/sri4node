@@ -21,8 +21,6 @@ exports = module.exports = function (roa, extra) {
       type: 'object',
       properties: {
         id: $s.numeric('Identificator'),
-        created: $s.timestamp('Created'),
-        modified: $s.timestamp('Modified'),
         text: $s.string('A text field.'),
         textvarchar: $s.string('A text field.'),
         textchar: $s.string('A text field.'),
@@ -47,8 +45,6 @@ exports = module.exports = function (roa, extra) {
     validate: [],
     map: {
       id: {},
-      created: {},
-      modified: {onread: $m.removeifnull},
       text: {onread: $m.removeifnull},
       textvarchar: {onread: $m.removeifnull},
       textchar: {onread: $m.removeifnull},

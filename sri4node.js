@@ -177,14 +177,16 @@ function queryByKey(config, db, mapping, key, wantsDeleted) {
   }
 
   var query = prepare('select-row-by-key-from-' + table);
-  query.sql('select ' + columns + ', deleted from "' + table + '" where "key" = ').param(key);
+  var sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+  sql += table + '" where "key" = ';
+  query.sql(sql).param(key);
   return pgExec(db, query, logsql, logdebug).then(function (queryResult) {
     var queryDeferred = Q.defer();
 
     var rows = queryResult.rows;
     if (rows.length === 1) {
       row = queryResult.rows[0];
-      if (row.deleted && !wantsDeleted) {
+      if (row['$$meta.deleted'] && !wantsDeleted) {
         queryDeferred.reject({
           type: 'resource.gone',
           status: 410,
@@ -200,7 +202,11 @@ function queryByKey(config, db, mapping, key, wantsDeleted) {
         debug(output);
         queryDeferred.resolve({
           object: output,
-          deleted: row.deleted
+          $$meta: {
+            deleted: row['$$meta.deleted'],
+            created: row['$$meta.created'],
+            modified: row['$$meta.modified']
+          }
         });
       }
 
@@ -490,13 +496,13 @@ function executePutInsideTransaction(db, url, body) {
           executeOnFunctions(resources, mapping, 'onupdate', element);
 
           var update = prepare('update-' + table);
-          update.sql('update "' + table + '" set modified = current_timestamp ');
+          update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
           for (var k in element) {
-            if (k !== 'created' && k !== 'modified' && element.hasOwnProperty(k)) {
+            if (k !== '$$meta.created' && k !== '$$meta.modified' && element.hasOwnProperty(k)) {
               update.sql(',\"' + k + '\"' + '=').param(element[k]);
             }
           }
-          update.sql(' where deleted is not true and "key" = ').param(key);
+          update.sql(' where "$$meta.deleted" is not true and "key" = ').param(key);
 
           return pgExec(db, update, logsql, logdebug).then(function (results) {
             if (results.rowCount !== 1) {
@@ -656,10 +662,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      if (req.query.deleted === 'true') {
+      if (req.query['$$meta.deleted'] === 'true') {
         countquery.sql('select count(*) from "' + table + '" where 1=1 ');
       } else {
-        countquery.sql('select count(*) from "' + table + '" where deleted is not true ');
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is not true ');
       }
 
       debug('* applying URL parameters to WHERE clause');
@@ -670,10 +676,19 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      if (req.query.deleted === 'true') {
-        query.sql('select ' + columns + ', deleted from "' + table + '" where 1=1 ');
+      var sql;
+      if (req.query['$$meta.deleted'] === 'true') {
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where "$$meta.deleted" is true ';
+        query.sql(sql);
+      } else if (req.query['$$meta.deleted'] === 'any') {
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where 1=1 ';
+        query.sql(sql);
       } else {
-        query.sql('select ' + columns + ', deleted from "' + table + '" where deleted is not true ');
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where "$$meta.deleted" is not true ';
+        query.sql(sql);
       }
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, query, database, false);
@@ -700,7 +715,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
           cl('Can not order by [' + orderby + ']. One or more unknown properties. Ignoring orderby.');
         }
       } else {
-        query.sql(' order by created asc');
+        query.sql(' order by "$$meta.created" asc');
       }
 
       queryLimit = req.query.limit || defaultlimit;
@@ -770,9 +785,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
               permalink: mapping.type + '/' + currentrow.key
             }
           };
-          if (currentrow.deleted) {
+          if (currentrow['$$meta.deleted']) {
             element.$$expanded.$$meta.deleted = true;
           }
+          element.$$expanded.$$meta.created = currentrow['$$meta.created'];
+          element.$$expanded.$$meta.modified = currentrow['$$meta.modified'];
           mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
           executeOnFunctions(resources, mapping, 'onread', element.$$expanded);
           elements.push(element.$$expanded);
@@ -872,6 +889,7 @@ function getRegularResource(executeExpansion) {
     var database;
     var element;
     var elements;
+    var field;
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
@@ -879,14 +897,18 @@ function getRegularResource(executeExpansion) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
-      return queryByKey(resources, database, mapping, key, req.query.deleted);
+      return queryByKey(resources, database, mapping, key, req.query['$$meta.deleted']);
     }).then(function (result) {
       element = result.object;
       element.$$meta = {
         permalink: mapping.type + '/' + key
       };
-      if (result.deleted) {
-        element.$$meta.deleted = true;
+      if (result.$$meta) {
+        for (field in result.$$meta) {
+          if (result.$$meta.hasOwnProperty(field) && result.$$meta[field]) {
+            element.$$meta[field] = result.$$meta[field];
+          }
+        }
       }
       elements = [];
       elements.push(element);
@@ -966,7 +988,7 @@ function deleteResource(req, resp) {
     return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
     var deletequery = prepare('delete-by-key-' + table);
-    deletequery.sql('update ' + table + ' set "deleted" = true where "deleted" is not true and "key" = ')
+    deletequery.sql('update ' + table + ' set "$$meta.deleted" = true where "$$meta.deleted" is not true and "key" = ')
       .param(req.params.key);
     return pgExec(database, deletequery, logsql, logdebug);
   }).then(function (results) {
@@ -1114,7 +1136,7 @@ function batchOperation(req, resp) {
 
 function checkRequiredFields(mapping, information) {
   'use strict';
-  var mandatoryFields = ['key', 'created', 'modified', 'deleted'];
+  var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   var i;
   for (i = 0; i < mandatoryFields.length; i++) {
     if (!information[mapping.type].hasOwnProperty(mandatoryFields[i])) {

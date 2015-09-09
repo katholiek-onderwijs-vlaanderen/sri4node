@@ -155,6 +155,18 @@ Now we can start Express.js to start serving up our SRI REST interface :
         console.log("Node app is running at localhost:" + app.get('port'))
     });
 
+## Reserved and required fields (mandatory)
+
+There are 3 columns that every resource table must have (it's mandatory).
+
+Those are:
+
+* "$$meta.deleted" boolean,
+* "$$meta.modified" timestamp with time zone not null default current_timestamp,
+* "$$meta.created" timestamp with time zone not null default current_timestamp
+
+The application will fail to register a resource that lacks these fields (and show a message to the user)
+
 ## Processing Pipeline
 
 sri4node has a very simple processing pipeline for mapping SRI resources onto a database.
@@ -166,8 +178,6 @@ We explain the possible HTTP operations below :
 
 In essence we map 1 *regular* resource to a database row.
 A *list* resource corresponds to a query on a database table.
-
-There are 3 reserved words for database columns which are used internally: 'created', 'modified' and 'deleted'. These columns must be present, otherwise an error will be shown indicating that the mapping can't be done.
 
 Expansion on list resource can be specified as `expand=results.href`, this will include all *regular* resources in your *list* resource.
 A shorthand version of this is `expand=full`.

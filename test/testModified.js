@@ -13,7 +13,7 @@ exports = module.exports = function (base) {
       return doGet(base + '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096').then(function (response) {
         assert.equal(response.statusCode, 200);
         assert.equal(response.body.id, 38);
-        assert(response.body.created);
+        assert(response.body.$$meta.created);
       });
     });
 
@@ -24,7 +24,7 @@ exports = module.exports = function (base) {
       return doGet(base + '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096').then(function (response) {
         assert.equal(response.statusCode, 200);
         assert.equal(response.body.id, 38);
-        currentModified = new Date(response.body.modified).getTime();
+        currentModified = new Date(response.body.$$meta.modified).getTime();
         return response.body;
       }).then(function (current) {
         return doPut(base + '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', current)
@@ -37,19 +37,19 @@ exports = module.exports = function (base) {
             function (response) {
               assert.equal(response.statusCode, 200);
               assert.equal(response.body.id, 38);
-              newModified = new Date(response.body.modified).getTime();
+              newModified = new Date(response.body.$$meta.modified).getTime();
               assert(newModified > currentModified);
             }
           );
       });
     });
 
-    it('it should support modifiedSince as a filter', function () {
+    it('it should support modifiedSince as a filter (backward compatibility)', function () {
 
       return doGet(base + '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096').then(function (response) {
         assert.equal(response.statusCode, 200);
         assert.equal(response.body.id, 38);
-        return response.body.modified;
+        return response.body.$$meta.modified;
       }).then(
         function (currentModified) {
           return doGet(base + '/alldatatypes?modifiedSince=' + currentModified);
