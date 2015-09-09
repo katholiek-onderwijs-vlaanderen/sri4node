@@ -149,7 +149,7 @@ var errorAsCode = function (s) {
   return ret;
 };
 
-function queryByKey(config, db, mapping, key) {
+function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
@@ -177,22 +177,33 @@ function queryByKey(config, db, mapping, key) {
   }
 
   var query = prepare('select-row-by-key-from-' + table);
-  query.sql('select ' + columns + ' from "' + table + '" where "key" = ').param(key);
+  query.sql('select ' + columns + ', deleted from "' + table + '" where "key" = ').param(key);
   return pgExec(db, query, logsql, logdebug).then(function (queryResult) {
     var queryDeferred = Q.defer();
 
     var rows = queryResult.rows;
     if (rows.length === 1) {
       row = queryResult.rows[0];
+      if (row.deleted && !wantsDeleted) {
+        queryDeferred.reject({
+          type: 'resource.gone',
+          status: 410,
+          body: 'Resource is gone'
+        });
+      } else {
+        output = {};
+        debug('** mapping columns to JSON object');
+        mapColumnsToObject(config, mapping, row, output);
+        debug('** executing onread functions');
+        executeOnFunctions(config, mapping, 'onread', output);
+        debug('** queryResult of queryByKey() : ');
+        debug(output);
+        queryDeferred.resolve({
+          object: output,
+          deleted: row.deleted
+        });
+      }
 
-      output = {};
-      debug('** mapping columns to JSON object');
-      mapColumnsToObject(config, mapping, row, output);
-      debug('** executing onread functions');
-      executeOnFunctions(config, mapping, 'onread', output);
-      debug('** queryResult of queryByKey() : ');
-      debug(output);
-      queryDeferred.resolve(output);
     } else if (rows.length === 0) {
       queryDeferred.reject({
         type: 'not.found',
@@ -485,14 +496,12 @@ function executePutInsideTransaction(db, url, body) {
               update.sql(',\"' + k + '\"' + '=').param(element[k]);
             }
           }
-          update.sql(' where "key" = ').param(key);
+          update.sql(' where deleted is not true and "key" = ').param(key);
 
           return pgExec(db, update, logsql, logdebug).then(function (results) {
-            if (results.rowCount != 1) {
-              debug('No row affected ?!');
-              var deferred = Q.defer();
-              deferred.reject('No row affected.');
-              return deferred.promise();
+            if (results.rowCount !== 1) {
+              debug('No row affected - resource is gone');
+              throw 'resource.gone';
             } else {
               return postProcess(mapping.afterupdate, db, body);
             }
@@ -647,7 +656,12 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+      if (req.query.deleted === 'true') {
+        countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+      } else {
+        countquery.sql('select count(*) from "' + table + '" where deleted is not true ');
+      }
+
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, countquery, database, true);
     }).then(function () {
@@ -656,7 +670,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
+      if (req.query.deleted === 'true') {
+        query.sql('select ' + columns + ', deleted from "' + table + '" where 1=1 ');
+      } else {
+        query.sql('select ' + columns + ', deleted from "' + table + '" where deleted is not true ');
+      }
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, query, database, false);
     }).then(function () {
@@ -750,6 +768,9 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
               permalink: mapping.type + '/' + currentrow.key
             }
           };
+          if (currentrow.deleted) {
+            element.$$expanded.$$meta.deleted = true;
+          }
           mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
           executeOnFunctions(resources, mapping, 'onread', element.$$expanded);
           elements.push(element.$$expanded);
@@ -856,12 +877,15 @@ function getRegularResource(executeExpansion) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
-      return queryByKey(resources, database, mapping, key);
+      return queryByKey(resources, database, mapping, key, req.query.deleted);
     }).then(function (result) {
-      element = result;
+      element = result.object;
       element.$$meta = {
         permalink: mapping.type + '/' + key
       };
+      if (result.deleted) {
+        element.$$meta.deleted = true;
+      }
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
@@ -913,7 +937,11 @@ function createOrUpdate(req, resp) {
         // If err is defined, client will be removed from pool.
         db.done(rollbackerr);
         cl('ROLLBACK DONE.');
-        resp.status(409).send(puterr);
+        if (puterr === 'resource.gone') {
+          resp.status(410).send();
+        } else {
+          resp.status(409).send(puterr);
+        }
       });
     });
   }); // pgConnect
@@ -926,7 +954,7 @@ function deleteResource(req, resp) {
   var type = '/' + req.route.path.split('/')[1];
   var mapping = typeToMapping[type];
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
-  var deferred;
+
   var database;
 
   pgConnect(postgres, configuration).then(function (db) {
@@ -936,14 +964,13 @@ function deleteResource(req, resp) {
     return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
     var deletequery = prepare('delete-by-key-' + table);
-    deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
+    deletequery.sql('update ' + table + ' set "deleted" = true where "deleted" is not true and "key" = ')
+      .param(req.params.key);
     return pgExec(database, deletequery, logsql, logdebug);
   }).then(function (results) {
-    if (results.rowCount !== 1) {
-      debug('No row affected ?!');
-      deferred = Q.defer();
-      deferred.reject('No row affected.');
-      return deferred.promise();
+    if (results.rowCount === 0) {
+      debug('No row affected - the resource is already gone');
+      resp.status(410);
     } else { // eslint-disable-line
       return postProcess(mapping.afterdelete, database, req.route.path);
     }
@@ -1051,7 +1078,8 @@ function batchOperation(req, resp) {
           body = element.body;
           verb = element.verb;
           if (verb === 'PUT') {
-            return executePutInsideTransaction(database, url, body).then(function () {
+            // we continue regardless of an individual error
+            return executePutInsideTransaction(database, url, body).finally(function () {
               return recurse();
             });
           } else { // eslint-disable-line

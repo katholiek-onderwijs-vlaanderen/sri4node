@@ -185,7 +185,8 @@ exports = module.exports = function (roa, logverbose, extra) {
       invalidQueryParameter: invalidQueryParameter,
       parameterWithExtraQuery: parameterWithExtraQuery,
       parameterWithExtraQuery2: parameterWithExtraQuery2,
-      hrefs: $q.filterHrefs
+      hrefs: $q.filterHrefs,
+      defaultFilter: $q.defaultFilter
     },
     afterread: [
       // Add the result of a select query to the outgoing resource

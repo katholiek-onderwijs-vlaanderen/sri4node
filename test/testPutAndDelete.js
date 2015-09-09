@@ -82,26 +82,78 @@ exports = module.exports = function (base, logverbose) {
 
 
   describe('DELETE regular resource', function () {
+
     var key = uuid.v4();
-    describe('remove newly created resource', function () {
-      it('should be possible to delete a newly created resource', function () {
-        var body = generateRandomCommunity(key);
-        return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          return doGet(base + '/communities/' + key, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.email, key + '@email.com');
-          return doDelete(base + '/communities/' + key, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          assert.equal(response.statusCode, 200);
-          return doGet(base + '/communities/' + key, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          // After delete the response should be 404.
-          assert.equal(response.statusCode, 404);
-        });
+    var body = generateRandomCommunity(key);
+
+    before(function (done) {
+      doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function () {
+        done();
       });
     });
+
+    it('should be possible to delete a newly created resource', function () {
+      return doDelete(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+        }
+      );
+    });
+
+    it('retrieving a deleted resource should return 410 - Gone', function () {
+      return doGet(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 410);
+        }
+      );
+    });
+
+    it('deleting a deleted resource should return 410 - Gone', function () {
+      return doDelete(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 410);
+        }
+      );
+    });
+
+    it('updating a deleted resource should return 410 - Gone', function () {
+      return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 410);
+        }
+      );
+    });
+
+    it('retrieving a deleted resource with deleted=true should return the resource', function () {
+      return doGet(base + '/communities/' + key + '?deleted=true', 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.email, key + '@email.com');
+          assert.equal(response.body.$$meta.deleted, true);
+        }
+      );
+    });
+
+    it('listing a deleted resource should not return it', function () {
+      return doGet(base + '/communities?email=' + key + '@email.com', 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 0);
+        }
+      );
+    });
+
+    it('listing a deleted resource with deleted=true should return it', function () {
+      return doGet(base + '/communities?deleted=true&email=' + key + '@email.com', 'sabine@email.be', 'pwd').then(
+        function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.email, key + '@email.com');
+          assert.equal(response.body.results[0].$$expanded.$$meta.deleted, true);
+        }
+      );
+    });
+
   });
 
   describe('PUT', function () {
