@@ -25,6 +25,7 @@ CREATE TABLE "communities" (
   "currencyname" text not null,
   "$$meta.deleted" boolean,
   "$$meta.modified" timestamp with time zone not null default (now() at time zone 'utc')
+  "$$meta.created" timestamp with time zone not null default (now() at time zone 'utc')
 );
 
 CREATE TABLE "persons" (
@@ -42,7 +43,10 @@ CREATE TABLE "persons" (
   "password" text,
   "community" uuid references "communities"(key),
   -- never, daily, weekly, instant
-  "mail4elas" text default 'never' -- default : don't spam.
+  "mail4elas" text default 'never', -- default : don't spam.
+  "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "deleted" boolean
 );
 
 CREATE TABLE "transactions" (
@@ -51,7 +55,10 @@ CREATE TABLE "transactions" (
   "fromperson" uuid references "persons"(key),
   "toperson" uuid references "persons"(key),
   "description" text,
-  "amount" integer not null
+  "amount" integer not null,
+  "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "deleted" boolean
 );
 
 CREATE TABLE "messages" (
@@ -63,24 +70,36 @@ CREATE TABLE "messages" (
   "description" text,
   "amount" integer,
   "unit" text,
-  "community" uuid references "communities"(key)
+  "community" uuid references "communities"(key),
+  "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "deleted" boolean
 );
 
 CREATE TABLE "table" (
   "key" uuid unique,
   "select" text,
-  "from" text
+  "from" text,
+  "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  "deleted" boolean
 );
 
 CREATE TABLE "selfreferential" (
     "key" uuid unique,
     "name" text not null,
-    "parent" uuid references "selfreferential"(key)
+    "parent" uuid references "selfreferential"(key),
+    "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "deleted" boolean
 );
 
 CREATE TABLE "jsonb" (
     "key" uuid unique,
-    "details" jsonb
+    "details" jsonb,
+    "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "deleted" boolean
 );
 
 CREATE TABLE "alldatatypes" (
@@ -103,5 +122,8 @@ CREATE TABLE "alldatatypes" (
     "numberserial" serial,
     "numberbigserial" bigserial,
     "textvarchar" varchar,
-    "textchar" char(64)
+    "textchar" char(64),
+    "created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "modified" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "deleted" boolean
 );

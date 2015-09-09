@@ -19,7 +19,7 @@ You will also want to install Express.js and node-postgres :
     $ npm install --save express
     $ npm install --save pg
 
-Express.js and node-postgress are *technically* not depedencies of sri4node.
+Express.js and node-postgress are *technically* not dependencies of sri4node.
 But you need to pass them in when configuring.
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
@@ -166,6 +166,8 @@ We explain the possible HTTP operations below :
 
 In essence we map 1 *regular* resource to a database row.
 A *list* resource corresponds to a query on a database table.
+
+There are 3 reserved words for database columns which are used internally: 'created', 'modified' and 'deleted'. These columns must be present, otherwise an error will be shown indicating that the mapping can't be done.
 
 Expansion on list resource can be specified as `expand=results.href`, this will include all *regular* resources in your *list* resource.
 A shorthand version of this is `expand=full`.
@@ -377,8 +379,8 @@ It receives these parameter :
 - `req` the express.js request object, allowing you to analyze any headers on the request.
 - `database` a database obejct, allowing you to perform queries.
 
-The function must return a [Q promise][kriskowal-q], with the `me` object. 
-This will be returned in the body of a request to /me, and it will also be passed into your `secure` functions. 
+The function must return a [Q promise][kriskowal-q], with the `me` object.
+This will be returned in the body of a request to /me, and it will also be passed into your `secure` functions.
 
 ## Caching
 

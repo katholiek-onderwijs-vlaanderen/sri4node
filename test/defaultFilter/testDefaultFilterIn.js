@@ -445,7 +445,7 @@ exports = module.exports = function (base) {
         it('should find one resource of type smallserial among options that do not exist', function () {
           return doGet(base + '/alldatatypes?numbersmallserialIn=100,121,36').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.numbersmallserial, 121);
           });
         });
@@ -454,7 +454,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numbersmallserialIn=-121,-12,36,368,12000')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
-              assert.equal(response.body.results.length, 1);
+              assert.equal(response.body.results.length, 2);
               assert.equal(response.body.results[0].$$expanded.numbersmallserial, 368);
             });
         });
@@ -478,7 +478,7 @@ exports = module.exports = function (base) {
         it('should find one resource of type serial among options that do not exist', function () {
           return doGet(base + '/alldatatypes?numberserialIn=100,1210,36').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.numberserial, 1210);
           });
         });
@@ -486,7 +486,7 @@ exports = module.exports = function (base) {
         it('should find all the resources of type serial that match', function () {
           return doGet(base + '/alldatatypes?numberserialIn=-1210,-12,36,3680,12000').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.numberserial, 3680);
           });
         });
@@ -510,7 +510,7 @@ exports = module.exports = function (base) {
         it('should find one resource of type bigserial among options that do not exist', function () {
           return doGet(base + '/alldatatypes?numberbigserialIn=100,12100,36').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
+            assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.numberbigserial, 12100);
           });
         });
@@ -519,7 +519,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberbigserialIn=-12100,-12,36,36800,12000')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
-              assert.equal(response.body.results.length, 1);
+              assert.equal(response.body.results.length, 2);
               assert.equal(response.body.results[0].$$expanded.numberbigserial, 36800);
             });
         });

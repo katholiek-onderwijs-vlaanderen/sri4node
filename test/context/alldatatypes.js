@@ -5,6 +5,7 @@ exports = module.exports = function (roa, extra) {
 
   var $s = roa.schemaUtils;
   var $q = roa.queryUtils;
+  var $m = roa.mapUtils;
 
   var ret = {
     type: '/alldatatypes',
@@ -20,6 +21,8 @@ exports = module.exports = function (roa, extra) {
       type: 'object',
       properties: {
         id: $s.numeric('Identificator'),
+        created: $s.timestamp('Created'),
+        modified: $s.timestamp('Modified'),
         text: $s.string('A text field.'),
         textvarchar: $s.string('A text field.'),
         textchar: $s.string('A text field.'),
@@ -44,24 +47,26 @@ exports = module.exports = function (roa, extra) {
     validate: [],
     map: {
       id: {},
-      text: {},
-      textvarchar: {},
-      textchar: {},
-      text2: {},
-      texts: {},
-      publication: {},
-      publications: {},
-      number: {},
-      numbers: {},
-      numberint: {},
-      numberbigint: {},
-      numbersmallint: {},
-      numberdecimal: {},
-      numberreal: {},
-      numberdoubleprecision: {},
-      numbersmallserial: {},
-      numberserial: {},
-      numberbigserial: {}
+      created: {},
+      modified: {onread: $m.removeifnull},
+      text: {onread: $m.removeifnull},
+      textvarchar: {onread: $m.removeifnull},
+      textchar: {onread: $m.removeifnull},
+      text2: {onread: $m.removeifnull},
+      texts: {onread: $m.removeifnull},
+      publication: {onread: $m.removeifnull},
+      publications: {onread: $m.removeifnull},
+      number: {onread: $m.removeifnull},
+      numbers: {onread: $m.removeifnull},
+      numberint: {onread: $m.removeifnull},
+      numberbigint: {onread: $m.removeifnull},
+      numbersmallint: {onread: $m.removeifnull},
+      numberdecimal: {onread: $m.removeifnull},
+      numberreal: {onread: $m.removeifnull},
+      numberdoubleprecision: {onread: $m.removeifnull},
+      numbersmallserial: {onread: $m.removeifnull},
+      numberserial: {onread: $m.removeifnull},
+      numberbigserial: {onread: $m.removeifnull}
     },
     query: {
       defaultFilter: $q.defaultFilter

@@ -27,19 +27,34 @@ exports = module.exports = {
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
+    var d = Q.defer();
     app.set('port', port);
     app.use(bodyParser.json());
 
-    roa.configure(app, pg, config);
-    port = app.get('port');
-    app.listen(port, function () {
-      cl('Node app is running at localhost:' + app.get('port'));
-    });
+    roa.configure(app, pg, config)
+      .then(
+        function () {
+          port = app.get('port');
+          app.listen(port, function () {
+            cl('Node app is running at localhost:' + app.get('port'));
+            d.resolve();
+          });
+        }
+      )
+      .fail(
+        function (error) {
+          cl('Node app failed to initialize: ' + error);
+          d.reject();
+        }
+      );
+
+    return d.promise;
+
   },
 
   getConfiguration: function () {
     'use strict';
-    if (configCache == null) {
+    if (configCache === null) {
       throw new Error('please first configure the context');
     }
 
@@ -108,8 +123,7 @@ exports = module.exports = {
     };
 
     // Returns a JSON object with the identity of the current user.
-    var getMe = function(req, database) {
-      'use strict';
+    var getMe = function (req, database) {
       var deferred = Q.defer();
 
       var basic = req.headers.authorization;
