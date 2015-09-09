@@ -66,7 +66,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
   var deferred = Q.defer();
 
   var urlparameters = req.query;
-  var standardParameters = ['orderby', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
+  var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   var key, ret;
 
@@ -693,12 +693,12 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, query, database, false);
     }).then(function () {
-      // All list resources support orderby, limit and offset.
-      var orderby = req.query.orderby;
+      // All list resources support orderBy, limit and offset.
+      var orderBy = req.query.orderBy;
       var descending = req.query.descending;
-      if (orderby) {
+      if (orderBy) {
         valid = true;
-        orders = orderby.split(',');
+        orders = orderBy.split(',');
         for (o = 0; o < orders.length; o++) {
           order = orders[o];
           if (!mapping.map[order]) {
@@ -712,7 +712,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
             query.sql(' desc');
           }
         } else {
-          cl('Can not order by [' + orderby + ']. One or more unknown properties. Ignoring orderby.');
+          cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
         }
       } else {
         query.sql(' order by "$$meta.created" asc');
