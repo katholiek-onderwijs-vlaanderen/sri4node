@@ -663,6 +663,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function () {
       countquery = prepare();
       if (req.query['$$meta.deleted'] === 'true') {
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is true ');
+      } else if (req.query['$$meta.deleted'] === 'any') {
         countquery.sql('select count(*) from "' + table + '" where 1=1 ');
       } else {
         countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is not true ');
