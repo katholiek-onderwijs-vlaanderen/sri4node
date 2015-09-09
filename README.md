@@ -165,6 +165,12 @@ Those are:
 * "$$meta.modified" timestamp with time zone not null default current_timestamp,
 * "$$meta.created" timestamp with time zone not null default current_timestamp
 
+For performance reasons it's highly suggested that an index is created for each column:
+
+* CREATE INDEX table_created ON *table* ("$$meta.created");
+* CREATE INDEX table_modified ON *table* ("$$meta.modified");
+* CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
+
 The application will fail to register a resource that lacks these fields (and show a message to the user)
 
 ## Processing Pipeline
