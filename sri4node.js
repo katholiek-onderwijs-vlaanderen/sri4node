@@ -699,6 +699,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           cl('Can not order by [' + orderby + ']. One or more unknown properties. Ignoring orderby.');
         }
+      } else {
+        query.sql(' order by created asc');
       }
 
       queryLimit = req.query.limit || defaultlimit;
