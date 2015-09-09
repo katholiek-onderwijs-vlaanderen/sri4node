@@ -150,35 +150,35 @@ function filterNumericOrTimestamp(select, filter, value) {
 
   if (!filter.postfix && filter.operator === 'Less' || filter.operator === 'Greater' && filter.postfix === 'Not') {
 
-    select.sql(' AND ' + filter.key + ' < ').param(value);
+    select.sql(' AND "' + filter.key + '" < ').param(value);
 
   } else if (!filter.postfix && (filter.operator === 'LessOrEqual' || filter.operator === 'Before') ||
     (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && filter.postfix === 'Not') {
 
-    select.sql(' AND ' + filter.key + ' <= ').param(value);
+    select.sql(' AND "' + filter.key + '" <= ').param(value);
 
   } else if (!filter.postfix && filter.operator === 'Greater' || filter.operator === 'Less' &&
     filter.postfix === 'Not') {
 
-    select.sql(' AND ' + filter.key + ' > ').param(value);
+    select.sql(' AND "' + filter.key + '" > ').param(value);
 
   } else if (!filter.postfix && (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && filter.postfix === 'Not') {
 
-    select.sql(' AND ' + filter.key + ' >= ').param(value);
+    select.sql(' AND "' + filter.key + '" >= ').param(value);
 
   } else if (filter.operator === 'In') {
 
     if (filter.postfix === 'Not') {
-      select.sql(' AND ' + filter.key + ' NOT IN (').array(value.split(',')).sql(')');
+      select.sql(' AND "' + filter.key + '" NOT IN (').array(value.split(',')).sql(')');
     } else {
-      select.sql(' AND ' + filter.key + ' IN (').array(value.split(',')).sql(')');
+      select.sql(' AND "' + filter.key + '" IN (').array(value.split(',')).sql(')');
     }
 
   } else if (filter.postfix === 'Not') {
-    select.sql(' AND ' + filter.key + ' <> ').param(value);
+    select.sql(' AND "' + filter.key + '" <> ').param(value);
   } else {
-    select.sql(' AND ' + filter.key + ' = ').param(value);
+    select.sql(' AND "' + filter.key + '" = ').param(value);
   }
 
 }

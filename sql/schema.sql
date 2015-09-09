@@ -22,7 +22,9 @@ CREATE TABLE "communities" (
   "adminpassword" text not null,
   "website" text,
   "facebook" text unique,
-  "currencyname" text not null
+  "currencyname" text not null,
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default (now() at time zone 'utc')
 );
 
 CREATE TABLE "persons" (
