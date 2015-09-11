@@ -576,7 +576,7 @@ function executeAfterReadFunctions(database, elements, mapping) {
   debug('executeAfterReadFunctions');
   var deferred = Q.defer();
 
-  if (mapping.afterread && mapping.afterread.length > 0) {
+  if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
       promises.push(mapping.afterread[i](database, elements));
@@ -1110,6 +1110,7 @@ function batchOperation(req, resp) {
               return recurse();
             });
           } else { // eslint-disable-line
+            // To Do : Implement other operations here too.
             cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
             throw new Error();
           }
@@ -1247,7 +1248,6 @@ exports = module.exports = {
           // register schema for external usage. public.
           url = mapping.type + '/schema';
           app.use(url, logRequests);
-
           app.get(url, getSchema);
 
           // register list resource for this type.
