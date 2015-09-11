@@ -41,7 +41,7 @@ Finally we configure handlers for 1 example resource.
 This example shows a resource for storing content as `html` with meta-data like `authors`, `themes` and `editor`.
 The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
 
-    sri4node.configure(app,pg,
+    var promise = sri4node.configure(app,pg,
         {
             // Log and time HTTP requests ?
             logrequests : true,
@@ -149,10 +149,13 @@ The declaration of the editor is a reference to a second resource (/person), whi
             ]
         });
 
+Configure returns a [Q promise][kriskowal-q]. 
 Now we can start Express.js to start serving up our SRI REST interface :
 
-    app.listen(5000, function() {
+    promise.then(function () {
+      app.listen(5000, function() {
         console.log("Node app is running at localhost:" + app.get('port'))
+      });
     });
 
 ## Reserved and required fields (mandatory)
