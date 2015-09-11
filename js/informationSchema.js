@@ -20,7 +20,7 @@ var common = require('./common.js');
 var pgExec = common.pgExec;
 var cache = null;
 
-exports = module.exports = function (database, configuration) {
+exports = module.exports = function(database, configuration) {
   'use strict';
   var deferred = Q.defer();
 
@@ -46,7 +46,7 @@ exports = module.exports = function (database, configuration) {
   }
   q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
     .array(tableNames).sql(')');
-  pgExec(database, q).then(function (results) {
+  pgExec(database, q).then(function(results) {
     cache = {};
     for (i = 0; i < results.rows.length; i++) {
       row = results.rows[i];
@@ -65,7 +65,7 @@ exports = module.exports = function (database, configuration) {
       columnCache.type = row.data_type;
     }
     deferred.resolve(cache);
-  }).fail(function (e) {
+  }).fail(function(e) {
     deferred.reject(e);
   });
 

@@ -119,5 +119,15 @@ exports = module.exports = {
       description: description
     };
     return ret;
+  },
+
+  date: function (description) {
+    'use strict';
+    var ret = {
+      type: 'string',
+      description: description,
+      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+    };
+    return ret;
   }
 };
