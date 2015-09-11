@@ -1239,7 +1239,6 @@ exports = module.exports = {
       database = db;
       return informationSchema(database, configuration);
     }).then(function (information) {
-      console.log('got IS');
       for (configIndex = 0; configIndex < resources.length; configIndex++) {
         mapping = resources[configIndex];
 
