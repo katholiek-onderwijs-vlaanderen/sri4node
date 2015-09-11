@@ -1,5 +1,5 @@
 exports = module.exports = {
-  permalink: function (type, description) {
+  permalink: function(type, description) {
     'use strict';
     var parts = type.split('/');
     var name = parts[1];
@@ -19,7 +19,7 @@ exports = module.exports = {
     };
   },
 
-  string: function (description, min, max) {
+  string: function(description, min, max) {
     'use strict';
     var ret = {
       type: 'string',
@@ -35,7 +35,7 @@ exports = module.exports = {
     return ret;
   },
 
-  numeric: function (description) {
+  numeric: function(description) {
     'use strict';
     return {
       type: 'numeric',
@@ -44,7 +44,7 @@ exports = module.exports = {
     };
   },
 
-  email: function (description) {
+  email: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -55,7 +55,7 @@ exports = module.exports = {
     };
   },
 
-  url: function (description) {
+  url: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -66,7 +66,7 @@ exports = module.exports = {
     };
   },
 
-  belgianzipcode: function (description) {
+  belgianzipcode: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -75,7 +75,7 @@ exports = module.exports = {
     };
   },
 
-  phone: function (description) {
+  phone: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -86,7 +86,7 @@ exports = module.exports = {
     };
   },
 
-  guid: function (description) {
+  guid: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -96,7 +96,7 @@ exports = module.exports = {
     };
   },
 
-  timestamp: function (description) {
+  timestamp: function(description) {
     'use strict';
     return {
       type: 'string',
@@ -105,14 +105,14 @@ exports = module.exports = {
     };
   },
 
-  'boolean': function (description) { //eslint-disable-line
+  'boolean': function(description) { //eslint-disable-line
     return {
       type: 'boolean',
       description: description
     };
   },
 
-  array: function (description) {
+  array: function(description) {
     'use strict';
     var ret = {
       type: 'array',
@@ -121,13 +121,14 @@ exports = module.exports = {
     return ret;
   },
 
-  date: function (description) {
+  date: function(description) {
     'use strict';
     var ret = {
       type: 'string',
       description: description,
-      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+      pattern: '^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$'
     };
     return ret;
   }
+
 };
