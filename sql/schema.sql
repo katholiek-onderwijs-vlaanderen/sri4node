@@ -22,7 +22,10 @@ CREATE TABLE "communities" (
   "adminpassword" text not null,
   "website" text,
   "facebook" text unique,
-  "currencyname" text not null
+  "currencyname" text not null,
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "persons" (
@@ -40,7 +43,10 @@ CREATE TABLE "persons" (
   "password" text,
   "community" uuid references "communities"(key),
   -- never, daily, weekly, instant
-  "mail4elas" text default 'never' -- default : don't spam.
+  "mail4elas" text default 'never', -- default : don't spam.
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "transactions" (
@@ -49,7 +55,10 @@ CREATE TABLE "transactions" (
   "fromperson" uuid references "persons"(key),
   "toperson" uuid references "persons"(key),
   "description" text,
-  "amount" integer not null
+  "amount" integer not null,
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "messages" (
@@ -61,24 +70,36 @@ CREATE TABLE "messages" (
   "description" text,
   "amount" integer,
   "unit" text,
-  "community" uuid references "communities"(key)
+  "community" uuid references "communities"(key),
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "table" (
   "key" uuid unique,
   "select" text,
-  "from" text
+  "from" text,
+  "$$meta.deleted" boolean,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "selfreferential" (
     "key" uuid unique,
     "name" text not null,
-    "parent" uuid references "selfreferential"(key)
+    "parent" uuid references "selfreferential"(key),
+    "$$meta.deleted" boolean,
+    "$$meta.modified" timestamp with time zone not null default current_timestamp,
+    "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "jsonb" (
     "key" uuid unique,
-    "details" jsonb
+    "details" jsonb,
+    "$$meta.deleted" boolean,
+    "$$meta.modified" timestamp with time zone not null default current_timestamp,
+    "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
 CREATE TABLE "alldatatypes" (
@@ -101,5 +122,8 @@ CREATE TABLE "alldatatypes" (
     "numberserial" serial,
     "numberbigserial" bigserial,
     "textvarchar" varchar,
-    "textchar" char(64)
+    "textchar" char(64),
+    "$$meta.deleted" boolean,
+    "$$meta.modified" timestamp with time zone not null default current_timestamp,
+    "$$meta.created" timestamp with time zone not null default current_timestamp
 );

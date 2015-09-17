@@ -2,7 +2,7 @@ var Q = require('q');
 var common = require('../../js/common.js');
 var cl = common.cl;
 
-exports = module.exports = function (roa, logverbose) {
+exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
 
   function debug(x) {
@@ -55,6 +55,7 @@ exports = module.exports = function (roa, logverbose) {
       } else {
         key = url.split('/')[2];
         myCommunityKey = me.community.href.split('/')[2];
+        debug('community key = ' + myCommunityKey);
 
         query = $u.prepareSQL('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
@@ -68,6 +69,10 @@ exports = module.exports = function (roa, logverbose) {
             cl('** security method restrictedReadPersons denies access.');
             deferred.reject();
           }
+        }).fail(function (error) {
+          debug('Unable to execute query for restrictedReadPersons :');
+          debug(error);
+          debug(error.stack);
         });
       } /* end handling regular resource request */
     } else {
@@ -216,5 +221,6 @@ exports = module.exports = function (roa, logverbose) {
     ]
   };
 
+  common.mergeObject(extra, ret);
   return ret;
 };

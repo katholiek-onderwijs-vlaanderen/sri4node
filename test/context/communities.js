@@ -2,7 +2,7 @@ var Q = require('q');
 var common = require('../../js/common.js');
 var cl = common.cl;
 
-exports = module.exports = function (roa, logverbose) {
+exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
 
   function debug(x) {
@@ -179,13 +179,16 @@ exports = module.exports = function (roa, logverbose) {
       website: {
         onread: $m.removeifnull
       },
-      currencyname: {}
+      currencyname: {},
+      "$$meta.deleted" : {},
+      "$$meta.modified" : {}
     },
     query: {
       invalidQueryParameter: invalidQueryParameter,
       parameterWithExtraQuery: parameterWithExtraQuery,
       parameterWithExtraQuery2: parameterWithExtraQuery2,
-      hrefs: $q.filterHrefs
+      hrefs: $q.filterHrefs,
+      defaultFilter: $q.defaultFilter
     },
     afterread: [
       // Add the result of a select query to the outgoing resource
@@ -196,5 +199,6 @@ exports = module.exports = function (roa, logverbose) {
     ]
   };
 
+  common.mergeObject(extra, ret);
   return ret;
 };

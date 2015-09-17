@@ -22,17 +22,23 @@ function allParentsOf(value, select) {
   return deferred.promise;
 }
 
-exports = module.exports = {
-  type: '/selfreferential',
-  'public': true, // eslint-disable-line
-  map: {
-    key: {},
-    name: {},
-    parent: {
-      references: '/selfreferential'
+exports = module.exports = function (extra) {
+  'use strict';
+  var ret = {
+    type: '/selfreferential',
+        'public': true, // eslint-disable-line
+    map: {
+      key: {},
+      name: {},
+      parent: {
+        references: '/selfreferential'
+      }
+    },
+    query: {
+      allParentsOf: allParentsOf
     }
-  },
-  query: {
-    allParentsOf: allParentsOf
-  }
+  };
+
+  common.mergeObject(extra, ret);
+  return ret;
 };

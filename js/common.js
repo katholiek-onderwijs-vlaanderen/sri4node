@@ -43,6 +43,17 @@ exports = module.exports = {
     return sqlColumnNames;
   },
 
+  /* Merge all direct properties of object 'source' into object 'target'. */
+  mergeObject: function (source, target) {
+    'use strict';
+    var key;
+    for (key in source) {
+      if (source.hasOwnProperty(key)) {
+        target[key] = source[key];
+      }
+    }
+  },
+
   // Create a ROA resource, based on a row result from node-postgres.
   mapColumnsToObject: function (config, mapping, row, element) {
     'use strict';

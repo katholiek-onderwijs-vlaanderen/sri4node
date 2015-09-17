@@ -7,6 +7,7 @@ context.serve();
 */
 
 // External includes
+var Q = require('q');
 var express = require('express');
 var bodyParser = require('body-parser');
 var pg = require('pg');
@@ -15,6 +16,9 @@ var cl = common.cl;
 
 var $u;
 var configCache = null;
+// Local cache of known identities.
+var knownIdentities = {};
+var knownPasswords = {};
 
 exports = module.exports = {
   serve: function (roa, port, logsql, logrequests, logdebug) {
@@ -23,19 +27,34 @@ exports = module.exports = {
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
+    var d = Q.defer();
     app.set('port', port);
     app.use(bodyParser.json());
 
-    roa.configure(app, pg, config);
-    port = app.get('port');
-    app.listen(port, function () {
-      cl('Node app is running at localhost:' + app.get('port'));
-    });
+    roa.configure(app, pg, config)
+      .then(
+        function () {
+          port = app.get('port');
+          app.listen(port, function () {
+            cl('Node app is running at localhost:' + app.get('port'));
+            d.resolve();
+          });
+        }
+      )
+      .fail(
+        function (error) {
+          cl('Node app failed to initialize: ' + error);
+          d.reject();
+        }
+      );
+
+    return d.promise;
+
   },
 
   getConfiguration: function () {
     'use strict';
-    if (configCache == null) {
+    if (configCache === null) {
       throw new Error('please first configure the context');
     }
 
@@ -51,38 +70,107 @@ exports = module.exports = {
 
     $u = roa.utils;
 
+    /*
+     Authentication function should return a promise.
+     It should resolve it's promise with a single boolean value true/false if it can determine
+     the correctness of the username/password combination.
+     It should reject it's promise with a standard SRI error object if anything goes wrong.
+     */
+    var testAuthenticator = function (db, username, password) {
+      var deferred = Q.defer();
+      var q;
+
+      if (knownPasswords[username]) {
+        if (knownPasswords[username] === password) {
+          deferred.resolve(true);
+        } else {
+          deferred.resolve(false);
+        }
+      } else {
+        q = $u.prepareSQL('select-count-from-persons-where-email-and-password');
+        q.sql('select count(*) from persons where email = ').param(username).sql(' and password = ').param(password);
+        $u.executeSQL(db, q).then(function (result) {
+          var count = parseInt(result.rows[0].count, 10);
+          if (count === 1) {
+            // Found matching record, add to cache for subsequent requests.
+            knownPasswords[username] = password;
+            deferred.resolve(true);
+          } else {
+            deferred.resolve(false);
+          }
+        });
+      }
+
+      return deferred.promise;
+    };
+
+    var identity = function (username, database) {
+      var query = $u.prepareSQL('me');
+      query.sql('select * from persons where email = ').param(username);
+      return $u.executeSQL(database, query).then(function (result) {
+        var row = result.rows[0];
+        var output = {};
+        output.$$meta = {};
+        output.$$meta.permalink = '/persons/' + row.key;
+        output.firstname = row.firstname;
+        output.lastname = row.lastname;
+        output.email = row.email;
+        output.community = {
+          href: '/communities/' + row.community
+        };
+        return output;
+      });
+    };
+
+    // Returns a JSON object with the identity of the current user.
+    var getMe = function (req, database) {
+      var deferred = Q.defer();
+
+      var basic = req.headers.authorization;
+      var encoded = basic.substr(6);
+      var decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      var firstColonIndex = decoded.indexOf(':');
+      var username;
+
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        if (knownIdentities[username]) {
+          deferred.resolve(knownIdentities[username]);
+        } else {
+          identity(username, database).then(function (me) {
+            knownIdentities[username] = me;
+            deferred.resolve(me);
+          }).fail(function (err) {
+            cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
+            cl(err);
+            deferred.reject(err);
+          });
+        }
+      }
+
+      return deferred.promise;
+    };
+
+    var commonResourceConfig = {
+    };
+
     var config = {
       // For debugging SQL can be logged.
       logsql: logsql,
       logrequests: logrequests,
       logdebug: logdebug,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
-      identity: function (username, database) {
-        var query = $u.prepareSQL('me');
-        query.sql('select * from persons where email = ').param(username);
-        return $u.executeSQL(database, query).then(function (result) {
-          var row = result.rows[0];
-          var output = {};
-          output.$$meta = {};
-          output.$$meta.permalink = '/persons/' + row.key;
-          output.firstname = row.firstname;
-          output.lastname = row.lastname;
-          output.email = row.email;
-          output.community = {
-            href: '/communities/' + row.community
-          };
-          return output;
-        });
-      },
+      authenticate: $u.basicAuthentication(testAuthenticator),
+      identify: getMe,
       resources: [
-        require('./context/persons.js')(roa, logdebug),
-        require('./context/messages.js')(roa, logdebug),
-        require('./context/communities.js')(roa, logdebug),
-        require('./context/transactions.js')(roa),
-        require('./context/table.js')(roa),
-        require('./context/selfreferential.js'),
-        require('./context/jsonb.js'),
-        require('./context/alldatatypes.js')(roa)
+        require('./context/persons.js')(roa, logdebug, commonResourceConfig),
+        require('./context/messages.js')(roa, logdebug, commonResourceConfig),
+        require('./context/communities.js')(roa, logdebug, commonResourceConfig),
+        require('./context/transactions.js')(roa, commonResourceConfig),
+        require('./context/table.js')(roa, commonResourceConfig),
+        require('./context/selfreferential.js')(commonResourceConfig),
+        require('./context/jsonb.js')(commonResourceConfig),
+        require('./context/alldatatypes.js')(roa, commonResourceConfig)
       ]
     };
 

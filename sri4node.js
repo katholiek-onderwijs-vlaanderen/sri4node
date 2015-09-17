@@ -15,7 +15,8 @@ var Q = require('q');
 
 // Utility function.
 var common = require('./js/common.js');
-var responseHandler = require('./js/responseHandler');
+var secureCache = require('./js/secureCache');
+var informationSchema = require('./js/informationSchema.js');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
 var pgExec = common.pgExec;
@@ -65,7 +66,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
   var deferred = Q.defer();
 
   var urlparameters = req.query;
-  var standardParameters = ['orderby', 'descending', 'limit', 'offset', 'expand', 'hrefs'];
+  var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   var key, ret;
 
@@ -98,6 +99,8 @@ function applyRequestParameters(mapping, req, select, database, count) {
           }
         } else if (key === 'hrefs') {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count));
+        } else if (key === 'modifiedSince') {
+          promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select));
         }
       }
     }
@@ -146,7 +149,7 @@ var errorAsCode = function (s) {
   return ret;
 };
 
-function queryByKey(config, db, mapping, key) {
+function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
@@ -174,22 +177,39 @@ function queryByKey(config, db, mapping, key) {
   }
 
   var query = prepare('select-row-by-key-from-' + table);
-  query.sql('select ' + columns + ' from "' + table + '" where "key" = ').param(key);
+  var sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+  sql += table + '" where "key" = ';
+  query.sql(sql).param(key);
   return pgExec(db, query, logsql, logdebug).then(function (queryResult) {
     var queryDeferred = Q.defer();
 
     var rows = queryResult.rows;
     if (rows.length === 1) {
       row = queryResult.rows[0];
+      if (row['$$meta.deleted'] && !wantsDeleted) {
+        queryDeferred.reject({
+          type: 'resource.gone',
+          status: 410,
+          body: 'Resource is gone'
+        });
+      } else {
+        output = {};
+        debug('** mapping columns to JSON object');
+        mapColumnsToObject(config, mapping, row, output);
+        debug('** executing onread functions');
+        executeOnFunctions(config, mapping, 'onread', output);
+        debug('** queryResult of queryByKey() : ');
+        debug(output);
+        queryDeferred.resolve({
+          object: output,
+          $$meta: {
+            deleted: row['$$meta.deleted'],
+            created: row['$$meta.created'],
+            modified: row['$$meta.modified']
+          }
+        });
+      }
 
-      output = {};
-      debug('** mapping columns to JSON object');
-      mapColumnsToObject(config, mapping, row, output);
-      debug('** executing onread functions');
-      executeOnFunctions(config, mapping, 'onread', output);
-      debug('** queryResult of queryByKey() : ');
-      debug(output);
-      queryDeferred.resolve(output);
     } else if (rows.length === 0) {
       queryDeferred.reject({
         type: 'not.found',
@@ -235,10 +255,6 @@ function getSchemaValidationErrors(json, schema) {
   }
 }
 
-// Security cache; stores a map 'e-mail' -> 'password'
-// To avoid a database query for all API calls.
-var knownPasswords = {};
-
 // Force https in production.
 function forceSecureSockets(req, res, next) {
   'use strict';
@@ -250,59 +266,45 @@ function forceSecureSockets(req, res, next) {
   next();
 }
 
-function checkBasicAuthentication(req, res, next) {
+function checkBasicAuthentication(authenticator) {
   'use strict';
-  var basic, encoded, decoded, firstColonIndex, email, password;
-  var typeToMapping, type, mapping;
-  var path = req.route.path;
-  var database;
+  return function (req, res, next) {
+    var basic, encoded, decoded, firstColonIndex, username, password;
+    var typeToMapping, type, mapping;
+    var path = req.route.path;
+    var database;
 
-  if (path !== '/me' && path !== '/batch') {
-    typeToMapping = typeToConfig(resources);
-    type = '/' + req.route.path.split('/')[1];
-    mapping = typeToMapping[type];
-    if (mapping.public) {
-      next();
-      return;
+    if (path !== '/me' && path !== '/batch') {
+      typeToMapping = typeToConfig(resources);
+      type = '/' + req.route.path.split('/')[1];
+      mapping = typeToMapping[type];
+      if (mapping.public) {
+        next();
+        return;
+      }
     }
-  }
 
-  var unauthorized = function () {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-    res.status(401).send('Unauthorized');
-  };
+    var unauthorized = function () {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+      res.status(401).send('Unauthorized');
+    };
 
-  if (req.headers.authorization) {
-    basic = req.headers.authorization;
-    encoded = basic.substr(6);
-    decoded = new Buffer(encoded, 'base64').toString('utf-8');
-    firstColonIndex = decoded.indexOf(':');
-    if (firstColonIndex !== -1) {
-      email = decoded.substr(0, firstColonIndex);
-      password = decoded.substr(firstColonIndex + 1);
-      if (email && password && email.length > 0 && password.length > 0) {
-        if (knownPasswords[email]) {
-          if (knownPasswords[email] === password) {
-            next();
-          } else {
-            debug('Invalid password');
-            unauthorized();
-          }
-        } else {
+    if (req.headers.authorization) {
+      basic = req.headers.authorization;
+      encoded = basic.substr(6);
+      decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      firstColonIndex = decoded.indexOf(':');
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        password = decoded.substr(firstColonIndex + 1);
+        if (username && password && username.length > 0 && password.length > 0) {
           pgConnect(postgres, configuration).then(function (db) {
             database = db;
-
-            var q = prepare('select-count-from-persons-where-email-and-password');
-            q.sql('select count(*) from persons where email = ').param(email).sql(' and password = ').param(password);
-
-            return pgExec(db, q, logsql, logdebug).then(function (result) {
-              var count = parseInt(result.rows[0].count, 10);
-              if (count === 1) {
-                // Found matching record, add to cache for subsequent requests.
-                knownPasswords[email] = password;
+            return authenticator(database, username, password).then(function (result) {
+              if (result) {
                 next();
               } else {
-                debug('Wrong combination of email / password. Found ' + count + ' records.');
+                debug('Authentication failed, wrong password');
                 unauthorized();
               }
             });
@@ -315,18 +317,19 @@ function checkBasicAuthentication(req, res, next) {
             database.done(err);
             unauthorized();
           });
+        } else {
+          unauthorized();
         }
       } else {
         unauthorized();
       }
     } else {
+      debug('No authorization header received from client. Rejecting.');
       unauthorized();
     }
-  } else {
-    debug('No authorization header received from client. Rejecting.');
-    unauthorized();
-  }
+  };
 }
+
 
 // Apply CORS headers.
 // TODO : Change temporary URL into final deploy URL.
@@ -493,27 +496,18 @@ function executePutInsideTransaction(db, url, body) {
           executeOnFunctions(resources, mapping, 'onupdate', element);
 
           var update = prepare('update-' + table);
-          update.sql('update "' + table + '" set ');
-          var firstcolumn = true;
+          update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
           for (var k in element) {
-            if (element.hasOwnProperty(k)) {
-              if (!firstcolumn) {
-                update.sql(',');
-              } else {
-                firstcolumn = false;
-              }
-
-              update.sql('\"' + k + '\"' + '=').param(element[k]);
+            if (k !== '$$meta.created' && k !== '$$meta.modified' && element.hasOwnProperty(k)) {
+              update.sql(',\"' + k + '\"' + '=').param(element[k]);
             }
           }
-          update.sql(' where "key" = ').param(key);
+          update.sql(' where "$$meta.deleted" is not true and "key" = ').param(key);
 
           return pgExec(db, update, logsql, logdebug).then(function (results) {
-            if (results.rowCount != 1) {
-              debug('No row affected ?!');
-              var deferred = Q.defer();
-              deferred.reject('No row affected.');
-              return deferred.promise();
+            if (results.rowCount !== 1) {
+              debug('No row affected - resource is gone');
+              throw 'resource.gone';
             } else {
               return postProcess(mapping.afterupdate, db, body);
             }
@@ -543,43 +537,6 @@ function executePutInsideTransaction(db, url, body) {
     });
   }
   /* eslint-enable */
-
-// Local cache of known identities.
-var knownIdentities = {};
-// Returns a JSON object with the identity of the current user.
-function getMe(req) {
-  'use strict';
-  var deferred = Q.defer();
-
-  var basic = req.headers.authorization;
-  var encoded = basic.substr(6);
-  var decoded = new Buffer(encoded, 'base64').toString('utf-8');
-  var firstColonIndex = decoded.indexOf(':');
-  var database, username;
-
-  if (firstColonIndex !== -1) {
-    username = decoded.substr(0, firstColonIndex);
-    if (knownIdentities[username]) {
-      deferred.resolve(knownIdentities[username]);
-    } else {
-      pgConnect(postgres, configuration).then(function (db) {
-        database = db;
-        return configuration.identity(username, db);
-      }).then(function (me) {
-        knownIdentities[username] = me;
-        database.done();
-        deferred.resolve(me);
-      }).fail(function (err) {
-        cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
-        cl(err);
-        database.done(err);
-        deferred.reject(err);
-      });
-    }
-  }
-
-  return deferred.promise;
-}
 
 function execBeforeQueryFunctions(mapping, db, req, resp) {
   'use strict';
@@ -619,7 +576,7 @@ function executeAfterReadFunctions(database, elements, mapping) {
   debug('executeAfterReadFunctions');
   var deferred = Q.defer();
 
-  if (mapping.afterread && mapping.afterread.length > 0) {
+  if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
       promises.push(mapping.afterread[i](database, elements));
@@ -705,7 +662,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+      if (req.query['$$meta.deleted'] === 'true') {
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is true ');
+      } else if (req.query['$$meta.deleted'] === 'any') {
+        countquery.sql('select count(*) from "' + table + '" where 1=1 ');
+      } else {
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is not true ');
+      }
+
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, countquery, database, true);
     }).then(function () {
@@ -714,16 +678,29 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      query.sql('select ' + columns + ' from "' + table + '" where 1=1 ');
+      var sql;
+      if (req.query['$$meta.deleted'] === 'true') {
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where "$$meta.deleted" is true ';
+        query.sql(sql);
+      } else if (req.query['$$meta.deleted'] === 'any') {
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where 1=1 ';
+        query.sql(sql);
+      } else {
+        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+        sql += table + '" where "$$meta.deleted" is not true ';
+        query.sql(sql);
+      }
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, query, database, false);
     }).then(function () {
-      // All list resources support orderby, limit and offset.
-      var orderby = req.query.orderby;
+      // All list resources support orderBy, limit and offset.
+      var orderBy = req.query.orderBy;
       var descending = req.query.descending;
-      if (orderby) {
+      if (orderBy) {
         valid = true;
-        orders = orderby.split(',');
+        orders = orderBy.split(',');
         for (o = 0; o < orders.length; o++) {
           order = orders[o];
           if (!mapping.map[order]) {
@@ -737,8 +714,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
             query.sql(' desc');
           }
         } else {
-          cl('Can not order by [' + orderby + ']. One or more unknown properties. Ignoring orderby.');
+          cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
         }
+      } else {
+        query.sql(' order by "$$meta.created" asc');
       }
 
       queryLimit = req.query.limit || defaultlimit;
@@ -808,6 +787,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
               permalink: mapping.type + '/' + currentrow.key
             }
           };
+          if (currentrow['$$meta.deleted']) {
+            element.$$expanded.$$meta.deleted = true;
+          }
+          element.$$expanded.$$meta.created = currentrow['$$meta.created'];
+          element.$$expanded.$$meta.modified = currentrow['$$meta.modified'];
           mapColumnsToObject(resources, mapping, currentrow, element.$$expanded);
           executeOnFunctions(resources, mapping, 'onread', element.$$expanded);
           elements.push(element.$$expanded);
@@ -907,6 +891,7 @@ function getRegularResource(executeExpansion) {
     var database;
     var element;
     var elements;
+    var field;
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
@@ -914,12 +899,20 @@ function getRegularResource(executeExpansion) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
-      return queryByKey(resources, database, mapping, key);
+      return queryByKey(resources, database, mapping, key,
+        req.query['$$meta.deleted'] === 'true' || req.query['$$meta.deleted'] === 'any');
     }).then(function (result) {
-      element = result;
+      element = result.object;
       element.$$meta = {
         permalink: mapping.type + '/' + key
       };
+      if (result.$$meta) {
+        for (field in result.$$meta) {
+          if (result.$$meta.hasOwnProperty(field) && result.$$meta[field]) {
+            element.$$meta[field] = result.$$meta[field];
+          }
+        }
+      }
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
@@ -971,7 +964,11 @@ function createOrUpdate(req, resp) {
         // If err is defined, client will be removed from pool.
         db.done(rollbackerr);
         cl('ROLLBACK DONE.');
-        resp.status(409).send(puterr);
+        if (puterr === 'resource.gone') {
+          resp.status(410).send();
+        } else {
+          resp.status(409).send(puterr);
+        }
       });
     });
   }); // pgConnect
@@ -984,7 +981,7 @@ function deleteResource(req, resp) {
   var type = '/' + req.route.path.split('/')[1];
   var mapping = typeToMapping[type];
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
-  var deferred;
+
   var database;
 
   pgConnect(postgres, configuration).then(function (db) {
@@ -1000,11 +997,9 @@ function deleteResource(req, resp) {
       .param(req.params.key);
     return pgExec(database, deletequery, logsql, logdebug);
   }).then(function (results) {
-    if (results.rowCount !== 1) {
-      debug('No row affected ?!');
-      deferred = Q.defer();
-      deferred.reject('No row affected.');
-      return deferred.promise();
+    if (results.rowCount === 0) {
+      debug('No row affected - the resource is already gone');
+      resp.status(410);
     } else { // eslint-disable-line
       return postProcess(mapping.afterdelete, database, req.route.path);
     }
@@ -1028,13 +1023,13 @@ function deleteResource(req, resp) {
   });
 }
 
-function wrapCustomRouteHandler(customRouteHandler, mapping) {
+function wrapCustomRouteHandler(customRouteHandler, config) {
 
   'use strict';
 
   return function (req, res) {
 
-    Q.all([pgConnect(postgres, configuration, mapping.getme(req))]).done(
+    Q.all([pgConnect(postgres, configuration), config.identify(req)]).done(
       function (results) {
         customRouteHandler(req, res, results[0], results[1]);
         results[0].done();
@@ -1048,23 +1043,34 @@ function handleBatchOperations(responseHandlers) {
   'use strict';
 
   return function (req, res, next) {
-    var batch = req.body.slice(); //cloning the array
+    var batch = req.body.slice();
     batch.reverse();
+    var i;
+    var batches = [];
+    var url;
+    var type;
+
+    // split batch into different response handlers (per resource)
+    for (i = 0; i < batch.length; i++) {
+      url = batch[i].href;
+      type = '/' + url.split('/')[1];
+      batches.push({
+        type: type,
+        batch: batch[i]
+      });
+    }
 
     function nextElement() {
-      var element, url;
-      var type;
+      var element;
       var elementReq;
-      if (batch.length > 0) {
-        element = batch.pop();
-        url = element.href;
-        type = '/' + url.split('/')[1];
+
+      if (batches.length > 0) {
+        element = batches.pop();
+        type = element.type;
         elementReq = {
-          method: element.verb,
-          params: {
-            key: url.split('/')[2]
-          },
-          originalUrl: url,
+          method: 'PUT',
+          path: 'batch',
+          body: element.batch,
           user: req.user
         };
         responseHandlers[type](elementReq, res, nextElement);
@@ -1073,7 +1079,7 @@ function handleBatchOperations(responseHandlers) {
       }
     }
 
-    return nextElement(batch);
+    return nextElement();
   };
 
 }
@@ -1101,10 +1107,12 @@ function batchOperation(req, resp) {
           body = element.body;
           verb = element.verb;
           if (verb === 'PUT') {
-            return executePutInsideTransaction(database, url, body).then(function () {
+            // we continue regardless of an individual error
+            return executePutInsideTransaction(database, url, body).finally(function () {
               return recurse();
             });
           } else { // eslint-disable-line
+            // To Do : Implement other operations here too.
             cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
             throw new Error();
           }
@@ -1132,6 +1140,18 @@ function batchOperation(req, resp) {
     });
 }
 
+function checkRequiredFields(mapping, information) {
+  'use strict';
+  var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
+  var i;
+  for (i = 0; i < mandatoryFields.length; i++) {
+    if (!information[mapping.type].hasOwnProperty(mandatoryFields[i])) {
+      throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
+    }
+  }
+
+}
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: function (app, pg, config) {
@@ -1140,10 +1160,13 @@ exports = module.exports = {
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
-    var responseHandlerFn;
+    var secureCacheFn;
     var customroute;
     var i;
-    var responseHandlers = [];
+    var secureCacheFns = [];
+    var msg;
+    var database;
+    var d = Q.defer();
 
     configuration = config;
     resources = config.resources;
@@ -1172,67 +1195,34 @@ exports = module.exports = {
       }
     });
 
-    for (configIndex = 0; configIndex < resources.length; configIndex++) {
-      mapping = resources[configIndex];
-
-      // when no custom checkauthentication and getme defined, use the default ones
-      if (!mapping.checkauthentication) {
-        mapping.checkauthentication = checkBasicAuthentication;
-      }
-      if (!mapping.getme) {
-        mapping.getme = getMe;
-      }
-
-      // register schema for external usage. public.
-      url = mapping.type + '/schema';
-      app.use(url, logRequests);
-
-      app.get(url, getSchema);
-
-      // register list resource for this type.
-      url = mapping.type;
-
-      responseHandlerFn = responseHandler(mapping, configuration, postgres);
-      responseHandlers[url] = responseHandlerFn;
-
-      // register list resource for this type.
-      maxlimit = mapping.maxlimit || MAX_LIMIT;
-      defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-      app.get(url, logRequests, mapping.checkauthentication, responseHandlerFn,
-        compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
-
-      // register single resource
-      url = mapping.type + '/:key';
-      app.route(url)
-        .get(logRequests, mapping.checkauthentication, responseHandlerFn, compression(),
-          getRegularResource(executeExpansion))
-        .put(logRequests, mapping.checkauthentication, responseHandlerFn, createOrUpdate)
-        .delete(logRequests, mapping.checkauthentication, responseHandlerFn, deleteResource); // app.delete
-
-      // register custom routes (if any)
-
-      if (mapping.customroutes && mapping.customroutes instanceof Array) {
-        for (i = 0; i < mapping.customroutes.length; i++) {
-          customroute = mapping.customroutes[i];
-          if (customroute.route && customroute.handler) {
-            app.get(customroute.route, logRequests, mapping.checkauthentication,
-              responseHandlerFn, compression(), wrapCustomRouteHandler(customroute.handler, mapping));
-          }
-        }
-      }
-
-    } // for all mappings.
+    if (!config.authenticate) {
+      msg = 'No authenticate function installed !';
+      cl(msg);
+      throw new Error(msg);
+    }
+    if (!config.identify) {
+      msg = 'No identify function installed !';
+      cl(msg);
+      throw new Error(msg);
+    }
 
     url = '/batch';
-    app.put(url, logRequests, mapping.checkauthentication, handleBatchOperations(responseHandlers), batchOperation);
+    app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
 
     url = '/me';
-    app.get(url, logRequests, mapping.checkauthentication, function (req, resp) {
-      mapping.getme(req).then(function (me) {
+    app.get(url, logRequests, config.authenticate, function (req, resp) {
+      pgConnect(postgres, configuration).then(function (db) {
+        database = db;
+      }).then(function () {
+        return config.identify(req, database);
+      }).then(function (me) {
         resp.set('Content-Type', 'application/json');
         resp.send(me);
+        resp.end();
+        database.done();
       }).fail(function (error) {
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        database.done(error);
       });
     });
 
@@ -1246,16 +1236,71 @@ exports = module.exports = {
       }
       resp.end();
     });
+
+    pgConnect(postgres, configuration).then(function (db) {
+      database = db;
+      return informationSchema(database, configuration);
+    }).then(function (information) {
+      for (configIndex = 0; configIndex < resources.length; configIndex++) {
+        mapping = resources[configIndex];
+
+        try {
+          checkRequiredFields(mapping, information);
+
+          // register schema for external usage. public.
+          url = mapping.type + '/schema';
+          app.use(url, logRequests);
+          app.get(url, getSchema);
+
+          // register list resource for this type.
+          url = mapping.type;
+
+          secureCacheFn = secureCache(mapping, configuration, postgres);
+          secureCacheFns[url] = secureCacheFn;
+
+          // register list resource for this type.
+          maxlimit = mapping.maxlimit || MAX_LIMIT;
+          defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+          app.get(url, logRequests, config.authenticate, secureCacheFn,
+            compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
+
+          // register single resource
+          url = mapping.type + '/:key';
+          app.route(url)
+            .get(logRequests, config.authenticate, secureCacheFn, compression(),
+              getRegularResource(executeExpansion))
+            .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
+            .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+
+          // register custom routes (if any)
+
+          if (mapping.customroutes && mapping.customroutes instanceof Array) {
+            for (i = 0; i < mapping.customroutes.length; i++) {
+              customroute = mapping.customroutes[i];
+              if (customroute.route && customroute.handler) {
+                app.get(customroute.route, logRequests, config.authenticate,
+                  secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
+              }
+            }
+          }
+        } catch (e) {
+          cl(e);
+        }
+
+      } // for all mappings.
+      d.resolve();
+    })
+    .fail(function (error) {
+      d.reject(error);
+    })
+    .finally(function () {
+      database.done();
+    });
+
+    return d.promise;
   },
 
   utils: {
-    // Call this is you want to clear the password and identity cache for the API.
-    clearPasswordCache: function () {
-      'use strict';
-      knownPasswords = {};
-      knownIdentities = {};
-    },
-
     // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
     executeSQL: pgExec,
     prepareSQL: queryobject.prepareSQL,
@@ -1308,7 +1353,9 @@ exports = module.exports = {
 
         return deferred.promise;
       };
-    }
+    },
+
+    basicAuthentication: checkBasicAuthentication
   },
 
   queryUtils: require('./js/queryUtils.js'),

@@ -1,4 +1,6 @@
-exports = module.exports = function (roa) {
+var common = require('../../js/common.js');
+
+exports = module.exports = function (roa, extra) {
   'use strict';
 
   var $s = roa.schemaUtils;
@@ -25,5 +27,6 @@ exports = module.exports = function (roa) {
     afterupdate: []
   };
 
+  common.mergeObject(extra, ret);
   return ret;
 };
