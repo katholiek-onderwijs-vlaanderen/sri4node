@@ -176,6 +176,24 @@ Now we can start Express.js to start serving up our SRI REST interface :
         console.log("Node app is running at localhost:" + app.get('port'))
     });
 
+## Reserved and required fields (mandatory)
+
+There are 3 columns that every resource table must have (it's mandatory).
+
+Those are:
+
+* "$$meta.deleted" boolean,
+* "$$meta.modified" timestamp with time zone not null default current_timestamp,
+* "$$meta.created" timestamp with time zone not null default current_timestamp
+
+For performance reasons it's highly suggested that an index is created for each column:
+
+* CREATE INDEX table_created ON *table* ("$$meta.created");
+* CREATE INDEX table_modified ON *table* ("$$meta.modified");
+* CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
+
+The application will fail to register a resource that lacks these fields (and show a message to the user)
+
 ## Processing Pipeline
 
 sri4node has a very simple processing pipeline for mapping SRI resources onto a database.

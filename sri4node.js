@@ -994,7 +994,10 @@ function deleteResource(req, resp) {
     return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
     var deletequery = prepare('delete-by-key-' + table);
-    deletequery.sql('delete from "' + table + '" where "key" = ').param(req.params.key);
+    var sql = 'update ' + table + ' set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp ';
+    sql += 'where "$$meta.deleted" is not true and "key" = ';
+    deletequery.sql(sql)
+      .param(req.params.key);
     return pgExec(database, deletequery, logsql, logdebug);
   }).then(function (results) {
     if (results.rowCount !== 1) {
