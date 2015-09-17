@@ -119,15 +119,5 @@ exports = module.exports = {
       description: description
     };
     return ret;
-  },
-
-  uuid: function(description) {
-    return {
-      type: "string",
-      minLength: 36,
-      maxLength: 36,
-      pattern: "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$",
-      description: description
-    }
   }
 };

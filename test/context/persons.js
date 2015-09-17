@@ -197,7 +197,7 @@ exports = module.exports = function (roa, logverbose, extra) {
         mail4elas: {
           type: 'string',
           description: 'Describes if, and how often this person wants messages to be emailed.',
-          'enum': ['never', 'daily', 'weekly', 'instant']
+          enum: ['never', 'daily', 'weekly', 'instant']
         }
       },
       required: ['firstname', 'lastname', 'street', 'streetnumber', 'zipcode', 'city', 'mail4elas']

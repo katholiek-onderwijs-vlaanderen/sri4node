@@ -24,8 +24,7 @@ exports = module.exports = function (roa, extra) {
       description: {},
       amount: {}
     },
-    secure: [
-              ],
+    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A single transaction between 2 people.',
@@ -42,35 +41,35 @@ exports = module.exports = function (roa, extra) {
       required: ['fromperson', 'toperson', 'description', 'amount']
     },
     afterinsert: [
-        function (db, element) {
-          var amount = element.amount;
-          var tokey = element.toperson.href;
-          tokey = tokey.split('/')[2];
+      function (db, element) {
+        var amount = element.amount;
+        var tokey = element.toperson.href;
+        tokey = tokey.split('/')[2];
 
-          var updateto = $u.prepareSQL();
-          updateto.sql('update persons set balance = (balance + ')
-            .param(amount).sql(') where key = ').param(tokey);
-          return $u.executeSQL(db, updateto);
-        },
-        function (db, element) {
-          var amount = element.amount;
-          var fromkey = element.fromperson.href;
-          fromkey = fromkey.split('/')[2];
+        var updateto = $u.prepareSQL();
+        updateto.sql('update persons set balance = (balance + ')
+          .param(amount).sql(') where key = ').param(tokey);
+        return $u.executeSQL(db, updateto);
+      },
+      function (db, element) {
+        var amount = element.amount;
+        var fromkey = element.fromperson.href;
+        fromkey = fromkey.split('/')[2];
 
-          var updatefrom = $u.prepareSQL();
-          updatefrom.sql('update persons set balance = (balance - ')
-            .param(amount).sql(') where key = ').param(fromkey);
-          return $u.executeSQL(db, updatefrom);
-        }
+        var updatefrom = $u.prepareSQL();
+        updatefrom.sql('update persons set balance = (balance - ')
+          .param(amount).sql(') where key = ').param(fromkey);
+        return $u.executeSQL(db, updatefrom);
+      }
     ],
     // TODO : Check if updates are blocked.
     afterupdate: [
-        function () {
-          var deferred = Q.defer();
-          deferred.reject('Updates on transactions are not allowed.');
-          return deferred.promise;
-        }
-      ]
+      function () {
+        var deferred = Q.defer();
+        deferred.reject('Updates on transactions are not allowed.');
+        return deferred.promise;
+      }
+    ]
   };
 
   common.mergeObject(extra, ret);

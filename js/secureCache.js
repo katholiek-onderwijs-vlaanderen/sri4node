@@ -26,7 +26,7 @@ function validateRequest(config, mapping, req, res, batch) {
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
-      return config.identify(req,database);
+      return config.identify(req, database);
     }).then(function (me) {
       promises = [];
       mapping.secure.forEach(function (f) {
@@ -40,7 +40,7 @@ function validateRequest(config, mapping, req, res, batch) {
       deferred.reject();
     }).finally(function () {
       database.done();
-    })
+    });
   } else {
     deferred.resolve();
   }
@@ -209,12 +209,12 @@ exports = module.exports = function (mapping, config, pg) {
     cache = true;
     cl('sri4node cache active for resource ' + mapping.type);
     switch (mapping.cache.type) {
-      case 'redis':
-        cacheImpl = redisCacheImpl(mapping.cache.ttl, mapping.cache.redis);
-        break;
-      default:
-        cacheImpl = localCacheImpl(mapping.cache.ttl);
-        break;
+    case 'redis':
+      cacheImpl = redisCacheImpl(mapping.cache.ttl, mapping.cache.redis);
+      break;
+    default:
+      cacheImpl = localCacheImpl(mapping.cache.ttl);
+      break;
     }
   }
 
@@ -298,7 +298,7 @@ exports = module.exports = function (mapping, config, pg) {
             cacheStore.list.flushAll();
           }
           next();
-        }).catch(function (error) {
+        }).catch(function () {
           res.status(403).send({
             type: 'access.denied',
             status: 403,

@@ -197,14 +197,14 @@ exports = module.exports = function (mapping, config, pg) {
     cache = true;
     ttl = mapping.cache.ttl || DEFAULT_TTL;
     switch (mapping.cache.type) {
-      case 'redis':
-        cl('cache redis for type ' + mapping.type);
-        cacheImpl = function () { return redisCacheImpl(ttl, mapping.cache.redis); };
-        break;
-      default:
-        cl('cache local for type ' + mapping.type);
-        cacheImpl = function () { return localCacheImpl(ttl); };
-        break;
+    case 'redis':
+      cl('cache redis for type ' + mapping.type);
+      cacheImpl = function () { return redisCacheImpl(ttl, mapping.cache.redis); };
+      break;
+    default:
+      cl('cache local for type ' + mapping.type);
+      cacheImpl = function () { return localCacheImpl(ttl); };
+      break;
     }
   }
 

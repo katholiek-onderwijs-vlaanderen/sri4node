@@ -101,8 +101,7 @@ exports = module.exports = function (roa, logverbose, extra) {
         references: '/communities'
       }
     },
-    secure: [
-              ],
+    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A messages posted to the LETS members.',
@@ -112,7 +111,7 @@ exports = module.exports = function (roa, logverbose, extra) {
         type: {
           type: 'string',
           description: 'Is this message offering something, or is it requesting something ?',
-          'enum': ['offer', 'request']
+          enum: ['offer', 'request']
         },
         title: $s.string('A short summary of the message. A plain text string.'),
         description: $s.string('A more elaborate description. An HTML string.'),
@@ -124,8 +123,8 @@ exports = module.exports = function (roa, logverbose, extra) {
       required: ['person', 'type', 'title', 'community']
     },
     validate: [
-        validateMoreThan('amount', 10),
-        validateMoreThan('amount', 20)
+      validateMoreThan('amount', 10),
+      validateMoreThan('amount', 20)
     ],
     query: {
       communities: $q.filterReferencedType('/communities', 'community'),
@@ -135,7 +134,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       cteOneGuid2: cteOneGuid2
     },
     afterread: [
-        addExtraKeysAfterRead
+      addExtraKeysAfterRead
     ]
   };
 

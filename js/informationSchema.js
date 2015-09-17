@@ -23,6 +23,8 @@ var cache = null;
 exports = module.exports = function (database, configuration) {
   'use strict';
   var deferred = Q.defer();
+  var q, tableNames;
+  var i, type, tableName, row, typeCache, columnCache;
 
   /*function debug(x) {
     if (configuration.logdebug) {
@@ -33,10 +35,8 @@ exports = module.exports = function (database, configuration) {
   if (cache !== null) {
     deferred.resolve(cache);
   } else {
-
-    var q = qo.prepareSQL('information-schema');
-    var tableNames = [];
-    var i, type, tableName, row, typeCache, columnCache;
+    q = qo.prepareSQL('information-schema');
+    tableNames = [];
 
     for (i = 0; i < configuration.resources.length; i++) {
       type = configuration.resources[i].type;

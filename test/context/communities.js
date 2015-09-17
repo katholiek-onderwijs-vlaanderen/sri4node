@@ -180,8 +180,8 @@ exports = module.exports = function (roa, logverbose, extra) {
         onread: $m.removeifnull
       },
       currencyname: {},
-      "$$meta.deleted" : {},
-      "$$meta.modified" : {}
+      '$$meta.deleted': {},
+      '$$meta.modified': {}
     },
     query: {
       invalidQueryParameter: invalidQueryParameter,

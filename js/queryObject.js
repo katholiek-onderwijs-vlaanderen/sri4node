@@ -86,7 +86,7 @@ exports = module.exports = {
 
         return this;
       },
-      'with': function (nonrecursivequery, unionclause, recursivequery, virtualtablename) {
+      with: function (nonrecursivequery, unionclause, recursivequery, virtualtablename) {
         // Form : select.with(nonrecursiveterm,virtualtablename)
         var tablename, cte;
 

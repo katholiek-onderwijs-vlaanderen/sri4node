@@ -298,6 +298,7 @@ function parseFilters(value, select, parameter, mapping) {
     var field;
     var filterFn;
     var baseType;
+    var error;
 
     // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
     filter = analyseParameter(parameter);
@@ -324,7 +325,8 @@ function parseFilters(value, select, parameter, mapping) {
     } else if (filter.key === 'q') {
       filterGeneral(select, value, getTextFieldsFromTable(informationSchema[mapping.type]));
     } else {
-      throw {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
+      error = {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
+      throw error;
     }
 
   };
