@@ -19,7 +19,7 @@ You will also want to install Express.js and node-postgres :
     $ npm install --save express
     $ npm install --save pg
 
-Express.js and node-postgress are *technically* not dependencies of sri4node.
+Express.js and node-postgress are *technically* not dependencies (as in npm dependencies) of sri4node.
 But you need to pass them in when configuring.
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
