@@ -147,7 +147,7 @@ exports = module.exports = {
     var databaseUrl = env.databaseUrl;
     var dbUrl;
     if (databaseUrl) {
-      dbUrl = databaseUrl + '?ssl=true';
+      dbUrl = databaseUrl;
     } else {
       dbUrl = configuration.defaultdatabaseurl;
     }
