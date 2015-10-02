@@ -502,7 +502,7 @@ function executePutInsideTransaction(db, url, body) {
               update.sql(',\"' + k + '\"' + '=').param(element[k]);
             }
           }
-          update.sql(' where "$$meta.deleted" is not true and "key" = ').param(key);
+          update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
 
           return pgExec(db, update, logsql, logdebug).then(function (results) {
             if (results.rowCount !== 1) {
@@ -663,11 +663,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function () {
       countquery = prepare();
       if (req.query['$$meta.deleted'] === 'true') {
-        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is true ');
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" = true ');
       } else if (req.query['$$meta.deleted'] === 'any') {
         countquery.sql('select count(*) from "' + table + '" where 1=1 ');
       } else {
-        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" is not true ');
+        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" = false ');
       }
 
       debug('* applying URL parameters to WHERE clause');
@@ -681,7 +681,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var sql;
       if (req.query['$$meta.deleted'] === 'true') {
         sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-        sql += table + '" where "$$meta.deleted" is true ';
+        sql += table + '" where "$$meta.deleted" = true ';
         query.sql(sql);
       } else if (req.query['$$meta.deleted'] === 'any') {
         sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
@@ -689,7 +689,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         query.sql(sql);
       } else {
         sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-        sql += table + '" where "$$meta.deleted" is not true ';
+        sql += table + '" where "$$meta.deleted" = false ';
         query.sql(sql);
       }
       debug('* applying URL parameters to WHERE clause');
@@ -992,7 +992,7 @@ function deleteResource(req, resp) {
   }).then(function () {
     var deletequery = prepare('delete-by-key-' + table);
     var sql = 'update ' + table + ' set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp ';
-    sql += 'where "$$meta.deleted" is not true and "key" = ';
+    sql += 'where "$$meta.deleted" = false and "key" = ';
     deletequery.sql(sql)
       .param(req.params.key);
     return pgExec(database, deletequery, logsql, logdebug);

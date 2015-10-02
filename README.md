@@ -149,7 +149,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
             ]
         });
 
-Configure returns a [Q promise][kriskowal-q]. 
+Configure returns a [Q promise][kriskowal-q].
 Now we can start Express.js to start serving up our SRI REST interface :
 
     promise.then(function () {
@@ -164,7 +164,7 @@ There are 3 columns that every resource table must have (it's mandatory).
 
 Those are:
 
-* "$$meta.deleted" boolean,
+* "$$meta.deleted" boolean default false,
 * "$$meta.modified" timestamp with time zone not null default current_timestamp,
 * "$$meta.created" timestamp with time zone not null default current_timestamp
 
