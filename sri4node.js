@@ -1039,7 +1039,7 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
   };
 }
 
-function handleBatchOperations(responseHandlers) {
+function handleBatchOperations(secureCacheFns) {
   'use strict';
 
   return function (req, res, next) {
@@ -1073,7 +1073,7 @@ function handleBatchOperations(responseHandlers) {
           body: element.batch,
           user: req.user
         };
-        responseHandlers[type](elementReq, res, nextElement);
+        secureCacheFns[type](elementReq, res, nextElement);
       } else {
         return next();
       }
@@ -1206,9 +1206,6 @@ exports = module.exports = {
       throw new Error(msg);
     }
 
-    url = '/batch';
-    app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
-
     url = '/me';
     app.get(url, logRequests, config.authenticate, function (req, resp) {
       pgConnect(postgres, configuration).then(function (db) {
@@ -1288,6 +1285,11 @@ exports = module.exports = {
         }
 
       } // for all mappings.
+
+    })
+    .then(function () {
+      url = '/batch';
+      app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
       d.resolve();
     })
     .fail(function (error) {
