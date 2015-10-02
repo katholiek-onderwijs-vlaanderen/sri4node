@@ -126,6 +126,7 @@ exports = module.exports = {
     };
   },
 
+  // deprecated
   modifiedSince: function (value, select) {
     'use strict';
 
