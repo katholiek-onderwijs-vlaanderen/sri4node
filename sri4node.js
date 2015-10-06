@@ -353,21 +353,21 @@ var allowCrossDomain = function (req, res, next) {
   } else {
     allowedMethods = 'GET,PUT,POST,DELETE,HEAD,OPTIONS';
   }
-  var origin = '*';
-  if (req.headers['x-forwarded-for']) {
-    origin = req.headers['x-forwarded-for'];
-  } else if (req.headers['X-Forwarded-For']) {
-    origin = req.headers['X-Forwarded-For'];
-  } else if (req.headers.origin) {
-    origin = req.headers.origin;
-  } else if (req.headers.Origin) {
-    origin = req.headers.Origin;
-  } else if (req.headers.host) {
-    origin = req.headers.host;
-  } else if (req.headers.Host) {
-    origin = req.headers.Host;
-  }
-  res.header('Access-Control-Allow-Origin', origin);
+  // var origin = '*';
+  // if (req.headers['x-forwarded-for']) {
+  //   origin = req.headers['x-forwarded-for'];
+  // } else if (req.headers['X-Forwarded-For']) {
+  //   origin = req.headers['X-Forwarded-For'];
+  // } else if (req.headers.origin) {
+  //   origin = req.headers.origin;
+  // } else if (req.headers.Origin) {
+  //   origin = req.headers.Origin;
+  // } else if (req.headers.host) {
+  //   origin = req.headers.host;
+  // } else if (req.headers.Host) {
+  //   origin = req.headers.Host;
+  // }
+  res.header('Access-Control-Allow-Origin', req.headers['Origin'] ? req.headers['Origin'] : '*');
   res.header('Access-Control-Allow-Methods', allowedMethods);
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
