@@ -29,6 +29,8 @@ var executeValidateMethods = common.executeValidateMethods;
 var queryobject = require('./js/queryObject.js');
 var prepare = queryobject.prepareSQL;
 
+var emt = require('express-middleware-timer');
+
 // Module variables.
 var configuration;
 var resources;
@@ -1179,6 +1181,24 @@ exports = module.exports = {
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
+    // init timer
+    app.use(emt.init(function emtReporter(req, res) {
+      // Write report to file.
+      var report = emt.calculate(req, res);
+      var out = 'middleware timing: ';
+      var timer;
+      var timers = [];
+
+      for (timer in report.timers) {
+        if (report.timers.hasOwnProperty(timer)) {
+          timers.push('[' + timer + ' took ' + report.timers[timer].took + ']');
+        }
+      }
+
+      debug(out + timers.join(','));
+
+    }));
+
     // a global error handler to catch among others JSON errors
     //  => log stack trace and send JSON error message tp client
     // (unfortunatly the JSON errors cannot be distinguished from other errors ?!)
@@ -1258,14 +1278,17 @@ exports = module.exports = {
           // register list resource for this type.
           maxlimit = mapping.maxlimit || MAX_LIMIT;
           defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
-          app.get(url, logRequests, config.authenticate, secureCacheFn,
-            compression(), getListResource(executeExpansion, defaultlimit, maxlimit)); // app.get - list resource
+          // app.get - list resource
+          app.get(url, emt.instrument(logRequests), emt.instrument(config.authenticate, 'authenticate'),
+            emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
+            emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
           // register single resource
           url = mapping.type + '/:key';
           app.route(url)
-            .get(logRequests, config.authenticate, secureCacheFn, compression(),
-              getRegularResource(executeExpansion))
+            .get(logRequests, emt.instrument(config.authenticate, 'authenticate'),
+              emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
+              emt.instrument(getRegularResource(executeExpansion), 'getResource'))
             .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
             .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
 

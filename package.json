@@ -10,6 +10,7 @@
   "dependencies": {
     "body-parser": "^1.9.0",
     "compression": "^1.5.2",
+    "express-middleware-timer": "^0.2.2",
     "ioredis": "^1.7.5",
     "jsonschema": "^1.0.0",
     "node-cache": "^3.0.0",

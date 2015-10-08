@@ -244,6 +244,13 @@ See the [SRI specification][sri-specs-list-resources] for more details.
 
 That's it ! :-).
 
+### Timing
+
+If `logdebug` is true, you can start the application with the environment variable TIMER set to true to see a log of the timing of each
+middleware.
+
+Example: `TIMER=true node index.js`
+
 ## Function Definitions
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
