@@ -1,13 +1,6 @@
-SET search_path TO sri4node;
+CREATE SCHEMA sri4node;
 
-DROP TABLE IF EXISTS "messages" CASCADE;
-DROP TABLE IF EXISTS "transactions" CASCADE;
-DROP TABLE IF EXISTS "persons" CASCADE;
-DROP TABLE IF EXISTS "communities" CASCADE;
-DROP TABLE IF EXISTS "table" CASCADE;
-DROP TABLE IF EXISTS "selfreferential" CASCADE;
-DROP TABLE IF EXISTS "jsonb" CASCADE;
-DROP TABLE IF EXISTS "alldatatypes" CASCADE;
+SET search_path TO sri4node;
 
 CREATE TABLE "communities" (
   "key" uuid unique,

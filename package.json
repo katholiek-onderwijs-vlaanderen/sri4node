@@ -5,7 +5,10 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "mocha"
+    "test": "mocha",
+    "createdb": "./createdb.sh",
+    "lint" : "eslint js test",
+    "dev" : "env $(cat .env) nodemon --debug --watch ./js js/server.js"
   },
   "dependencies": {
     "body-parser": "^1.9.0",
@@ -22,7 +25,8 @@
     "pg": "2.x",
     "mocha": "~2.2.4",
     "node-uuid": "~1.4.3",
-    "eslint": "~1.4.3"
+    "eslint": "~1.4.3",
+    "nodemon": "1.7.x"
   },
   "repository": {
     "type": "git",
