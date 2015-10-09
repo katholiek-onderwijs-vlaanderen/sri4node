@@ -21,9 +21,9 @@ var knownIdentities = {};
 var knownPasswords = {};
 
 exports = module.exports = {
-  serve: function (roa, port, logsql, logrequests, logdebug) {
+  serve: function (roa, port, logsql, logrequests, logdebug, logmiddleware) {
     'use strict';
-    var config = exports.config(roa, port, logsql, logrequests, logdebug);
+    var config = exports.config(roa, port, logsql, logrequests, logdebug, logmiddleware);
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
@@ -61,7 +61,7 @@ exports = module.exports = {
     return configCache;
   },
 
-  config: function (roa, port, logsql, logrequests, logdebug) {
+  config: function (roa, port, logsql, logrequests, logdebug, logmiddleware) {
     'use strict';
     if (configCache !== null) {
       cl('config cached');
@@ -159,6 +159,7 @@ exports = module.exports = {
       logsql: logsql,
       logrequests: logrequests,
       logdebug: logdebug,
+      logmiddleware: logmiddleware,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
       authenticate: $u.basicAuthentication(testAuthenticator),
       identify: getMe,

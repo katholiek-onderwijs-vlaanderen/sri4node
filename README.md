@@ -49,6 +49,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             logsql: false,
             // Log debugging information ?
             logdebug: false,
+            // Log middleware timing ?
+            logmiddleware: true,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             authenticate: $u.basicAuthentication(myAuthenticator),
@@ -246,10 +248,8 @@ That's it ! :-).
 
 ### Timing
 
-If `logdebug` is true, you can start the application with the environment variable TIMER set to true to see a log of the timing of each
+If `logmiddleware` is true in the configuration the application will display a log of the timing of each
 middleware.
-
-Example: `TIMER=true node index.js`
 
 ## Function Definitions
 

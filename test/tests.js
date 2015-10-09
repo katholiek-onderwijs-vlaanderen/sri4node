@@ -2,15 +2,15 @@ var roa = require('../sri4node.js');
 var context = require('./context.js');
 
 var port = 5000;
-var logsql, logrequests, logdebug;
-logsql = logrequests = logdebug = false;
+var logsql, logrequests, logdebug, logmiddleware;
+logsql = logrequests = logdebug = logmiddleware = false;
 
 var base = 'http://localhost:' + port;
 
 describe('Sri4node testing', function () {
   'use strict';
   before(function (done) {
-    context.serve(roa, port, logsql, logrequests, logdebug).then(done);
+    context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware).then(done);
   });
 
   require('./testExpand.js')(base, logdebug);

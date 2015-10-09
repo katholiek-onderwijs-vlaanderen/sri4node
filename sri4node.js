@@ -29,8 +29,6 @@ var executeValidateMethods = common.executeValidateMethods;
 var queryobject = require('./js/queryObject.js');
 var prepare = queryobject.prepareSQL;
 
-var emt = require('express-middleware-timer');
-
 // Module variables.
 var configuration;
 var resources;
@@ -1181,23 +1179,33 @@ exports = module.exports = {
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
-    // init timer
-    app.use(emt.init(function emtReporter(req, res) {
-      // Write report to file.
-      var report = emt.calculate(req, res);
-      var out = 'middleware timing: ';
-      var timer;
-      var timers = [];
+    var emt;
 
-      for (timer in report.timers) {
-        if (report.timers.hasOwnProperty(timer)) {
-          timers.push('[' + timer + ' took ' + report.timers[timer].took + ']');
+    if (config.logmiddleware) {
+      process.env.TIMER = true; //eslint-disable-line
+      emt = require('express-middleware-timer');
+      // init timer
+      app.use(emt.init(function emtReporter(req, res) {
+        // Write report to file.
+        var report = emt.calculate(req, res);
+        var out = 'middleware timing: ';
+        var timer;
+        var timers = [];
+
+        for (timer in report.timers) {
+          if (report.timers.hasOwnProperty(timer)) {
+            timers.push('[' + timer + ' took ' + report.timers[timer].took + ']');
+          }
         }
-      }
 
-      console.log(out + timers.join(','));
+        console.log(out + timers.join(','));
 
-    }));
+      }));
+    } else {
+      emt = {
+        instrument: function noop(middleware) { return middleware; }
+      };
+    }
 
     // a global error handler to catch among others JSON errors
     //  => log stack trace and send JSON error message tp client

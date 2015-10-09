@@ -12,4 +12,4 @@ if (c9hostname) {
 
 var roa = require('../sri4node');
 var context = require('../test/context.js');
-context.serve(roa, port, true, false, false);
+context.serve(roa, port, true, false, false, true);
