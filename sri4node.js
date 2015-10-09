@@ -1195,7 +1195,7 @@ exports = module.exports = {
         }
       }
 
-      debug(out + timers.join(','));
+      console.log(out + timers.join(','));
 
     }));
 
