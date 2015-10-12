@@ -19,7 +19,9 @@ exports = module.exports = function (base, logverbose) {
       it('should have a correct messagecount.', function () {
         return doGet(base + '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849').then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.$$messagecount, 5);
+          if (!response.body.$$messagecount || response.body.$$messagecount < 5) {
+            assert.fail('Should have at least 5 messages for community LETS Regio Dendermonde');
+          }
         });
       });
     });

@@ -18,7 +18,8 @@
     "jsonschema": "^1.0.0",
     "node-cache": "^3.0.0",
     "q": "^1.0.1",
-    "sri4node-client": "^1.0.0"
+    "sri4node-client": "^1.0.0",
+    "needle": "0.10.x"
   },
   "devDependencies": {
     "express": "~4.9.x",

@@ -201,6 +201,18 @@ exports = module.exports = function (base, logverbose) {
         });
       });
     });
+
+    describe('with a missing field (community without name)', function () {
+      it('should return a 409 Conflict', function () {
+        var key = uuid.v4();
+        var body = generateRandomCommunity(key);
+        delete body.name;
+        return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 409);
+          assert.equal(response.body.errors[0].code, 'requires.property.name');
+        });
+      });
+    });
   });
 
   describe('afterupdate', function () {

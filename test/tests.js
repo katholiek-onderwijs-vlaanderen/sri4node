@@ -36,4 +36,5 @@ describe('Sri4node testing', function () {
   require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
   require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);
   require('./testModified.js')(base, logdebug);
+//  require('./testIsolated.js')(base, logdebug);
 });
