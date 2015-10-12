@@ -754,6 +754,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var deferred;
       debug('pgExec select ... OK');
       debug(result);
+
+      elements = [];
       if (mapping.handlelistqueryresult) {
         deferred = Q.defer();
         mapping.handlelistqueryresult(req, result).then(function (ret) {
@@ -769,7 +771,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var row, currentrow;
       var element, msg;
 
-      elements = [];
       for (row = 0; row < rows.length; row++) {
         currentrow = rows[row];
 
@@ -1145,7 +1146,8 @@ function checkRequiredFields(mapping, information) {
   var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   var i;
   for (i = 0; i < mandatoryFields.length; i++) {
-    if (!information[mapping.type].hasOwnProperty(mandatoryFields[i])) {
+    var idx = mapping.table ? '/' + mapping.table : mapping.type;
+    if (!information[idx].hasOwnProperty(mandatoryFields[i])) {
       throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
     }
   }
