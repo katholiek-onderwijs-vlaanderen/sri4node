@@ -90,7 +90,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
             reject = true;
             deferred.reject({
               type: 'unknown.query.parameter',
-              status: 400,
+              status: 404,
               body: {
                 errors: [{code: 'invalid.query.parameter', parameter: key}]
               }
@@ -124,7 +124,7 @@ function applyRequestParameters(mapping, req, select, database, count) {
           // 'status' -> the returned HTTP status code.
           // 'body' -> the response body that will be returned to the client.
           type: 'query.functions.rejected',
-          status: 400,
+          status: 404,
           body: {
             errors: errors
           }
@@ -353,21 +353,20 @@ var allowCrossDomain = function (req, res, next) {
   } else {
     allowedMethods = 'GET,PUT,POST,DELETE,HEAD,OPTIONS';
   }
-  // var origin = '*';
-  // if (req.headers['x-forwarded-for']) {
-  //   origin = req.headers['x-forwarded-for'];
-  // } else if (req.headers['X-Forwarded-For']) {
-  //   origin = req.headers['X-Forwarded-For'];
-  // } else if (req.headers.origin) {
-  //   origin = req.headers.origin;
-  // } else if (req.headers.Origin) {
-  //   origin = req.headers.Origin;
-  // } else if (req.headers.host) {
-  //   origin = req.headers.host;
-  // } else if (req.headers.Host) {
-  //   origin = req.headers.Host;
-  // }
-  res.header('Access-Control-Allow-Origin', req.headers['Origin'] ? req.headers['Origin'] : '*');
+/* 
+if (req.headers['x-forwarded-for']) {
+  origin = req.headers['x-forwarded-for'];
+} else if (req.headers['X-Forwarded-For']) {
+  origin = req.headers['X-Forwarded-For'];
+}
+*/ 
+  var origin = '*';
+  if (req.headers.origin) {
+   origin = req.headers.origin;
+  } else if (req.headers.Origin) {
+   origin = req.headers.Origin;
+  }
+  res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', allowedMethods);
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
