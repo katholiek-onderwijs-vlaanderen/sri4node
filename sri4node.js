@@ -353,18 +353,18 @@ var allowCrossDomain = function (req, res, next) {
   } else {
     allowedMethods = 'GET,PUT,POST,DELETE,HEAD,OPTIONS';
   }
-/* 
+/*
 if (req.headers['x-forwarded-for']) {
   origin = req.headers['x-forwarded-for'];
 } else if (req.headers['X-Forwarded-For']) {
   origin = req.headers['X-Forwarded-For'];
 }
-*/ 
+*/
   var origin = '*';
   if (req.headers.origin) {
-   origin = req.headers.origin;
+    origin = req.headers.origin;
   } else if (req.headers.Origin) {
-   origin = req.headers.Origin;
+    origin = req.headers.Origin;
   }
   res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', allowedMethods);
@@ -699,71 +699,71 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         var descending = req.query.descending;
 
         if (orderBy) {
-            valid = true;
-            orders = orderBy.split(',');
-            orderBy = '';
-            for (o = 0; o < orders.length; o++) {
-                order = orders[o];
+          valid = true;
+          orders = orderBy.split(',');
+          orderBy = '';
+          for (o = 0; o < orders.length; o++) {
+            order = orders[o];
 
-                if (!mapping.map[order]){
-                    if(order == '$$meta.created' || order == '$$meta.modified') {
-                        orders[o] = '"' + order + '"';
-                    }else{
-                        valid = false;
-                        break;
-                    }
-                }
-
-                if(orderBy.length == 0){
-                    orderBy = orders[o];
-                }else{
-                    orderBy = orderBy + ',' + orders[o];
-                }
-
+            if (!mapping.map[order]) {
+              if (order === '$$meta.created' || order === '$$meta.modified') {
+                orders[o] = '"' + order + '"';
+              }else {
+                valid = false;
+                break;
+              }
             }
-            if (valid) {
-                query.sql(' order by ' + orders);
-                if (descending) {
-                    query.sql(' desc');
-                }
-            } else {
-                cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
+
+            if (orderBy.length === 0) {
+              orderBy = orders[o];
+            }else {
+              orderBy = orderBy + ',' + orders[o];
             }
+
+          }
+          if (valid) {
+            query.sql(' order by ' + orders);
+            if (descending) {
+              query.sql(' desc');
+            }
+          } else {
+            cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
+          }
         } else {
-            query.sql(' order by "$$meta.created" asc');
+          query.sql(' order by "$$meta.created" asc');
         }
 
-      queryLimit = req.query.limit || defaultlimit;
+        queryLimit = req.query.limit || defaultlimit;
 
-      offset = req.query.offset || 0;
-      var error;
+        offset = req.query.offset || 0;
+        var error;
 
-      if (queryLimit > maxlimit) {
+        if (queryLimit > maxlimit) {
 
-        error = {
-          status: 409,
-          type: 'ERROR',
-          body: [
-            {
-              code: 'invalid.limit.parameter',
-              type: 'ERROR',
-              message: 'The maximum allowed limit is ' + maxlimit
-            }
-          ]
-        };
+          error = {
+            status: 409,
+            type: 'ERROR',
+            body: [
+              {
+                code: 'invalid.limit.parameter',
+                type: 'ERROR',
+                message: 'The maximum allowed limit is ' + maxlimit
+              }
+            ]
+          };
 
-        throw error;
-      }
+          throw error;
+        }
 
-      query.sql(' limit ').param(queryLimit);
+        query.sql(' limit ').param(queryLimit);
 
-      if (offset) {
-        query.sql(' offset ').param(offset);
-      }
+        if (offset) {
+          query.sql(' offset ').param(offset);
+        }
 
-      debug('* executing SELECT query on database');
-      return pgExec(database, query, logsql, logdebug);
-    }).then(function (result) {
+        debug('* executing SELECT query on database');
+        return pgExec(database, query, logsql, logdebug);
+      }).then(function (result) {
       var deferred;
       debug('pgExec select ... OK');
       debug(result);
@@ -1158,8 +1158,9 @@ function checkRequiredFields(mapping, information) {
   'use strict';
   var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   var i;
+  var idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    var idx = mapping.table ? '/' + mapping.table : mapping.type;
+    idx = mapping.table ? '/' + mapping.table : mapping.type;
     if (!information[idx].hasOwnProperty(mandatoryFields[i])) {
       throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
     }
@@ -1213,7 +1214,7 @@ exports = module.exports = {
           }
         }
 
-        console.log(out + timers.join(','));
+        console.log(out + timers.join(',')); //eslint-disable-line
 
       }));
     } else {
