@@ -7,7 +7,7 @@
     "start": "node index.js",
     "test": "mocha",
     "createdb": "./createdb.sh",
-    "lint" : "eslint js test",
+    "lint" : "eslint sri4node.js js test",
     "dev" : "env $(cat .env) nodemon --debug --watch ./js js/server.js"
   },
   "dependencies": {
