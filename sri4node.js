@@ -694,30 +694,44 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* applying URL parameters to WHERE clause');
       return applyRequestParameters(mapping, req, query, database, false);
     }).then(function () {
-      // All list resources support orderBy, limit and offset.
-      var orderBy = req.query.orderBy;
-      var descending = req.query.descending;
-      if (orderBy) {
-        valid = true;
-        orders = orderBy.split(',');
-        for (o = 0; o < orders.length; o++) {
-          order = orders[o];
-          if (!mapping.map[order]) {
-            valid = false;
-            break;
-          }
-        }
-        if (valid) {
-          query.sql(' order by ' + orders);
-          if (descending) {
-            query.sql(' desc');
-          }
+        // All list resources support orderBy, limit and offset.
+        var orderBy = req.query.orderBy;
+        var descending = req.query.descending;
+
+        if (orderBy) {
+            valid = true;
+            orders = orderBy.split(',');
+            orderBy = '';
+            for (o = 0; o < orders.length; o++) {
+                order = orders[o];
+
+                if (!mapping.map[order]){
+                    if(order == '$$meta.created' || order == '$$meta.modified') {
+                        orders[o] = '"' + order + '"';
+                    }else{
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if(orderBy.length == 0){
+                    orderBy = orders[o];
+                }else{
+                    orderBy = orderBy + ',' + orders[o];
+                }
+
+            }
+            if (valid) {
+                query.sql(' order by ' + orders);
+                if (descending) {
+                    query.sql(' desc');
+                }
+            } else {
+                cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
+            }
         } else {
-          cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
+            query.sql(' order by "$$meta.created" asc');
         }
-      } else {
-        query.sql(' order by "$$meta.created" asc');
-      }
 
       queryLimit = req.query.limit || defaultlimit;
 
