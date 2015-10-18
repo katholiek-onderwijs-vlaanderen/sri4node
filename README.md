@@ -187,9 +187,9 @@ We explain the possible HTTP operations below :
 In essence we map 1 *regular* resource to a database row.
 A *list* resource corresponds to a query on a database table.
 
-Expansion on list resource can be specified as `expand=results.href`, this will include all *regular* resources in your *list* resource.
+Expansion on list resource can be specified as `expand=results`, this will include all *regular* resources in your *list* resource.
 A shorthand version of this is `expand=full`.
-Expansion on list resource can also be specified as `expand=results.href.x.y,results.href.u.v.w`, where `x.y` and `u.v.w` can be any path in the expanded *regular* resource.
+Expansion on list resource can also be specified as `expand=results.x.y,results.u.v.w`, where `x.y` and `u.v.w` can be any path in the expanded *regular* resource.
 This will include related *regular* resources.
 
 Expansion on *regular* resource can be specified as `expand=u.v,x.y.z`, where `u.v` and `x.y.z` can be any reference to related *regular* resources.
