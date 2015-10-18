@@ -380,7 +380,7 @@ The function receives these parameters :
 
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
-It should `reject()` with an object that correspond to the SRI definition of an [error][sri-error].
+It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
 Mind you that *path* does not makes sense for errors in afterread methods, so you should ommit it.
 
 ### afterupdate / afterinsert
@@ -394,7 +394,7 @@ The function receives these parameters :
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
-The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
+The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
 ### afterdelete
@@ -407,7 +407,7 @@ The function receives these parameters :
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
-The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-error].
+The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
 If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
 
 ### authenticate
