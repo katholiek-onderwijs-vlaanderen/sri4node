@@ -372,7 +372,7 @@ The function must return a [Q promise][kriskowal-q] JSON output object.
 ### afterread
 
 Hook for post-processing a GET operation (both regular and list resources).
-It applies to both regular resources, and list resources (with at least `expand=href`).
+It applies to both regular resources, and list resources (with at least `expand=results`).
 The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
