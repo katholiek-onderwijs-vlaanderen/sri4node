@@ -107,9 +107,6 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     // Allowig any kind of filtering on
                     // the resulting list resource.
                     query: {
-                        authors: $q.filterILike('authors'),
-                        themes: $q.filterILike('themes'),
-                        html: $q.filterILike('html'),
                         editor: $q.filterReferencedType('/persons','editor'),
                         defaultFilter: $q.defaultFilter
                     },
@@ -831,62 +828,6 @@ Do a query to retrieve all content, created by person X :
 
 The value being passed in as a URL parameter can be a single href, or a comma-separated list of hrefs. The filter will match on any of the given permalinks.
 
-#### filterILike(columnname)
-Can be used to filter an a case-insensitive substring of a certain column.
-Example: /content resources have a key `html`.
-You can support list resource like `/content?html=keyword` by adding this query function :
-
-    {
-        type: '/content',
-        map: {
-            ...
-            html: { },
-            ...
-        },
-        ...
-        query: [
-            html: $q.filterILike('/persons','creator')
-        ],
-        ...
-    }
-
-Do a query to retrieve all content, created by person X :
-
-    GET /content?html=keyword
-
-This filter also supports multiple, comma-separated, values.
-The resulting list resource will contain items that contain *one of* the supplied values.
-
-    GET /content?html=thiskeyword,ORthisone
-
-
-#### filterIn(columnname)
-Can be used to filter on an exact value for a certain column.
-Example: A `/schools` resource could have a property `institutionNumber`.
-In order to filter down to the school with exactly one institutionNumber :
-
-    {
-        type: '/schools',
-        map: {
-            ...
-            institutionNumber: { },
-            ...
-        },
-        ...
-        query: [
-            institutionNumber: $q.filterEquals('insititionNumber')
-        ]
-    }
-
-Then do a query to retrieve a specific school with institution number 128256 : `
-
-    GET /schools?institutionNumber=128256
-
-This filter supports multiple, comma-separated, values.
-The resulting list resource will contain items that has *one of* the supplied values.
-
-    GET /schools?institutionNumber=128256,036456
-
 #### defaultFilter
 
 An implementation of [sri-query][sri-query]. SRI-query defines default, basic filternig on list resources. The function is a default, shared implementation of that.
@@ -899,7 +840,7 @@ An implementation of [sri-query][sri-query]. SRI-query defines default, basic fi
         ...
         query: [
             ...
-            'default': $q.defaultFilter
+            defaultFilter: $q.defaultFilter
         ]
     }
 
