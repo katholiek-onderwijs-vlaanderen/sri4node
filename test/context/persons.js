@@ -205,8 +205,6 @@ exports = module.exports = function (roa, logverbose, extra) {
     validate: [],
     query: {
       communities: $q.filterReferencedType('/communities', 'community'),
-      firstnameILike: $q.filterILike('firstname'),
-      firstnameIn: $q.filterIn('firstname'),
       defaultFilter: $q.defaultFilter
     },
     afterread: [
