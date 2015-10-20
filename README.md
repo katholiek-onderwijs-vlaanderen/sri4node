@@ -61,7 +61,6 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     // Base url, maps 1:1 with a table in postgres
                     // Same name, except the '/' is removed
                     type: "/content",
-                    description: 'A description about this resource',
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
