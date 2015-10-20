@@ -12,6 +12,8 @@ var Validator = require('jsonschema').Validator;
 var compression = require('compression');
 var bodyParser = require('body-parser');
 var Q = require('q');
+var swig = require('swig');
+var express = require('express');
 
 // Utility function.
 var common = require('./js/common.js');
@@ -345,7 +347,7 @@ var allowCrossDomain = function (req, res, next) {
     methods = mapping.methods.slice();
     methods.push('HEAD', 'OPTIONS');
     allowedMethods = methods.join(',');
-    if (methods.indexOf(req.method) === -1) {
+    if (methods.indexOf(req.method) === -1 && req.path !== type + '/docs') {
       res.header('Allow', allowedMethods);
       res.status(405).send('Method Not Allowed');
       return;
@@ -629,6 +631,22 @@ function getSchema(req, resp) {
   resp.send(mapping.schema);
 }
 
+/* Handle GET /docs and /{type}/docs */
+function getDocs(req, resp) {
+  'use strict';
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + req.route.path.split('/')[1];
+  var mapping;
+  if (type in typeToMapping) {
+    mapping = typeToMapping[type];
+    resp.render('resource', {resource: mapping});
+  } else if (type === '/docs') {
+    resp.render('index', {config: configuration});
+  } else {
+    resp.status(404).send('Not Found');
+  }
+}
+
 function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
@@ -823,7 +841,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       output = {
         $$meta: {
           count: count,
-          schema: mapping.type + '/schema'
+          schema: mapping.type + '/schema',
+          docs: mapping.type + '/docs'
         },
         results: results
       };
@@ -1195,6 +1214,12 @@ exports = module.exports = {
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
+    //to parse html pages
+    app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
+    app.engine('html', swig.renderFile);
+    app.set('view engine', 'html');
+    app.set('views', __dirname + '/js/docs');
+
     var emt;
 
     if (config.logmiddleware) {
@@ -1278,6 +1303,8 @@ exports = module.exports = {
       resp.end();
     });
 
+    app.get('/docs', logRequests, getDocs);
+
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
       return informationSchema(database, configuration);
@@ -1292,6 +1319,9 @@ exports = module.exports = {
           url = mapping.type + '/schema';
           app.use(url, logRequests);
           app.get(url, getSchema);
+
+          //register docs for this type
+          app.get(mapping.type + '/docs', logRequests, getDocs);
 
           // register list resource for this type.
           url = mapping.type;

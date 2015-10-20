@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <title>API Documentation</title>
+
+    <link href="/docs/static/bootstrap.min.css" rel="stylesheet">
+    <link href="/docs/static/custom.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="container">
+    <div class="header clearfix">
+        <h3 class="text-primary">API Documentation</h3>
+    </div>
+
+    <div class="row well">{{config.description}}</div>
+
+    <div class="row">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">Resources</h3>
+            </div>
+            <div class="panel-body">
+                {% for resource in config.resources %}
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">
+                            <a href="{{ resource.type }}/docs">{{ resource.type }}</a>
+                        </h3>
+                        <div class="pull-right" style="margin-top: -20px">
+                            {% if resource.methods %}
+                            {% for method in resource.methods %}
+                            <span class="label label-success">{{ method }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="label label-success">GET</span>
+                            <span class="label label-success">PUT</span>
+                            <span class="label label-success">DELETE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="panel-body">{{resource.description}}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">Endpoints</h3>
+            </div>
+            <div class="panel-body">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">/me</h3>
+                        <span class="label label-success pull-right" style="margin-top: -15px">GET</span>
+                    </div>
+                    <div class="panel-body">
+                        Get information about the current user.
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">/batch</h3>
+                        <span class="label label-success pull-right" style="margin-top: -15px">PUT</span>
+                    </div>
+                    <div class="panel-body">
+                        Send a batch request to the server. You can find more documentation <a href="https://github.com/dimitrydhondt/sri#batch-operations" target="_blank">here</a>.
+                    </div>
+                </div>
+
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">/log</h3>
+                        <span class="label label-success pull-right" style="margin-top: -15px">PUT</span>
+                    </div>
+                    <div class="panel-body">
+                        Send logs to the server.
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">/docs</h3>
+                        <span class="label label-success pull-right" style="margin-top: -15px">GET</span>
+                    </div>
+                    <div class="panel-body">
+                        Documentation about the API generated basted the configuration.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <footer class="footer">
+        <p>Powered by <a href="https://github.com/dimitrydhondt/sri4node" target="_blank">sir4node</a> based on the <a href="https://github.com/dimitrydhondt/sri" target="_blank">sri specification</a></p>
+    </footer>
+
+</div>
+
+
+</body>
+</html>

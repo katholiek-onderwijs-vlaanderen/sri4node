@@ -19,7 +19,8 @@
     "node-cache": "^3.0.0",
     "q": "^1.0.1",
     "sri4node-client": "^1.0.0",
-    "needle": "0.10.x"
+    "needle": "0.10.x",
+    "swig": "^1.4.2"
   },
   "devDependencies": {
     "express": "~4.9.x",

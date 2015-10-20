@@ -55,11 +55,13 @@ The declaration of the editor is a reference to a second resource (/person), whi
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             authenticate: $u.basicAuthentication(myAuthenticator),
             identify : functionToConstructSecurityContext,
+            description: 'A description about the collection of resources',
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres
                     // Same name, except the '/' is removed
                     type: "/content",
+                    description: 'A description about this resource',
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
@@ -849,6 +851,43 @@ Read the specification for details. Example queries are :
     GET /schools?institutionNumberGreater=100000
     GET /schools?nameContains=vbs
     GET /schools?nameCaseInsensitive=Minnestraal
+
+# Generated API Documentation
+
+Documentation will be generated based on the configuration. 
+On the `/docs` endpoint you can access general documentation about all the resources that are available.
+When you want more information about a resource you can access `/resource/docs`
+
+## validateDocs
+
+To document validate functions you need to add *validateDocs* to the resource configuration.
+*validateDocs* has to include a description and possible error codes of the validate function.
+
+			validate: [
+					validateAuthorVersusThemes
+			],
+			validateDocs: {
+			 		validateAuthorVersusThemes: {
+							description: "Validate if author or theme exists",
+							errors: [{
+									code: 'not.a.desert',
+									description: 'This is not a desert.'
+							}]
+					}
+			}
+
+## queryDocs
+
+To document a custom query function you need to add *queryDocs* to the resource configuration.
+*queryDocs* has to include the description of the query function.
+
+			query: {
+					editor: $q.filterReferencedType('/persons','editor'),
+					defaultFilter: $q.defaultFilter
+			},
+			queryDocs: {
+			 		editor: 'Allow to filer on an editor.'
+			}
 
 # Contributions
 
