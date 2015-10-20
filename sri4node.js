@@ -1305,6 +1305,25 @@ exports = module.exports = {
 
     app.get('/docs', logRequests, getDocs);
 
+    app.get('/resources', logRequests, function (req, resp) {
+      resp.set('Content-Type', 'application/json');
+      var resourcesToSend = {};
+      resources.forEach(function (value) {
+
+        resourcesToSend[value.type.substring(1)] = {
+          docs: value.type + '/docs',
+          schema: value.type + '/schema',
+          href: value.type
+        };
+
+        if (value.schema) {
+          resourcesToSend[value.type.substring(1)].description = value.schema.title;
+        }
+
+      });
+      resp.send(resourcesToSend);
+    });
+
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
       return informationSchema(database, configuration);
