@@ -888,18 +888,25 @@ To document a custom query function you need to add *queryDocs* to the resource 
 			editor: 'Allow to filer on an editor.'
 	}
 
-## Description
+##Description
 
+####Interface
 You can describe your sri interface by using the *description* variable in the root for your configuration
 
 	description: 'A description about the collection of resources'
+	
+####Resource 	
+You can describe a resource by using the to use *schema* > *title*
+  
+	title: 'An article on the websites/mailinglists'
 
-If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *title* :
+####Property
+If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *description* :
 
 	properties : {
 			authors: {
 					type: 'string'
-					title: 'Comma-separated list of authors.'
+					description: 'Comma-separated list of authors.'
 			}
 	}
 
