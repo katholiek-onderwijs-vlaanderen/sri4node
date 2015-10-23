@@ -862,31 +862,53 @@ When you want more information about a resource you can access `/resource/docs`
 To document validate functions you need to add *validateDocs* to the resource configuration.
 *validateDocs* has to include a description and possible error codes of the validate function.
 
-			validate: [
-					validateAuthorVersusThemes
-			],
-			validateDocs: {
-			 		validateAuthorVersusThemes: {
-							description: "Validate if author or theme exists",
-							errors: [{
-									code: 'not.a.desert',
-									description: 'This is not a desert.'
-							}]
-					}
+	validate: [
+			validateAuthorVersusThemes
+	],
+	validateDocs: {
+			validateAuthorVersusThemes: {
+					description: "Validate if author or theme exists",
+					errors: [{
+							code: 'not.a.desert',
+							description: 'This is not a desert.'
+					}]
 			}
+	}
 
 ## queryDocs
 
 To document a custom query function you need to add *queryDocs* to the resource configuration.
 *queryDocs* has to include the description of the query function.
 
-			query: {
-					editor: $q.filterReferencedType('/persons','editor'),
-					defaultFilter: $q.defaultFilter
-			},
-			queryDocs: {
-			 		editor: 'Allow to filer on an editor.'
+	query: {
+			editor: $q.filterReferencedType('/persons','editor'),
+			defaultFilter: $q.defaultFilter
+	},
+	queryDocs: {
+			editor: 'Allow to filer on an editor.'
+	}
+
+## Description
+
+You can describe your sri interface by using the *description* variable in the root for your configuration
+
+	description: 'A description about the collection of resources'
+
+If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *title* :
+
+	properties : {
+			authors: {
+					type: 'string'
+					title: 'Comma-separated list of authors.'
 			}
+	}
+
+Or use the schemaUtils function:
+
+	properties : {
+			authors: $s.string('Comma-separated list of authors.')
+	}
+
 
 # Contributions
 
