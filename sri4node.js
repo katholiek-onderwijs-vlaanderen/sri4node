@@ -62,7 +62,7 @@ var generateError = function (status, type, errors) {
   return err;
 };
 
-// apply extra parameters on request URL for a list-resource to a sselect.
+// apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, req, select, database, count) {
   'use strict';
   var deferred = Q.defer();
