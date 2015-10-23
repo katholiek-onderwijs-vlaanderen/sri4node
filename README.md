@@ -55,6 +55,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             authenticate: $u.basicAuthentication(myAuthenticator),
             identify : functionToConstructSecurityContext,
+            // All URLs force SSL and allow cross origin access.
+            forceSecureSockets: true,
             description: 'A description about the collection of resources',
             resources : [
                 {
@@ -853,7 +855,7 @@ Read the specification for details. Example queries are :
 
 # Generated API Documentation
 
-Documentation will be generated based on the configuration. 
+Documentation will be generated based on the configuration.
 On the `/docs` endpoint you can access general documentation about all the resources that are available.
 When you want more information about a resource you can access `/resource/docs`
 
@@ -894,10 +896,10 @@ To document a custom query function you need to add *queryDocs* to the resource 
 You can describe your sri interface by using the *description* variable in the root for your configuration
 
 	description: 'A description about the collection of resources'
-	
+
 ####Resource 	
 You can describe a resource by using the to use *schema* > *title*
-  
+
 	title: 'An article on the websites/mailinglists'
 
 ####Property

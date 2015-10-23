@@ -1209,8 +1209,11 @@ exports = module.exports = {
     logdebug = config.logdebug;
     postgres = pg;
 
-    // All URLs force SSL and allow cross origin access.
-    app.use(forceSecureSockets);
+    if (configuration.forceSecureSockets) {
+      // All URLs force SSL and allow cross origin access.
+      app.use(forceSecureSockets);
+    }
+
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
