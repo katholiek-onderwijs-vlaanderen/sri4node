@@ -86,6 +86,13 @@
                             <td><small><code class="text-muted">{{property.items | json}}</code></small></td>
                         </tr>
                         {% endif %}
+                        {% if property.enum %}
+                        <tr>
+                            <td align="right" class="text-muted" style="width: 150px"><small>Allowed values</small></td>
+                            <td><small><code class="text-muted">{{property.enum | json}}</code></small></td>
+                        </tr>
+                        {% endif %}
+
                     </table>
 
                 </div>
