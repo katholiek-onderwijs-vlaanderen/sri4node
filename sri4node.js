@@ -12,7 +12,7 @@ var Validator = require('jsonschema').Validator;
 var compression = require('compression');
 var bodyParser = require('body-parser');
 var Q = require('q');
-var swig = require('swig');
+var nunjucks = require('nunjucks');
 var express = require('express');
 
 // Utility function.
@@ -1216,9 +1216,11 @@ exports = module.exports = {
 
     //to parse html pages
     app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
-    app.engine('html', swig.renderFile);
     app.set('view engine', 'html');
-    app.set('views', __dirname + '/js/docs');
+    nunjucks.configure(__dirname + '/js/docs', {
+      autoescape: true,
+      express: app
+    });
 
     var emt;
 
