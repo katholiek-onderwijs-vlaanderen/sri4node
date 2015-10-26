@@ -62,7 +62,7 @@ var generateError = function (status, type, errors) {
   return err;
 };
 
-// apply extra parameters on request URL for a list-resource to a sselect.
+// apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, req, select, database, count) {
   'use strict';
   var deferred = Q.defer();
@@ -647,14 +647,47 @@ function getDocs(req, resp) {
   }
 }
 
+function getSQLFromListResource(req, mapping, count, database, query) {
+  'use strict';
+
+  var sql;
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var columns = sqlColumnNames(mapping);
+
+  if (count) {
+    if (req.query['$$meta.deleted'] === 'true') {
+      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = true ';
+    } else if (req.query['$$meta.deleted'] === 'any') {
+      sql = 'select count(*) from "' + table + '" where 1=1 ';
+    } else {
+      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = false ';
+    }
+    query.sql(sql);
+  } else {
+    if (req.query['$$meta.deleted'] === 'true') {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where "$$meta.deleted" = true ';
+    } else if (req.query['$$meta.deleted'] === 'any') {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where 1=1 ';
+    } else {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where "$$meta.deleted" = false ';
+    }
+    query.sql(sql);
+  }
+
+  debug('* applying URL parameters to WHERE clause');
+  return applyRequestParameters(mapping, req, query, database, count);
+
+}
+
 function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
     var type = '/' + req.route.path.split('/')[1];
     var mapping = typeToMapping[type];
-    var columns = sqlColumnNames(mapping);
-    var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
 
     var database;
     var countquery;
@@ -679,38 +712,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      if (req.query['$$meta.deleted'] === 'true') {
-        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" = true ');
-      } else if (req.query['$$meta.deleted'] === 'any') {
-        countquery.sql('select count(*) from "' + table + '" where 1=1 ');
-      } else {
-        countquery.sql('select count(*) from "' + table + '" where "$$meta.deleted" = false ');
-      }
-
-      debug('* applying URL parameters to WHERE clause');
-      return applyRequestParameters(mapping, req, countquery, database, true);
+      return getSQLFromListResource(req, mapping, true, database, countquery);
     }).then(function () {
       debug('* executing SELECT COUNT query on database');
       return pgExec(database, countquery, logsql, logdebug);
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      var sql;
-      if (req.query['$$meta.deleted'] === 'true') {
-        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-        sql += table + '" where "$$meta.deleted" = true ';
-        query.sql(sql);
-      } else if (req.query['$$meta.deleted'] === 'any') {
-        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-        sql += table + '" where 1=1 ';
-        query.sql(sql);
-      } else {
-        sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-        sql += table + '" where "$$meta.deleted" = false ';
-        query.sql(sql);
-      }
-      debug('* applying URL parameters to WHERE clause');
-      return applyRequestParameters(mapping, req, query, database, false);
+      return getSQLFromListResource(req, mapping, false, database, query);
     }).then(function () {
         // All list resources support orderBy, limit and offset.
         var orderBy = req.query.orderBy;
@@ -1209,8 +1218,11 @@ exports = module.exports = {
     logdebug = config.logdebug;
     postgres = pg;
 
-    // All URLs force SSL and allow cross origin access.
-    app.use(forceSecureSockets);
+    if (configuration.forceSecureSockets) {
+      // All URLs force SSL and allow cross origin access.
+      app.use(forceSecureSockets);
+    }
+
     app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
@@ -1404,6 +1416,8 @@ exports = module.exports = {
     prepareSQL: queryobject.prepareSQL,
 
     generateError: generateError,
+
+    convertListResourceURLToSQL: getSQLFromListResource,
 
     /*
         Add references from a different resource to this resource.
