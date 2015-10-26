@@ -55,6 +55,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
             authenticate: $u.basicAuthentication(myAuthenticator),
             identify : functionToConstructSecurityContext,
+            // All URLs force SSL and allow cross origin access.
+            forceSecureSockets: true,
             description: 'A description about the collection of resources',
             resources : [
                 {
@@ -515,6 +517,19 @@ It will add an array of references to resource of `type` to the currently retrie
 Specify the foreign key column (in the table of those referencing resource) via `foreignkey`.
 Specify the desired key (should be `$$somekey`, as it is not actually a part of the resource, but provided for convenience) to add to the currently retrieved resource(s) via `targetkey`.
 
+#### convertListResourceURLToSQL(req, mapping, count, database, query)
+Receives a query object and constructs the SQL for a list query.
+
+Arguments:
+
+- `req` is the request object.
+- `mapping` is the mapping in the configuration of sri4node.
+- `count` a boolean to indicate if the query wanted is a count query or not.
+- `database` a database obejct, allowing you to perform queries.
+- `query` a query obtain via `prepareSQL`
+
+This returns a promise that it's fulfilled when the `query` object contains the constructed SQL.
+
 #### basicAuthentication(authenticator)
 Used for protecting a resource with BASIC authentication.
 It accepts a single parameter, that is in turn a function that is responsible for checking username/password.
@@ -853,7 +868,7 @@ Read the specification for details. Example queries are :
 
 # Generated API Documentation
 
-Documentation will be generated based on the configuration. 
+Documentation will be generated based on the configuration.
 On the `/docs` endpoint you can access general documentation about all the resources that are available.
 When you want more information about a resource you can access `/resource/docs`
 
@@ -894,10 +909,10 @@ To document a custom query function you need to add *queryDocs* to the resource 
 You can describe your sri interface by using the *description* variable in the root for your configuration
 
 	description: 'A description about the collection of resources'
-	
+
 ####Resource 	
 You can describe a resource by using the to use *schema* > *title*
-  
+
 	title: 'An article on the websites/mailinglists'
 
 ####Property

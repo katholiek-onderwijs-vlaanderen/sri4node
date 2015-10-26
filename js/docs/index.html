@@ -16,7 +16,7 @@
         <h3 class="text-primary">API Documentation</h3>
     </div>
 
-    <div class="row well">{{config.description}}</div>
+    <div class="row well">{{config.description | safe}}</div>
 
     <div class="row">
         <div class="panel panel-primary">
@@ -42,7 +42,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="panel-body">{{resource.schema.title}}</div>
+                    <div class="panel-body">{{resource.schema.title | safe}}</div>
                 </div>
                 {% endfor %}
             </div>
