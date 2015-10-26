@@ -179,9 +179,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       website: {
         onread: $m.removeifnull
       },
-      currencyname: {},
-      '$$meta.deleted': {},
-      '$$meta.modified': {}
+      currencyname: {}
     },
     query: {
       invalidQueryParameter: invalidQueryParameter,
