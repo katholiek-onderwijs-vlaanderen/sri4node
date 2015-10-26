@@ -7,20 +7,21 @@
     "start": "node index.js",
     "test": "mocha",
     "createdb": "./createdb.sh",
-    "lint" : "eslint sri4node.js js test",
-    "dev" : "env $(cat .env) nodemon --debug --watch ./js js/server.js"
+    "lint": "eslint sri4node.js js test",
+    "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
   },
   "dependencies": {
     "body-parser": "^1.9.0",
     "compression": "^1.5.2",
     "express-middleware-timer": "^0.2.2",
     "ioredis": "^1.7.5",
+    "jade": "^1.11.0",
     "jsonschema": "^1.0.0",
-    "node-cache": "^3.0.0",
-    "q": "^1.0.1",
-    "sri4node-client": "^1.0.0",
     "needle": "0.10.x",
-    "nunjucks": "^2.1.0"
+    "node-cache": "^3.0.0",
+    "jade": "^1.11.0",
+    "q": "^1.0.1",
+    "sri4node-client": "^1.0.0"
   },
   "devDependencies": {
     "express": "~4.9.x",
