@@ -112,7 +112,7 @@ html(lang='en')
                                     else
                                         if resource.queryDocs
                                             if resource.queryDocs[key]
-                                                .panel-body #{resource.queryDocs[key]}
+                                                .panel-body!= resource.queryDocs[key]
             .row
                 .panel.panel-primary
                     .panel-heading
@@ -123,7 +123,7 @@ html(lang='en')
                                 .panel.panel-default
                                     .panel-heading
                                         h3.panel-title #{ key }
-                                    .panel-body #{validate.description}
+                                    .panel-body!= validate.description
                                     if validate.errors
                                         table.table.table-bordered
                                             each errors, key in validate.errors
@@ -131,7 +131,7 @@ html(lang='en')
                                                     td.text-muted(align='right')
                                                         small #{errors.code}
                                                     td
-                                                        small #{errors.description}
+                                                        small!= errors.description
             .row
                 .panel.panel-primary
                     .panel-heading
