@@ -384,7 +384,7 @@ The function receives these parameters :
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
 It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
-Mind you that *path* does not makes sense for errors in afterread methods, so you should ommit it.
+Mind you that *path* does not makes sense for errors in afterread methods, so you should omit it.
 
 ### afterupdate / afterinsert
 
