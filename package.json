@@ -1,6 +1,6 @@
 {
   "name": "sri4node",
-  "version": "1.1.19",
+  "version": "1.1.20",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
   "main": "sri4node.js",
   "scripts": {
@@ -19,7 +19,6 @@
     "jsonschema": "^1.0.0",
     "needle": "0.10.x",
     "node-cache": "^3.0.0",
-    "jade": "^1.11.0",
     "q": "^1.0.1",
     "sri4node-client": "^1.0.0"
   },
