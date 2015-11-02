@@ -756,7 +756,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
             cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
           }
         } else {
-          query.sql(' order by "$$meta.created" asc');
+          query.sql(' order by "$$meta.created", "key"');
         }
 
         queryLimit = req.query.limit || defaultlimit;
