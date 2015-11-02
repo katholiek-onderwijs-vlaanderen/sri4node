@@ -176,6 +176,10 @@ For performance reasons it's highly suggested that an index is created for each 
 * CREATE INDEX table_modified ON *table* ("$$meta.modified");
 * CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
 
+The following index is for the default order by:
+
+* CREATE INDEX table_created_key ON *table* ("$$meta.created", "key");
+
 The application will fail to register a resource that lacks these fields (and show a message to the user)
 
 ## Processing Pipeline
