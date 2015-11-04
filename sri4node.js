@@ -1195,9 +1195,13 @@ function checkRequiredFields(mapping, information) {
   'use strict';
   var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   var i;
-  var idx;
+  var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    idx = mapping.table ? '/' + mapping.table : mapping.type;
+    table = mapping.table ? mapping.table : mapping.type;
+    idx = '/' + table;
+    if (!information[idx]) {
+      throw new Error('Table \'' + table + '\' seems to be missing in the database.');
+    }
     if (!information[idx].hasOwnProperty(mandatoryFields[i])) {
       throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
     }
