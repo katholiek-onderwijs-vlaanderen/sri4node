@@ -1410,6 +1410,8 @@ exports = module.exports = {
       d.resolve();
     })
     .fail(function (error) {
+      cl('\n\nSRI4NODE FAILURE: \n');
+      cl(error.stack);
       d.reject(error);
     })
     .finally(function () {
