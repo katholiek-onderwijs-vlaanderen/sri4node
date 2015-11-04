@@ -384,6 +384,7 @@ The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
 - `elements` is an array of one or more resources that you can manipulate.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
@@ -398,6 +399,7 @@ The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
 - `element` is the JSON element (as it was PUT, so without mapping/processing) that was just updated / created.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
@@ -411,6 +413,7 @@ The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
 - `permalink` is the permalink of the object that was deleted.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.

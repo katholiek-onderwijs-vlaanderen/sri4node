@@ -23,6 +23,12 @@ exports = module.exports = function (roa, logverbose, extra) {
     return deferred.promise;
   };
 
+  var checkMe = function (database, elements, me) {
+    if (!me) {
+      throw new Error('Missing `me` object');
+    }
+  };
+
   var restrictReadPersons = function (req, resp, db, me) {
     // A secure function must take into account that a GET operation
     // can be either a GET for a regular resource, or a GET for a
@@ -208,14 +214,17 @@ exports = module.exports = function (roa, logverbose, extra) {
       defaultFilter: $q.defaultFilter
     },
     afterread: [
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions')
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
+      checkMe
     ],
     afterupdate: [
-      clearPasswordCache
+      clearPasswordCache,
+      checkMe
     ],
-    afterinsert: [],
+    afterinsert: [checkMe],
     afterdelete: [
-      clearPasswordCache
+      clearPasswordCache,
+      checkMe
     ]
   };
 

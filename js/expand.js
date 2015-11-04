@@ -1,6 +1,6 @@
 /* Handles the ?expand parameter */
 
-exports = module.exports = function (logdebug, prepare, pgExec, executeAfterReadFunctions) {
+exports = module.exports = function (logdebug, prepare, pgExec, executeAfterReadFunctions, identify) {
   'use strict';
   var Q = require('q');
   var common = require('./common.js');
@@ -19,7 +19,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   // Expands a single path on an array of elements.
   // Potential improvement : when the expansion would load obejcts that are already
   // in the cluster currently loaded, re-use the loaded element, rather that querying it again.
-  function executeSingleExpansion(database, elements, mapping, resources, expandpath) {
+  function executeSingleExpansion(database, elements, mapping, resources, expandpath, req) {
     var deferred = Q.defer();
 
     var query, targetkeys, keyToElement, firstDotIndex, expand, recurse, recursepath;
@@ -87,8 +87,11 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
               expandedElements.push(expanded);
             }
 
+            debug('** execute identify');
+            return identify(req, database);
+          }).then(function(me) {
             debug('** executing afterread functions on expanded resources');
-            return executeAfterReadFunctions(database, expandedElements, targetMapping);
+            return executeAfterReadFunctions(database, expandedElements, targetMapping, me);
           }).then(function () {
             var z, elem, target;
             for (z = 0; z < elements.length; z++) {
@@ -99,7 +102,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             if (recurse) {
               debug('** recursing to next level of expansion : ' + recursepath);
               executeSingleExpansion(database, expandedElements, targetMapping,
-                                     resources, recursepath, keyToElement).then(function () {
+                                     resources, recursepath, req).then(function () {
                 deferred.resolve();
               }).fail(function (e) {
                 deferred.reject(e);
@@ -178,7 +181,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   - person,community is OK
   - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
   */
-  function executeExpansion(database, elements, mapping, resources, expand, executeAfterReadFunctions) { // eslint-disable-line
+  function executeExpansion(database, elements, mapping, resources, expand, executeAfterReadFunctions, req) { // eslint-disable-line
     var paths, path, promises, i, errors;
     var deferred = Q.defer();
     debug('** executeExpansion()');
@@ -189,7 +192,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
           promises = [];
           for (i = 0; i < paths.length; i++) {
             path = paths[i];
-            promises.push(executeSingleExpansion(database, elements, mapping, resources, path));
+            promises.push(executeSingleExpansion(database, elements, mapping, resources, path, req));
           }
 
           Q.allSettled(promises).then(function (results) {

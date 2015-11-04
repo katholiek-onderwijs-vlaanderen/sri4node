@@ -393,24 +393,28 @@ function logRequests(req, res, next) {
   next();
 }
 
-function postProcess(functions, db, body) {
+function postProcess(functions, db, body, req) {
   'use strict';
   var promises;
   var deferred = Q.defer();
 
   if (functions && functions.length > 0) {
     promises = [];
-    functions.forEach(function (f) {
-      promises.push(f(db, body));
+
+    configuration.identify(req, db).then(function (me) {
+      functions.forEach(function (f) {
+        promises.push(f(db, body, me));
+      });
+
+      Q.all(promises).then(function () {
+        debug('all post processing functions resolved.');
+        deferred.resolve();
+      }).catch(function (error) {
+        debug('one of the post processing functions rejected.');
+        deferred.reject(error);
+      });
     });
 
-    Q.all(promises).then(function () {
-      debug('all post processing functions resolved.');
-      deferred.resolve();
-    }).catch(function (error) {
-      debug('one of the post processing functions rejected.');
-      deferred.reject(error);
-    });
   } else {
     debug('no post processing functions registered.');
     deferred.resolve();
@@ -420,7 +424,7 @@ function postProcess(functions, db, body) {
 }
 
 /* eslint-disable */
-function executePutInsideTransaction(db, url, body) {
+function executePutInsideTransaction(db, url, body, req) {
     'use strict';
     var deferred, element, errors;
     var type = '/' + url.split('/')[1];
@@ -509,7 +513,7 @@ function executePutInsideTransaction(db, url, body) {
               debug('No row affected - resource is gone');
               throw 'resource.gone';
             } else {
-              return postProcess(mapping.afterupdate, db, body);
+              return postProcess(mapping.afterupdate, db, body, req);
             }
           });
         } else {
@@ -525,7 +529,7 @@ function executePutInsideTransaction(db, url, body) {
               deferred.reject('No row affected.');
               return deferred.promise();
             } else {
-              return postProcess(mapping.afterinsert, db, body);
+              return postProcess(mapping.afterinsert, db, body, req);
             }
           });
         }
@@ -570,7 +574,7 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function executeAfterReadFunctions(database, elements, mapping) {
+function executeAfterReadFunctions(database, elements, mapping, me) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -579,7 +583,7 @@ function executeAfterReadFunctions(database, elements, mapping) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements));
+      promises.push(mapping.afterread[i](database, elements, me));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -881,11 +885,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       }
 
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, executeAfterReadFunctions, req);
     }).then(function () {
+      debug('* executing identify function');
+      return configuration.identify(req, database);
+    }).then(function (me) {
       debug('* executing afterread functions on results');
       debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
@@ -957,10 +964,13 @@ function getRegularResource(executeExpansion) {
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, executeAfterReadFunctions, req);
     }).then(function () {
+      debug('* executing identify functions');
+      return configuration.identify(req, database);
+    }).then(function (me) {
       debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
@@ -989,7 +999,7 @@ function createOrUpdate(req, resp) {
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
     return pgExec(db, begin, logsql, logdebug).then(function () {
-      return executePutInsideTransaction(db, url, req.body);
+      return executePutInsideTransaction(db, url, req.body, req);
     }).then(function () {
       debug('PUT processing went OK. Committing database transaction.');
       db.client.query('COMMIT', function (err) {
@@ -1042,7 +1052,7 @@ function deleteResource(req, resp) {
       debug('No row affected - the resource is already gone');
       resp.status(410);
     } else { // eslint-disable-line
-      return postProcess(mapping.afterdelete, database, req.route.path);
+      return postProcess(mapping.afterdelete, database, req.route.path, req);
     }
   }).then(function () {
     debug('DELETE processing went OK. Committing database transaction.');
@@ -1149,7 +1159,7 @@ function batchOperation(req, resp) {
           verb = element.verb;
           if (verb === 'PUT') {
             // we continue regardless of an individual error
-            return executePutInsideTransaction(database, url, body).finally(function () {
+            return executePutInsideTransaction(database, url, body, req).finally(function () {
               return recurse();
             });
           } else { // eslint-disable-line
@@ -1199,7 +1209,7 @@ function checkRequiredFields(mapping, information) {
 exports = module.exports = {
   configure: function (app, pg, config) {
     'use strict';
-    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
+    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions, config.identify);
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
