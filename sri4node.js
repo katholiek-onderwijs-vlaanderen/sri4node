@@ -1279,7 +1279,7 @@ exports = module.exports = {
           errors: [{code: 'generic.error', message: error.name + ':' + error.message, body: error.body}],
           status: error.status || 500
         };
-        res.status(error.status).send(body);
+        res.status(error.status || 500).send(body);
       } else {
         next();
       }
