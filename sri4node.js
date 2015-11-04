@@ -1197,7 +1197,7 @@ function checkRequiredFields(mapping, information) {
   var i;
   var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    table = mapping.table ? mapping.table : mapping.type;
+    table = mapping.table ? mapping.table : mapping.type.split('/')[1];
     idx = '/' + table;
     if (!information[idx]) {
       throw new Error('Table \'' + table + '\' seems to be missing in the database.');
@@ -1208,6 +1208,7 @@ function checkRequiredFields(mapping, information) {
   }
 
 }
+
 
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
