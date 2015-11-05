@@ -16,13 +16,6 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  var clearPasswordCache = function () {
-    var deferred = Q.defer();
-    $u.clearPasswordCache();
-    deferred.resolve();
-    return deferred.promise;
-  };
-
   var checkMe = function (database, elements, me) {
     if (!me) {
       throw new Error('Missing `me` object');
@@ -218,12 +211,10 @@ exports = module.exports = function (roa, logverbose, extra) {
       checkMe
     ],
     afterupdate: [
-      clearPasswordCache,
       checkMe
     ],
     afterinsert: [checkMe],
     afterdelete: [
-      clearPasswordCache,
       checkMe
     ]
   };

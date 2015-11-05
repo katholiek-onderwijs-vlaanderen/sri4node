@@ -424,7 +424,7 @@ function postProcess(functions, db, body, req) {
 }
 
 /* eslint-disable */
-function executePutInsideTransaction(db, url, body, req) {
+function executePutInsideTransaction(db, url, body, req, res) {
     'use strict';
     var deferred, element, errors;
     var type = '/' + url.split('/')[1];
@@ -513,6 +513,7 @@ function executePutInsideTransaction(db, url, body, req) {
               debug('No row affected - resource is gone');
               throw 'resource.gone';
             } else {
+              res.status(200);
               return postProcess(mapping.afterupdate, db, body, req);
             }
           });
@@ -529,6 +530,7 @@ function executePutInsideTransaction(db, url, body, req) {
               deferred.reject('No row affected.');
               return deferred.promise();
             } else {
+              res.status(201);
               return postProcess(mapping.afterinsert, db, body, req);
             }
           });
@@ -991,7 +993,7 @@ function getRegularResource(executeExpansion) {
   };
 }
 
-function createOrUpdate(req, resp) {
+function createOrUpdate(req, res) {
   'use strict';
   debug('* sri4node PUT processing invoked.');
   var url = req.path;
@@ -999,14 +1001,14 @@ function createOrUpdate(req, resp) {
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
     return pgExec(db, begin, logsql, logdebug).then(function () {
-      return executePutInsideTransaction(db, url, req.body, req);
+      return executePutInsideTransaction(db, url, req.body, req, res);
     }).then(function () {
       debug('PUT processing went OK. Committing database transaction.');
       db.client.query('COMMIT', function (err) {
         // If err is defined, client will be removed from pool.
         db.done(err);
         debug('COMMIT DONE.');
-        resp.send(true);
+        res.send(true);
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
@@ -1016,9 +1018,9 @@ function createOrUpdate(req, resp) {
         db.done(rollbackerr);
         cl('ROLLBACK DONE.');
         if (puterr === 'resource.gone') {
-          resp.status(410).send();
+          res.status(410).send();
         } else {
-          resp.status(409).send(puterr);
+          res.status(409).send(puterr);
         }
       });
     });
