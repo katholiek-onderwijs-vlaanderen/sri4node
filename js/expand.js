@@ -89,9 +89,9 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
 
             debug('** execute identify');
             return identify(req, database);
-          }).then(function(me) {
+          }).then(function (me) {
             debug('** executing afterread functions on expanded resources');
-            return executeAfterReadFunctions(database, expandedElements, targetMapping, me);
+            return executeAfterReadFunctions(database, expandedElements, targetMapping, me, req);
           }).then(function () {
             var z, elem, target;
             for (z = 0; z < elements.length; z++) {
@@ -181,7 +181,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   - person,community is OK
   - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
   */
-  function executeExpansion(database, elements, mapping, resources, expand, executeAfterReadFunctions, req) { // eslint-disable-line
+  function executeExpansion(database, elements, mapping, resources, expand, req) { // eslint-disable-line
     var paths, path, promises, i, errors;
     var deferred = Q.defer();
     debug('** executeExpansion()');

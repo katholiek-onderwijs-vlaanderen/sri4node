@@ -403,7 +403,7 @@ function postProcess(functions, db, body, req) {
 
     configuration.identify(req, db).then(function (me) {
       functions.forEach(function (f) {
-        promises.push(f(db, body, me));
+        promises.push(f(db, body, me, req));
       });
 
       Q.all(promises).then(function () {
@@ -576,7 +576,7 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function executeAfterReadFunctions(database, elements, mapping, me) {
+function executeAfterReadFunctions(database, elements, mapping, me, req) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -585,7 +585,7 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements, me));
+      promises.push(mapping.afterread[i](database, elements, me, req));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -891,14 +891,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       }
 
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand, executeAfterReadFunctions, req);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
       debug('* executing identify function');
       return configuration.identify(req, database);
     }).then(function (me) {
       debug('* executing afterread functions on results');
       debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping, me);
+      return executeAfterReadFunctions(database, elements, mapping, me, req);
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
@@ -970,13 +970,13 @@ function getRegularResource(executeExpansion) {
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand, executeAfterReadFunctions, req);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
       debug('* executing identify functions');
       return configuration.identify(req, database);
     }).then(function (me) {
       debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping, me);
+      return executeAfterReadFunctions(database, elements, mapping, me, req);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);

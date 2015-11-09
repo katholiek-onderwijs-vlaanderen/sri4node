@@ -1,6 +1,6 @@
 {
   "name": "sri4node",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
   "main": "sri4node.js",
   "scripts": {
