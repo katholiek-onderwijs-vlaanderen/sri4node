@@ -402,7 +402,7 @@ function postProcess(functions, db, body, req) {
 
     configuration.identify(req, db).then(function (me) {
       functions.forEach(function (f) {
-        promises.push(f(db, body, me, req));
+        promises.push(f(db, body, me));
       });
 
       Q.all(promises).then(function () {
@@ -575,7 +575,7 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function executeAfterReadFunctions(database, elements, mapping, me, req) {
+function executeAfterReadFunctions(database, elements, mapping, me) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -584,7 +584,7 @@ function executeAfterReadFunctions(database, elements, mapping, me, req) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements, me, req));
+      promises.push(mapping.afterread[i](database, elements, me));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -897,7 +897,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function (me) {
       debug('* executing afterread functions on results');
       debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping, me, req);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
@@ -975,7 +975,7 @@ function getRegularResource(executeExpansion) {
       return configuration.identify(req, database);
     }).then(function (me) {
       debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping, me, req);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);

@@ -91,7 +91,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             return identify(req, database);
           }).then(function (me) {
             debug('** executing afterread functions on expanded resources');
-            return executeAfterReadFunctions(database, expandedElements, targetMapping, me, req);
+            return executeAfterReadFunctions(database, expandedElements, targetMapping, me);
           }).then(function () {
             var z, elem, target;
             for (z = 0; z < elements.length; z++) {

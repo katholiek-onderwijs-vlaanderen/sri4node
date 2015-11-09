@@ -16,13 +16,9 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  var checkAfterMethodParameters = function (database, elements, me, req) {
+  var checkMe = function (database, elements, me) {
     if (!me) {
       throw new Error('Missing `me` object');
-    }
-
-    if (!req) {
-      throw new Error('Missing `req` object');
     }
   };
 
@@ -212,14 +208,14 @@ exports = module.exports = function (roa, logverbose, extra) {
     },
     afterread: [
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
-      checkAfterMethodParameters
+      checkMe
     ],
     afterupdate: [
-      checkAfterMethodParameters
+      checkMe
     ],
-    afterinsert: [checkAfterMethodParameters],
+    afterinsert: [checkMe],
     afterdelete: [
-      checkAfterMethodParameters
+      checkMe
     ]
   };
 
