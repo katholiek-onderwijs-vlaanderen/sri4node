@@ -299,12 +299,14 @@ function parseFilters(value, select, parameter, mapping) {
     var filterFn;
     var baseType;
     var error;
+    var idx;
 
     // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
     filter = analyseParameter(parameter);
 
     // 2) Find data type on database from information schema;
-    field = informationSchema[mapping.type][filter.key];
+    idx = mapping.table ? '/' + mapping.table : mapping.type;
+    field = informationSchema[idx][filter.key];
 
     // 3) Extend the sql query with the correct WHERE clause.
     if (field) {
