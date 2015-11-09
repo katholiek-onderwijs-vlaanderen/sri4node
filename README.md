@@ -496,6 +496,13 @@ Each entry has the attributes:
   - `database`: a database obejct, allowing you to perform queries.
   - `me`: is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
 
+## Limiting results
+
+The following attributes dictate how the lists are paginated:
+
+- `defaultlimit`: the number of resources per page. If empty, a default of 30 is used.
+- `maxlimit`: The maximum limit allowed. If empty, a default of 500 is used.
+
 ## Bundled Utility Functions
 
 These utilities live independently of the basic processing described above.
