@@ -62,7 +62,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                 {
                     // Base url, maps 1:1 with a table in postgres
                     // Same name, except the '/' is removed
-                    type: "/content",
+                    type: '/content',
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
@@ -78,6 +78,10 @@ The declaration of the editor is a reference to a second resource (/person), whi
                       ttl: 60, // in seconds, the time the objects live (0 means forever)
                       type: 'local' // will store in an in-memory local cache
                     },
+                    // custom routes can be defined. See #custom-routes
+                    customroutes: [
+                      {route: '/content/:key/:attachment', handler: getAttachment}
+                    ],
                     // Standard JSON Schema definition.
                     // It uses utility functions, for compactness.
                     schema: {
@@ -477,6 +481,20 @@ cache: {
 }
 
 If type is redis the URL to a Redis server must be provided.
+
+## Custom routes
+
+Custom routes can be defined per resource. The attribute `customroutes` is an array where each object represents a specific route
+with its handler.
+
+Each entry has the attributes:
+
+- `route`: the custom url (accepts placeholders for path params)
+- `handler`: a function that receives these parameters:
+  - `req`: the express.js request object.
+  - `res`: the express.js response object.
+  - `database`: a database obejct, allowing you to perform queries.
+  - `me`: is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
 
 ## Bundled Utility Functions
 
