@@ -652,8 +652,12 @@ function getDocs(req, resp) {
   }
 }
 
-function getSQLFromListResource(req, mapping, count, database, query) {
+function getSQLFromListResource(req, count, database, query) {
   'use strict';
+
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + req.route.path.split('/')[1];
+  var mapping = typeToMapping[type];
 
   var sql;
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
@@ -717,14 +721,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      return getSQLFromListResource(req, mapping, true, database, countquery);
+      return getSQLFromListResource(req, true, database, countquery);
     }).then(function () {
       debug('* executing SELECT COUNT query on database');
       return pgExec(database, countquery, logsql, logdebug);
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      return getSQLFromListResource(req, mapping, false, database, query);
+      return getSQLFromListResource(req, false, database, query);
     }).then(function () {
         // All list resources support orderBy, limit and offset.
         var orderBy = req.query.orderBy;
@@ -1211,12 +1215,12 @@ function checkRequiredFields(mapping, information) {
 
 }
 
-
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: function (app, pg, config) {
     'use strict';
-    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions, config.identify);
+    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions,
+      config.identify);
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
