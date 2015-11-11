@@ -12,7 +12,7 @@ if(type === 'text') {
   // do something.
 }
 */
-
+var unique = require('array-unique');
 var qo = require('./queryObject.js');
 var Q = require('q');
 var common = require('./common.js');
@@ -24,7 +24,7 @@ exports = module.exports = function (database, configuration) {
   'use strict';
   var deferred = Q.defer();
   var q, tableNames;
-  var i, type, tableName, row, typeCache, columnCache;
+  var i, type, table, tableName, row, typeCache, columnCache;
 
   /*function debug(x) {
     if (configuration.logdebug) {
@@ -40,9 +40,11 @@ exports = module.exports = function (database, configuration) {
 
     for (i = 0; i < configuration.resources.length; i++) {
       type = configuration.resources[i].type;
-      tableName = type.split('/')[1];
+      table = configuration.resources[i].table;
+      tableName = table ? table : type.split('/')[1];
       tableNames.push(tableName);
     }
+    tableNames = unique(tableNames);
     q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
       .array(tableNames).sql(')');
     pgExec(database, q).then(function (results) {

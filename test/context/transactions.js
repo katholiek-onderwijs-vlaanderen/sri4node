@@ -42,8 +42,8 @@ exports = module.exports = function (roa, extra) {
     },
     afterinsert: [
       function (db, element) {
-        var amount = element.amount;
-        var tokey = element.toperson.href;
+        var amount = element.body.amount;
+        var tokey = element.body.toperson.href;
         tokey = tokey.split('/')[2];
 
         var updateto = $u.prepareSQL();
@@ -52,8 +52,8 @@ exports = module.exports = function (roa, extra) {
         return $u.executeSQL(db, updateto);
       },
       function (db, element) {
-        var amount = element.amount;
-        var fromkey = element.fromperson.href;
+        var amount = element.body.amount;
+        var fromkey = element.body.fromperson.href;
         fromkey = fromkey.split('/')[2];
 
         var updatefrom = $u.prepareSQL();

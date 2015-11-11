@@ -62,7 +62,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                 {
                     // Base url, maps 1:1 with a table in postgres
                     // Same name, except the '/' is removed
-                    type: "/content",
+                    type: '/content',
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
                     public: false,
@@ -78,6 +78,10 @@ The declaration of the editor is a reference to a second resource (/person), whi
                       ttl: 60, // in seconds, the time the objects live (0 means forever)
                       type: 'local' // will store in an in-memory local cache
                     },
+                    // custom routes can be defined. See #custom-routes
+                    customroutes: [
+                      {route: '/content/:key/:attachment', handler: getAttachment}
+                    ],
                     // Standard JSON Schema definition.
                     // It uses utility functions, for compactness.
                     schema: {
@@ -175,6 +179,10 @@ For performance reasons it's highly suggested that an index is created for each 
 * CREATE INDEX table_created ON *table* ("$$meta.created");
 * CREATE INDEX table_modified ON *table* ("$$meta.modified");
 * CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
+
+The following index is for the default order by:
+
+* CREATE INDEX table_created_key ON *table* ("$$meta.created", "key");
 
 The application will fail to register a resource that lacks these fields (and show a message to the user)
 
@@ -380,11 +388,12 @@ The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
 - `elements` is an array of one or more resources that you can manipulate.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
 It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
-Mind you that *path* does not makes sense for errors in afterread methods, so you should ommit it.
+Mind you that *path* does not makes sense for errors in afterread methods, so you should omit it.
 
 ### afterupdate / afterinsert
 
@@ -393,7 +402,10 @@ like clear a cache, do further processing, update other tables, etc..
 The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
-- `element` is the JSON element (as it was PUT, so without mapping/processing) that was just updated / created.
+- `element` is an object that contains two attributes:
+  - `path` is the route of the request
+  - `body` is the JSON element (as it was PUT, so without mapping/processing) that was just updated / created.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
@@ -406,7 +418,10 @@ Hook for post-processing when a record is deleted.
 The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
-- `permalink` is the permalink of the object that was deleted.
+- `element` is an object that contains two attributes:
+  - `path` is the route of the request
+  - `body` is the permalink of the object that was deleted.
+- `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
@@ -470,6 +485,27 @@ cache: {
 }
 
 If type is redis the URL to a Redis server must be provided.
+
+## Custom routes
+
+Custom routes can be defined per resource. The attribute `customroutes` is an array where each object represents a specific route
+with its handler.
+
+Each entry has the attributes:
+
+- `route`: the custom url (accepts placeholders for path params)
+- `handler`: a function that receives these parameters:
+  - `req`: the express.js request object.
+  - `res`: the express.js response object.
+  - `database`: a database obejct, allowing you to perform queries.
+  - `me`: is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
+
+## Limiting results
+
+The following attributes dictate how the lists are paginated:
+
+- `defaultlimit`: the number of resources per page. If empty, a default of 30 is used.
+- `maxlimit`: The maximum limit allowed. If empty, a default of 500 is used.
 
 ## Bundled Utility Functions
 

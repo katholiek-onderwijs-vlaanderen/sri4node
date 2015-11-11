@@ -11,16 +11,29 @@ exports = module.exports = function (roa, logverbose, extra) {
     }
   }
 
+  var isHrefAPermalink = function (href) {
+    return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
+  };
+
   var $m = roa.mapUtils;
   var $s = roa.schemaUtils;
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  var clearPasswordCache = function () {
-    var deferred = Q.defer();
-    $u.clearPasswordCache();
-    deferred.resolve();
-    return deferred.promise;
+  var checkMe = function (database, elements, me) {
+    if (!me) {
+      throw new Error('Missing `me` object');
+    }
+
+    return true;
+  };
+
+  var checkElements = function (database, elements) {
+    if (!elements.hasOwnProperty('path') || !elements.hasOwnProperty('body') || !isHrefAPermalink(elements.path)) {
+      throw new Error('`elements` argument has wrong format');
+    }
+
+    return true;
   };
 
   var restrictReadPersons = function (req, resp, db, me) {
@@ -208,14 +221,15 @@ exports = module.exports = function (roa, logverbose, extra) {
       defaultFilter: $q.defaultFilter
     },
     afterread: [
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions')
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
+      checkMe
     ],
     afterupdate: [
-      clearPasswordCache
+      checkMe, checkElements
     ],
-    afterinsert: [],
+    afterinsert: [checkMe, checkElements],
     afterdelete: [
-      clearPasswordCache
+      checkMe, checkElements
     ]
   };
 

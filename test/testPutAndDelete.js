@@ -223,20 +223,20 @@ exports = module.exports = function (base, logverbose) {
         var p1 = generateRandomPerson(keyp1, communityDendermonde);
         return doPut(base + '/persons/' + keyp1, p1, 'sabine@email.be', 'pwd').then(function (response) {
           debug(response);
-          assert.equal(response.statusCode, 200);
+          assert.equal(response.statusCode, 201);
           debug('p1 created');
           keyp2 = uuid.v4();
           p2 = generateRandomPerson(keyp2, communityDendermonde);
           return doPut(base + '/persons/' + keyp2, p2, 'sabine@email.be', 'pwd');
         }).then(function (response) {
-          assert.equal(response.statusCode, 200);
+          assert.equal(response.statusCode, 201);
           debug('p2 created');
           var keyt = uuid.v4();
           var t = generateTransaction(keyt, '/persons/' + keyp1, '/persons/' + keyp2, 20);
           return doPut(base + '/transactions/' + keyt, t, 'sabine@email.be', 'pwd');
         }).then(function (response) {
           debug(response.body);
-          assert.equal(response.statusCode, 200);
+          assert.equal(response.statusCode, 201);
           debug('t created');
           return doGet(base + '/persons/' + keyp1, 'sabine@email.be', 'pwd');
         }).then(function (response) {
@@ -249,5 +249,26 @@ exports = module.exports = function (base, logverbose) {
         });
       });
     });
+  });
+
+  describe('PUT must distinguish between create (201) and update (200)', function () {
+
+    var key = uuid.v4();
+    var p = generateRandomPerson(key, communityDendermonde);
+
+    it('must return 201 on a new resource', function () {
+      return doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function (response) {
+        debug(response);
+        assert.equal(response.statusCode, 201);
+      });
+    });
+
+    it('must return 200 on an udpdate', function () {
+      return doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function (response) {
+        debug(response);
+        assert.equal(response.statusCode, 200);
+      });
+    });
+
   });
 };
