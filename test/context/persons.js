@@ -11,6 +11,10 @@ exports = module.exports = function (roa, logverbose, extra) {
     }
   }
 
+  var isHrefAPermalink = function (href) {
+    return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
+  };
+
   var $m = roa.mapUtils;
   var $s = roa.schemaUtils;
   var $q = roa.queryUtils;
@@ -20,6 +24,16 @@ exports = module.exports = function (roa, logverbose, extra) {
     if (!me) {
       throw new Error('Missing `me` object');
     }
+
+    return true;
+  };
+
+  var checkElements = function (database, elements) {
+    if (!elements.hasOwnProperty('path') || !elements.hasOwnProperty('body') || !isHrefAPermalink(elements.path)) {
+      throw new Error('`elements` argument has wrong format');
+    }
+
+    return true;
   };
 
   var restrictReadPersons = function (req, resp, db, me) {
@@ -211,11 +225,11 @@ exports = module.exports = function (roa, logverbose, extra) {
       checkMe
     ],
     afterupdate: [
-      checkMe
+      checkMe, checkElements
     ],
-    afterinsert: [checkMe],
+    afterinsert: [checkMe, checkElements],
     afterdelete: [
-      checkMe
+      checkMe, checkElements
     ]
   };
 
