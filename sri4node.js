@@ -370,6 +370,7 @@ if (req.headers['x-forwarded-for']) {
   res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', allowedMethods);
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
     res.header('Allow', allowedMethods);
