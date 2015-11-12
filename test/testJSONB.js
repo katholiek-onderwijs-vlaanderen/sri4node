@@ -40,7 +40,7 @@ exports = module.exports = function (base, logverbose) {
         }
       };
       return doPut(base + '/jsonb/' + key, x, 'sabine@email.be', 'pwd').then(function (response) {
-        assert.equal(response.statusCode, 200);
+        assert.equal(response.statusCode, 201);
         return doGet(base + '/jsonb/' + key, 'sabine@email.be', 'pwd');
       }).then(function (response) {
         debug(response.statusCode);

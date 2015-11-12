@@ -62,11 +62,10 @@ var generateError = function (status, type, errors) {
 };
 
 // apply extra parameters on request URL for a list-resource to a select.
-function applyRequestParameters(mapping, req, select, database, count) {
+function applyRequestParameters(mapping, urlparameters, select, database, count) {
   'use strict';
   var deferred = Q.defer();
 
-  var urlparameters = req.query;
   var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   var key, ret;
@@ -370,6 +369,7 @@ if (req.headers['x-forwarded-for']) {
   res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', allowedMethods);
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
     res.header('Allow', allowedMethods);
@@ -393,24 +393,29 @@ function logRequests(req, res, next) {
   next();
 }
 
-function postProcess(functions, db, body) {
+function postProcess(functions, db, body, req) {
   'use strict';
   var promises;
   var deferred = Q.defer();
+  var element = {path: req.path, body: body};
 
   if (functions && functions.length > 0) {
     promises = [];
-    functions.forEach(function (f) {
-      promises.push(f(db, body));
+
+    configuration.identify(req, db).then(function (me) {
+      functions.forEach(function (f) {
+        promises.push(f(db, element, me));
+      });
+
+      Q.all(promises).then(function () {
+        debug('all post processing functions resolved.');
+        deferred.resolve();
+      }).catch(function (error) {
+        debug('one of the post processing functions rejected.');
+        deferred.reject(error);
+      });
     });
 
-    Q.all(promises).then(function () {
-      debug('all post processing functions resolved.');
-      deferred.resolve();
-    }).catch(function (error) {
-      debug('one of the post processing functions rejected.');
-      deferred.reject(error);
-    });
   } else {
     debug('no post processing functions registered.');
     deferred.resolve();
@@ -420,7 +425,7 @@ function postProcess(functions, db, body) {
 }
 
 /* eslint-disable */
-function executePutInsideTransaction(db, url, body) {
+function executePutInsideTransaction(db, url, body, req, res) {
     'use strict';
     var deferred, element, errors;
     var type = '/' + url.split('/')[1];
@@ -509,7 +514,8 @@ function executePutInsideTransaction(db, url, body) {
               debug('No row affected - resource is gone');
               throw 'resource.gone';
             } else {
-              return postProcess(mapping.afterupdate, db, body);
+              res.status(200);
+              return postProcess(mapping.afterupdate, db, body, req);
             }
           });
         } else {
@@ -525,7 +531,8 @@ function executePutInsideTransaction(db, url, body) {
               deferred.reject('No row affected.');
               return deferred.promise();
             } else {
-              return postProcess(mapping.afterinsert, db, body);
+              res.status(201);
+              return postProcess(mapping.afterinsert, db, body, req);
             }
           });
         }
@@ -570,7 +577,7 @@ function execBeforeQueryFunctions(mapping, db, req, resp) {
   return deferred.promise;
 }
 
-function executeAfterReadFunctions(database, elements, mapping) {
+function executeAfterReadFunctions(database, elements, mapping, me) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -579,7 +586,7 @@ function executeAfterReadFunctions(database, elements, mapping) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements));
+      promises.push(mapping.afterread[i](database, elements, me));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -646,27 +653,31 @@ function getDocs(req, resp) {
   }
 }
 
-function getSQLFromListResource(req, mapping, count, database, query) {
+function getSQLFromListResource(path, parameters, count, database, query) {
   'use strict';
+
+  var typeToMapping = typeToConfig(resources);
+  var type = '/' + path.split('/')[1];
+  var mapping = typeToMapping[type];
 
   var sql;
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
   var columns = sqlColumnNames(mapping);
 
   if (count) {
-    if (req.query['$$meta.deleted'] === 'true') {
+    if (parameters['$$meta.deleted'] === 'true') {
       sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = true ';
-    } else if (req.query['$$meta.deleted'] === 'any') {
+    } else if (parameters['$$meta.deleted'] === 'any') {
       sql = 'select count(*) from "' + table + '" where 1=1 ';
     } else {
       sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = false ';
     }
     query.sql(sql);
   } else {
-    if (req.query['$$meta.deleted'] === 'true') {
+    if (parameters['$$meta.deleted'] === 'true') {
       sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
       sql += table + '" where "$$meta.deleted" = true ';
-    } else if (req.query['$$meta.deleted'] === 'any') {
+    } else if (parameters['$$meta.deleted'] === 'any') {
       sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
       sql += table + '" where 1=1 ';
     } else {
@@ -677,7 +688,7 @@ function getSQLFromListResource(req, mapping, count, database, query) {
   }
 
   debug('* applying URL parameters to WHERE clause');
-  return applyRequestParameters(mapping, req, query, database, count);
+  return applyRequestParameters(mapping, parameters, query, database, count);
 
 }
 
@@ -711,14 +722,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
-      return getSQLFromListResource(req, mapping, true, database, countquery);
+      return getSQLFromListResource(req.route.path, req.query, true, database, countquery);
     }).then(function () {
       debug('* executing SELECT COUNT query on database');
       return pgExec(database, countquery, logsql, logdebug);
     }).then(function (results) {
       count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      return getSQLFromListResource(req, mapping, false, database, query);
+      return getSQLFromListResource(req.route.path, req.query, false, database, query);
     }).then(function () {
         // All list resources support orderBy, limit and offset.
         var orderBy = req.query.orderBy;
@@ -881,11 +892,14 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       }
 
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
+      debug('* executing identify function');
+      return configuration.identify(req, database);
+    }).then(function (me) {
       debug('* executing afterread functions on results');
       debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
@@ -957,10 +971,13 @@ function getRegularResource(executeExpansion) {
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
+      debug('* executing identify functions');
+      return configuration.identify(req, database);
+    }).then(function (me) {
       debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping);
+      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
@@ -981,7 +998,7 @@ function getRegularResource(executeExpansion) {
   };
 }
 
-function createOrUpdate(req, resp) {
+function createOrUpdate(req, res) {
   'use strict';
   debug('* sri4node PUT processing invoked.');
   var url = req.path;
@@ -989,14 +1006,14 @@ function createOrUpdate(req, resp) {
     var begin = prepare('begin-transaction');
     begin.sql('BEGIN');
     return pgExec(db, begin, logsql, logdebug).then(function () {
-      return executePutInsideTransaction(db, url, req.body);
+      return executePutInsideTransaction(db, url, req.body, req, res);
     }).then(function () {
       debug('PUT processing went OK. Committing database transaction.');
       db.client.query('COMMIT', function (err) {
         // If err is defined, client will be removed from pool.
         db.done(err);
         debug('COMMIT DONE.');
-        resp.send(true);
+        res.send(true);
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
@@ -1006,9 +1023,9 @@ function createOrUpdate(req, resp) {
         db.done(rollbackerr);
         cl('ROLLBACK DONE.');
         if (puterr === 'resource.gone') {
-          resp.status(410).send();
+          res.status(410).send();
         } else {
-          resp.status(409).send(puterr);
+          res.status(409).send(puterr);
         }
       });
     });
@@ -1042,7 +1059,7 @@ function deleteResource(req, resp) {
       debug('No row affected - the resource is already gone');
       resp.status(410);
     } else { // eslint-disable-line
-      return postProcess(mapping.afterdelete, database, req.route.path);
+      return postProcess(mapping.afterdelete, database, req.route.path, req);
     }
   }).then(function () {
     debug('DELETE processing went OK. Committing database transaction.');
@@ -1149,7 +1166,7 @@ function batchOperation(req, resp) {
           verb = element.verb;
           if (verb === 'PUT') {
             // we continue regardless of an individual error
-            return executePutInsideTransaction(database, url, body).finally(function () {
+            return executePutInsideTransaction(database, url, body, req).finally(function () {
               return recurse();
             });
           } else { // eslint-disable-line
@@ -1185,9 +1202,13 @@ function checkRequiredFields(mapping, information) {
   'use strict';
   var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   var i;
-  var idx;
+  var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    idx = mapping.table ? '/' + mapping.table : mapping.type;
+    table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+    idx = '/' + table;
+    if (!information[idx]) {
+      throw new Error('Table \'' + table + '\' seems to be missing in the database.');
+    }
     if (!information[idx].hasOwnProperty(mandatoryFields[i])) {
       throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
     }
@@ -1199,7 +1220,8 @@ function checkRequiredFields(mapping, information) {
 exports = module.exports = {
   configure: function (app, pg, config) {
     'use strict';
-    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions);
+    var executeExpansion = require('./js/expand.js')(config.logdebug, prepare, pgExec, executeAfterReadFunctions,
+      config.identify);
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
@@ -1269,7 +1291,7 @@ exports = module.exports = {
           errors: [{code: 'generic.error', message: error.name + ':' + error.message, body: error.body}],
           status: error.status || 500
         };
-        res.status(error.status).send(body);
+        res.status(error.status || 500).send(body);
       } else {
         next();
       }
@@ -1400,6 +1422,8 @@ exports = module.exports = {
       d.resolve();
     })
     .fail(function (error) {
+      cl('\n\nSRI4NODE FAILURE: \n');
+      cl(error.stack);
       d.reject(error);
     })
     .finally(function () {

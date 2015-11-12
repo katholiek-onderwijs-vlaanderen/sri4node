@@ -7,6 +7,12 @@ exports = module.exports = function (roa, extra) {
   var $q = roa.queryUtils;
   var $m = roa.mapUtils;
 
+  var checkMe = function (database, elements, me) {
+    if (me !== null) {
+      throw new Error('Resource is anonymous, `me` should not be present');
+    }
+  };
+
   var ret = {
     type: '/alldatatypes',
     'public': true, // eslint-disable-line
@@ -67,6 +73,9 @@ exports = module.exports = function (roa, extra) {
     query: {
       defaultFilter: $q.defaultFilter
     },
+    afterread: [
+      checkMe
+    ],
     defaultlimit: 5,
     maxlimit: 50
   };
