@@ -1,3 +1,71 @@
+mixin property(key, property)
+        .panel.panel-default
+            .panel-heading
+                h3.panel-title
+                    if isNaN(key)
+                         span #{ key }
+                    else
+                        span
+                    if property.format
+                        span.label.label-default.pull-right  #{property.format} (#{property.type})
+                    else
+                        span.label.label-default.pull-right #{property.type}
+                    if resource.schema.required.indexOf(key) != - 1
+                        span.text-primary *
+                    | &nbsp;
+                    span.text-muted(style='background-color: transparent;')
+                        small #{property.description}
+            table.table.table-bordered.table-condensed
+                if property.pattern
+                    tr
+                        td.text-muted(align='right', style='width: 150px')
+                            small Pattern
+                        td
+                            small
+                                code.text-muted #{property.pattern}
+                if property.minLength || property.maxLength
+                    tr
+                        td.text-muted(align='right', style='width: 150px')
+                            small Length between
+                        td
+                            small
+                                if property.minLength
+                                    code.text-muted !{property.minLength}
+                                else
+                                    code.text-muted 0
+                                | &nbsp;-&nbsp;
+                                if property.maxLength
+                                    code.text-muted !{property.maxLength}
+                                else
+                                    code.text-muted &mldr;
+                if resource.map[key]
+                    if resource.map[key].references
+                        tr
+                            td.text-muted(align='right', style='width: 150px')
+                                small Reference
+                            td
+                                a(href='#{resource.map[key].references}/docs')
+                                    small
+                                        code.text-muted #{resource.map[key].references}
+                if property.enum
+                    tr
+                        td.text-muted(align='right', style='width: 150px')
+                            small Allowed values
+                        td
+                            small
+                                code.text-muted= JSON.stringify(property.enum)
+                if property.type == 'array' && property.items
+                    tr
+                        td(style='padding: 15px 15px 0px 15px')
+                            +property('', property.items)
+                if property.type == 'object' && property.properties
+                    tr
+                        td.text-muted(align='right', style='width: 150px')
+                            small Properties
+                        td(style='padding: 15px 15px 0px 15px')
+                            each objectProperty, key in property.properties
+                                +property(key, objectProperty)
+
 doctype html
 html(lang='en')
     head
@@ -24,63 +92,7 @@ html(lang='en')
                     .panel-body
                         if resource.schema
                             each property, key in resource.schema.properties
-                                .panel.panel-default
-                                    .panel-heading
-                                        h3.panel-title #{ key }
-                                            if property.format
-                                                span.label.label-default.pull-right  #{property.format} (#{property.type})
-                                            else
-                                                span.label.label-default.pull-right #{property.type}
-                                            if resource.schema.required.indexOf(key) != -1
-                                                span.text-primary *
-                                            | &nbsp;
-                                            span.text-muted(style='background-color: transparent;') #{property.description}
-                                    table.table.table-bordered.table-condensed
-                                        if property.pattern
-                                            tr
-                                                td.text-muted(align='right', style='width: 150px')
-                                                    small Pattern
-                                                td
-                                                    small
-                                                        code.text-muted #{property.pattern}
-                                        if property.minLength || property.maxLength
-                                            tr
-                                                td.text-muted(align='right', style='width: 150px')
-                                                    small Length between
-                                                td
-                                                    small
-                                                            if property.minLength
-                                                                code.text-muted !{property.minLength}
-                                                            else
-                                                                code.text-muted 0
-                                                            | &nbsp;-&nbsp;
-                                                            if property.maxLength
-                                                                code.text-muted !{property.maxLength}
-                                                            else
-                                                                code.text-muted &mldr;
-                                        if resource.map[key]
-                                            if resource.map[key].references
-                                                tr
-                                                    td.text-muted(align='right', style='width: 150px')
-                                                        small Reference
-                                                    td
-                                                        a(href='#{resource.map[key].references}/docs')
-                                                            small
-                                                                code.text-muted #{resource.map[key].references}
-                                        if property.type == 'array' && property.items
-                                            tr
-                                                td.text-muted(align='right', style='width: 150px')
-                                                    small Items
-                                                td
-                                                    small
-                                                        code.text-muted= JSON.stringify(property.items)
-                                        if property.enum
-                                            tr
-                                                td.text-muted(align='right', style='width: 150px')
-                                                    small Allowed values
-                                                td
-                                                    small
-                                                        code.text-muted= JSON.stringify(property.enum)
+                                +property(key, property)
             .row
                 .panel.panel-primary
                     .panel-heading

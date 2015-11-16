@@ -1166,7 +1166,7 @@ function batchOperation(req, resp) {
           verb = element.verb;
           if (verb === 'PUT') {
             // we continue regardless of an individual error
-            return executePutInsideTransaction(database, url, body, req).finally(function () {
+            return executePutInsideTransaction(database, url, body, req, resp).finally(function () {
               return recurse();
             });
           } else { // eslint-disable-line
