@@ -486,19 +486,21 @@ cache: {
 
 If type is redis the URL to a Redis server must be provided.
 
-## Custom routes
+### Custom Routes
 
-Custom routes can be defined per resource. The attribute `customroutes` is an array where each object represents a specific route
-with its handler.
+Allows you to set extra routes besides the defaults GET, PUT, DELETE for the resource.
+Each element of the customroutes array contains:
 
-Each entry has the attributes:
+  - `route` uri to be added [required].
+  - `method` the route method, possible values GET, PUT. Default GET.
+  - `handler` function called when the route is accessed [required].
+  - `middleware` optional function to be called before the handler.
 
-- `route`: the custom url (accepts placeholders for path params)
-- `handler`: a function that receives these parameters:
-  - `req`: the express.js request object.
-  - `res`: the express.js response object.
-  - `database`: a database obejct, allowing you to perform queries.
-  - `me`: is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
+A handler function receives this arguments:
+
+  - `req` the express.js request object.
+  - `res` the express.js response object.
+  - `database` is a database object (see above) that you can use for querying the database.
 
 ## Limiting results
 

@@ -1361,6 +1361,9 @@ exports = module.exports = {
       database = db;
       return informationSchema(database, configuration);
     }).then(function (information) {
+
+      var customMiddleware = function(req, res, next) { next(); };
+      
       for (configIndex = 0; configIndex < resources.length; configIndex++) {
         mapping = resources[configIndex];
 
@@ -1401,11 +1404,27 @@ exports = module.exports = {
           // register custom routes (if any)
 
           if (mapping.customroutes && mapping.customroutes instanceof Array) {
+
             for (i = 0; i < mapping.customroutes.length; i++) {
               customroute = mapping.customroutes[i];
               if (customroute.route && customroute.handler) {
-                app.get(customroute.route, logRequests, config.authenticate,
-                  secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
+
+                if (!customroute.method) {
+                  customroute.method = 'GET';
+                }
+
+                if (customroute.middleware) {
+                  customMiddleware = customroute.middleware;
+                }
+
+                if(customroute.method === 'GET') {
+                  app.get(customroute.route, logRequests, config.authenticate,
+                    secureCacheFn, compression(), customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+                } else if(customroute.method === 'PUT') {
+                  app.put(customroute.route, logRequests, config.authenticate,
+                    secureCacheFn, compression(), customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+                }
+
               }
             }
           }
