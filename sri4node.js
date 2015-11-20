@@ -1324,7 +1324,7 @@ exports = module.exports = {
       return informationSchema(database, configuration);
     }).then(function (information) {
 
-      var customMiddleware = function(req, res, next) { next(); };
+      var customMiddleware = function (req, res, next) { next(); };
 
       for (configIndex = 0; configIndex < resources.length; configIndex++) {
         mapping = resources[configIndex];

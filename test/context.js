@@ -124,14 +124,14 @@ exports = module.exports = {
 
     // Returns a JSON object with the identity of the current user.
     var getMe = function (req, database) {
+      var basic, encoded, decoded, firstColonIndex, username;
       var deferred = Q.defer();
-      
+
       if (req.headers.authorization) {
-        var basic = req.headers.authorization;
-        var encoded = basic.substr(6);
-        var decoded = new Buffer(encoded, 'base64').toString('utf-8');
-        var firstColonIndex = decoded.indexOf(':');
-        var username;
+        basic = req.headers.authorization;
+        encoded = basic.substr(6);
+        decoded = new Buffer(encoded, 'base64').toString('utf-8');
+        firstColonIndex = decoded.indexOf(':');
 
         if (firstColonIndex !== -1) {
           username = decoded.substr(0, firstColonIndex);
