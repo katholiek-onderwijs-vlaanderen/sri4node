@@ -545,38 +545,6 @@ function executePutInsideTransaction(db, url, body, req, res) {
   }
   /* eslint-enable */
 
-function execBeforeQueryFunctions(mapping, db, req, resp) {
-  'use strict';
-  var deferred = Q.defer();
-
-  var beforequery = mapping.beforequery ? mapping.beforequery : [];
-
-  var promises = [];
-  beforequery.forEach(function (f) {
-    promises.push(f(req, resp, db));
-  });
-
-  if (beforequery.length > 0) {
-    Q.all(promises).then(function () {
-      deferred.resolve();
-    }).catch(function (error) {
-      if (error.type && error.status && error.body) {
-        deferred.reject(error);
-      } else {
-        deferred.reject({
-          type: 'internal.error',
-          status: 500,
-          body: 'Internal Server Error. [' + error.toString() + ']'
-        });
-      }
-    });
-  } else {
-    deferred.resolve();
-  }
-
-  return deferred.promise;
-}
-
 function executeAfterReadFunctions(database, elements, mapping, me) {
   'use strict';
   var promises, i, ret;
@@ -717,9 +685,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var begin = prepare('begin-transaction');
       begin.sql('BEGIN');
       return pgExec(database, begin, logsql, logdebug);
-    }).then(function () {
-      debug('* running before query functions');
-      return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       countquery = prepare();
       return getSQLFromListResource(req.route.path, req.query, true, database, countquery);
@@ -949,9 +914,6 @@ function getRegularResource(executeExpansion) {
     var field;
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
-    }).then(function () {
-      debug('* running before query functions');
-      return execBeforeQueryFunctions(mapping, database, req, resp);
     }).then(function () {
       debug('* query by key');
       return queryByKey(resources, database, mapping, key,
@@ -1361,6 +1323,9 @@ exports = module.exports = {
       database = db;
       return informationSchema(database, configuration);
     }).then(function (information) {
+
+      var customMiddleware = function(req, res, next) { next(); };
+
       for (configIndex = 0; configIndex < resources.length; configIndex++) {
         mapping = resources[configIndex];
 
@@ -1401,11 +1366,27 @@ exports = module.exports = {
           // register custom routes (if any)
 
           if (mapping.customroutes && mapping.customroutes instanceof Array) {
+
             for (i = 0; i < mapping.customroutes.length; i++) {
               customroute = mapping.customroutes[i];
               if (customroute.route && customroute.handler) {
-                app.get(customroute.route, logRequests, config.authenticate,
-                  secureCacheFn, compression(), wrapCustomRouteHandler(customroute.handler, config));
+
+                if (!customroute.method) {
+                  customroute.method = 'GET';
+                }
+
+                if (customroute.middleware) {
+                  customMiddleware = customroute.middleware;
+                }
+
+                if(customroute.method === 'GET') {
+                  app.get(customroute.route, logRequests, config.authenticate,
+                    secureCacheFn, compression(), customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+                } else if(customroute.method === 'PUT') {
+                  app.put(customroute.route, logRequests, config.authenticate,
+                    secureCacheFn, compression(), customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+                }
+
               }
             }
           }
