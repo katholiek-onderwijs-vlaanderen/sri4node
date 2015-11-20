@@ -7,6 +7,7 @@ var doGet = sriclient.get;
 var doPut = sriclient.put;
 var doDelete = sriclient.delete;
 var uuid = require('node-uuid');
+var Q = require('q');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
@@ -176,7 +177,6 @@ exports = module.exports = function (base, logverbose) {
         }
       );
     });
-
   });
 
   describe('PUT', function () {
@@ -269,6 +269,22 @@ exports = module.exports = function (base, logverbose) {
         assert.equal(response.statusCode, 200);
       });
     });
+  });
 
+  describe('PUT of 100 items ', function() {
+    it('should be allowed in parallel.', function() {
+      var i,p,key;
+      var promises = [];
+      for(i=0; i<100; i++) {
+        key = uuid.v4();
+        p = generateRandomPerson(key, communityDendermonde);
+        promises.push(doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd'));
+      }
+      return Q.allSettled(promises).then(function (results) {
+        for(i=0; i<100; i++) {
+          assert.equal(results[i].state,'fulfilled'); 
+        }
+      });
+    });
   });
 };
