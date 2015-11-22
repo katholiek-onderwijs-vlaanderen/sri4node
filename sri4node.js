@@ -330,55 +330,6 @@ function checkBasicAuthentication(authenticator) {
   };
 }
 
-
-// Apply CORS headers.
-// TODO : Change temporary URL into final deploy URL.
-var allowCrossDomain = function (req, res, next) {
-  'use strict';
-  var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.path.split('/')[1];
-  var mapping = typeToMapping[type];
-  var methods;
-  var allowedMethods;
-
-  if (mapping && mapping.methods) {
-    methods = mapping.methods.slice();
-    methods.push('HEAD', 'OPTIONS');
-    allowedMethods = methods.join(',');
-    if (methods.indexOf(req.method) === -1 && req.path !== type + '/docs') {
-      res.header('Allow', allowedMethods);
-      res.status(405).send('Method Not Allowed');
-      return;
-    }
-  } else {
-    allowedMethods = 'GET,PUT,POST,DELETE,HEAD,OPTIONS';
-  }
-/*
-if (req.headers['x-forwarded-for']) {
-  origin = req.headers['x-forwarded-for'];
-} else if (req.headers['X-Forwarded-For']) {
-  origin = req.headers['X-Forwarded-For'];
-}
-*/
-  var origin = '*';
-  if (req.headers.origin) {
-    origin = req.headers.origin;
-  } else if (req.headers.Origin) {
-    origin = req.headers.Origin;
-  }
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', allowedMethods);
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    res.header('Allow', allowedMethods);
-    res.status(200).send(allowedMethods);
-  } else {
-    next();
-  }
-};
-
 function logRequests(req, res, next) {
   'use strict';
   var start;
@@ -1206,7 +1157,6 @@ exports = module.exports = {
       app.use(forceSecureSockets);
     }
 
-    app.use(allowCrossDomain);
     app.use(bodyParser.json());
 
     //to parse html pages
