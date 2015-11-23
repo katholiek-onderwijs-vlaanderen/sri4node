@@ -28,6 +28,35 @@ exports = module.exports = function (roa, logverbose, extra) {
     return true;
   };
 
+  var failOnBadUser = function (database, elements, me) {
+
+    var deferred = Q.defer();
+
+    if (me.email === 'daniella@email.be') {
+      deferred.reject();
+    } else {
+      deferred.resolve();
+    }
+
+    return deferred.promise;
+  };
+
+  var forbidUser = function (database, elements, me) {
+
+    var deferred = Q.defer();
+
+    if (me.email === 'ingrid@email.be') {
+      deferred.reject({
+        statusCode: 403,
+        body: '<h1>Forbidden</h1>'
+      });
+    } else {
+      deferred.resolve();
+    }
+
+    return deferred.promise;
+  };
+
   var checkElements = function (database, elements) {
     if (!elements.hasOwnProperty('path') || !elements.hasOwnProperty('body') || !isHrefAPermalink(elements.path)) {
       throw new Error('`elements` argument has wrong format');
@@ -222,14 +251,16 @@ exports = module.exports = function (roa, logverbose, extra) {
     },
     afterread: [
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
-      checkMe
+      checkMe,
+      failOnBadUser,
+      forbidUser
     ],
     afterupdate: [
-      checkMe, checkElements
+      checkMe, checkElements, failOnBadUser, forbidUser
     ],
-    afterinsert: [checkMe, checkElements],
+    afterinsert: [checkMe, checkElements, failOnBadUser, forbidUser],
     afterdelete: [
-      checkMe, checkElements
+      checkMe, checkElements, failOnBadUser, forbidUser
     ]
   };
 

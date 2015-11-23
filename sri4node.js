@@ -561,11 +561,26 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
       debug('allSettled :');
       debug(results);
       var errors = [];
-      results.forEach(function (result) {
-        if (result.state === 'rejected') {
-          errors.push(result.reason.message);
+      var i;
+
+      for (i = 0; i < results.length; i++) {
+        if (results[i].state === 'rejected') {
+          if (results[i].reason) {
+            if (results[i].reason.statusCode && results[i].reason.body) {
+              deferred.reject({
+                type: 'afterread.failed',
+                status: results[i].reason.statusCode,
+                body: results[i].reason.body
+              });
+            } else {
+              errors.push(results[i].reason.message);
+            }
+          } else {
+            errors.push(results[i].state);
+          }
+
         }
-      });
+      }
 
       if (errors.length === 0) {
         deferred.resolve();
@@ -986,6 +1001,8 @@ function createOrUpdate(req, res) {
         cl('ROLLBACK DONE.');
         if (puterr === 'resource.gone') {
           res.status(410).send();
+        } else if (puterr && puterr.statusCode && puterr.body) {
+          res.status(puterr.statusCode).send(puterr.body);
         } else {
           res.status(409).send(puterr);
         }
@@ -1037,8 +1054,13 @@ function deleteResource(req, resp) {
     database.client.query('ROLLBACK', function (rollbackerr) {
       // If err is defined, client will be removed from pool.
       database.done(rollbackerr);
-      cl('ROLLBACK DONE. Sending 500 Internal Server Error. [' + delerr.toString() + ']');
-      resp.status(500).send('Internal Server Error. [' + delerr.toString() + ']');
+      if (delerr && delerr.statusCode && delerr.body) {
+        resp.status(delerr.statusCode).send(delerr.body);
+      } else {
+        cl('ROLLBACK DONE. Sending 500 Internal Server Error. [' + delerr + ']');
+        resp.status(500).send('Internal Server Error. [' + delerr + ']');
+      }
+
     });
   });
 }
