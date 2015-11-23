@@ -676,8 +676,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
           }
           if (valid) {
             query.sql(' order by ' + orders);
-            if (descending) {
-              query.sql(' desc');
+            if (descending && descending === 'true') {
+              query.sql(' desc ');
+            } else {
+              query.sql(' asc ');
             }
           } else {
             cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
