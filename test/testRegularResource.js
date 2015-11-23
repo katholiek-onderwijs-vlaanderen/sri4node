@@ -4,8 +4,8 @@ var common = require('../js/common.js');
 var cl = common.cl;
 var sriclient = require('sri4node-client');
 var doGet = sriclient.get;
-var needle = require('needle');
-var Q = require('q');
+//var needle = require('needle');
+//var Q = require('q');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';

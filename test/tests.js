@@ -17,7 +17,7 @@ describe('Sri4node testing', function () {
   require('./testQueryUtils.js')(base, logdebug);
   require('./testCTE.js')(base, logdebug);
   require('./testListResource.js')(base, logdebug);
-  require('./testOrderBy.js')(base,logdebug);
+  require('./testOrderBy.js')(base, logdebug);
   require('./testRegularResource.js')(base, logdebug);
   require('./testAfterRead.js')(base, logdebug);
   require('./testSecurityContext.js')(base, logdebug);
