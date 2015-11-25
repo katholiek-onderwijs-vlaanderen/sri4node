@@ -8,6 +8,7 @@ var cl = common.cl;
 var pgConnect = common.pgConnect;
 var configuration;
 var postgres;
+var executeAfterReadFunctions;
 
 // used to determine where to store the cached object (there are two stores, list
 // and resource. The purge logic is different)
@@ -79,12 +80,12 @@ function getResources(response) {
 
   if (response.$$meta) {
     if (response.$$meta.permalink) {
-      return [response.$$meta.permalink];
+      return [response];
     } else if (response.results) {
       for (i = 0; i < response.results.length; i++) {
         // only check access on expanded resources, anyone can see a href
         if (response.results[i].$$expanded) {
-          results.push(response.results[i].href);
+          results.push(response.results[i].$$expanded);
         }
       }
     }
@@ -100,7 +101,7 @@ function createBatch(resources, verb) {
 
   for (i = 0; i < resources.length; i++) {
     batch.push({
-      href: resources[i],
+      href: resources[i].$$meta.permalink,
       verb: verb
     });
   }
@@ -158,6 +159,7 @@ function store(url, cache, req, res, config, mapping) {
 
     var self;
     var batch;
+    var database;
 
     // express first send call tranforms a json into a string and calls send again
     // we only process the first send to store the object
@@ -177,14 +179,34 @@ function store(url, cache, req, res, config, mapping) {
         batch = createBatch(resources, 'GET');
       }
 
-      validateRequest(config, mapping, req, res, batch).then(function () {
+      validateRequest(config, mapping, req, res, batch)
+      .then(function () {
+        if (!mapping.public) {
+          return pgConnect(postgres, configuration);
+        }
         send.call(self, output);
-      }).catch(function () {
-        res.status(403).send({
-          type: 'access.denied',
-          status: 403,
-          body: 'Forbidden'
-        });
+      }).then(function (db) {
+        database = db;
+        return config.identify(req, db);
+      }).then(function (me) {
+        if (resources) {
+          return executeAfterReadFunctions(database, resources, mapping, me);
+        }
+        return true;
+      }).then(function () {
+        send.call(self, output);
+      }).catch(function (error) {
+        if (error && error.type && error.status && error.body) {
+          res.status(error.status).send(error.body);
+        } else {
+          res.status(403).send({
+            type: 'access.denied',
+            status: 403,
+            body: 'Forbidden'
+          });
+        }
+      }).finally(function () {
+        database.done();
       });
     } else {
       send.call(this, output);
@@ -194,7 +216,7 @@ function store(url, cache, req, res, config, mapping) {
 
 }
 
-exports = module.exports = function (mapping, config, pg) {
+exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) {
   'use strict';
 
   var header;
@@ -204,6 +226,7 @@ exports = module.exports = function (mapping, config, pg) {
   var cacheStore;
   configuration = config;
   postgres = pg;
+  executeAfterReadFunctions = afterReadFunctionsFn;
 
   if (mapping.cache) {
     cache = true;
@@ -229,10 +252,15 @@ exports = module.exports = function (mapping, config, pg) {
 
     function handleResponse(value) {
       var i;
+      var database;
 
       if (req.method === 'GET') {
         if (value) {
-          validateRequest(config, mapping, req, res, createBatch(value.resources, 'GET')).then(function () {
+          validateRequest(config, mapping, req, res, createBatch(value.resources, 'GET'))
+          .then(function () {
+            if (!mapping.public) {
+              return pgConnect(postgres, configuration);
+            }
             for (header in value.headers) {
               if (value.headers.hasOwnProperty(header)) {
                 res.set(header, value.headers[header]);
@@ -240,12 +268,32 @@ exports = module.exports = function (mapping, config, pg) {
             }
 
             res.send(value.data);
-          }).catch(function () {
-            res.status(403).send({
-              type: 'access.denied',
-              status: 403,
-              body: 'Forbidden'
-            });
+          }).then(function (db) {
+            database = db;
+            return config.identify(req, db);
+          }).then(function (me) {
+            return executeAfterReadFunctions(database, value.resources, mapping, me);
+          })
+          .then(function () {
+            for (header in value.headers) {
+              if (value.headers.hasOwnProperty(header)) {
+                res.set(header, value.headers[header]);
+              }
+            }
+
+            res.send(value.data);
+          }).catch(function (error) {
+            if (error && error.type && error.status && error.body) {
+              res.status(error.status).send(error.body);
+            } else {
+              res.status(403).send({
+                type: 'access.denied',
+                status: 403,
+                body: 'Forbidden'
+              });
+            }
+          }).finally(function () {
+            database.done();
           });
         } else {
           // register handler to process response when responding

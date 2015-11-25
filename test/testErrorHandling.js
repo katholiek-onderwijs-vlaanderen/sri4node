@@ -6,7 +6,7 @@ var doPut = sriclient.put;
 var doDelete = sriclient.delete;
 var uuid = require('uuid');
 
-exports = module.exports = function(base) {
+exports = module.exports = function (base) {
   'use strict';
 
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
@@ -29,45 +29,45 @@ exports = module.exports = function(base) {
     };
   }
 
-  describe('Error handling', function() {
+  describe('Error handling', function () {
 
     var key = uuid.v4();
     var p = generateRandomPerson(key, communityDendermonde);
 
-    describe('After Read', function() {
-      it('should return 500 (server error) when rejecting without an error object', function() {
+    describe('After Read', function () {
+      it('should return 500 (server error) when rejecting without an error object', function () {
         return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 'daniella@email.be', 'pwd').then(
-          function(response) {
+          function (response) {
             assert.equal(response.statusCode, 500);
           });
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', function() {
+      it('should return 403 (forbidden) when rejecting with an error object', function () {
         return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 'ingrid@email.be', 'pwd').then(
-          function(response) {
+          function (response) {
             assert.equal(response.statusCode, 403);
             assert.equal(response.body, '<h1>Forbidden</h1>');
           });
       });
     });
 
-    describe('After Insert', function() {
+    describe('After Insert', function () {
 
-      it('should return 500 (server error) when rejecting without an error object', function() {
-        return doPut(base + '/persons/' + key, p, 'daniella@email.be', 'pwd').then(function(response) {
+      it('should return 500 (server error) when rejecting without an error object', function () {
+        return doPut(base + '/persons/' + key, p, 'daniella@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 409);
         });
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', function() {
-        return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function(response) {
+      it('should return 403 (forbidden) when rejecting with an error object', function () {
+        return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
           assert.equal(response.body, '<h1>Forbidden</h1>');
         });
       });
     });
 
-    describe('After Update', function() {
+    describe('After Update', function () {
 
       before(function (done) {
         doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function () {
@@ -75,21 +75,21 @@ exports = module.exports = function(base) {
         });
       });
 
-      it('should return 500 (server error) when rejecting without an error object', function() {
-        return doPut(base + '/persons/' + key, p, 'daniella@email.be', 'pwd').then(function(response) {
+      it('should return 500 (server error) when rejecting without an error object', function () {
+        return doPut(base + '/persons/' + key, p, 'daniella@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 409);
         });
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', function() {
-        return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function(response) {
+      it('should return 403 (forbidden) when rejecting with an error object', function () {
+        return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
           assert.equal(response.body, '<h1>Forbidden</h1>');
         });
       });
     });
 
-    describe('After Delete', function() {
+    describe('After Delete', function () {
 
       before(function (done) {
         doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function () {
@@ -97,14 +97,14 @@ exports = module.exports = function(base) {
         });
       });
 
-      it('should return 500 (server error) when rejecting without an error object', function() {
-        return doDelete(base + '/persons/' + key, 'daniella@email.be', 'pwd').then(function(response) {
+      it('should return 500 (server error) when rejecting without an error object', function () {
+        return doDelete(base + '/persons/' + key, 'daniella@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 500);
         });
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', function() {
-        return doDelete(base + '/persons/' + key, 'ingrid@email.be', 'pwd').then(function(response) {
+      it('should return 403 (forbidden) when rejecting with an error object', function () {
+        return doDelete(base + '/persons/' + key, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
           assert.equal(response.body, '<h1>Forbidden</h1>');
         });

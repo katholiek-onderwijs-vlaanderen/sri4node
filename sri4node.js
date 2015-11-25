@@ -512,22 +512,22 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
       debug('allSettled :');
       debug(results);
       var errors = [];
-      var i;
+      var j;
 
-      for (i = 0; i < results.length; i++) {
-        if (results[i].state === 'rejected') {
-          if (results[i].reason) {
-            if (results[i].reason.statusCode && results[i].reason.body) {
+      for (j = 0; j < results.length; j++) {
+        if (results[j].state === 'rejected') {
+          if (results[j].reason) {
+            if (results[j].reason.statusCode && results[j].reason.body) {
               deferred.reject({
                 type: 'afterread.failed',
-                status: results[i].reason.statusCode,
-                body: results[i].reason.body
+                status: results[j].reason.statusCode,
+                body: results[j].reason.body
               });
             } else {
-              errors.push(results[i].reason.message);
+              errors.push(results[j].reason.message);
             }
           } else {
-            errors.push(results[i].state);
+            errors.push(results[j].state);
           }
 
         }
@@ -1343,7 +1343,7 @@ exports = module.exports = {
           // register list resource for this type.
           url = mapping.type;
 
-          secureCacheFn = secureCache(mapping, configuration, postgres);
+          secureCacheFn = secureCache(mapping, configuration, postgres, executeAfterReadFunctions);
           secureCacheFns[url] = secureCacheFn;
 
           // register list resource for this type.
