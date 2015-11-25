@@ -53,7 +53,7 @@ mixin property(key, property)
                             small Allowed values
                         td
                             small
-                                code.text-muted= JSON.stringify(property.enum)
+                                code.text-muted= JSON.stringify(property.enum, null, 1)
                 if property.type == 'array' && property.items
                     tr
                         td(style='padding: 15px 15px 0px 15px')
