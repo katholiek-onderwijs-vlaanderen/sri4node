@@ -58,8 +58,13 @@ exports = module.exports = function (roa, logverbose, extra) {
   };
 
   var checkElements = function (database, elements) {
-    if (!elements.hasOwnProperty('path') || !elements.hasOwnProperty('body') || !isHrefAPermalink(elements.path)) {
-      throw new Error('`elements` argument has wrong format');
+    var element;
+    if (!Array.isArray(elements)) {
+      throw new Error('`elements` is not an array');
+    }
+    element = elements[0];
+    if (!element.hasOwnProperty('path') || !element.hasOwnProperty('body') || !isHrefAPermalink(element.path)) {
+      throw new Error('`elements` object in the array has wrong format');
     }
 
     return true;

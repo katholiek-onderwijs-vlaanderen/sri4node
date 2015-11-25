@@ -348,14 +348,14 @@ function postProcess(functions, db, body, req) {
   'use strict';
   var promises;
   var deferred = Q.defer();
-  var element = {path: req.path, body: body};
+  var elements = [{path: req.path, body: body}];
 
   if (functions && functions.length > 0) {
     promises = [];
 
     configuration.identify(req, db).then(function (me) {
       functions.forEach(function (f) {
-        promises.push(f(db, element, me));
+        promises.push(f(db, elements, me));
       });
 
       Q.all(promises).then(function () {

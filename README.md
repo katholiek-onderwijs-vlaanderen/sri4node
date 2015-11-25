@@ -388,7 +388,7 @@ like clear a cache, do further processing, update other tables, etc..
 The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
-- `element` is an object that contains two attributes:
+- `elements` is an array of one or more objects. Each object contains two attributes:
   - `path` is the route of the request
   - `body` is the JSON element (as it was PUT, so without mapping/processing) that was just updated / created.
 - `me` the return of the identify function
@@ -404,7 +404,7 @@ Hook for post-processing when a record is deleted.
 The function receives these parameters :
 
 - `database` is a database object, allowing you to execute extra SQL statements.
-- `element` is an object that contains two attributes:
+- `elements` is an array of one or more objects. Each object contains two attributes:
   - `path` is the route of the request
   - `body` is the permalink of the object that was deleted.
 - `me` the return of the identify function

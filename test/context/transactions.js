@@ -41,7 +41,8 @@ exports = module.exports = function (roa, extra) {
       required: ['fromperson', 'toperson', 'description', 'amount']
     },
     afterinsert: [
-      function (db, element) {
+      function (db, elements) {
+        var element = elements[0];
         var amount = element.body.amount;
         var tokey = element.body.toperson.href;
         tokey = tokey.split('/')[2];
@@ -51,7 +52,8 @@ exports = module.exports = function (roa, extra) {
           .param(amount).sql(') where key = ').param(tokey);
         return $u.executeSQL(db, updateto);
       },
-      function (db, element) {
+      function (db, elements) {
+        var element = elements[0];
         var amount = element.body.amount;
         var fromkey = element.body.fromperson.href;
         fromkey = fromkey.split('/')[2];
