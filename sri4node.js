@@ -419,7 +419,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
       // check and remove types from references.
       for (k in mapping.map) {
         if (mapping.map.hasOwnProperty(k)) {
-          if (mapping.map[k].references) {
+          if (mapping.map[k].references && typeof element[k] != 'undefined') {
             value = element[k].href;
             if (!value) {
               throw new Error('No href found inside reference ' + k);
