@@ -377,8 +377,10 @@ The function receives these parameters :
 - `me` the return of the identify function
 
 The function must return a [Q promise][kriskowal-q].
-If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response.
-It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
+If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response by default. It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
+When rejecting, an object can be provided to produce a different output. The object must have the following properties:
+- `statusCode` is the http status code to be returned in the response.
+- `body` is the body of the http response
 Mind you that *path* does not makes sense for errors in afterread methods, so you should omit it.
 
 ### afterupdate / afterinsert
@@ -396,7 +398,10 @@ The function receives these parameters :
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
-If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
+If any of the functions rejects its promise the client receives 409 Conflict by default, an a combination of all error objects in the response body.
+When rejecting, an object can be provided to produce a different output. The object must have the following properties:
+- `statusCode` is the http status code to be returned in the response.
+- `body` is the body of the http response
 
 ### afterdelete
 
@@ -412,7 +417,10 @@ The function receives these parameters :
 The function must return a [Q promise][kriskowal-q].
 In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
 The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
-If any of the functions rejects its promise the client receives 409 Conflict, an a combination of all error objects in the response body.
+If any of the functions rejects its promise the client receives 409 Conflict by default, an a combination of all error objects in the response body.
+When rejecting, an object can be provided to produce a different output. The object must have the following properties:
+- `statusCode` is the http status code to be returned in the response.
+- `body` is the body of the http response
 
 ### authenticate
 
