@@ -74,8 +74,13 @@ exports = module.exports = {
           }
         } else if (mapping.map[key].onlyinput) {
           // Skip on output !
-        } else {
+        } else if (key.indexOf('$$meta.') === -1) {
           element[key] = row[key];
+        } else {
+          if (!element.$$meta) {
+            element.$$meta = {};
+          }
+          element.$$meta[key.split('$$meta.')[1]] = row[key];
         }
       }
     }

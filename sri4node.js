@@ -579,7 +579,7 @@ function getDocs(req, resp) {
   var mapping;
   if (type in typeToMapping) {
     mapping = typeToMapping[type];
-    resp.locals.path = req['_parsedUrl']['pathname'];
+    resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping});
   } else if (type === '/docs') {
     resp.render('index', {config: configuration});
@@ -889,9 +889,10 @@ function getRegularResource(executeExpansion) {
         req.query['$$meta.deleted'] === 'true' || req.query['$$meta.deleted'] === 'any');
     }).then(function (result) {
       element = result.object;
-      element.$$meta = {
-        permalink: mapping.type + '/' + key
-      };
+      if (!element.$$meta) {
+        element.$$meta = {};
+      }
+      element.$$meta.permalink = mapping.type + '/' + key;
       if (result.$$meta) {
         for (field in result.$$meta) {
           if (result.$$meta.hasOwnProperty(field) && result.$$meta[field]) {
