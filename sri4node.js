@@ -579,6 +579,7 @@ function getDocs(req, resp) {
   var mapping;
   if (type in typeToMapping) {
     mapping = typeToMapping[type];
+    resp.locals.path = req['_parsedUrl']['pathname'];
     resp.render('resource', {resource: mapping});
   } else if (type === '/docs') {
     resp.render('index', {config: configuration});

@@ -70,8 +70,12 @@ doctype html
 html(lang='en')
     head
         title API Documentation
-        link(href='/docs/static/bootstrap.min.css', rel='stylesheet')
-        link(href='/docs/static/custom.css', rel='stylesheet')
+        if(path.substring(path.length - 1, path.length) === '/')
+            link(href='../../docs/static/bootstrap.min.css', rel='stylesheet')
+            link(href='../../docs/static/custom.css', rel='stylesheet')
+        else
+            link(href='../docs/static/bootstrap.min.css', rel='stylesheet')
+            link(href='../docs/static/custom.css', rel='stylesheet')
     body
         .container
             .header.clearfix
@@ -80,7 +84,7 @@ html(lang='en')
                         li(role='presentation')
                             a(href='#{ resource.type }') View resource
                         li(role='presentation')
-                            a(href='/docs') Docs home
+                            a(href='../docs') Docs home
                 h3.text-primary #{ resource.type }
             if resource.schema
                 if resource.schema.title
