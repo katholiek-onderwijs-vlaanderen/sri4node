@@ -38,7 +38,11 @@ function validateRequest(config, mapping, req, res, batch) {
     }).then(function () {
       deferred.resolve();
     }).catch(function () {
-      deferred.reject();
+      deferred.reject({
+        type: 'Secure.failed',
+        status: 403,
+        body: '<h1>403 Forbidden</h1>'
+      });
     }).finally(function () {
       database.done();
     });
@@ -314,12 +318,16 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
               cacheStore.list.flushAll();
             }
             next();
-          }).catch(function () {
-            res.status(403).send({
-              type: 'access.denied',
-              status: 403,
-              body: 'Forbidden'
-            });
+          }).catch(function (error) {
+            if (error && error.type && error.status && error.body) {
+              res.status(error.status).send(error.body);
+            } else {
+              res.status(403).send({
+                type: 'access.denied',
+                status: 403,
+                body: 'Forbidden'
+              });
+            }
           });
         } else {
           validateRequest(config, mapping, req, res).then(function () {
@@ -329,12 +337,16 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
               cacheStore.list.flushAll();
             }
             next();
-          }).catch(function () {
-            res.status(403).send({
-              type: 'access.denied',
-              status: 403,
-              body: 'Forbidden'
-            });
+          }).catch(function (error) {
+            if (error && error.type && error.status && error.body) {
+              res.status(error.status).send(error.body);
+            } else {
+              res.status(403).send({
+                type: 'access.denied',
+                status: 403,
+                body: 'Forbidden'
+              });
+            }
           });
         }
 
@@ -346,12 +358,16 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             cacheStore.list.flushAll();
           }
           next();
-        }).catch(function () {
-          res.status(403).send({
-            type: 'access.denied',
-            status: 403,
-            body: 'Forbidden'
-          });
+        }).catch(function (error) {
+          if (error && error.type && error.status && error.body) {
+            res.status(error.status).send(error.body);
+          } else {
+            res.status(403).send({
+              type: 'access.denied',
+              status: 403,
+              body: 'Forbidden'
+            });
+          }
         });
       } else {
         next();
