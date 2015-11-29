@@ -344,16 +344,17 @@ function logRequests(req, res, next) {
   next();
 }
 
-function postProcess(functions, db, body, req) {
+function postProcess(functions, db, body, req, path) {
   'use strict';
   var promises;
   var deferred = Q.defer();
-  var elements = [{path: req.path, body: body}];
+  var elements = [{path: path, body: body}];
 
   if (functions && functions.length > 0) {
     promises = [];
 
     configuration.identify(req, db).then(function (me) {
+
       functions.forEach(function (f) {
         promises.push(f(db, elements, me));
       });
@@ -387,7 +388,6 @@ function executePutInsideTransaction(db, url, body, req, res) {
     debug('Key received on URL : ' + key);
 
     var typeToMapping = typeToConfig(resources);
-    // var type = '/' + req.route.path.split("/")[1];
     var mapping = typeToMapping[type];
     var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
 
@@ -466,7 +466,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
               throw 'resource.gone';
             } else {
               res.status(200);
-              return postProcess(mapping.afterupdate, db, body, req);
+              return postProcess(mapping.afterupdate, db, body, req, url);
             }
           });
         } else {
@@ -483,7 +483,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
               return deferred.promise();
             } else {
               res.status(201);
-              return postProcess(mapping.afterinsert, db, body, req);
+              return postProcess(mapping.afterinsert, db, body, req, url);
             }
           });
         }
@@ -978,7 +978,8 @@ function deleteResource(req, resp) {
       debug('No row affected - the resource is already gone');
       resp.status(410);
     } else { // eslint-disable-line
-      return postProcess(mapping.afterdelete, database, req.route.path, req);
+      debug('Processing afterdelete');
+      return postProcess(mapping.afterdelete, database, req.route.path, req, req.originalUrl);
     }
   }).then(function () {
     debug('DELETE processing went OK. Committing database transaction.');
