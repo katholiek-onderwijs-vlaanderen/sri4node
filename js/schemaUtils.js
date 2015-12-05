@@ -1,8 +1,7 @@
 exports = module.exports = {
   permalink: function (type, description) {
     'use strict';
-    var parts = type.split('/');
-    var name = parts[1];
+    var name = type.substring(1);
 
     return {
       type: 'object',

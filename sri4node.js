@@ -153,7 +153,7 @@ function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
   var row, output, msg;
   var v;
   var result;
@@ -276,7 +276,7 @@ function checkBasicAuthentication(authenticator) {
 
     if (path !== '/me' && path !== '/batch') {
       typeToMapping = typeToConfig(resources);
-      type = '/' + req.route.path.split('/')[1];
+      type = req.route.path.split(':')[0].replace(/\/$/, '');
       mapping = typeToMapping[type];
       if (mapping.public) {
         next();
@@ -380,8 +380,8 @@ function postProcess(functions, db, body, req, path) {
 function executePutInsideTransaction(db, url, body, req, res) {
     'use strict';
     var deferred, element, errors;
-    var type = '/' + url.split('/')[1];
-    var key = url.split('/')[2];
+    var type = req.route.path.split(':')[0].replace(/\/$/, '');
+    var key = url.replace(type, '').substr(1);
 
     debug('PUT processing starting. Request body :');
     debug(body);
@@ -389,7 +389,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
 
     var typeToMapping = typeToConfig(resources);
     var mapping = typeToMapping[type];
-    var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
 
     debug('Validating schema.');
     if (mapping.schema) {
@@ -426,9 +426,8 @@ function executePutInsideTransaction(db, url, body, req, res) {
             }
             referencedType = mapping.map[k].references;
             referencedMapping = typeToMapping[referencedType];
-            parts = value.split('/');
-            type = '/' + parts[1];
-            refkey = parts[2];
+            type = value.replace(value.split(referencedType)[1], '');
+            refkey = value.replace(type, '').substr(1);
             if (type === referencedMapping.type) {
               element[k] = refkey;
             } else {
@@ -596,7 +595,7 @@ function getSQLFromListResource(path, parameters, database, query) {
   var mapping = typeToMapping[type];
 
   var sql;
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
   var columns = sqlColumnNames(mapping);
 
   if (parameters['$$meta.deleted'] === 'true') {
@@ -858,7 +857,7 @@ function getRegularResource(executeExpansion) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
-    var type = '/' + req.route.path.split('/')[1];
+    var type = req.route.path.split(':')[0].replace(/\/$/, '');
     var mapping = typeToMapping[type];
     var key = req.params.key;
 
@@ -907,7 +906,7 @@ function getRegularResource(executeExpansion) {
         database.done();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
-        cl(error);
+        cl(error && error.stack ? error.stack : error);
         database.done(error);
         resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
       }
@@ -934,7 +933,7 @@ function createOrUpdate(req, res) {
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
-      cl(puterr);
+      cl(puterr && puterr.stack ? puterr.stack : puterr);
       db.client.query('ROLLBACK', function (rollbackerr) {
         // If err is defined, client will be removed from pool.
         db.done(rollbackerr);
@@ -957,7 +956,7 @@ function deleteResource(req, resp) {
   var typeToMapping = typeToConfig(resources);
   var type = '/' + req.route.path.split('/')[1];
   var mapping = typeToMapping[type];
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
 
   var database;
 
@@ -991,7 +990,7 @@ function deleteResource(req, resp) {
     });
   }).fail(function (delerr) {
     cl('DELETE processing failed. Rolling back database transaction. Error was :');
-    cl(delerr);
+    cl(delerr && delerr.stack ? delerr.stack : delerr);
     database.client.query('ROLLBACK', function (rollbackerr) {
       // If err is defined, client will be removed from pool.
       database.done(rollbackerr);
@@ -1113,7 +1112,7 @@ function batchOperation(req, resp) {
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
-      cl(puterr);
+      cl(puterr && puterr.stack ? puterr.stack : puterr);
       database.client.query('ROLLBACK', function (rollbackerr) {
         // If err is defined, client will be removed from pool.
         database.done(rollbackerr);
@@ -1129,7 +1128,7 @@ function checkRequiredFields(mapping, information) {
   var i;
   var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
     idx = '/' + table;
     if (!information[idx]) {
       throw new Error('Table \'' + table + '\' seems to be missing in the database.');

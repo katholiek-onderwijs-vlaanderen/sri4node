@@ -4,7 +4,7 @@ var sriclient = require('sri4node-client');
 var doGet = sriclient.get;
 var doPut = sriclient.put;
 var doDelete = sriclient.delete;
-var uuid = require('uuid');
+var uuid = require('node-uuid');
 
 exports = module.exports = function (base) {
   'use strict';
