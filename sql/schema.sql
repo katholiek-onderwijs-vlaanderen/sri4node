@@ -123,7 +123,7 @@ CREATE TABLE "alldatatypes" (
 
 CREATE TABLE "packages" (
   "key" uuid unique,
-  "name" text unique,
+  "name" text,
   "$$meta.deleted" boolean default false,
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp

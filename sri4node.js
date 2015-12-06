@@ -380,7 +380,7 @@ function postProcess(functions, db, body, req, path) {
 function executePutInsideTransaction(db, url, body, req, res) {
     'use strict';
     var deferred, element, errors;
-    var type = req.route.path.split(':')[0].replace(/\/$/, '');
+    var type = url.split('/').slice(0, url.split('/').length-1).join('/');
     var key = url.replace(type, '').substr(1);
 
     debug('PUT processing starting. Request body :');
@@ -563,7 +563,7 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
 function getSchema(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
   var mapping = typeToMapping[type];
 
   resp.set('Content-Type', 'application/json');
@@ -574,13 +574,13 @@ function getSchema(req, resp) {
 function getDocs(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
   var mapping;
   if (type in typeToMapping) {
     mapping = typeToMapping[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping});
-  } else if (type === '/docs') {
+  } else if (req.route.path === '/docs') {
     resp.render('index', {config: configuration});
   } else {
     resp.status(404).send('Not Found');
@@ -591,7 +591,7 @@ function getSQLFromListResource(path, parameters, database, query) {
   'use strict';
 
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + path.split('/')[1];
+  var type = path;
   var mapping = typeToMapping[type];
 
   var sql;
@@ -619,7 +619,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
-    var type = '/' + req.route.path.split('/')[1];
+    var type = req.route.path;
     var mapping = typeToMapping[type];
 
     var database;
@@ -954,7 +954,7 @@ function deleteResource(req, resp) {
   'use strict';
   debug('sri4node DELETE invoked');
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split(':')[0].replace(/\/$/, '');
   var mapping = typeToMapping[type];
   var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
 
@@ -1035,7 +1035,7 @@ function handleBatchOperations(secureCacheFns) {
     // split batch into different response handlers (per resource)
     for (i = 0; i < batch.length; i++) {
       url = batch[i].href;
-      type = '/' + url.split('/')[1];
+      type = url.split('/').slice(0, url.split('/').length-1).join('/');
       batches.push({
         type: type,
         batch: batch[i]
