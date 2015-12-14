@@ -366,6 +366,9 @@ function postProcess(functions, db, body, req, path) {
         debug('one of the post processing functions rejected.');
         deferred.reject(error);
       });
+    }).catch(function (error) {
+      debug('Error during one of the post processing functions.');
+      deferred.reject(error);
     });
 
   } else {
