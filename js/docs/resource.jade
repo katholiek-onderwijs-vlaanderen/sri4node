@@ -1,3 +1,5 @@
+- var $q = queryUtils;
+
 mixin property(key, property, required)
         - if(typeof  required == 'undefined'){ required = []; }
         .panel.panel-default
@@ -120,9 +122,16 @@ html(lang='en')
                                 .panel.panel-default
                                     .panel-heading
                                         h3.panel-title #{ key }
-                                    if resource.queryDocs
-                                        if resource.queryDocs[key]
-                                            .panel-body!= resource.queryDocs[key]
+                                    if key == 'defaultFilter' && query == $q.defaultFilter
+                                        .panel-body
+                                            | The default filter gives you the possibility to use filters described in the sri-query specification.
+                                            br
+                                            | More information about the default filter you can find&nbsp;
+                                            a(href='https://github.com/dimitrydhondt/sri-query', target='_blank') here.
+                                    else
+                                        if resource.queryDocs
+                                            if resource.queryDocs[key]
+                                                .panel-body!= resource.queryDocs[key]
             .row
                 .panel.panel-primary
                     .panel-heading
