@@ -276,12 +276,12 @@ function getFieldBaseType(fieldType) {
     return 'array';
   }
 
-  if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char' ||
+  if (type === 'text' || type === 'varchar'|| type === 'character varying' || type === 'char' ||
     type === 'character') {
     return 'text';
   }
 
-  if (type === 'numeric' || type === 'integer' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
+  if (type === 'numeric' ||  type === 'integer' || type === 'boolean' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
     type === 'real' || type === 'double precision' || type === 'smallserial' || type === 'serial' ||
       type === 'bigserial') {
     return 'numeric';
@@ -312,6 +312,7 @@ function parseFilters(value, select, parameter, mapping) {
     if (field) {
 
       baseType = getFieldBaseType(field.type);
+      console.log(baseType);
 
       if (baseType === 'text') {
         filterFn = filterString;
@@ -330,6 +331,8 @@ function parseFilters(value, select, parameter, mapping) {
       error = {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
       throw error;
     }
+
+    console.log(select);
 
   };
 }
