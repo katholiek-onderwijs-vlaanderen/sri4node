@@ -675,7 +675,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
 
           }
           if (valid) {
-            query.sql(' order by ' + orders);
+            query.sql(' order by "' + orders + '"');
             if (descending && descending === 'true') {
               query.sql(' desc ');
             } else {
