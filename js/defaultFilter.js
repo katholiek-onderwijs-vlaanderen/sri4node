@@ -281,7 +281,7 @@ function getFieldBaseType(fieldType) {
     return 'text';
   }
 
-  if (type === 'numeric' || type === 'integer' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
+  if (type === 'numeric' || type === 'integer' || type === 'boolean' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
     type === 'real' || type === 'double precision' || type === 'smallserial' || type === 'serial' ||
       type === 'bigserial') {
     return 'numeric';
