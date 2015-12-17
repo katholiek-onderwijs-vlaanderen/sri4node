@@ -242,7 +242,7 @@ function filterFieldByValues(select, value, textFields) {
     if (i > 0) {
       select.sql(' OR ');
     }
-    select.sql(textFields[i] + ' ILIKE \'%' + value + '%\'');
+    select.sql('"'+textFields[i] + '" ILIKE \'%' + value + '%\'');
   }
   select.sql(')');
 }
@@ -268,7 +268,7 @@ function getFieldBaseType(fieldType) {
 
   var type = fieldType.trim().toLowerCase();
 
-  if (type.match(/^timestamp/)) {
+  if (type.match(/^timestamp/) || type === 'date') {
     return 'timestamp';
   }
 
@@ -330,6 +330,8 @@ function parseFilters(value, select, parameter, mapping) {
       error = {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
       throw error;
     }
+
+    console.log(select);
 
   };
 }
