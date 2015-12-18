@@ -210,6 +210,23 @@ function filterArray(select, filter, value) {
 
 }
 
+// filter function for boolean fields
+function filterBoolean(select, filter, value) {
+  'use strict';
+
+  if (value !== 'any') {
+    if (filter.postfix === 'Not') {
+      select.sql(' AND NOT ');
+    } else {
+      select.sql(' AND ');
+    }
+
+    select.sql('"' + filter.key + '" = ' + value);
+  }
+
+}
+
+
 // returns all the fields that are of type text (for the q= filter)
 function getTextFieldsFromTable(informationSchema) {
   'use strict';
@@ -242,7 +259,7 @@ function filterFieldByValues(select, value, textFields) {
     if (i > 0) {
       select.sql(' OR ');
     }
-    select.sql('"'+textFields[i] + '" ILIKE \'%' + value + '%\'');
+    select.sql('"' + textFields[i] + '" ILIKE \'%' + value + '%\'');
   }
   select.sql(')');
 }
@@ -276,14 +293,19 @@ function getFieldBaseType(fieldType) {
     return 'array';
   }
 
+  if (type === 'boolean') {
+    return 'boolean';
+  }
+
+
   if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char' ||
     type === 'character') {
     return 'text';
   }
 
-  if (type === 'numeric' || type === 'integer' || type === 'boolean' || type === 'bigint' || type === 'smallint' || type === 'decimal' ||
-    type === 'real' || type === 'double precision' || type === 'smallserial' || type === 'serial' ||
-      type === 'bigserial') {
+  if (type === 'numeric' || type === 'integer' || type === 'bigint' || type === 'smallint' ||
+    type === 'decimal' || type === 'real' || type === 'double precision' || type === 'smallserial' ||
+    type === 'serial' || type === 'bigserial') {
     return 'numeric';
   }
 
@@ -319,6 +341,8 @@ function parseFilters(value, select, parameter, mapping) {
         filterFn = filterNumericOrTimestamp;
       } else if (baseType === 'array') {
         filterFn = filterArray;
+      } else if (baseType === 'boolean') {
+        filterFn = filterBoolean;
       }
 
       if (filterFn) {
@@ -330,8 +354,6 @@ function parseFilters(value, select, parameter, mapping) {
       error = {code: 'invalid.query.parameter', parameter: parameter, type: 'ERROR'};
       throw error;
     }
-
-    console.log(select);
 
   };
 }
