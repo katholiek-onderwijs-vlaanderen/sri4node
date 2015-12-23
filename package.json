@@ -21,7 +21,8 @@
     "node-cache": "^3.0.0",
     "q": "^1.0.1",
     "sri4node-client": "^1.0.0",
-    "array-unique": "0.2.1"
+    "array-unique": "0.2.1",
+    "uuid": "2.0.x"
   },
   "devDependencies": {
     "express": "~4.9.x",
@@ -43,7 +44,7 @@
     "node.js"
   ],
   "author": "Dimitry D'hondt <dimitry.dhondt@yahoo.com> (https://github.com/dimitrydhondt/sri4node)",
-  "license": "LGPL",
+  "license": "LGPL-3.0",
   "bugs": {
     "url": "https://github.com/dimitrydhondt/sri4node/issues"
   },

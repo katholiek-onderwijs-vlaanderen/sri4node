@@ -1014,14 +1014,40 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
   'use strict';
 
   return function (req, res) {
+    var database;
+    var me;
 
+    debug('Start processing of custom route. [' + req.url + ']');
+    debug('Connecting to database.');
+    pgConnect(postgres, configuration).then(function (db) {
+      if (!db) {
+        throw new Error('No database connection !');
+      }
+      database = db;
+      debug('Database connection ok.');
+      debug('Establishing security context through the config.identify function.');
+      return config.identify(req, database);
+    }).then(function (identity) {
+      me = identity;
+      debug('Handing control to the custom route handler.');
+      return customRouteHandler(req, res, database, me);
+    }).then(function () {
+      debug('Processing of custom route went OK. Returning database client to pool.');
+      database.done();
+    }).catch(function (err) {
+      debug('Error on processing of custom route. Discarding database client.');
+      debug('Sending internal server error 500 to client');
+      database.done(err);
+      res.send(500);
+    });
+    /*
     Q.all([pgConnect(postgres, configuration), config.identify(req)]).done(
       function (results) {
         customRouteHandler(req, res, results[0], results[1]);
         results[0].done();
       }
     );
-
+    */
   };
 }
 
