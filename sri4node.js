@@ -1010,7 +1010,6 @@ function deleteResource(req, resp) {
 }
 
 function wrapCustomRouteHandler(customRouteHandler, config) {
-
   'use strict';
 
   return function (req, res) {
@@ -1040,14 +1039,6 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
       database.done(err);
       res.send(500);
     });
-    /*
-    Q.all([pgConnect(postgres, configuration), config.identify(req)]).done(
-      function (results) {
-        customRouteHandler(req, res, results[0], results[1]);
-        results[0].done();
-      }
-    );
-    */
   };
 }
 

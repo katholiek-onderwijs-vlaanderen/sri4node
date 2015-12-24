@@ -16,8 +16,6 @@ var cl = common.cl;
 
 var $u;
 var configCache = null;
-// Local cache of known identities.
-var knownIdentities = {};
 var knownPasswords = {};
 
 exports = module.exports = {
@@ -135,18 +133,13 @@ exports = module.exports = {
 
         if (firstColonIndex !== -1) {
           username = decoded.substr(0, firstColonIndex);
-          if (knownIdentities[username]) {
-            deferred.resolve(knownIdentities[username]);
-          } else {
-            identity(username, database).then(function (me) {
-              knownIdentities[username] = me;
-              deferred.resolve(me);
-            }).fail(function (err) {
-              cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
-              cl(err);
-              deferred.reject(err);
-            });
-          }
+          identity(username, database).then(function (me) {
+            deferred.resolve(me);
+          }).fail(function (err) {
+            cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
+            cl(err);
+            deferred.reject(err);
+          });
         }
       } else {
         deferred.resolve(null); // anonymous user means null for `me` object
