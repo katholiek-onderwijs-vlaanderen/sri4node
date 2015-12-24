@@ -299,6 +299,7 @@ exports = module.exports = function (roa, logverbose, extra) {
     },
     afterread: [
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExpanded', true),
       checkMe,
       failOnBadUser,
       forbidUser

@@ -22,6 +22,8 @@ exports = module.exports = function (base, logverbose) {
           debug(response.body);
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.$$transactions.length, 1);
+          assert.equal(response.body.$$transactionsExpanded.length, 1);
+          assert.equal(response.body.$$transactionsExpanded[0].$$expanded.key, '147d360c-2bdf-4b6e-a210-3cb8ddf3ce9d');
         });
       });
     });
