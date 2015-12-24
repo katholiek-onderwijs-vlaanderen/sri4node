@@ -1165,7 +1165,7 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   'use strict';
   var i;
   var customroute;
-  var customMiddlewares = [function (req, res, next) { next(); }];
+  var customMiddleware = function (req, res, next) { next(); };
   for (i = 0; i < mapping.customroutes.length; i++) {
     customroute = mapping.customroutes[i];
     if (customroute.route && customroute.handler) {
@@ -1175,19 +1175,17 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
       }
 
       if (customroute.middleware) {
-        if (!Array.isArray(customroute.middleware)) {
-          customMiddlewares = [customroute.middleware];
-        } else {
-          customMiddlewares = customroute.middleware;
-        }
+        // Can be an array or a single function. Express.js handles this
+        // gracefully.
+        customMiddleware = customroute.middleware;
       }
 
       if (customroute.method === 'GET') {
         app.get(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddlewares, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
       } else if (customroute.method === 'PUT') {
         app.put(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddlewares, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
       }
 
     }
