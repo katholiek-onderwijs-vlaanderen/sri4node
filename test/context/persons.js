@@ -188,21 +188,32 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   }
 
-  var customRouteMiddlewareCheck = 17;
+  var multipleMiddlewareCheck = 17;
   function customRouteMiddleware1(req, res, next) {
-    debug('customRouteMiddleware1 resets the variable.');
-    customRouteMiddlewareCheck = 0;
+    debug('customRouteMiddleware1 resets multipleMiddlewareCheck to 0 (was 17).');
+    multipleMiddlewareCheck = 0;
     next();
   }
 
   function customRouteMiddleware2(req, res, next) {
     debug('customRouteMiddleware2 increases from 0 -> 1, so the end result should be 1');
-    customRouteMiddlewareCheck++;
+    multipleMiddlewareCheck++;
     next();
   }
 
-  function returnMiddlewareResultHandler(req, res) {
-    res.status(200).send('' + customRouteMiddlewareCheck);
+  function multipleMiddlewareResultHandler(req, res) {
+    res.status(200).send('' + multipleMiddlewareCheck);
+  }
+
+  var singleMiddlewareCheck = 29;
+  function customRouteMiddleWare3(req, res, next) {
+    debug('customRouteMiddleWare3 sets singleMiddlewareCheck to 0.');
+    singleMiddlewareCheck = 0;
+    next();
+  }
+
+  function singleMiddlewareResultHandler(req, res) {
+    res.status(200).send('' + singleMiddlewareCheck);
   }
 
   var ret = {
@@ -242,13 +253,19 @@ exports = module.exports = function (roa, logverbose, extra) {
       {route: '/persons/:key/simple', handler: simpleOutput},
       {route: '/persons/:key/wrong-handler', handler: wrongHandler},
       {
+        route: '/persons/:key/single-middleware',
+        method: 'GET',
+        middleware: customRouteMiddleWare3,
+        handler: singleMiddlewareResultHandler
+      },
+      {
         route: '/persons/:key/multiple-middleware',
         method: 'GET',
         middleware: [
           customRouteMiddleware1,
           customRouteMiddleware2
         ],
-        handler: returnMiddlewareResultHandler
+        handler: multipleMiddlewareResultHandler
       }
     ],
     schema: {
