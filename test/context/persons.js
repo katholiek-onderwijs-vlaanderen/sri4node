@@ -188,6 +188,23 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   }
 
+  var customRouteMiddlewareCheck = 17;
+  function customRouteMiddleware1(req, res, next) {
+    debug('customRouteMiddleware1 resets the variable.');
+    customRouteMiddlewareCheck = 0;
+    next();
+  }
+
+  function customRouteMiddleware2(req, res, next) {
+    debug('customRouteMiddleware2 increases from 0 -> 1, so the end result should be 1');
+    customRouteMiddlewareCheck++;
+    next();
+  }
+
+  function returnMiddlewareResultHandler(req, res) {
+    res.status(200).send('' + customRouteMiddlewareCheck);
+  }
+
   var ret = {
     type: '/persons',
     'public': false, // eslint-disable-line
@@ -223,7 +240,16 @@ exports = module.exports = function (roa, logverbose, extra) {
     ],
     customroutes: [
       {route: '/persons/:key/simple', handler: simpleOutput},
-      {route: '/persons/:key/wrong-handler', handler: wrongHandler}
+      {route: '/persons/:key/wrong-handler', handler: wrongHandler},
+      {
+        route: '/persons/:key/multiple-middleware',
+        method: 'GET',
+        middleware: [
+          customRouteMiddleware1,
+          customRouteMiddleware2
+        ],
+        handler: returnMiddlewareResultHandler
+      }
     ],
     schema: {
       $schema: 'http://json-schema.org/schema#',

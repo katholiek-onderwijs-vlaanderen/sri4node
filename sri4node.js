@@ -1165,7 +1165,7 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   'use strict';
   var i;
   var customroute;
-  var customMiddleware = function (req, res, next) { next(); };
+  var customMiddlewares = [function (req, res, next) { next(); }];
   for (i = 0; i < mapping.customroutes.length; i++) {
     customroute = mapping.customroutes[i];
     if (customroute.route && customroute.handler) {
@@ -1175,15 +1175,19 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
       }
 
       if (customroute.middleware) {
-        customMiddleware = customroute.middleware;
+        if (!Array.isArray(customroute.middleware)) {
+          customMiddlewares = [customroute.middleware];
+        } else {
+          customMiddlewares = customroute.middleware;
+        }
       }
 
       if (customroute.method === 'GET') {
         app.get(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddlewares, wrapCustomRouteHandler(customroute.handler, config));
       } else if (customroute.method === 'PUT') {
         app.put(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddlewares, wrapCustomRouteHandler(customroute.handler, config));
       }
 
     }
