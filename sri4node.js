@@ -1422,7 +1422,7 @@ exports = module.exports = {
         * column : the database column that contains the foreign key.
         * key : the name of the key to add to the retrieved elements.
     */
-    addReferencingResources: function (type, column, targetkey) {
+    addReferencingResources: function (type, column, targetkey, expand) {
       'use strict';
       return function (database, elements) {
         var tablename, query, elementKeys, elementKeysToElement;
@@ -1439,17 +1439,31 @@ exports = module.exports = {
             elementKey = permalink.split('/')[2];
             elementKeys.push(elementKey);
             elementKeysToElement[elementKey] = element;
+            element[targetkey] = [];
           });
 
-          query.sql('select key, \"' + column + '\" as fkey from ' +
-                    tablename + ' where \"' + column + '\" in (').array(elementKeys).sql(')');
+          query.sql('select *, \"' + column + '\" as fkey from ' +
+                    tablename + ' where \"' + column + '\" in (').array(elementKeys)
+               .sql(') and \"$$meta.deleted\" = false');
           pgExec(database, query, logsql, logdebug).then(function (result) {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
-              if (!element[targetkey]) {
-                element[targetkey] = [];
+              var target = {href: type + '/' + row.key};
+              if (expand) {
+                var key;
+                target.$$expanded = {};
+                for (key in row) {
+                  if (row.hasOwnProperty(key) && row[key] && key.indexOf('$$meta.') === -1 && key !== 'fkey') {
+                    target.$$expanded[key] = row[key];
+                  }
+                }
+
+                target.$$expanded.$$meta = {permalink: type + '/' + row.key,
+                  schema: type + '/schema',
+                  created: row['$$meta.created'],
+                  modified: row['$$meta.modified']};
               }
-              element[targetkey].push({href: type + '/' + row.key});
+              element[targetkey].push(target);
             });
             deferred.resolve();
           }).fail(function (e) {
