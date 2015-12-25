@@ -1165,6 +1165,8 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   'use strict';
   var i;
   var customroute;
+  var wrapped;
+
   var customMiddleware = function (req, res, next) { next(); };
   for (i = 0; i < mapping.customroutes.length; i++) {
     customroute = mapping.customroutes[i];
@@ -1181,13 +1183,14 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
       }
 
       if (customroute.method === 'GET') {
+        wrapped = wrapCustomRouteHandler(customroute.handler, config);
         app.get(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddleware, wrapped);
       } else if (customroute.method === 'PUT') {
+        wrapped = wrapCustomRouteHandler(customroute.handler, config);
         app.put(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
-          customMiddleware, wrapCustomRouteHandler(customroute.handler, config));
+          customMiddleware, wrapped);
       }
-
     }
   }
 }
@@ -1378,8 +1381,10 @@ exports = module.exports = {
           if (mapping.customroutes && mapping.customroutes instanceof Array) {
             registerCustomRoutes(mapping, app, config, secureCacheFn);
           }
-        } catch (e) {
-          cl(e);
+        } catch (error) {
+          cl('\n\nSRI4NODE FAILURE: \n');
+          cl(error.stack);
+          d.reject(error);
         }
 
       } // for all mappings.
