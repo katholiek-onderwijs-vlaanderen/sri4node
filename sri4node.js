@@ -367,13 +367,13 @@ function postProcess(functions, db, body, req, path) {
       Q.all(promises).then(function () {
         debug('all post processing functions resolved.');
         deferred.resolve();
-      }).catch(function (error) {
+      }).catch(function (err) {
         debug('one of the post processing functions rejected.');
-        deferred.reject(error);
+        deferred.reject(err);
       });
-    }).catch(function (error) {
+    }).catch(function (err) {
       debug('Error during one of the post processing functions.');
-      deferred.reject(error);
+      deferred.reject(err);
     });
 
   } else {
@@ -696,11 +696,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         queryLimit = req.query.limit || defaultlimit;
 
         offset = req.query.offset || 0;
-        var error;
+        var err;
 
         if (queryLimit > maxlimit) {
 
-          error = {
+          err = {
             status: 409,
             type: 'ERROR',
             body: [
@@ -712,7 +712,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
             ]
           };
 
-          throw error;
+          throw err;
         }
 
         query.sql(' limit ').param(queryLimit);
@@ -734,8 +734,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         mapping.handlelistqueryresult(req, result).then(function (ret) {
           output = ret;
           deferred.resolve();
-        }).catch(function (error) {
-          deferred.reject(error);
+        }).catch(function (err) {
+          deferred.reject(err);
         });
         return deferred.promise;
       }
@@ -839,24 +839,24 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         database.done(err);
       });
       database.done();
-    }).fail(function (error) {
-      database.client.query('ROLLBACK', function (err) {
+    }).fail(function (err) {
+      database.client.query('ROLLBACK', function (e) {
         // If err is defined, client will be removed from pool.
-        database.done(err);
+        database.done(e);
       });
 
-      if (error.type && error.status && error.body) {
-        resp.status(error.status).send(error.body);
+      if (err.type && err.status && err.body) {
+        resp.status(err.status).send(err.body);
         database.done();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
-        if (error.stack) {
-          cl(error.stack);
+        if (err.stack) {
+          cl(err.stack);
         } else {
-          cl(error);
+          cl(err);
         }
-        database.done(error);
-        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        database.done(err);
+        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
     });
   };
@@ -909,15 +909,15 @@ function getRegularResource(executeExpansion) {
       resp.set('Content-Type', 'application/json');
       resp.send(element);
       database.done();
-    }).fail(function (error) {
-      if (error.type && error.status && error.body) {
-        resp.status(error.status).send(error.body);
+    }).fail(function (err) {
+      if (err.type && err.status && err.body) {
+        resp.status(err.status).send(err.body);
         database.done();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
-        cl(error);
-        database.done(error);
-        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
+        cl(err);
+        database.done(err);
+        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
     });
   };
@@ -1275,14 +1275,14 @@ exports = module.exports = {
     // a global error handler to catch among others JSON errors
     //  => log stack trace and send JSON error message tp client
     // (unfortunatly the JSON errors cannot be distinguished from other errors ?!)
-    app.use(function (error, req, res, next) {
+    app.use(function (err, req, res, next) {
       var body;
-      if (error) {
+      if (err) {
         body = {
-          errors: [{code: 'generic.error', message: error.name + ':' + error.message, body: error.body}],
-          status: error.status || 500
+          errors: [{code: 'generic.error', message: err.name + ':' + err.message, body: err.body}],
+          status: err.status || 500
         };
-        res.status(error.status || 500).send(body);
+        res.status(err.status || 500).send(body);
       } else {
         next();
       }
@@ -1310,17 +1310,17 @@ exports = module.exports = {
         resp.send(me);
         resp.end();
         database.done();
-      }).fail(function (error) {
-        resp.status(500).send('Internal Server Error. [' + error.toString() + ']');
-        database.done(error);
+      }).fail(function (err) {
+        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
+        database.done(err);
       });
     });
 
     app.put('/log', function (req, resp) {
       var j;
-      var error = req.body;
+      var err = req.body;
       cl('Client side error :');
-      var lines = error.stack.split('\n');
+      var lines = err.stack.split('\n');
       for (j = 0; i < lines.length; j++) {
         cl(lines[j]);
       }
@@ -1395,10 +1395,10 @@ exports = module.exports = {
           if (mapping.customroutes && mapping.customroutes instanceof Array) {
             registerCustomRoutes(mapping, app, config, secureCacheFn);
           }
-        } catch (error) {
+        } catch (err) {
           cl('\n\nSRI4NODE FAILURE: \n');
-          cl(error.stack);
-          d.reject(error);
+          cl(err.stack);
+          d.reject(err);
         }
 
       } // for all mappings.
@@ -1409,10 +1409,10 @@ exports = module.exports = {
       app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
       d.resolve();
     })
-    .fail(function (error) {
+    .fail(function (err) {
       cl('\n\nSRI4NODE FAILURE: \n');
-      cl(error.stack);
-      d.reject(error);
+      cl(err.stack);
+      d.reject(err);
     })
     .finally(function () {
       database.done();
@@ -1463,8 +1463,8 @@ exports = module.exports = {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
               var target = {href: type + '/' + row.key};
+              var key;
               if (expand) {
-                var key;
                 target.$$expanded = {};
                 for (key in row) {
                   if (row.hasOwnProperty(key) && row[key] && key.indexOf('$$meta.') === -1 && key !== 'fkey') {
