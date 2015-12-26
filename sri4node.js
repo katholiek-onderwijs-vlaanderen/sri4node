@@ -44,6 +44,11 @@ function debug(x) {
   }
 }
 
+function error(x) {
+  'use strict';
+  cl(x);
+}
+
 var generateError = function (status, type, errors) {
   'use strict';
   // errors can be array with errors or a string, in which case error array with one element will be created
@@ -1166,6 +1171,7 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   var i;
   var customroute;
   var wrapped;
+  var msg;
 
   var customMiddleware = function (req, res, next) { next(); };
   for (i = 0; i < mapping.customroutes.length; i++) {
@@ -1190,6 +1196,14 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
         app.put(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
           customMiddleware, wrapped);
+      } else if (customroute.method === 'DELETE') {
+        wrapped = wrapCustomRouteHandler(customroute.handler, config);
+        app.delete(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
+          customMiddleware, wrapped);
+      } else {
+        msg = 'Method not supported on custom routes : ' + customroute.method;
+        error(msg);
+        throw new Error(msg);
       }
     }
   }
