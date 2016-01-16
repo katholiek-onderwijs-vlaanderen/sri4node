@@ -167,12 +167,16 @@ function store(url, cache, req, res, config, mapping) {
 
     // express first send call tranforms a json into a string and calls send again
     // we only process the first send to store the object
-    if (typeof output === 'object' && cache) {
+    if (typeof output === 'object') {
       // first call
-      isList = responseIsList(output);
       resources = getResources(output);
 
-      cacheSection = isList ? 'list' : 'resources';
+      if (cache) {
+        isList = responseIsList(output);
+
+        cacheSection = isList ? 'list' : 'resources';
+      }
+
     }
 
     if (!validated) {
@@ -185,14 +189,12 @@ function store(url, cache, req, res, config, mapping) {
 
       validateRequest(config, mapping, req, res, batch)
       .then(function () {
-        if (!mapping.public) {
-          return pgConnect(postgres, configuration);
-        }
-        send.call(self, output);
+        return pgConnect(postgres, configuration);
       }).then(function (db) {
         database = db;
         return config.identify(req, db);
       }).then(function (me) {
+
         if (resources) {
           return executeAfterReadFunctions(database, resources, mapping, me);
         }

@@ -836,13 +836,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
-      debug('* executing identify function');
-      return configuration.identify(req, database);
-    }).then(function (me) {
-      debug('* executing afterread functions on results');
-      debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping, me);
-    }).then(function () {
       debug('* sending response to client :');
       debug(output);
       resp.set('Content-Type', 'application/json');
@@ -912,12 +905,6 @@ function getRegularResource(executeExpansion) {
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
-    }).then(function () {
-      debug('* executing identify functions');
-      return configuration.identify(req, database);
-    }).then(function (me) {
-      debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
