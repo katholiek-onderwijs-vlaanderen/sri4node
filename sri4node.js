@@ -657,10 +657,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     pgConnect(postgres, configuration).then(function (db) {
       debug('pgConnect ... OK');
       database = db;
-      var begin = prepare('begin-transaction');
-      begin.sql('BEGIN');
-      return pgExec(database, begin, logsql, logdebug);
-    }).then(function () {
       countquery = prepare();
       return getSQLFromListResource(req.route.path, req.query, true, database, countquery);
     }).then(function () {
@@ -841,17 +837,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       resp.set('Content-Type', 'application/json');
       resp.send(output);
 
-      debug('* rolling back database transaction, GETs never have a side effect on the database.');
-      database.client.query('ROLLBACK', function (err) {
-        // If err is defined, client will be removed from pool.
-        database.done(err);
-      });
       database.done();
     }).fail(function (err) {
-      database.client.query('ROLLBACK', function (e) {
-        // If err is defined, client will be removed from pool.
-        database.done(e);
-      });
 
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);

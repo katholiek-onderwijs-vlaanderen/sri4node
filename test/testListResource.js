@@ -122,6 +122,7 @@ exports = module.exports = function (base, logverbose) {
       });
     });
 
+    /* Disabled to test the list function without a transaction
     describe('that use the database object', function () {
       it('should return correct results (no side-effects)', function () {
         return doGet(base + '/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true')
@@ -138,7 +139,9 @@ exports = module.exports = function (base, logverbose) {
         });
       });
     });
+    */
   });
+
 
   describe('escaping', function () {
     describe('should do proper escaping', function () {
