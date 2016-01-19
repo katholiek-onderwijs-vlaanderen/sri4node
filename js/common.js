@@ -32,7 +32,7 @@ exports = module.exports = {
         columnNames.push(key);
       }
     }
-    var sqlColumnNames = '"key",';
+    var sqlColumnNames = columnNames.indexOf('key') === -1 ? '"key",' : '';
     for (j = 0; j < columnNames.length; j++) {
       sqlColumnNames += '"' + columnNames[j] + '"';
       if (j < columnNames.length - 1) {
