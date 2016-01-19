@@ -65,7 +65,7 @@ exports = module.exports = {
       if (mapping.map.hasOwnProperty(key)) {
         if (mapping.map[key].references) {
           referencedType = mapping.map[key].references;
-          if (row[key] != null) {
+          if (row[key] !== null) {
             element[key] = {
               href: typeToMapping[referencedType].type + '/' + row[key]
             };

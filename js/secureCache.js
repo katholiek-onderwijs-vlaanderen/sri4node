@@ -196,7 +196,7 @@ function store(url, cache, req, res, config, mapping) {
       }).then(function (me) {
 
         if (resources) {
-          return executeAfterReadFunctions(database, resources, mapping, me);
+          return executeAfterReadFunctions(database, resources, mapping, me, req.originalUrl);
         }
         return true;
       }).then(function () {
@@ -278,7 +278,7 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             database = db;
             return config.identify(req, db);
           }).then(function (me) {
-            return executeAfterReadFunctions(database, value.resources, mapping, me);
+            return executeAfterReadFunctions(database, value.resources, mapping, me, req.originalUrl);
           })
           .then(function () {
             for (header in value.headers) {

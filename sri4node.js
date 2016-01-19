@@ -504,7 +504,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
   }
   /* eslint-enable */
 
-function executeAfterReadFunctions(database, elements, mapping, me) {
+function executeAfterReadFunctions(database, elements, mapping, me, route) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -513,7 +513,7 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements, me));
+      promises.push(mapping.afterread[i](database, elements, me, route));
     }
 
     Q.allSettled(promises).then(function (results) {
