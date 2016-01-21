@@ -160,6 +160,14 @@ exports = module.exports = {
     } else {
       dbUrl = configuration.defaultdatabaseurl;
     }
+    if (env.postgresSchema) {
+      searchPathPara = 'search_path=' + env.postgresSchema + ',public';
+      if (dbUrl.match('\\?')) {
+        dbUrl += '&' + searchPathPara
+      } else {
+        dbUrl += '?' + searchPathPara
+      }
+    }
     if (configuration.logsql) {
       cl('Using database connection string : [' + dbUrl + ']');
     }
