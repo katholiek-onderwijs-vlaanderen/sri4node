@@ -154,7 +154,7 @@ exports = module.exports = {
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
     var databaseUrl = env.databaseUrl;
-    var dbUrl;
+    var dbUrl, searchPathPara;
     if (databaseUrl) {
       dbUrl = databaseUrl;
     } else {
@@ -163,9 +163,9 @@ exports = module.exports = {
     if (env.postgresSchema) {
       searchPathPara = 'search_path=' + env.postgresSchema + ',public';
       if (dbUrl.match('\\?')) {
-        dbUrl += '&' + searchPathPara
+        dbUrl += '&' + searchPathPara;
       } else {
-        dbUrl += '?' + searchPathPara
+        dbUrl += '?' + searchPathPara;
       }
     }
     if (configuration.logsql) {
