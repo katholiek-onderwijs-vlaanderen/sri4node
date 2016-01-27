@@ -161,7 +161,7 @@ exports = module.exports = {
       dbUrl = configuration.defaultdatabaseurl;
     }
     if (env.postgresSchema) {
-      searchPathPara = 'search_path=' + env.postgresSchema + ',public';
+      searchPathPara = 'search_path=' + env.postgresSchema + ',public&ssl=true';
       if (dbUrl.match('\\?')) {
         dbUrl += '&' + searchPathPara;
       } else {
