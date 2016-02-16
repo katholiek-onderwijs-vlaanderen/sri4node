@@ -271,6 +271,80 @@ function forceSecureSockets(req, res, next) {
   next();
 }
 
+function postAuthenticationFailed(req, res, me, errorResponse) {
+  'use strict';
+  var status;
+  var body;
+  if (errorResponse && errorResponse.status && errorResponse.body) {
+    status = errorResponse.status;
+    body = errorResponse.body;
+  } else {
+    status = me ? 403 : 401;
+    body = status === 401 ? 'Unauthorized' : '<h1>Forbidden</h1>';
+  }
+
+  res.status(status).send(body);
+}
+
+function doBasicAuthentication(authenticator) {
+  'use strict';
+  return function (req, res, next) {
+    var basic, encoded, decoded, firstColonIndex, username, password;
+    var typeToMapping, type, mapping;
+    var path = req.route.path;
+    var database;
+
+    if (path !== '/me' && path !== '/batch') {
+      typeToMapping = typeToConfig(resources);
+      type = '/' + req.route.path.split('/')[1];
+      mapping = typeToMapping[type];
+      if (mapping.public) {
+        next();
+        return;
+      }
+    }
+
+    if (req.headers.authorization) {
+      basic = req.headers.authorization;
+      encoded = basic.substr(6);
+      decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      firstColonIndex = decoded.indexOf(':');
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        password = decoded.substr(firstColonIndex + 1);
+        if (username && password && username.length > 0 && password.length > 0) {
+          pgConnect(postgres, configuration).then(function (db) {
+            database = db;
+            return authenticator(database, username, password).then(function (result) {
+              if (result) {
+                next();
+              } else {
+                debug('Authentication failed, wrong password');
+                postAuthenticationFailed(req, res);
+              }
+            });
+          }).then(function () {
+            database.done();
+          }).fail(function (err) {
+            debug('checking basic authentication against database failed.');
+            debug(err);
+            debug(err.stack);
+            database.done(err);
+            postAuthenticationFailed(req, res);
+          });
+        } else {
+          postAuthenticationFailed(req, res);
+        }
+      } else {
+        postAuthenticationFailed(req, res);
+      }
+    } else {
+      debug('No authorization header received from client. Rejecting.');
+      postAuthenticationFailed(req, res);
+    }
+  };
+}
+
 function checkBasicAuthentication(authenticator) {
   'use strict';
   return function (req, res, next) {
@@ -289,11 +363,6 @@ function checkBasicAuthentication(authenticator) {
       }
     }
 
-    var unauthorized = function () {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-      res.status(401).send('Unauthorized');
-    };
-
     if (req.headers.authorization) {
       basic = req.headers.authorization;
       encoded = basic.substr(6);
@@ -305,32 +374,26 @@ function checkBasicAuthentication(authenticator) {
         if (username && password && username.length > 0 && password.length > 0) {
           pgConnect(postgres, configuration).then(function (db) {
             database = db;
-            return authenticator(database, username, password).then(function (result) {
-              if (result) {
-                next();
-              } else {
-                debug('Authentication failed, wrong password');
-                unauthorized();
-              }
-            });
+            return authenticator(database, username, password);
           }).then(function () {
             database.done();
+            next();
           }).fail(function (err) {
             debug('checking basic authentication against database failed.');
             debug(err);
             debug(err.stack);
             database.done(err);
-            unauthorized();
+            next();
           });
         } else {
-          unauthorized();
+          next();
         }
       } else {
-        unauthorized();
+        next();
       }
     } else {
-      debug('No authorization header received from client. Rejecting.');
-      unauthorized();
+      debug('No authorization header received from client');
+      next();
     }
   };
 }
@@ -1225,6 +1288,7 @@ exports = module.exports = {
     var secureCacheFns = [];
     var msg;
     var database;
+    var authentication;
     var d = Q.defer();
 
     configuration = config;
@@ -1378,15 +1442,19 @@ exports = module.exports = {
           // register list resource for this type.
           maxlimit = mapping.maxlimit || MAX_LIMIT;
           defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+
+          authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
+
           // app.get - list resource
-          app.get(url, emt.instrument(logRequests), emt.instrument(config.authenticate, 'authenticate'),
+          app.get(url, emt.instrument(logRequests), emt.instrument(authentication, 'authenticate'),
             emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
             emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
           // register single resource
           url = mapping.type + '/:key';
+
           app.route(url)
-            .get(logRequests, emt.instrument(config.authenticate, 'authenticate'),
+            .get(logRequests, emt.instrument(authentication, 'authenticate'),
               emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
               emt.instrument(getRegularResource(executeExpansion), 'getResource'))
             .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
@@ -1494,7 +1562,9 @@ exports = module.exports = {
       };
     },
 
-    basicAuthentication: checkBasicAuthentication
+    basicAuthentication: doBasicAuthentication,
+    checkBasicAuthentication: checkBasicAuthentication,
+    postAuthenticationFailed: postAuthenticationFailed
   },
 
   queryUtils: require('./js/queryUtils.js'),
