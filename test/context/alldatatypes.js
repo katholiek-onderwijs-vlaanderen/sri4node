@@ -13,6 +13,12 @@ exports = module.exports = function (roa, extra) {
     }
   };
 
+  var checkRoute = function (database, elements, me, route) {
+    if (route === null) {
+      throw new Error('Route is not present and it should be');
+    }
+  };
+
   var ret = {
     type: '/alldatatypes',
     'public': true, // eslint-disable-line
@@ -74,7 +80,7 @@ exports = module.exports = function (roa, extra) {
       defaultFilter: $q.defaultFilter
     },
     afterread: [
-      checkMe
+      checkMe, checkRoute
     ],
     defaultlimit: 5,
     maxlimit: 50
