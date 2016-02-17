@@ -275,12 +275,16 @@ function postAuthenticationFailed(req, res, me, errorResponse) {
   'use strict';
   var status;
   var body;
-  if (errorResponse && errorResponse.status && errorResponse.body) {
+
+  if (!me) {
+    status = 401;
+    body = 'Unauthorized';
+  } else if (errorResponse && errorResponse.status && errorResponse.body) {
     status = errorResponse.status;
     body = errorResponse.body;
   } else {
-    status = me ? 403 : 401;
-    body = status === 401 ? 'Unauthorized' : '<h1>Forbidden</h1>';
+    status = 403;
+    body = '<h1>Forbidden</h1>';
   }
 
   res.status(status).send(body);
