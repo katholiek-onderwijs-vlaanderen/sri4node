@@ -432,6 +432,31 @@ This function receives these parameters :
 - `res` the express.js response object.
 - `next` a function that can be called to delegate response handling to the next handler in the chain.
 
+### checkAuthentication
+
+If this function is configured it takes precedence over #authenticate for read (GET) operations. This must be
+accompanied by the #postAuthenticationFailed function.
+
+The difference with authenticate is that this function tries to authenticate the user but continues regardless of
+whether there's a valid user or not. If there's a valid user it puts it in the req object for subsequent checks.
+
+- `req` the express.js request object.
+- `res` the express.js response object.
+- `next` a function that can be called to delegate response handling to the next handler in the chain.
+
+### postAuthenticationFailed
+
+This function is called if the read (GET) operation didn't succeed because of permission issues.
+
+If there's a valid user, then the user is not authorized. If there's no user, then it's not authenticated.
+
+The error can be used to send a specific error.
+
+- `req` the express.js request object.
+- `res` the express.js response object.
+- `user` a function that can be called to delegate response handling to the next handler in the chain.
+- `error` a function that can be called to delegate response handling to the next handler in the chain.
+
 ### identify
 
 This function determines the /me resource. The same information is also passed into `query` functions as an argument.
