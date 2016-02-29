@@ -10,6 +10,22 @@ var configuration;
 var postgres;
 var executeAfterReadFunctions;
 
+function getMe(req, db) {
+  'use strict';
+
+  var deferred = Q.defer();
+
+  configuration.identify(req, db)
+    .then(function (me) {
+      deferred.resolve(me);
+    })
+    .catch(function () {
+      deferred.resolve(null);
+    });
+
+  return deferred.promise;
+}
+
 // used to determine where to store the cached object (there are two stores, list
 // and resource. The purge logic is different)
 function responseIsList(response) {
@@ -17,7 +33,7 @@ function responseIsList(response) {
   return response.$$meta && response.$$meta.hasOwnProperty('count');
 }
 
-function validateRequest(config, mapping, req, res, batch) {
+function validateRequest(mapping, req, res, batch, me) {
   'use strict';
   var promises;
   var deferred = Q.defer();
@@ -27,8 +43,6 @@ function validateRequest(config, mapping, req, res, batch) {
     pgConnect(postgres, configuration).then(function (db) {
       database = db;
     }).then(function () {
-      return config.identify(req, database);
-    }).then(function (me) {
       promises = [];
       mapping.secure.forEach(function (f) {
         promises.push(f(req, res, database, me, batch));
@@ -38,11 +52,7 @@ function validateRequest(config, mapping, req, res, batch) {
     }).then(function () {
       deferred.resolve();
     }).catch(function () {
-      deferred.reject({
-        type: 'Secure.failed',
-        status: 403,
-        body: '<h1>403 Forbidden</h1>'
-      });
+      deferred.reject();
     }).finally(function () {
       database.done();
     });
@@ -164,15 +174,20 @@ function store(url, cache, req, res, config, mapping) {
     var self;
     var batch;
     var database;
+    var user;
 
     // express first send call tranforms a json into a string and calls send again
     // we only process the first send to store the object
-    if (typeof output === 'object' && cache) {
+    if (typeof output === 'object') {
       // first call
-      isList = responseIsList(output);
       resources = getResources(output);
 
-      cacheSection = isList ? 'list' : 'resources';
+      if (cache) {
+        isList = responseIsList(output);
+
+        cacheSection = isList ? 'list' : 'resources';
+      }
+
     }
 
     if (!validated) {
@@ -183,24 +198,28 @@ function store(url, cache, req, res, config, mapping) {
         batch = createBatch(resources, 'GET');
       }
 
-      validateRequest(config, mapping, req, res, batch)
-      .then(function () {
-        if (!mapping.public) {
-          return pgConnect(postgres, configuration);
-        }
-        send.call(self, output);
-      }).then(function (db) {
+      pgConnect(postgres, configuration)
+      .then(function (db) {
         database = db;
-        return config.identify(req, db);
-      }).then(function (me) {
+        return getMe(req, db);
+      })
+      .then(function (me) {
+        user = me;
+        return validateRequest(mapping, req, res, batch, user);
+      })
+      .then(function () {
         if (resources) {
-          return executeAfterReadFunctions(database, resources, mapping, me);
+          return executeAfterReadFunctions(database, resources, mapping, user, req.originalUrl);
         }
         return true;
-      }).then(function () {
+      })
+      .then(function () {
         send.call(self, output);
-      }).catch(function (error) {
-        if (error && error.type && error.status && error.body) {
+      })
+      .catch(function (error) {
+        if (configuration.postAuthenticationFailed) {
+          configuration.postAuthenticationFailed(req, res, user, error);
+        } else if (error && error.type && error.status && error.body) {
           res.status(error.status).send(error.body);
         } else {
           res.status(403).send({
@@ -209,7 +228,8 @@ function store(url, cache, req, res, config, mapping) {
             body: 'Forbidden'
           });
         }
-      }).finally(function () {
+      })
+      .finally(function () {
         database.done();
       });
     } else {
@@ -257,13 +277,23 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
     function handleResponse(value) {
       var i;
       var database;
+      var user;
 
       if (req.method === 'GET') {
         if (value) {
-          validateRequest(config, mapping, req, res, createBatch(value.resources, 'GET'))
+
+          pgConnect(postgres, configuration)
+          .then(function (db) {
+            database = db;
+            return getMe(req, db);
+          })
+          .then(function (me) {
+            user = me;
+            return validateRequest(mapping, req, res, createBatch(value.resources, 'GET'), user);
+          })
           .then(function () {
             if (!mapping.public) {
-              return pgConnect(postgres, configuration);
+              return;
             }
             for (header in value.headers) {
               if (value.headers.hasOwnProperty(header)) {
@@ -272,11 +302,9 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             }
 
             res.send(value.data);
-          }).then(function (db) {
-            database = db;
-            return config.identify(req, db);
-          }).then(function (me) {
-            return executeAfterReadFunctions(database, value.resources, mapping, me);
+          })
+          .then(function () {
+            return executeAfterReadFunctions(database, value.resources, mapping, user, req.originalUrl);
           })
           .then(function () {
             for (header in value.headers) {
@@ -286,8 +314,11 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             }
 
             res.send(value.data);
-          }).catch(function (error) {
-            if (error && error.type && error.status && error.body) {
+          })
+          .catch(function (error) {
+            if (configuration.postAuthenticationFailed) {
+              configuration.postAuthenticationFailed(req, res, user, error);
+            } else if (error && error.type && error.status && error.body) {
               res.status(error.status).send(error.body);
             } else {
               res.status(403).send({
@@ -296,9 +327,12 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
                 body: 'Forbidden'
               });
             }
-          }).finally(function () {
+
+          })
+          .finally(function () {
             database.done();
           });
+
         } else {
           // register handler to process response when responding
           store(req.originalUrl, cacheStore, req, res, config, mapping);
@@ -308,7 +342,8 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
       } else if (req.method === 'PUT') {
         // is it a batch?
         if (req.path === 'batch') {
-          validateRequest(config, mapping, req, res, req.body).then(function () {
+          validateRequest(config, mapping, req, res, req.body)
+          .then(function () {
             if (cache) {
               for (i = 0; i < req.body.length; i++) {
                 cacheStore.resources.del(req.body[i].href);
@@ -318,7 +353,8 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
               cacheStore.list.flushAll();
             }
             next();
-          }).catch(function (error) {
+          })
+          .catch(function (error) {
             if (error && error.type && error.status && error.body) {
               res.status(error.status).send(error.body);
             } else {
@@ -330,14 +366,16 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             }
           });
         } else {
-          validateRequest(config, mapping, req, res).then(function () {
+          validateRequest(config, mapping, req, res)
+          .then(function () {
             if (cache) {
               cacheStore.resources.del(req.originalUrl);
               // TODO do this more efficiently? (only delete the entries where this resource is present)
               cacheStore.list.flushAll();
             }
             next();
-          }).catch(function (error) {
+          })
+          .catch(function (error) {
             if (error && error.type && error.status && error.body) {
               res.status(error.status).send(error.body);
             } else {
@@ -351,14 +389,16 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
         }
 
       } else if (req.method === 'DELETE') {
-        validateRequest(config, mapping, req, res).then(function () {
+        validateRequest(config, mapping, req, res)
+        .then(function () {
           if (cache) {
             cacheStore.resources.del(req.originalUrl);
             // TODO do this more efficiently? (only delete the entries where this resource is present)
             cacheStore.list.flushAll();
           }
           next();
-        }).catch(function (error) {
+        })
+        .catch(function (error) {
           if (error && error.type && error.status && error.body) {
             res.status(error.status).send(error.body);
           } else {

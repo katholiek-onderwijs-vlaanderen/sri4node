@@ -11,7 +11,7 @@ exports = module.exports = function (base) {
     describe('Combination match', function () {
 
       it('should find resources with a combined match', function () {
-        return doGet(base + '/alldatatypes?text=vsko&number=450').then(function (response) {
+        return doGet(base + '/alldatatypes?text=vsko&number=450', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.text, 'VSKO');
@@ -20,7 +20,8 @@ exports = module.exports = function (base) {
       });
 
       it('should find resources with a combined match and modifiers', function () {
-        return doGet(base + '/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230').then(function (response) {
+        return doGet(base + '/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230', 'kevin@email.be', 'pwd')
+        .then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.text, 'dienst informatica');
@@ -31,7 +32,8 @@ exports = module.exports = function (base) {
       });
 
       it('should not find resources with a combined match', function () {
-        return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=230').then(function (response) {
+        return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=230', 'kevin@email.be', 'pwd')
+        .then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
         });

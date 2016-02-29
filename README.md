@@ -342,6 +342,7 @@ The functions receive these parameters :
 - `select` is a query object (as returned by `sri4node.prepareSQL()`) for adding SQL to the `WHERE` clause. See [below](#preparesql) for more details.
 - `parameter` is the name of the URL parameter.
 - `database` is a database object that you can use to execute extra SQL statements.
+- `count` is a boolean telling you if you are currently decorating the `SELECT COUNT` query, or the final `SELECT` query. Useful for making sure some statements are not executed twice (when using the database object)
 - `mapping` is the mapping in the configuration of sri4node.
 
 All the configured `query` functions should extend the SQL statement with an `AND` clause.
@@ -374,6 +375,7 @@ The function receives these parameters :
 - `database` is a database object, allowing you to execute extra SQL statements.
 - `elements` is an array of one or more resources that you can manipulate.
 - `me` the return of the identify function
+- `route` the url route that originated the response
 
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response by default. It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
@@ -429,6 +431,31 @@ This function receives these parameters :
 - `req` the express.js request object.
 - `res` the express.js response object.
 - `next` a function that can be called to delegate response handling to the next handler in the chain.
+
+### checkAuthentication
+
+If this function is configured it takes precedence over #authenticate for read (GET) operations. This must be
+accompanied by the #postAuthenticationFailed function.
+
+The difference with authenticate is that this function tries to authenticate the user but continues regardless of
+whether there's a valid user or not. If there's a valid user it puts it in the req object for subsequent checks.
+
+- `req` the express.js request object.
+- `res` the express.js response object.
+- `next` a function that can be called to delegate response handling to the next handler in the chain.
+
+### postAuthenticationFailed
+
+This function is called if the read (GET) operation didn't succeed because of permission issues.
+
+If there's a valid user, then the user is not authorized. If there's no user, then it's not authenticated.
+
+The error can be used to send a specific error.
+
+- `req` the express.js request object.
+- `res` the express.js response object.
+- `user` a function that can be called to delegate response handling to the next handler in the chain.
+- `error` a function that can be called to delegate response handling to the next handler in the chain.
 
 ### identify
 

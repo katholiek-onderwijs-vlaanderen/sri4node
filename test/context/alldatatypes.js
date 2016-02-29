@@ -7,15 +7,27 @@ exports = module.exports = function (roa, extra) {
   var $q = roa.queryUtils;
   var $m = roa.mapUtils;
 
-  var checkMe = function (database, elements, me) {
-    if (me !== null) {
-      throw new Error('Resource is anonymous, `me` should not be present');
+  var checkRead = function (database, elements, me, route) {
+
+    var publicRoutes = [
+      '/alldatatypes?textIn=value',
+      '/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16'
+    ];
+
+    if (me === null && publicRoutes.indexOf(route) === -1) {
+      throw new Error('Invalid access');
+    }
+  };
+
+  var checkRoute = function (database, elements, me, route) {
+    if (route === null) {
+      throw new Error('Route is not present and it should be');
     }
   };
 
   var ret = {
     type: '/alldatatypes',
-    'public': true, // eslint-disable-line
+    'public': false, // eslint-disable-line
     secure: [],
     cache: {
       ttl: 60,
@@ -74,7 +86,7 @@ exports = module.exports = function (roa, extra) {
       defaultFilter: $q.defaultFilter
     },
     afterread: [
-      checkMe
+      checkRead, checkRoute
     ],
     defaultlimit: 5,
     maxlimit: 50

@@ -102,9 +102,9 @@ exports = module.exports = {
       return deferred.promise;
     };
 
-    var identity = function (username, database) {
+    var identity = function (username, password, database) {
       var query = $u.prepareSQL('me');
-      query.sql('select * from persons where email = ').param(username);
+      query.sql('select * from persons where email = ').param(username).sql(' and password = ').param(password);
       return $u.executeSQL(database, query).then(function (result) {
         var row = result.rows[0];
         var output = {};
@@ -122,7 +122,7 @@ exports = module.exports = {
 
     // Returns a JSON object with the identity of the current user.
     var getMe = function (req, database) {
-      var basic, encoded, decoded, firstColonIndex, username;
+      var basic, encoded, decoded, firstColonIndex, username, password;
       var deferred = Q.defer();
 
       if (req.headers.authorization) {
@@ -133,7 +133,8 @@ exports = module.exports = {
 
         if (firstColonIndex !== -1) {
           username = decoded.substr(0, firstColonIndex);
-          identity(username, database).then(function (me) {
+          password = decoded.substr(firstColonIndex + 1);
+          identity(username, password, database).then(function (me) {
             deferred.resolve(me);
           }).fail(function (err) {
             cl('Retrieving of identity had errors. Removing pg client from pool. Error : ');
@@ -159,6 +160,8 @@ exports = module.exports = {
       logmiddleware: logmiddleware,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
       authenticate: $u.basicAuthentication(testAuthenticator),
+      checkAuthentication: $u.checkBasicAuthentication(testAuthenticator),
+      postAuthenticationFailed: $u.postAuthenticationFailed,
       identify: getMe,
       resources: [
         require('./context/persons.js')(roa, logdebug, commonResourceConfig),

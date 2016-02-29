@@ -14,7 +14,7 @@ exports = module.exports = function (base) {
 
         // text
         it('should find resources of type text that contain a substring', function () {
-          return doGet(base + '/alldatatypes?textContains=lu').then(function (response) {
+          return doGet(base + '/alldatatypes?textContains=lu', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
@@ -23,7 +23,7 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type text that start with a substring', function () {
-          return doGet(base + '/alldatatypes?textContains=va').then(function (response) {
+          return doGet(base + '/alldatatypes?textContains=va', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
@@ -32,7 +32,7 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type text that end with a substring', function () {
-          return doGet(base + '/alldatatypes?textContains=Aces').then(function (response) {
+          return doGet(base + '/alldatatypes?textContains=Aces', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
@@ -40,14 +40,15 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type text that do not contain a substring', function () {
-          return doGet(base + '/alldatatypes?textContains=mor').then(function (response) {
+          return doGet(base + '/alldatatypes?textContains=mor', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type text that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textCaseSensitiveContains=lu').then(function (response) {
+          return doGet(base + '/alldatatypes?textCaseSensitiveContains=lu', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
@@ -56,21 +57,23 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type text that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textCaseSensitiveContains=LU').then(function (response) {
+          return doGet(base + '/alldatatypes?textCaseSensitiveContains=LU', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type text that contain a substring with a not match', function () {
-          return doGet(base + '/alldatatypes?textNotContains=LU').then(function (response) {
+          return doGet(base + '/alldatatypes?textNotContains=LU', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 3);
           });
         });
 
         it('should find resources of type text that contain a substring with a not match case sensitive', function () {
-          return doGet(base + '/alldatatypes?textCaseSensitiveNotContains=LU').then(function (response) {
+          return doGet(base + '/alldatatypes?textCaseSensitiveNotContains=LU', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
@@ -80,7 +83,8 @@ exports = module.exports = function (base) {
 
         // varchar
         it('should find resources of type varchar that contain a substring', function () {
-          return doGet(base + '/alldatatypes?textvarcharContains=arch').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharContains=arch', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -89,7 +93,8 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type varchar that start with a substring', function () {
-          return doGet(base + '/alldatatypes?textvarcharContains=var').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharContains=var', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -98,7 +103,8 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type varchar that end with a substring', function () {
-          return doGet(base + '/alldatatypes?textvarcharContains=char').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharContains=char', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -107,14 +113,16 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type varchar that do not contain a substring', function () {
-          return doGet(base + '/alldatatypes?textvarcharContains=mor').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharContains=mor', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type varchar that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textvarcharCaseSensitiveContains=arch').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharCaseSensitiveContains=arch', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -123,14 +131,16 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type varchar that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textvarcharCaseSensitiveContains=ARCH').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharCaseSensitiveContains=ARCH', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type varchar that contain a substring with a not match', function () {
-          return doGet(base + '/alldatatypes?textvarcharNotContains=not').then(function (response) {
+          return doGet(base + '/alldatatypes?textvarcharNotContains=not', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -139,7 +149,8 @@ exports = module.exports = function (base) {
 
         it('should find resources of type varchar that contain a substring with a not match case sensitive',
           function () {
-            return doGet(base + '/alldatatypes?textvarcharCaseSensitiveNotContains=Not').then(function (response) {
+            return doGet(base + '/alldatatypes?textvarcharCaseSensitiveNotContains=Not', 'kevin@email.be', 'pwd')
+            .then(function (response) {
               assert.equal(response.statusCode, 200);
               assert.equal(response.body.results.length, 2);
               assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
@@ -149,7 +160,8 @@ exports = module.exports = function (base) {
 
         // char
         it('should find resources of type char that contain a substring', function () {
-          return doGet(base + '/alldatatypes?textcharContains=ha').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharContains=ha', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
@@ -158,7 +170,8 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type char that start with a substring', function () {
-          return doGet(base + '/alldatatypes?textcharContains=ch').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharContains=ch', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
@@ -167,7 +180,7 @@ exports = module.exports = function (base) {
         });
 
         it('should find resources of type char that end with a substring', function () {
-          return doGet(base + '/alldatatypes?textcharContains=har').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharContains=har', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
@@ -176,14 +189,15 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type char that do not contain a substring', function () {
-          return doGet(base + '/alldatatypes?textcharContains=mor').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharContains=mor', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type char that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textcharCaseSensitiveContains=not').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharCaseSensitiveContains=not', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'not a text char');
@@ -191,14 +205,16 @@ exports = module.exports = function (base) {
         });
 
         it('should not find resources of type char that contain a substring case sensitive', function () {
-          return doGet(base + '/alldatatypes?textcharCaseSensitiveContains=CH').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharCaseSensitiveContains=CH', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find resources of type char that contain a substring with a not match', function () {
-          return doGet(base + '/alldatatypes?textcharNotContains=var').then(function (response) {
+          return doGet(base + '/alldatatypes?textcharNotContains=var', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
@@ -208,7 +224,8 @@ exports = module.exports = function (base) {
 
         it('should find resources of type char that contain a substring with a not match case sensitive',
           function () {
-            return doGet(base + '/alldatatypes?textcharCaseSensitiveNotContains=NOT').then(function (response) {
+            return doGet(base + '/alldatatypes?textcharCaseSensitiveNotContains=NOT', 'kevin@email.be', 'pwd')
+            .then(function (response) {
               assert.equal(response.statusCode, 200);
               assert.equal(response.body.results.length, 2);
               assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
@@ -225,7 +242,8 @@ exports = module.exports = function (base) {
       describe('Array fields', function () {
 
         it('should find strings', function () {
-          return doGet(base + '/alldatatypes?textsContains=Standard,interface').then(function (response) {
+          return doGet(base + '/alldatatypes?textsContains=Standard,interface', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.id, 7);
@@ -233,14 +251,16 @@ exports = module.exports = function (base) {
         });
 
         it('should not find strings', function () {
-          return doGet(base + '/alldatatypes?textsContains=Standard,definition').then(function (response) {
+          return doGet(base + '/alldatatypes?textsContains=Standard,definition', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find strings with a not match', function () {
-          return doGet(base + '/alldatatypes?textsNotContains=Standard,interface').then(function (response) {
+          return doGet(base + '/alldatatypes?textsNotContains=Standard,interface', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.id, 8);
@@ -248,7 +268,7 @@ exports = module.exports = function (base) {
         });
 
         it('should find numbers', function () {
-          return doGet(base + '/alldatatypes?numbersContains=5,3').then(function (response) {
+          return doGet(base + '/alldatatypes?numbersContains=5,3', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 2);
             assert.equal(response.body.results[0].$$expanded.id, 9);
@@ -257,14 +277,15 @@ exports = module.exports = function (base) {
         });
 
         it('should not find numbers', function () {
-          return doGet(base + '/alldatatypes?numbersContains=12').then(function (response) {
+          return doGet(base + '/alldatatypes?numbersContains=12', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
         });
 
         it('should find numbers with a not match', function () {
-          return doGet(base + '/alldatatypes?numbersNotContains=5,3').then(function (response) {
+          return doGet(base + '/alldatatypes?numbersNotContains=5,3', 'kevin@email.be', 'pwd')
+          .then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 0);
           });
@@ -273,7 +294,7 @@ exports = module.exports = function (base) {
         it('should find timestamps', function () {
           var q = '/alldatatypes?publicationsContains=2015-04-01T00:00:00%2B02:00';
           q += ',2015-01-01T00:00:00%2B02:00';
-          return doGet(base + q).then(function (response) {
+          return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.id, 11);
@@ -281,7 +302,7 @@ exports = module.exports = function (base) {
         });
 
         it('should not find timestamps', function () {
-          return doGet(base + '/alldatatypes?publicationsContains=2012-01-01T00:00:00%2B02:00')
+          return doGet(base + '/alldatatypes?publicationsContains=2012-01-01T00:00:00%2B02:00', 'kevin@email.be', 'pwd')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
               assert.equal(response.body.results.length, 0);
@@ -291,7 +312,7 @@ exports = module.exports = function (base) {
         it('should find timestamps with a not match', function () {
           var q = '/alldatatypes?publicationsNotContains=2015-04-01T00:00:00%2B02:00';
           q += ',2015-01-01T00:00:00%2B02:00';
-          return doGet(base + q).then(function (response) {
+          return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
             assert.equal(response.body.results.length, 1);
             assert.equal(response.body.results[0].$$expanded.id, 12);

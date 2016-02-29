@@ -67,7 +67,7 @@ var generateError = function (status, type, errors) {
 };
 
 // apply extra parameters on request URL for a list-resource to a select.
-function applyRequestParameters(mapping, urlparameters, select, database) {
+function applyRequestParameters(mapping, urlparameters, select, database, count) {
   'use strict';
   var deferred = Q.defer();
 
@@ -88,7 +88,7 @@ function applyRequestParameters(mapping, urlparameters, select, database) {
               promises.push(mapping.query.defaultFilter(urlparameters[key], select, key, database, mapping,
                 configuration));
             } else {
-              promises.push(mapping.query[key](urlparameters[key], select, key, database, mapping));
+              promises.push(mapping.query[key](urlparameters[key], select, key, database, count, mapping));
             }
           } else {
             debug('rejecting unknown query parameter : [' + key + ']');
@@ -103,7 +103,7 @@ function applyRequestParameters(mapping, urlparameters, select, database) {
             break;
           }
         } else if (key === 'hrefs') {
-          promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database));
+          promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count));
         } else if (key === 'modifiedSince') {
           promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select));
         }
@@ -271,7 +271,26 @@ function forceSecureSockets(req, res, next) {
   next();
 }
 
-function checkBasicAuthentication(authenticator) {
+function postAuthenticationFailed(req, res, me, errorResponse) {
+  'use strict';
+  var status;
+  var body;
+
+  if (!me) {
+    status = 401;
+    body = 'Unauthorized';
+  } else if (errorResponse && errorResponse.status && errorResponse.body) {
+    status = errorResponse.status;
+    body = errorResponse.body;
+  } else {
+    status = 403;
+    body = '<h1>Forbidden</h1>';
+  }
+
+  res.status(status).send(body);
+}
+
+function doBasicAuthentication(authenticator) {
   'use strict';
   return function (req, res, next) {
     var basic, encoded, decoded, firstColonIndex, username, password;
@@ -288,11 +307,6 @@ function checkBasicAuthentication(authenticator) {
         return;
       }
     }
-
-    var unauthorized = function () {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-      res.status(401).send('Unauthorized');
-    };
 
     if (req.headers.authorization) {
       basic = req.headers.authorization;
@@ -311,7 +325,7 @@ function checkBasicAuthentication(authenticator) {
                 next();
               } else {
                 debug('Authentication failed, wrong password');
-                unauthorized();
+                postAuthenticationFailed(req, res);
               }
             });
           }).then(function () {
@@ -321,17 +335,70 @@ function checkBasicAuthentication(authenticator) {
             debug(err);
             debug(err.stack);
             database.done(err);
-            unauthorized();
+            postAuthenticationFailed(req, res);
           });
         } else {
-          unauthorized();
+          postAuthenticationFailed(req, res);
         }
       } else {
-        unauthorized();
+        postAuthenticationFailed(req, res);
       }
     } else {
       debug('No authorization header received from client. Rejecting.');
-      unauthorized();
+      postAuthenticationFailed(req, res);
+    }
+  };
+}
+
+function checkBasicAuthentication(authenticator) {
+  'use strict';
+  return function (req, res, next) {
+    var basic, encoded, decoded, firstColonIndex, username, password;
+    var typeToMapping, type, mapping;
+    var path = req.route.path;
+    var database;
+
+    if (path !== '/me' && path !== '/batch') {
+      typeToMapping = typeToConfig(resources);
+      type = '/' + req.route.path.split('/')[1];
+      mapping = typeToMapping[type];
+      if (mapping.public) {
+        next();
+        return;
+      }
+    }
+
+    if (req.headers.authorization) {
+      basic = req.headers.authorization;
+      encoded = basic.substr(6);
+      decoded = new Buffer(encoded, 'base64').toString('utf-8');
+      firstColonIndex = decoded.indexOf(':');
+      if (firstColonIndex !== -1) {
+        username = decoded.substr(0, firstColonIndex);
+        password = decoded.substr(firstColonIndex + 1);
+        if (username && password && username.length > 0 && password.length > 0) {
+          pgConnect(postgres, configuration).then(function (db) {
+            database = db;
+            return authenticator(database, username, password);
+          }).then(function () {
+            database.done();
+            next();
+          }).fail(function (err) {
+            debug('checking basic authentication against database failed.');
+            debug(err);
+            debug(err.stack);
+            database.done(err);
+            next();
+          });
+        } else {
+          next();
+        }
+      } else {
+        next();
+      }
+    } else {
+      debug('No authorization header received from client');
+      next();
     }
   };
 }
@@ -505,7 +572,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
   }
   /* eslint-enable */
 
-function executeAfterReadFunctions(database, elements, mapping, me) {
+function executeAfterReadFunctions(database, elements, mapping, me, route) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -514,7 +581,7 @@ function executeAfterReadFunctions(database, elements, mapping, me) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements, me));
+      promises.push(mapping.afterread[i](database, elements, me, route));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -597,7 +664,7 @@ function getDocs(req, resp) {
   }
 }
 
-function getSQLFromListResource(path, parameters, database, query) {
+function getSQLFromListResource(path, parameters, count, database, query) {
   'use strict';
 
   var typeToMapping = typeToConfig(resources);
@@ -608,20 +675,31 @@ function getSQLFromListResource(path, parameters, database, query) {
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
   var columns = sqlColumnNames(mapping);
 
-  if (parameters['$$meta.deleted'] === 'true') {
-    sql = 'select ' + columns + ', count(*) over() as total, "$$meta.deleted", "$$meta.created", "$$meta.modified"';
-    sql += ' from "' + table + '" where "$$meta.deleted" = true ';
-  } else if (parameters['$$meta.deleted'] === 'any') {
-    sql = 'select ' + columns + ', count(*) over() as total, "$$meta.deleted", "$$meta.created", "$$meta.modified"';
-    sql += 'from "' + table + '" where 1=1 ';
+  if (count) {
+    if (parameters['$$meta.deleted'] === 'true') {
+      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = true ';
+    } else if (parameters['$$meta.deleted'] === 'any') {
+      sql = 'select count(*) from "' + table + '" where 1=1 ';
+    } else {
+      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = false ';
+    }
+    query.sql(sql);
   } else {
-    sql = 'select ' + columns + ', count(*) over() as total, "$$meta.deleted", "$$meta.created", "$$meta.modified"';
-    sql += 'from "' + table + '" where "$$meta.deleted" = false ';
+    if (parameters['$$meta.deleted'] === 'true') {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where "$$meta.deleted" = true ';
+    } else if (parameters['$$meta.deleted'] === 'any') {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where 1=1 ';
+    } else {
+      sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
+      sql += table + '" where "$$meta.deleted" = false ';
+    }
+    query.sql(sql);
   }
-  query.sql(sql);
 
   debug('* applying URL parameters to WHERE clause');
-  return applyRequestParameters(mapping, parameters, query, database);
+  return applyRequestParameters(mapping, parameters, query, database, count);
 
 }
 
@@ -633,7 +711,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     var mapping = typeToMapping[type];
 
     var database;
-    var count = 0;
+    var countquery;
+    var count;
     var query;
     var output;
     var elements;
@@ -650,8 +729,15 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       begin.sql('BEGIN');
       return pgExec(database, begin, logsql, logdebug);
     }).then(function () {
+      countquery = prepare();
+      return getSQLFromListResource(req.route.path, req.query, true, database, countquery);
+    }).then(function () {
+      debug('* executing SELECT COUNT query on database');
+      return pgExec(database, countquery, logsql, logdebug);
+    }).then(function (results) {
+      count = parseInt(results.rows[0].count, 10);
       query = prepare();
-      return getSQLFromListResource(req.route.path, req.query, database, query);
+      return getSQLFromListResource(req.route.path, req.query, false, database, query);
     }).then(function () {
         // All list resources support orderBy, limit and offset.
         var orderBy = req.query.orderBy;
@@ -745,10 +831,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var row, currentrow;
       var element, msg;
 
-      if (rows.length > 0) {
-        count = rows[0].total;
-      }
-
       for (row = 0; row < rows.length; row++) {
         currentrow = rows[row];
 
@@ -822,13 +904,6 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
     }).then(function () {
-      debug('* executing identify function');
-      return configuration.identify(req, database);
-    }).then(function (me) {
-      debug('* executing afterread functions on results');
-      debug(elements);
-      return executeAfterReadFunctions(database, elements, mapping, me);
-    }).then(function () {
       debug('* sending response to client :');
       debug(output);
       resp.set('Content-Type', 'application/json');
@@ -898,12 +973,6 @@ function getRegularResource(executeExpansion) {
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
       return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
-    }).then(function () {
-      debug('* executing identify functions');
-      return configuration.identify(req, database);
-    }).then(function (me) {
-      debug('* executing afterread functions');
-      return executeAfterReadFunctions(database, elements, mapping, me);
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
@@ -1224,6 +1293,7 @@ exports = module.exports = {
     var secureCacheFns = [];
     var msg;
     var database;
+    var authentication;
     var d = Q.defer();
 
     configuration = config;
@@ -1377,15 +1447,19 @@ exports = module.exports = {
           // register list resource for this type.
           maxlimit = mapping.maxlimit || MAX_LIMIT;
           defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+
+          authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
+
           // app.get - list resource
-          app.get(url, emt.instrument(logRequests), emt.instrument(config.authenticate, 'authenticate'),
+          app.get(url, emt.instrument(logRequests), emt.instrument(authentication, 'authenticate'),
             emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
             emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
           // register single resource
           url = mapping.type + '/:key';
+
           app.route(url)
-            .get(logRequests, emt.instrument(config.authenticate, 'authenticate'),
+            .get(logRequests, emt.instrument(authentication, 'authenticate'),
               emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
               emt.instrument(getRegularResource(executeExpansion), 'getResource'))
             .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
@@ -1493,7 +1567,9 @@ exports = module.exports = {
       };
     },
 
-    basicAuthentication: checkBasicAuthentication
+    basicAuthentication: doBasicAuthentication,
+    checkBasicAuthentication: checkBasicAuthentication,
+    postAuthenticationFailed: postAuthenticationFailed
   },
 
   queryUtils: require('./js/queryUtils.js'),

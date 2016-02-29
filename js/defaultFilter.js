@@ -362,6 +362,6 @@ exports = module.exports = function (value, select, parameter, database, mapping
   'use strict';
 
   return require('./informationSchema.js')(database, configuration)
-    .then(parseFilters(value, select, parameter, mapping));
+    .then(parseFilters(decodeURIComponent(value), select, parameter, mapping));
 
 };

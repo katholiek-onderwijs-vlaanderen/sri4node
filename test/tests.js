@@ -39,6 +39,7 @@ describe('Sri4node testing', function () {
   require('./testModified.js')(base, logdebug);
   require('./testDocs.js')(base, logdebug);
   require('./testErrorHandling.js')(base, logdebug);
+  require('./testPublicResources.js')(base, logdebug);
 
 //  require('./testIsolated.js')(base, logdebug);
 });

@@ -11,7 +11,7 @@ exports = module.exports = function (base) {
     describe('Q query', function () {
 
       it('should find resources with a general match', function () {
-        return doGet(base + '/alldatatypes?q=multiple').then(function (response) {
+        return doGet(base + '/alldatatypes?q=multiple', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.id, 13);
@@ -20,7 +20,7 @@ exports = module.exports = function (base) {
       });
 
       it('should find resources of type varchar and char with a general match', function () {
-        return doGet(base + '/alldatatypes?q=char').then(function (response) {
+        return doGet(base + '/alldatatypes?q=char', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 4);
           assert.equal(response.body.results[0].$$expanded.id, 34);
@@ -31,7 +31,7 @@ exports = module.exports = function (base) {
       });
 
       it('should find resources with a general match and multiple values', function () {
-        return doGet(base + '/alldatatypes?q=MULTIPLE+vsko').then(function (response) {
+        return doGet(base + '/alldatatypes?q=MULTIPLE+vsko', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.id, 13);
@@ -39,7 +39,7 @@ exports = module.exports = function (base) {
       });
 
       it('should not find resources with a general match', function () {
-        return doGet(base + '/alldatatypes?q=general').then(function (response) {
+        return doGet(base + '/alldatatypes?q=general', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           assert.equal(response.body.results.length, 0);
         });

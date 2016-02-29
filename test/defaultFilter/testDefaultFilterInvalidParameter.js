@@ -11,7 +11,7 @@ exports = module.exports = function (base) {
     describe('Invalid parameter (non existent)', function () {
 
       it('should return 400 - bad request', function () {
-        return doGet(base + '/alldatatypes?wrongParameter=multiple').then(function (response) {
+        return doGet(base + '/alldatatypes?wrongParameter=multiple', 'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 404);
           assert.equal(response.body.errors[0].code, 'invalid.query.parameter');
           assert.equal(response.body.errors[0].parameter, 'wrongParameter');
