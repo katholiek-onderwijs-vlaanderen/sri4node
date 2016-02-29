@@ -307,6 +307,7 @@ function checkBasicAuthentication(authenticator) {
             database = db;
             return authenticator(database, username, password).then(function (result) {
               if (result) {
+                req.user = username;
                 next();
               } else {
                 debug('Authentication failed, wrong password');
