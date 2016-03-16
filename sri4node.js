@@ -1242,6 +1242,7 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   var customroute;
   var wrapped;
   var msg;
+  var authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
 
   var customMiddleware = function (req, res, next) { next(); };
   for (i = 0; i < mapping.customroutes.length; i++) {
@@ -1260,7 +1261,8 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
 
       if (customroute.method === 'GET') {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        app.get(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
+        // Only for GET we allow for public resources
+        app.get(customroute.route, logRequests, authentication, secureCacheFn, compression(),
           customMiddleware, wrapped);
       } else if (customroute.method === 'PUT') {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
