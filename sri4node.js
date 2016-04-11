@@ -752,7 +752,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
 
             if (!mapping.map[order]) {
               if (order === '$$meta.created' || order === '$$meta.modified') {
-                orders[o] = '"' + order + '"';
+                orders[o] = order;
               }else {
                 valid = false;
                 break;
