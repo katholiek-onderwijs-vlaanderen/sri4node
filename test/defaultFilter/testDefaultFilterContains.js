@@ -67,7 +67,7 @@ exports = module.exports = function (base) {
         it('should find resources of type text that contain a substring with a not match', function () {
           return doGet(base + '/alldatatypes?textNotContains=LU', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 3);
+            assert.equal(response.body.results.length, 5);
           });
         });
 
@@ -142,8 +142,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textvarcharNotContains=not', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -152,9 +152,9 @@ exports = module.exports = function (base) {
             return doGet(base + '/alldatatypes?textvarcharCaseSensitiveNotContains=Not', 'kevin@email.be', 'pwd')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
-              assert.equal(response.body.results.length, 2);
-              assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
-              assert.equal(response.body.results[1].$$expanded.textvarchar, 'not a text varchar');
+              assert.equal(response.body.results.length, 5);
+              assert.equal(response.body.results[0].$$expanded.text, 'Value');
+              assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
             });
           });
 
@@ -216,9 +216,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textcharNotContains=var', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
-            assert.equal(response.body.results[1].$$expanded.textchar.trim(), 'not a text char');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -227,9 +226,8 @@ exports = module.exports = function (base) {
             return doGet(base + '/alldatatypes?textcharCaseSensitiveNotContains=NOT', 'kevin@email.be', 'pwd')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
-              assert.equal(response.body.results.length, 2);
-              assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
-              assert.equal(response.body.results[1].$$expanded.textchar.trim(), 'not a text char');
+              assert.equal(response.body.results.length, 5);
+              assert.equal(response.body.results[0].$$expanded.text, 'Value');
             });
           });
 

@@ -62,7 +62,7 @@ exports = module.exports = function (base) {
           var q = '/alldatatypes?textNotIn=test,a%20value%20with%20spaces';
           return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 4);
+            assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
@@ -127,8 +127,8 @@ exports = module.exports = function (base) {
           var q = '/alldatatypes?textvarcharNotIn=test,Not%20a%20text%20varchar';
           return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -136,9 +136,8 @@ exports = module.exports = function (base) {
           var q = '/alldatatypes?textvarcharCaseSensitiveNotIn=test,Varchar';
           return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
-            assert.equal(response.body.results[1].$$expanded.textvarchar, 'not a text varchar');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -191,8 +190,8 @@ exports = module.exports = function (base) {
           var q = '/alldatatypes?textcharNotIn=test,Not%20a%20text%20char';
           return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -200,9 +199,8 @@ exports = module.exports = function (base) {
           var q = '/alldatatypes?textcharCaseSensitiveNotIn=test,Char';
           return doGet(base + q, 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
-            assert.equal(response.body.results[1].$$expanded.textchar.trim(), 'not a text char');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -240,8 +238,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberNotIn=16.11,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 4);
-            assert.equal(response.body.results[0].$$expanded.number, 11);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -277,9 +275,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberintNotIn=1611,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numberint, 2456);
-            assert.equal(response.body.results[1].$$expanded.numberint, 1358);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -315,9 +312,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberbigintNotIn=1611,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numberbigint, 314159);
-            assert.equal(response.body.results[1].$$expanded.numberbigint, 7500000000);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -353,9 +349,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numbersmallintNotIn=1611,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numbersmallint, -4159);
-            assert.equal(response.body.results[1].$$expanded.numbersmallint, 7560);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -391,9 +386,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberdecimalNotIn=16.11,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numberdecimal, -3424.234);
-            assert.equal(response.body.results[1].$$expanded.numberdecimal, 456.222);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -429,9 +423,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberrealNotIn=16.11,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numberreal, 1200);
-            assert.equal(response.body.results[1].$$expanded.numberreal, 12000);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -469,9 +462,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?numberdoubleprecisionNotIn=16.11,413,45', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 2);
-            assert.equal(response.body.results[0].$$expanded.numberdoubleprecision, -12.121212);
-            assert.equal(response.body.results[1].$$expanded.numberdoubleprecision, 100.4545454);
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -626,9 +618,9 @@ exports = module.exports = function (base) {
           return doGet(base + q, 'kevin@email.be', 'pwd')
             .then(function (response) {
               assert.equal(response.statusCode, 200);
-              assert.equal(response.body.results.length, 1);
-              assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
-                new Date('2015-03-04T22:00:00-03:00').getTime());
+              assert.equal(response.body.results.length, 5);
+              assert.equal(new Date(response.body.results[4].$$expanded.publication).getTime(),
+                new Date('2015-03-05T01:00:00.000Z').getTime());
             });
         });
 

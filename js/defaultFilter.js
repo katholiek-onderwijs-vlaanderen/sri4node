@@ -71,7 +71,7 @@ function filterString(select, filter, value) {
   } else if (filter.operator === 'In' && not && sensitive) {
 
     values = value.split(',');
-    select.sql(' AND "' + filter.key + '" NOT IN (').array(values).sql(')');
+    select.sql(' AND "' + filter.key + '" NOT IN (').array(values).sql(') OR ' + filter.key + ' IS NULL');
 
   } else if (filter.operator === 'In' && !not && sensitive) {
 
@@ -83,7 +83,7 @@ function filterString(select, filter, value) {
     values = value.split(',').map(function (v) {
       return v.toLowerCase();
     });
-    select.sql(' AND LOWER("' + filter.key + '") NOT IN (').array(values).sql(')');
+    select.sql(' AND LOWER("' + filter.key + '") NOT IN (').array(values).sql(') OR ' + filter.key + ' IS NULL');
 
   } else if (filter.operator === 'In' && !not && !sensitive) {
 
@@ -110,7 +110,7 @@ function filterString(select, filter, value) {
 
   } else if (filter.operator === 'Contains' && not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '" NOT LIKE \'%' + value + '%\'');
+    select.sql(' AND "' + filter.key + '" NOT LIKE \'%' + value + '%\' OR ' + filter.key + ' IS NULL');
 
   } else if (filter.operator === 'Contains' && !not && sensitive) {
 
@@ -118,7 +118,7 @@ function filterString(select, filter, value) {
 
   } else if (filter.operator === 'Contains' && not && !sensitive) {
 
-    select.sql(' AND "' + filter.key + '" NOT ILIKE \'%' + value + '%\'');
+    select.sql(' AND "' + filter.key + '" NOT ILIKE \'%' + value + '%\' OR ' + filter.key + ' IS NULL');
 
   } else if (filter.operator === 'Contains' && !not && !sensitive) {
 
@@ -126,7 +126,7 @@ function filterString(select, filter, value) {
 
   } else if (not && sensitive) {
 
-    select.sql(' AND TRIM("' + filter.key + '") NOT LIKE ').param(value);
+    select.sql(' AND TRIM("' + filter.key + '") NOT LIKE ').param(value).sql(' OR ' + filter.key + ' IS NULL');
 
   } else if (!not && sensitive) {
 
@@ -134,7 +134,7 @@ function filterString(select, filter, value) {
 
   } else if (not && !sensitive) {
 
-    select.sql(' AND TRIM("' + filter.key + '") NOT ILIKE ').param(value);
+    select.sql(' AND TRIM("' + filter.key + '") NOT ILIKE ').param(value).sql(' OR ' + filter.key + ' IS NULL');
 
   } else {
 
@@ -170,7 +170,7 @@ function filterNumericOrTimestamp(select, filter, value) {
   } else if (filter.operator === 'In') {
 
     if (filter.postfix === 'Not') {
-      select.sql(' AND "' + filter.key + '" NOT IN (').array(value.split(',')).sql(')');
+      select.sql(' AND "' + filter.key + '" NOT IN (').array(value.split(',')).sql(') OR ' + filter.key + ' IS NULL');
     } else {
       select.sql(' AND "' + filter.key + '" IN (').array(value.split(',')).sql(')');
     }

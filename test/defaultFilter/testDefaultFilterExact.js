@@ -65,7 +65,7 @@ exports = module.exports = function (base) {
         it('should find resources of type text with a not match', function () {
           return doGet(base + '/alldatatypes?textNot=value', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 4);
+            assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -74,7 +74,7 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textCaseSensitiveNot=Value', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 4);
+            assert.equal(response.body.results.length, 5);
             assert.equal(response.body.results[0].$$expanded.text, 'A value with spaces');
           });
         });
@@ -134,8 +134,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textvarcharNot=varchar', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textvarchar, 'not a text varchar');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -143,8 +143,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textvarcharCaseSensitiveNot=varchar', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textvarchar, 'not a text varchar');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -201,8 +201,8 @@ exports = module.exports = function (base) {
         it('should find resources of type char with a not match', function () {
           return doGet(base + '/alldatatypes?textcharNot=char', 'kevin@email.be', 'pwd').then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'not a text char');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 
@@ -210,8 +210,8 @@ exports = module.exports = function (base) {
           return doGet(base + '/alldatatypes?textcharCaseSensitiveNot=char', 'kevin@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 200);
-            assert.equal(response.body.results.length, 1);
-            assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'not a text char');
+            assert.equal(response.body.results.length, 5);
+            assert.equal(response.body.results[0].$$expanded.text, 'Value');
           });
         });
 

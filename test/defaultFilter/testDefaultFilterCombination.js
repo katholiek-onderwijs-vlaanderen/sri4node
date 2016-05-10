@@ -23,11 +23,11 @@ exports = module.exports = function (base) {
         return doGet(base + '/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230', 'kevin@email.be', 'pwd')
         .then(function (response) {
           assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.text, 'dienst informatica');
-          assert.equal(response.body.results[0].$$expanded.number, 230);
-          assert.equal(response.body.results[1].$$expanded.text, 'combined unit');
-          assert.equal(response.body.results[1].$$expanded.number, 1000);
+          assert.equal(response.body.results.length, 4);
+          assert.equal(response.body.results[2].$$expanded.text, 'dienst informatica');
+          assert.equal(response.body.results[2].$$expanded.number, 230);
+          assert.equal(response.body.results[3].$$expanded.text, 'combined unit');
+          assert.equal(response.body.results[3].$$expanded.number, 1000);
         });
       });
 
