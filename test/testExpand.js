@@ -129,7 +129,7 @@ exports = module.exports = function (base, logverbose) {
     // Test expand=results.href.community,results.href.person
     describe('on list resources', function () {
       it('should allow expanding multiple keys.', function () {
-        return doGet(base + '/messages?expand=results.person,results.community',
+        return doGet(base + '/messages?limit=3&expand=results.person,results.community',
           'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           debug(response.body.results[0].$$expanded);
@@ -157,7 +157,7 @@ exports = module.exports = function (base, logverbose) {
 
     describe('on list resource', function () {
       it('should have executed afterread on expanded resources.', function () {
-        return doGet(base + '/messages?expand=results.person,results.community',
+        return doGet(base + '/messages?limit=3&expand=results.person,results.community',
           'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           if (response.body.results[0].$$expanded.community.$$expanded.$$messagecount == null) {
@@ -169,7 +169,7 @@ exports = module.exports = function (base, logverbose) {
 
     describe('with 2 level path (x.y)', function () {
       it('should expand recursively.', function () {
-        return doGet(base + '/messages?expand=results.person.community,results.community',
+        return doGet(base + '/messages?limit=3&expand=results.person.community,results.community',
           'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           if (response.body.results[0].$$expanded.community.$$expanded === null) {

@@ -9,11 +9,34 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   var sqlColumnNames = common.sqlColumnNames;
   var mapColumnsToObject = common.mapColumnsToObject;
   var executeOnFunctions = common.executeOnFunctions;
-
+  
   function debug(x) {
     if (logdebug) {
       cl(x);
     }
+  }
+
+  function executeSecureFunctionsOnExpandedElements(database, expandedElements, targetMapping, me) {
+
+    var promises = [];
+    var req;
+
+    for (var i = 0; i < expandedElements.length; i++) {
+      if (targetMapping.secure && targetMapping.secure.length) {
+
+        for (var j = 0; j < targetMapping.secure.length; j++) {
+          req = {
+            method: 'GET',
+            path: expandedElements[i].$$meta.permalink,
+            params: {}
+          };
+          promises.push(targetMapping.secure[j](req, null, database, me));
+        }
+      }
+    }
+
+    return Q.all(promises);
+
   }
 
   // Expands a single path on an array of elements.
@@ -27,6 +50,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
     var i;
     var targetType, typeToMapping, targetMapping, table, columns;
     var targetpermalinkToObject, expandedElements;
+    var user;
 
     try {
       if (elements && elements.length > 0) {
@@ -82,7 +106,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
               executeOnFunctions(resources, targetMapping, 'onread', expanded);
               targetpermalinkToObject[targetType + '/' + k] = expanded;
               expanded.$$meta = {
-                permalink: mapping.type + '/' + k
+                permalink: targetMapping.type + '/' + k
               };
               expandedElements.push(expanded);
             }
@@ -90,8 +114,12 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             debug('** execute identify');
             return identify(req, database);
           }).then(function (me) {
+            user = me;
+            debug('** executing secure functions on expanded resources');
+            return executeSecureFunctionsOnExpandedElements(database, expandedElements, targetMapping, user);
+          }).then(function () {
             debug('** executing afterread functions on expanded resources');
-            return executeAfterReadFunctions(database, expandedElements, targetMapping, me, req.originalUrl);
+            return executeAfterReadFunctions(database, expandedElements, targetMapping, user, req.originalUrl);
           }).then(function () {
             var z, elem, target;
             for (z = 0; z < elements.length; z++) {
@@ -102,7 +130,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             if (recurse) {
               debug('** recursing to next level of expansion : ' + recursepath);
               executeSingleExpansion(database, expandedElements, targetMapping,
-                                     resources, recursepath, req).then(function () {
+                resources, recursepath, req).then(function () {
                 deferred.resolve();
               }).fail(function (e) {
                 deferred.reject(e);
@@ -111,6 +139,12 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
               debug('** executeSingleExpansion resolving');
               deferred.resolve();
             }
+          }).catch(function () {
+            deferred.reject({
+              type: 'access.denied',
+              status: 403,
+              body: 'Forbidden'
+            });
           });
         }
       } else {
@@ -126,11 +160,11 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   }
 
   /*
-  Reduce comma-separated expand parameter to array, in lower case, and remove 'results.href' as prefix.
-  The rest of the processing of expansion does not make a distinction between list resources and regular
-  resources. Also rewrites 'none' and 'full' to the same format.
-  If none appears anywhere in the list, an empty array is returned.
-  */
+   Reduce comma-separated expand parameter to array, in lower case, and remove 'results.href' as prefix.
+   The rest of the processing of expansion does not make a distinction between list resources and regular
+   resources. Also rewrites 'none' and 'full' to the same format.
+   If none appears anywhere in the list, an empty array is returned.
+   */
   function parseExpand(expand) {
     var ret = [];
     var i, path, prefix, index, npath;
@@ -165,22 +199,22 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   }
 
   /*
-  Execute expansion on an array of elements.
-  Takes into account a comma-separated list of property paths.
-  Currently only one level of items on the elements can be expanded.
+   Execute expansion on an array of elements.
+   Takes into account a comma-separated list of property paths.
+   Currently only one level of items on the elements can be expanded.
 
-  So for list resources :
-  - results.href.person is OK
-  - results.href.community is OK
-  - results.href.person,results.href.community is OK. (2 expansions - but both 1 level)
-  - results.href.person.address is NOT OK - it has 1 expansion of 2 levels. This is not supported.
+   So for list resources :
+   - results.href.person is OK
+   - results.href.community is OK
+   - results.href.person,results.href.community is OK. (2 expansions - but both 1 level)
+   - results.href.person.address is NOT OK - it has 1 expansion of 2 levels. This is not supported.
 
-  For regular resources :
-  - person is OK
-  - community is OK
-  - person,community is OK
-  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
-  */
+   For regular resources :
+   - person is OK
+   - community is OK
+   - person,community is OK
+   - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
+   */
   function executeExpansion(database, elements, mapping, resources, expand, req) { // eslint-disable-line
     var paths, path, promises, i, errors;
     var deferred = Q.defer();
@@ -211,6 +245,12 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
               debug(elements);
               deferred.resolve();
             } else {
+              for (var i = 0; i < errors.length; i++) {
+                if (errors[i] && errors[i].status === 403) {
+                  return deferred.reject(errors[i]);
+                }
+              }
+
               deferred.reject({
                 type: 'expansion.failed',
                 status: 404,
