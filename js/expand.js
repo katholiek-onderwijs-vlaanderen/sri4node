@@ -96,7 +96,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             var z, elem, target;
             for (z = 0; z < elements.length; z++) {
               elem = elements[z];
-              target = element[expand].href;
+              target = elem[expand].href;
               elem[expand].$$expanded = targetpermalinkToObject[target];
             }
             if (recurse) {
