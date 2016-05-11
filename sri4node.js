@@ -1,7 +1,7 @@
 /*
-  The core server for the REST api.
-  It is configurable, and provides a simple framework for creating REST interfaces.
-*/
+ The core server for the REST api.
+ It is configurable, and provides a simple framework for creating REST interfaces.
+ */
 
 // Constants
 var DEFAULT_LIMIT = 30;
@@ -454,123 +454,123 @@ function postProcess(functions, db, body, req, path) {
 
 /* eslint-disable */
 function executePutInsideTransaction(db, url, body, req, res) {
-    'use strict';
-    var deferred, element, errors;
-    var type = '/' + url.split('/')[1];
-    var key = url.split('/')[2];
+  'use strict';
+  var deferred, element, errors;
+  var type = '/' + url.split('/')[1];
+  var key = url.split('/')[2];
 
-    debug('PUT processing starting. Request body :');
-    debug(body);
-    debug('Key received on URL : ' + key);
+  debug('PUT processing starting. Request body :');
+  debug(body);
+  debug('Key received on URL : ' + key);
 
-    var typeToMapping = typeToConfig(resources);
-    var mapping = typeToMapping[type];
-    var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
+  var typeToMapping = typeToConfig(resources);
+  var mapping = typeToMapping[type];
+  var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
 
-    debug('Validating schema.');
-    if (mapping.schema) {
-      errors = getSchemaValidationErrors(body, mapping.schema);
-      if (errors) {
-        deferred = Q.defer();
-        deferred.reject(errors);
-        return deferred.promise;
-      } else {
-        debug('Schema validation passed.');
-      }
-    }
-
-    return executeValidateMethods(mapping, body, db, configuration.logdebug).then(function () {
-      // create an object that only has mapped properties
-      var k, value, referencedType, referencedMapping, parts, refkey;
-      element = {};
-      for (k in mapping.map) {
-        if (mapping.map.hasOwnProperty(k)) {
-          if (body[k]) {
-            element[k] = body[k];
-          }
-        }
-      }
-      debug('Mapped incomming object according to configuration');
-
-      // check and remove types from references.
-      for (k in mapping.map) {
-        if (mapping.map.hasOwnProperty(k)) {
-          if (mapping.map[k].references && typeof element[k] != 'undefined') {
-            value = element[k].href;
-            if (!value) {
-              throw new Error('No href found inside reference ' + k);
-            }
-            referencedType = mapping.map[k].references;
-            referencedMapping = typeToMapping[referencedType];
-            parts = value.split('/');
-            type = '/' + parts[1];
-            refkey = parts[2];
-            if (type === referencedMapping.type) {
-              element[k] = refkey;
-            } else {
-              cl('Faulty reference detected [' + element[key].href + '], ' +
-                'detected [' + type + '] expected [' + referencedMapping.type + ']');
-              return;
-            }
-          }
-        }
-      }
-      debug('Converted references to values for update');
-
-      var countquery = prepare('check-resource-exists-' + table);
-      countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
-      return pgExec(db, countquery, logsql, logdebug).then(function (results) {
-        var deferred = Q.defer();
-
-        var count = parseInt(results.rows[0].count, 10);
-
-        if (count === 1) {
-          executeOnFunctions(resources, mapping, 'onupdate', element);
-
-          var update = prepare('update-' + table);
-          update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
-          for (var k in element) {
-            if (k !== '$$meta.created' && k !== '$$meta.modified' && element.hasOwnProperty(k)) {
-              update.sql(',\"' + k + '\"' + '=').param(element[k]);
-            }
-          }
-          update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
-
-          return pgExec(db, update, logsql, logdebug).then(function (results) {
-            if (results.rowCount !== 1) {
-              debug('No row affected - resource is gone');
-              throw 'resource.gone';
-            } else {
-              res.status(200);
-              return postProcess(mapping.afterupdate, db, body, req, url);
-            }
-          });
-        } else {
-          element.key = key;
-          executeOnFunctions(resources, mapping, 'oninsert', element);
-
-          var insert = prepare('insert-' + table);
-          insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
-          return pgExec(db, insert, logsql, logdebug).then(function (results) {
-            if (results.rowCount != 1) {
-              debug('No row affected ?!');
-              var deferred = Q.defer();
-              deferred.reject('No row affected.');
-              return deferred.promise();
-            } else {
-              res.status(201);
-              return postProcess(mapping.afterinsert, db, body, req, url);
-            }
-          });
-        }
-      }); // pgExec(db,countquery)...
-    }).fail(function (errors) {
-      var deferred = Q.defer();
+  debug('Validating schema.');
+  if (mapping.schema) {
+    errors = getSchemaValidationErrors(body, mapping.schema);
+    if (errors) {
+      deferred = Q.defer();
       deferred.reject(errors);
       return deferred.promise;
-    });
+    } else {
+      debug('Schema validation passed.');
+    }
   }
-  /* eslint-enable */
+
+  return executeValidateMethods(mapping, body, db, configuration.logdebug).then(function () {
+    // create an object that only has mapped properties
+    var k, value, referencedType, referencedMapping, parts, refkey;
+    element = {};
+    for (k in mapping.map) {
+      if (mapping.map.hasOwnProperty(k)) {
+        if (body[k]) {
+          element[k] = body[k];
+        }
+      }
+    }
+    debug('Mapped incomming object according to configuration');
+
+    // check and remove types from references.
+    for (k in mapping.map) {
+      if (mapping.map.hasOwnProperty(k)) {
+        if (mapping.map[k].references && typeof element[k] != 'undefined') {
+          value = element[k].href;
+          if (!value) {
+            throw new Error('No href found inside reference ' + k);
+          }
+          referencedType = mapping.map[k].references;
+          referencedMapping = typeToMapping[referencedType];
+          parts = value.split('/');
+          type = '/' + parts[1];
+          refkey = parts[2];
+          if (type === referencedMapping.type) {
+            element[k] = refkey;
+          } else {
+            cl('Faulty reference detected [' + element[key].href + '], ' +
+              'detected [' + type + '] expected [' + referencedMapping.type + ']');
+            return;
+          }
+        }
+      }
+    }
+    debug('Converted references to values for update');
+
+    var countquery = prepare('check-resource-exists-' + table);
+    countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
+    return pgExec(db, countquery, logsql, logdebug).then(function (results) {
+      var deferred = Q.defer();
+
+      var count = parseInt(results.rows[0].count, 10);
+
+      if (count === 1) {
+        executeOnFunctions(resources, mapping, 'onupdate', element);
+
+        var update = prepare('update-' + table);
+        update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
+        for (var k in element) {
+          if (k !== '$$meta.created' && k !== '$$meta.modified' && element.hasOwnProperty(k)) {
+            update.sql(',\"' + k + '\"' + '=').param(element[k]);
+          }
+        }
+        update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
+
+        return pgExec(db, update, logsql, logdebug).then(function (results) {
+          if (results.rowCount !== 1) {
+            debug('No row affected - resource is gone');
+            throw 'resource.gone';
+          } else {
+            res.status(200);
+            return postProcess(mapping.afterupdate, db, body, req, url);
+          }
+        });
+      } else {
+        element.key = key;
+        executeOnFunctions(resources, mapping, 'oninsert', element);
+
+        var insert = prepare('insert-' + table);
+        insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
+        return pgExec(db, insert, logsql, logdebug).then(function (results) {
+          if (results.rowCount != 1) {
+            debug('No row affected ?!');
+            var deferred = Q.defer();
+            deferred.reject('No row affected.');
+            return deferred.promise();
+          } else {
+            res.status(201);
+            return postProcess(mapping.afterinsert, db, body, req, url);
+          }
+        });
+      }
+    }); // pgExec(db,countquery)...
+  }).fail(function (errors) {
+    var deferred = Q.defer();
+    deferred.reject(errors);
+    return deferred.promise;
+  });
+}
+/* eslint-enable */
 
 function executeAfterReadFunctions(database, elements, mapping, me, route) {
   'use strict';
@@ -673,7 +673,13 @@ function getSQLFromListResource(path, parameters, count, database, query) {
 
   var sql;
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
-  var columns = sqlColumnNames(mapping);
+  var columns;
+  
+  if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
+    columns = '"key"';
+  } else {
+    columns = sqlColumnNames(mapping);
+  }
 
   if (count) {
     if (parameters['$$meta.deleted'] === 'true') {
@@ -739,78 +745,78 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       query = prepare();
       return getSQLFromListResource(req.route.path, req.query, false, database, query);
     }).then(function () {
-        // All list resources support orderBy, limit and offset.
-        var orderBy = req.query.orderBy;
-        var descending = req.query.descending;
+      // All list resources support orderBy, limit and offset.
+      var orderBy = req.query.orderBy;
+      var descending = req.query.descending;
 
-        if (orderBy) {
-          valid = true;
-          orders = orderBy.split(',');
-          orderBy = '';
-          for (o = 0; o < orders.length; o++) {
-            order = orders[o];
+      if (orderBy) {
+        valid = true;
+        orders = orderBy.split(',');
+        orderBy = '';
+        for (o = 0; o < orders.length; o++) {
+          order = orders[o];
 
-            if (!mapping.map[order]) {
-              if (order === '$$meta.created' || order === '$$meta.modified') {
-                orders[o] = order;
-              }else {
-                valid = false;
-                break;
-              }
-            }
-
-            if (orderBy.length === 0) {
-              orderBy = orders[o];
-            }else {
-              orderBy = orderBy + ',' + orders[o];
-            }
-
-          }
-          if (valid) {
-            query.sql(' order by "' + orders + '"');
-            if (descending && descending === 'true') {
-              query.sql(' desc ');
+          if (!mapping.map[order]) {
+            if (order === '$$meta.created' || order === '$$meta.modified') {
+              orders[o] = order;
             } else {
-              query.sql(' asc ');
+              valid = false;
+              break;
             }
+          }
+
+          if (orderBy.length === 0) {
+            orderBy = orders[o];
           } else {
-            cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
+            orderBy = orderBy + ',' + orders[o];
+          }
+
+        }
+        if (valid) {
+          query.sql(' order by "' + orders + '"');
+          if (descending && descending === 'true') {
+            query.sql(' desc ');
+          } else {
+            query.sql(' asc ');
           }
         } else {
-          query.sql(' order by "$$meta.created", "key"');
+          cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
         }
+      } else {
+        query.sql(' order by "$$meta.created", "key"');
+      }
 
-        queryLimit = req.query.limit || defaultlimit;
+      queryLimit = req.query.limit || defaultlimit;
 
-        offset = req.query.offset || 0;
-        var err;
+      offset = req.query.offset || 0;
+      var err;
 
-        if (queryLimit > maxlimit) {
+      if (queryLimit > maxlimit) {
 
-          err = {
-            status: 409,
-            type: 'ERROR',
-            body: [
-              {
-                code: 'invalid.limit.parameter',
-                type: 'ERROR',
-                message: 'The maximum allowed limit is ' + maxlimit
-              }
-            ]
-          };
+        err = {
+          status: 409,
+          type: 'ERROR',
+          body: [
+            {
+              code: 'invalid.limit.parameter',
+              type: 'ERROR',
+              message: 'The maximum allowed limit is ' + maxlimit
+            }
+          ]
+        };
 
-          throw err;
-        }
+        throw err;
+      }
 
-        query.sql(' limit ').param(queryLimit);
+      query.sql(' limit ').param(queryLimit);
 
-        if (offset) {
-          query.sql(' offset ').param(offset);
-        }
+      if (offset) {
+        query.sql(' offset ').param(offset);
+      }
 
-        debug('* executing SELECT query on database');
-        return pgExec(database, query, logsql, logdebug);
-      }).then(function (result) {
+      debug('* executing SELECT query on database');
+      return pgExec(database, query, logsql, logdebug);
+    }).then(function (result) {
       var deferred;
       debug('pgExec select ... OK');
       debug(result);
@@ -1176,46 +1182,46 @@ function batchOperation(req, resp) {
     begin.sql('BEGIN');
     return pgExec(database, begin, logsql, logdebug);
   }).then(function () {
-      function recurse() {
-        var element, url, body, verb;
-        if (batch.length > 0) {
-          element = batch.pop();
-          url = element.href;
-          cl('executing /batch section ' + url);
-          body = element.body;
-          verb = element.verb;
-          if (verb === 'PUT') {
-            // we continue regardless of an individual error
-            return executePutInsideTransaction(database, url, body, req, resp).finally(function () {
-              return recurse();
-            });
-          } else { // eslint-disable-line
-            // To Do : Implement other operations here too.
-            cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
-            throw new Error();
-          }
+    function recurse() {
+      var element, url, body, verb;
+      if (batch.length > 0) {
+        element = batch.pop();
+        url = element.href;
+        cl('executing /batch section ' + url);
+        body = element.body;
+        verb = element.verb;
+        if (verb === 'PUT') {
+          // we continue regardless of an individual error
+          return executePutInsideTransaction(database, url, body, req, resp).finally(function () {
+            return recurse();
+          });
+        } else { // eslint-disable-line
+          // To Do : Implement other operations here too.
+          cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
+          throw new Error();
         }
       }
+    }
 
-      return recurse(batch);
-    }).then(function () {
-      cl('PUT processing went OK. Committing database transaction.');
-      database.client.query('COMMIT', function (err) {
-        // If err is defined, client will be removed from pool.
-        database.done(err);
-        cl('COMMIT DONE.');
-        resp.send(true);
-      });
-    }).fail(function (puterr) {
-      cl('PUT processing failed. Rolling back database transaction. Error was :');
-      cl(puterr);
-      database.client.query('ROLLBACK', function (rollbackerr) {
-        // If err is defined, client will be removed from pool.
-        database.done(rollbackerr);
-        cl('ROLLBACK DONE.');
-        resp.status(500).send(puterr);
-      });
+    return recurse(batch);
+  }).then(function () {
+    cl('PUT processing went OK. Committing database transaction.');
+    database.client.query('COMMIT', function (err) {
+      // If err is defined, client will be removed from pool.
+      database.done(err);
+      cl('COMMIT DONE.');
+      resp.send(true);
     });
+  }).fail(function (puterr) {
+    cl('PUT processing failed. Rolling back database transaction. Error was :');
+    cl(puterr);
+    database.client.query('ROLLBACK', function (rollbackerr) {
+      // If err is defined, client will be removed from pool.
+      database.done(rollbackerr);
+      cl('ROLLBACK DONE.');
+      resp.status(500).send(puterr);
+    });
+  });
 }
 
 function checkRequiredFields(mapping, information) {
@@ -1244,7 +1250,9 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
   var msg;
   var authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
 
-  var customMiddleware = function (req, res, next) { next(); };
+  var customMiddleware = function (req, res, next) {
+    next();
+  };
   for (i = 0; i < mapping.customroutes.length; i++) {
     customroute = mapping.customroutes[i];
     if (customroute.route && customroute.handler) {
@@ -1341,7 +1349,9 @@ exports = module.exports = {
       }));
     } else {
       emt = {
-        instrument: function noop(middleware) { return middleware; }
+        instrument: function noop(middleware) {
+          return middleware;
+        }
       };
     }
 
@@ -1426,74 +1436,74 @@ exports = module.exports = {
       return informationSchema(database, configuration);
     }).then(function (information) {
 
-      for (configIndex = 0; configIndex < resources.length; configIndex++) {
-        mapping = resources[configIndex];
+        for (configIndex = 0; configIndex < resources.length; configIndex++) {
+          mapping = resources[configIndex];
 
-        try {
-          checkRequiredFields(mapping, information);
+          try {
+            checkRequiredFields(mapping, information);
 
-          // register schema for external usage. public.
-          url = mapping.type + '/schema';
-          app.use(url, logRequests);
-          app.get(url, getSchema);
+            // register schema for external usage. public.
+            url = mapping.type + '/schema';
+            app.use(url, logRequests);
+            app.get(url, getSchema);
 
-          //register docs for this type
-          app.get(mapping.type + '/docs', logRequests, getDocs);
+            //register docs for this type
+            app.get(mapping.type + '/docs', logRequests, getDocs);
 
-          // register list resource for this type.
-          url = mapping.type;
+            // register list resource for this type.
+            url = mapping.type;
 
-          secureCacheFn = secureCache(mapping, configuration, postgres, executeAfterReadFunctions);
-          secureCacheFns[url] = secureCacheFn;
+            secureCacheFn = secureCache(mapping, configuration, postgres, executeAfterReadFunctions);
+            secureCacheFns[url] = secureCacheFn;
 
-          // register list resource for this type.
-          maxlimit = mapping.maxlimit || MAX_LIMIT;
-          defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
+            // register list resource for this type.
+            maxlimit = mapping.maxlimit || MAX_LIMIT;
+            defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
 
-          authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
+            authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
 
-          // app.get - list resource
-          app.get(url, emt.instrument(logRequests), emt.instrument(authentication, 'authenticate'),
-            emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
-            emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
-
-          // register single resource
-          url = mapping.type + '/:key';
-
-          app.route(url)
-            .get(logRequests, emt.instrument(authentication, 'authenticate'),
+            // app.get - list resource
+            app.get(url, emt.instrument(logRequests), emt.instrument(authentication, 'authenticate'),
               emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
-              emt.instrument(getRegularResource(executeExpansion), 'getResource'))
-            .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
-            .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+              emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
-          // register custom routes (if any)
+            // register single resource
+            url = mapping.type + '/:key';
 
-          if (mapping.customroutes && mapping.customroutes instanceof Array) {
-            registerCustomRoutes(mapping, app, config, secureCacheFn);
+            app.route(url)
+              .get(logRequests, emt.instrument(authentication, 'authenticate'),
+                emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
+                emt.instrument(getRegularResource(executeExpansion), 'getResource'))
+              .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
+              .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+
+            // register custom routes (if any)
+
+            if (mapping.customroutes && mapping.customroutes instanceof Array) {
+              registerCustomRoutes(mapping, app, config, secureCacheFn);
+            }
+          } catch (err) {
+            cl('\n\nSRI4NODE FAILURE: \n');
+            cl(err.stack);
+            d.reject(err);
           }
-        } catch (err) {
-          cl('\n\nSRI4NODE FAILURE: \n');
-          cl(err.stack);
-          d.reject(err);
-        }
 
-      } // for all mappings.
+        } // for all mappings.
 
-    })
-    .then(function () {
-      url = '/batch';
-      app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
-      d.resolve();
-    })
-    .fail(function (err) {
-      cl('\n\nSRI4NODE FAILURE: \n');
-      cl(err.stack);
-      d.reject(err);
-    })
-    .finally(function () {
-      database.done();
-    });
+      })
+      .then(function () {
+        url = '/batch';
+        app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
+        d.resolve();
+      })
+      .fail(function (err) {
+        cl('\n\nSRI4NODE FAILURE: \n');
+        cl(err.stack);
+        d.reject(err);
+      })
+      .finally(function () {
+        database.done();
+      });
 
     return d.promise;
   },
@@ -1508,11 +1518,11 @@ exports = module.exports = {
     convertListResourceURLToSQL: getSQLFromListResource,
 
     /*
-        Add references from a different resource to this resource.
-        * type : the resource type that has a reference to the retrieved elements.
-        * column : the database column that contains the foreign key.
-        * key : the name of the key to add to the retrieved elements.
-    */
+     Add references from a different resource to this resource.
+     * type : the resource type that has a reference to the retrieved elements.
+     * column : the database column that contains the foreign key.
+     * key : the name of the key to add to the retrieved elements.
+     */
     addReferencingResources: function (type, column, targetkey, expand) {
       'use strict';
       return function (database, elements) {
@@ -1534,8 +1544,8 @@ exports = module.exports = {
           });
 
           query.sql('select *, \"' + column + '\" as fkey from ' +
-                    tablename + ' where \"' + column + '\" in (').array(elementKeys)
-               .sql(') and \"$$meta.deleted\" = false');
+            tablename + ' where \"' + column + '\" in (').array(elementKeys)
+            .sql(') and \"$$meta.deleted\" = false');
           pgExec(database, query, logsql, logdebug).then(function (result) {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
@@ -1549,10 +1559,12 @@ exports = module.exports = {
                   }
                 }
 
-                target.$$expanded.$$meta = {permalink: type + '/' + row.key,
+                target.$$expanded.$$meta = {
+                  permalink: type + '/' + row.key,
                   schema: type + '/schema',
                   created: row['$$meta.created'],
-                  modified: row['$$meta.modified']};
+                  modified: row['$$meta.modified']
+                };
               }
               element[targetkey].push(target);
             });
