@@ -9,7 +9,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
   var sqlColumnNames = common.sqlColumnNames;
   var mapColumnsToObject = common.mapColumnsToObject;
   var executeOnFunctions = common.executeOnFunctions;
-  
+
   function debug(x) {
     if (logdebug) {
       cl(x);
@@ -20,11 +20,12 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
 
     var promises = [];
     var req;
+    var i, j;
 
-    for (var i = 0; i < expandedElements.length; i++) {
+    for (i = 0; i < expandedElements.length; i++) {
       if (targetMapping.secure && targetMapping.secure.length) {
 
-        for (var j = 0; j < targetMapping.secure.length; j++) {
+        for (j = 0; j < targetMapping.secure.length; j++) {
           req = {
             method: 'GET',
             path: expandedElements[i].$$meta.permalink,
@@ -245,7 +246,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
               debug(elements);
               deferred.resolve();
             } else {
-              for (var i = 0; i < errors.length; i++) {
+              for (i = 0; i < errors.length; i++) {
                 if (errors[i] && errors[i].status === 403) {
                   return deferred.reject(errors[i]);
                 }
