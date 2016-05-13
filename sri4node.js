@@ -284,7 +284,6 @@ function postAuthenticationFailed(req, res, me, errorResponse) {
     body = errorResponse.body;
   } else {
     status = 403;
-    body = '<h1>Forbidden</h1>';
   }
 
   res.status(status).send(body);
@@ -593,7 +592,7 @@ function executeAfterReadFunctions(database, elements, mapping, me, route) {
       for (j = 0; j < results.length; j++) {
         if (results[j].state === 'rejected') {
           if (results[j].reason) {
-            if (results[j].reason.statusCode && results[j].reason.body) {
+            if (results[j].reason.statusCode) {
               deferred.reject({
                 type: 'afterread.failed',
                 status: results[j].reason.statusCode,
@@ -1025,7 +1024,7 @@ function createOrUpdate(req, res) {
         cl('ROLLBACK DONE.');
         if (puterr === 'resource.gone') {
           res.status(410).send();
-        } else if (puterr && puterr.statusCode && puterr.body) {
+        } else if (puterr && puterr.statusCode) {
           res.status(puterr.statusCode).send(puterr.body);
         } else {
           res.status(409).send(puterr);
@@ -1079,7 +1078,7 @@ function deleteResource(req, resp) {
     database.client.query('ROLLBACK', function (rollbackerr) {
       // If err is defined, client will be removed from pool.
       database.done(rollbackerr);
-      if (delerr && delerr.statusCode && delerr.body) {
+      if (delerr && delerr.statusCode) {
         resp.status(delerr.statusCode).send(delerr.body);
       } else {
         cl('ROLLBACK DONE. Sending 500 Internal Server Error. [' + delerr + ']');

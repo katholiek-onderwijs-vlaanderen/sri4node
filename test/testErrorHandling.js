@@ -46,7 +46,6 @@ exports = module.exports = function (base) {
         return doGet(base + '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 'ingrid@email.be', 'pwd').then(
           function (response) {
             assert.equal(response.statusCode, 403);
-            assert.equal(response.body, '<h1>Forbidden</h1>');
           });
       });
     });
@@ -62,7 +61,6 @@ exports = module.exports = function (base) {
       it('should return 403 (forbidden) when rejecting with an error object', function () {
         return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
-          assert.equal(response.body, '<h1>Forbidden</h1>');
         });
       });
     });
@@ -84,7 +82,6 @@ exports = module.exports = function (base) {
       it('should return 403 (forbidden) when rejecting with an error object', function () {
         return doPut(base + '/persons/' + key, p, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
-          assert.equal(response.body, '<h1>Forbidden</h1>');
         });
       });
     });
@@ -106,7 +103,6 @@ exports = module.exports = function (base) {
       it('should return 403 (forbidden) when rejecting with an error object', function () {
         return doDelete(base + '/persons/' + key, 'ingrid@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
-          assert.equal(response.body, '<h1>Forbidden</h1>');
         });
       });
     });

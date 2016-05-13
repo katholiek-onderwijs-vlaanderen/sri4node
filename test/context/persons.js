@@ -47,8 +47,7 @@ exports = module.exports = function (roa, logverbose, extra) {
 
     if (me.email === 'ingrid@email.be') {
       deferred.reject({
-        statusCode: 403,
-        body: '<h1>Forbidden</h1>'
+        statusCode: 403
       });
     } else {
       deferred.resolve();
