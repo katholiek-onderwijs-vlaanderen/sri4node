@@ -279,6 +279,7 @@ function postAuthenticationFailed(req, res, me, errorResponse) {
   if (!me) {
     status = 401;
     body = 'Unauthorized';
+    res.header('WWW-Authenticate','Basic realm="User Visible Realm"');
   } else if (errorResponse && errorResponse.status && errorResponse.body) {
     status = errorResponse.status;
     body = errorResponse.body;
@@ -673,7 +674,7 @@ function getSQLFromListResource(path, parameters, count, database, query) {
   var sql;
   var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
   var columns;
-  
+
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
     columns = '"key"';
   } else {
