@@ -956,7 +956,9 @@ function getRegularResource(executeExpansion) {
     var element;
     var elements;
     var field;
+    console.log('[get regular resource] Init');
     pgConnect(postgres, configuration).then(function (db) {
+      console.log('[get regular resource] Db');
       database = db;
     }).then(function () {
       debug('* query by key');
