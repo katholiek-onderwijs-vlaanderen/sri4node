@@ -414,6 +414,8 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
       }
     }
 
+    console.log('[secure cache] Init');
+
     if (cache && req.method === 'GET') {
       Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl)]).done(
         function (results) {
@@ -421,6 +423,7 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             cl('cache promise rejected !');
             cl(results);
           }
+          console.log('[secure cache] Handle response');
           handleResponse(results[0].value || results[1].value);
         });
     } else {
