@@ -727,8 +727,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     var queryLimit;
     var offset;
 
+    console.log('[get list resource] Init', type);
     debug('GET list resource ' + type);
     pgConnect(postgres, configuration).then(function (db) {
+      console.log('[get list resource] Db connect ok');
       debug('pgConnect ... OK');
       database = db;
       var begin = prepare('begin-transaction');
@@ -958,7 +960,7 @@ function getRegularResource(executeExpansion) {
     var field;
     console.log('[get regular resource] Init');
     pgConnect(postgres, configuration).then(function (db) {
-      console.log('[get regular resource] Db');
+      console.log('[get regular resource] Db connect ok');
       database = db;
     }).then(function () {
       debug('* query by key');
