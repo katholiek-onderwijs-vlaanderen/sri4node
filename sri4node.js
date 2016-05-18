@@ -66,6 +66,10 @@ var generateError = function (status, type, errors) {
   return err;
 };
 
+function showInfo(pool, prefix){
+  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waitingClients:', pool.waitingClientsCount());
+};
+
 // apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, urlparameters, select, database, count) {
   'use strict';
@@ -407,11 +411,13 @@ function logRequests(req, res, next) {
   'use strict';
   var start;
   if (configuration.logrequests) {
-    cl(req.method + ' ' + req.path + ' starting.');
+    //cl(req.method + ' ' + req.path + ' starting.');
+    showInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' starting.');
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
-      cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
+      //cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
+      showInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
     });
   }
   next();
@@ -727,10 +733,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     var queryLimit;
     var offset;
 
-    console.log('[get list resource] Init', type);
+    showInfo(common.pgPool(postgres, configuration), 'Init GET list:');
     debug('GET list resource ' + type);
     pgConnect(postgres, configuration).then(function (db) {
-      console.log('[get list resource] Db connect ok');
+      showInfo(common.pgPool(postgres, configuration), 'Initialized db connection:');
       debug('pgConnect ... OK');
       database = db;
       var begin = prepare('begin-transaction');
@@ -914,19 +920,29 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
+      showInfo(common.pgPool(postgres, configuration), 'Before send list response:');
       resp.set('Content-Type', 'application/json');
       resp.send(output);
 
+      showInfo(common.pgPool(postgres, configuration), 'Before rollback connection:');
       debug('* rolling back database transaction, GETs never have a side effect on the database.');
       database.client.query('ROLLBACK', function (err) {
         // If err is defined, client will be removed from pool.
-        database.done(err);
+        if (err) {
+          showInfo(common.pgPool(postgres, configuration), 'Error in list rollback:');
+          database.done(err);
+          showInfo(common.pgPool(postgres, configuration), 'After Error in list rollback:');
+        }
       });
       database.done();
+      showInfo(common.pgPool(postgres, configuration), 'After free db connection:');
     }).fail(function (err) {
+      showInfo(common.pgPool(postgres, configuration), 'Failed list:');
       database.client.query('ROLLBACK', function (e) {
         // If err is defined, client will be removed from pool.
-        database.done(e);
+        if (e) {
+          database.done(e);
+        }
       });
 
       if (err.type && err.status && err.body) {
@@ -942,6 +958,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         database.done(err);
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
+      showInfo(common.pgPool(postgres, configuration), 'Failed list, after free db connection:');
     });
   };
 }
@@ -958,9 +975,9 @@ function getRegularResource(executeExpansion) {
     var element;
     var elements;
     var field;
-    console.log('[get regular resource] Init');
+    showInfo(common.pgPool(postgres, configuration), 'Init GET regular resource:');
     pgConnect(postgres, configuration).then(function (db) {
-      console.log('[get regular resource] Db connect ok');
+      showInfo(common.pgPool(postgres, configuration), 'Initialized GET resource db connection:');
       database = db;
     }).then(function () {
       debug('* query by key');
@@ -986,10 +1003,14 @@ function getRegularResource(executeExpansion) {
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
+      showInfo(common.pgPool(postgres, configuration), 'Before send response:');
       resp.set('Content-Type', 'application/json');
       resp.send(element);
+      showInfo(common.pgPool(postgres, configuration), 'Before free resource db connection:');
       database.done();
+      showInfo(common.pgPool(postgres, configuration), 'After free resource db connection:');
     }).fail(function (err) {
+      showInfo(common.pgPool(postgres, configuration), 'Get resource failed:');
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);
         database.done();
@@ -999,6 +1020,7 @@ function getRegularResource(executeExpansion) {
         database.done(err);
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
+      showInfo(common.pgPool(postgres, configuration), 'Get resource failed after free db:');
     });
   };
 }

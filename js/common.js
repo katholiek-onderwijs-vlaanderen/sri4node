@@ -144,6 +144,25 @@ exports = module.exports = {
     return deferred.promise;
   },
 
+  pgPool: function(pg, configuration) {
+    var databaseUrl = env.databaseUrl;
+    var dbUrl, searchPathPara;
+    if (databaseUrl) {
+      dbUrl = databaseUrl;
+    } else {
+      dbUrl = configuration.defaultdatabaseurl;
+    }
+    if (env.postgresSchema) {
+      searchPathPara = 'search_path=' + env.postgresSchema + ',public&ssl=true';
+      if (dbUrl.match('\\?')) {
+        dbUrl += '&' + searchPathPara;
+      } else {
+        dbUrl += '?' + searchPathPara;
+      }
+    }
+    return pg.pools.getOrCreate(dbUrl);
+  },
+
   // Q wrapper to get a node-postgres client from the client pool.
   // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
   pgConnect: function (pg, configuration) {
