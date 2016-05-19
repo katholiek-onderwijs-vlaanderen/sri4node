@@ -186,7 +186,7 @@ function store(url, cache, req, res, mapping) {
 
     }
 
-    if (!validated) {
+    if (!validated && (res.statusCode === 200 || res.statusCode === 201)) {
       validated = true;
       self = this; //eslint-disable-line
 
