@@ -284,7 +284,7 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
           })
           .then(function (me) {
             user = me;
-            return validateRequest(mapping, req, res, createBatch(value.resources, 'GET'), user);
+            return validateRequest(mapping, req, res, createBatch(value.resources, 'GET'), user, database);
           })
           .then(function () {
             if (!mapping.public) {
