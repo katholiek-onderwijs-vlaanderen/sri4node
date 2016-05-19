@@ -55,7 +55,7 @@ var generateError = function (status, type, errors) {
   if (typeof errors == 'string') {
     errors = [{code: type, message: errors}];
   }
-  var err = {
+  return {
     type: type,
     status: status,
     body: {
@@ -63,12 +63,12 @@ var generateError = function (status, type, errors) {
       status: status
     }
   };
-  return err;
 };
 
-function showDbPoolInfo(pool, prefix){
-  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waitingClients:', pool.waitingClientsCount());
-};
+function showDbPoolInfo(pool, prefix) {
+  'use strict';
+  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waitingClients:', pool.waitingClientsCount()); //eslint-disable-line
+}
 
 // apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, urlparameters, select, database, count) {
@@ -283,7 +283,7 @@ function postAuthenticationFailed(req, res, me, errorResponse) {
   if (!me) {
     status = 401;
     body = 'Unauthorized';
-    res.header('WWW-Authenticate','Basic realm="User Visible Realm"');
+    res.header('WWW-Authenticate', 'Basic realm="User Visible Realm"');
   } else if (errorResponse && errorResponse.status && errorResponse.body) {
     status = errorResponse.status;
     body = errorResponse.body;
@@ -415,7 +415,8 @@ function logRequests(req, res, next) {
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
-      showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
+      showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration
+        + ' ms. ');
     });
   }
   next();
@@ -524,7 +525,6 @@ function executePutInsideTransaction(db, url, body, req, res) {
     var countquery = prepare('check-resource-exists-' + table);
     countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
     return pgExec(db, countquery, logsql, logdebug).then(function (results) {
-      var deferred = Q.defer();
 
       var count = parseInt(results.rows[0].count, 10);
 
@@ -930,7 +930,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         }
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
-    }).finally(function() {
+    }).finally(function () {
       database.client.query('ROLLBACK', function (err) {
         // If err is defined, client will be removed from pool.
         if (err) {
@@ -993,7 +993,7 @@ function getRegularResource(executeExpansion) {
         //database.done(err);
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
-    }).finally(function() {
+    }).finally(function () {
       database.done();
     });
   };

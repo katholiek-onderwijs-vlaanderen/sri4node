@@ -144,7 +144,8 @@ exports = module.exports = {
     return deferred.promise;
   },
 
-  pgPool: function(pg, configuration) {
+  pgPool: function (pg, configuration) {
+    'use strict';
     var databaseUrl = env.databaseUrl;
     var dbUrl, searchPathPara;
     if (databaseUrl) {
