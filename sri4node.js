@@ -1118,7 +1118,7 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
       debug('Error on processing of custom route. Discarding database client.');
       debug('Sending internal server error 500 to client');
       database.done(err);
-      res.send(500);
+      res.status(500).end();
     });
   };
 }
