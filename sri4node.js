@@ -66,7 +66,7 @@ var generateError = function (status, type, errors) {
   return err;
 };
 
-function showInfo(pool, prefix){
+function showDbPoolInfo(pool, prefix){
   console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waitingClients:', pool.waitingClientsCount());
 };
 
@@ -411,13 +411,11 @@ function logRequests(req, res, next) {
   'use strict';
   var start;
   if (configuration.logrequests) {
-    //cl(req.method + ' ' + req.path + ' starting.');
-    showInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' starting.');
+    showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' starting.');
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
-      //cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
-      showInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
+      showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration + ' ms. ');
     });
   }
   next();
@@ -733,10 +731,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     var queryLimit;
     var offset;
 
-    showInfo(common.pgPool(postgres, configuration), 'Init GET list:');
     debug('GET list resource ' + type);
     pgConnect(postgres, configuration).then(function (db) {
-      showInfo(common.pgPool(postgres, configuration), 'Initialized db connection:');
       debug('pgConnect ... OK');
       database = db;
       var begin = prepare('begin-transaction');
@@ -920,34 +916,11 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
-      showInfo(common.pgPool(postgres, configuration), 'Before send list response:');
       resp.set('Content-Type', 'application/json');
-      resp.send(output);
-
-      showInfo(common.pgPool(postgres, configuration), 'Before rollback connection:');
-      debug('* rolling back database transaction, GETs never have a side effect on the database.');
-      database.client.query('ROLLBACK', function (err) {
-        // If err is defined, client will be removed from pool.
-        if (err) {
-          showInfo(common.pgPool(postgres, configuration), 'Error in list rollback:');
-          database.done(err);
-          showInfo(common.pgPool(postgres, configuration), 'After Error in list rollback:');
-        }
-      });
-      database.done();
-      showInfo(common.pgPool(postgres, configuration), 'After free db connection:');
+      return resp.send(output, database);
     }).fail(function (err) {
-      showInfo(common.pgPool(postgres, configuration), 'Failed list:');
-      database.client.query('ROLLBACK', function (e) {
-        // If err is defined, client will be removed from pool.
-        if (e) {
-          database.done(e);
-        }
-      });
-
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);
-        database.done();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
         if (err.stack) {
@@ -955,10 +928,17 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           cl(err);
         }
-        database.done(err);
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
-      showInfo(common.pgPool(postgres, configuration), 'Failed list, after free db connection:');
+    }).finally(function() {
+      database.client.query('ROLLBACK', function (err) {
+        // If err is defined, client will be removed from pool.
+        if (err) {
+          database.done(err);
+        } else {
+          database.done();
+        }
+      });
     });
   };
 }
@@ -975,9 +955,7 @@ function getRegularResource(executeExpansion) {
     var element;
     var elements;
     var field;
-    showInfo(common.pgPool(postgres, configuration), 'Init GET regular resource:');
     pgConnect(postgres, configuration).then(function (db) {
-      showInfo(common.pgPool(postgres, configuration), 'Initialized GET resource db connection:');
       database = db;
     }).then(function () {
       debug('* query by key');
@@ -1003,24 +981,20 @@ function getRegularResource(executeExpansion) {
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);
-      showInfo(common.pgPool(postgres, configuration), 'Before send response:');
       resp.set('Content-Type', 'application/json');
-      resp.send(element);
-      showInfo(common.pgPool(postgres, configuration), 'Before free resource db connection:');
-      database.done();
-      showInfo(common.pgPool(postgres, configuration), 'After free resource db connection:');
+      return resp.send(element, database);
     }).fail(function (err) {
-      showInfo(common.pgPool(postgres, configuration), 'Get resource failed:');
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);
-        database.done();
+        //database.done();
       } else {
         cl('GET processing had errors. Removing pg client from pool. Error : ');
         cl(err);
-        database.done(err);
+        //database.done(err);
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
-      showInfo(common.pgPool(postgres, configuration), 'Get resource failed after free db:');
+    }).finally(function() {
+      database.done();
     });
   };
 }

@@ -33,28 +33,25 @@ function responseIsList(response) {
   return response.$$meta && response.$$meta.hasOwnProperty('count');
 }
 
-function validateRequest(mapping, req, res, batch, me) {
+function validateRequest(mapping, req, res, batch, me, db) {
   'use strict';
   var promises;
   var deferred = Q.defer();
-  var database;
+  var database = db;
 
   if (!mapping.public && mapping.secure && mapping.secure.length > 0) {
-    pgConnect(postgres, configuration).then(function (db) {
-      database = db;
-    }).then(function () {
-      promises = [];
-      mapping.secure.forEach(function (f) {
-        promises.push(f(req, res, database, me, batch));
-      });
 
-      return Q.all(promises);
-    }).then(function () {
+    promises = [];
+    mapping.secure.forEach(function (f) {
+      promises.push(f(req, res, database, me, batch));
+    });
+
+    Q.all(promises).then(function () {
       deferred.resolve();
     }).catch(function () {
       deferred.reject();
     }).finally(function () {
-      database.done();
+      //database.done();
     });
   } else {
     deferred.resolve();
@@ -169,12 +166,13 @@ function store(url, cache, req, res, config, mapping) {
     };
   }
 
-  res.send = function (output) {
+  res.send = function (output, db) {
 
     var self;
     var batch;
-    var database;
+    var database = db;
     var user;
+    var deferred = Q.defer();
 
     // express first send call tranforms a json into a string and calls send again
     // we only process the first send to store the object
@@ -198,14 +196,10 @@ function store(url, cache, req, res, config, mapping) {
         batch = createBatch(resources, 'GET');
       }
 
-      pgConnect(postgres, configuration)
-      .then(function (db) {
-        database = db;
-        return getMe(req, db);
-      })
+      getMe(req, db)
       .then(function (me) {
         user = me;
-        return validateRequest(mapping, req, res, batch, user);
+        return validateRequest(mapping, req, res, batch, user, db);
       })
       .then(function () {
         if (resources) {
@@ -230,12 +224,13 @@ function store(url, cache, req, res, config, mapping) {
         }
       })
       .finally(function () {
-        database.done();
+        deferred.resolve();
       });
     } else {
       send.call(this, output);
     }
 
+    return deferred.promise;
   };
 
 }
@@ -414,8 +409,6 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
       }
     }
 
-    console.log('[secure cache] Init');
-
     if (cache && req.method === 'GET') {
       Q.allSettled([cacheStore.resources.get(req.originalUrl), cacheStore.list.get(req.originalUrl)]).done(
         function (results) {
@@ -423,7 +416,6 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             cl('cache promise rejected !');
             cl(results);
           }
-          console.log('[secure cache] Handle response');
           handleResponse(results[0].value || results[1].value);
         });
     } else {
