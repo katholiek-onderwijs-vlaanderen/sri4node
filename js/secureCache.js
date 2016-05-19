@@ -50,8 +50,6 @@ function validateRequest(mapping, req, res, batch, me, db) {
       deferred.resolve();
     }).catch(function () {
       deferred.reject();
-    }).finally(function () {
-      //database.done();
     });
   } else {
     deferred.resolve();
@@ -120,7 +118,7 @@ function createBatch(resources, verb) {
   return batch;
 }
 
-function store(url, cache, req, res, config, mapping) {
+function store(url, cache, req, res, mapping) {
   'use strict';
 
   var send = res.send; // hijack!
@@ -197,35 +195,35 @@ function store(url, cache, req, res, config, mapping) {
       }
 
       getMe(req, db)
-      .then(function (me) {
-        user = me;
-        return validateRequest(mapping, req, res, batch, user, db);
-      })
-      .then(function () {
-        if (resources) {
-          return executeAfterReadFunctions(database, resources, mapping, user, req.originalUrl);
-        }
-        return true;
-      })
-      .then(function () {
-        send.call(self, output);
-      })
-      .catch(function (error) {
-        if (configuration.postAuthenticationFailed) {
-          configuration.postAuthenticationFailed(req, res, user, error);
-        } else if (error && error.type && error.status && error.body) {
-          res.status(error.status).send(error.body);
-        } else {
-          res.status(403).send({
-            type: 'access.denied',
-            status: 403,
-            body: 'Forbidden'
-          });
-        }
-      })
-      .finally(function () {
-        deferred.resolve();
-      });
+        .then(function (me) {
+          user = me;
+          return validateRequest(mapping, req, res, batch, user, db);
+        })
+        .then(function () {
+          if (resources) {
+            return executeAfterReadFunctions(database, resources, mapping, user, req.originalUrl);
+          }
+          return true;
+        })
+        .then(function () {
+          send.call(self, output);
+        })
+        .catch(function (error) {
+          if (configuration.postAuthenticationFailed) {
+            configuration.postAuthenticationFailed(req, res, user, error);
+          } else if (error && error.type && error.status && error.body) {
+            res.status(error.status).send(error.body);
+          } else {
+            res.status(403).send({
+              type: 'access.denied',
+              status: 403,
+              body: 'Forbidden'
+            });
+          }
+        })
+        .finally(function () {
+          deferred.resolve();
+        });
     } else {
       send.call(this, output);
     }
@@ -278,90 +276,133 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
         if (value) {
 
           pgConnect(postgres, configuration)
-          .then(function (db) {
-            database = db;
-            return getMe(req, db);
-          })
-          .then(function (me) {
-            user = me;
-            return validateRequest(mapping, req, res, createBatch(value.resources, 'GET'), user, database);
-          })
-          .then(function () {
-            if (!mapping.public) {
-              return;
-            }
-            for (header in value.headers) {
-              if (value.headers.hasOwnProperty(header)) {
-                res.set(header, value.headers[header]);
+            .then(function (db) {
+              database = db;
+              return getMe(req, db);
+            })
+            .then(function (me) {
+              user = me;
+              return validateRequest(mapping, req, res, createBatch(value.resources, 'GET'), user, database);
+            })
+            .then(function () {
+              if (!mapping.public) {
+                return;
               }
-            }
-
-            res.send(value.data);
-          })
-          .then(function () {
-            return executeAfterReadFunctions(database, value.resources, mapping, user, req.originalUrl);
-          })
-          .then(function () {
-            for (header in value.headers) {
-              if (value.headers.hasOwnProperty(header)) {
-                res.set(header, value.headers[header]);
+              for (header in value.headers) {
+                if (value.headers.hasOwnProperty(header)) {
+                  res.set(header, value.headers[header]);
+                }
               }
-            }
 
-            res.send(value.data);
-          })
-          .catch(function (error) {
-            if (configuration.postAuthenticationFailed) {
-              configuration.postAuthenticationFailed(req, res, user, error);
-            } else if (error && error.type && error.status && error.body) {
-              res.status(error.status).send(error.body);
-            } else {
-              res.status(403).send({
-                type: 'access.denied',
-                status: 403,
-                body: 'Forbidden'
-              });
-            }
+              res.send(value.data);
+            })
+            .then(function () {
+              return executeAfterReadFunctions(database, value.resources, mapping, user, req.originalUrl);
+            })
+            .then(function () {
+              for (header in value.headers) {
+                if (value.headers.hasOwnProperty(header)) {
+                  res.set(header, value.headers[header]);
+                }
+              }
 
-          })
-          .finally(function () {
-            database.done();
-          });
+              res.send(value.data);
+            })
+            .catch(function (error) {
+              if (configuration.postAuthenticationFailed) {
+                configuration.postAuthenticationFailed(req, res, user, error);
+              } else if (error && error.type && error.status && error.body) {
+                res.status(error.status).send(error.body);
+              } else {
+                res.status(403).send({
+                  type: 'access.denied',
+                  status: 403,
+                  body: 'Forbidden'
+                });
+              }
+
+            })
+            .finally(function () {
+              database.done();
+            });
 
         } else {
           // register handler to process response when responding
-          store(req.originalUrl, cacheStore, req, res, config, mapping);
+          store(req.originalUrl, cacheStore, req, res, mapping);
           next();
         }
 
       } else if (req.method === 'PUT') {
         // is it a batch?
         if (req.path === 'batch') {
-          validateRequest(config, mapping, req, res, req.body)
-          .then(function () {
-            if (cache) {
-              for (i = 0; i < req.body.length; i++) {
-                cacheStore.resources.del(req.body[i].href);
-              }
+          pgConnect(postgres, configuration)
+            .then(function (db) {
+              database = db;
+              return getMe(req, db);
+            })
+            .then(function (me) {
+              return validateRequest(mapping, req, res, req.body, me, database);
+            })
+            .then(function () {
+              if (cache) {
+                for (i = 0; i < req.body.length; i++) {
+                  cacheStore.resources.del(req.body[i].href);
+                }
 
-              // TODO do this more efficiently? (only delete the entries where this resource is present)
-              cacheStore.list.flushAll();
-            }
-            next();
-          })
-          .catch(function (error) {
-            if (error && error.type && error.status && error.body) {
-              res.status(error.status).send(error.body);
-            } else {
-              res.status(403).send({
-                type: 'access.denied',
-                status: 403,
-                body: 'Forbidden'
-              });
-            }
-          });
+                // TODO do this more efficiently? (only delete the entries where this resource is present)
+                cacheStore.list.flushAll();
+              }
+              next();
+            })
+            .catch(function (error) {
+              if (error && error.type && error.status && error.body) {
+                res.status(error.status).send(error.body);
+              } else {
+                res.status(403).send({
+                  type: 'access.denied',
+                  status: 403,
+                  body: 'Forbidden'
+                });
+              }
+            })
+            .finally(function () {
+              database.done();
+            });
         } else {
-          validateRequest(config, mapping, req, res)
+          pgConnect(postgres, configuration)
+            .then(function (db) {
+              database = db;
+              return getMe(req, db);
+            })
+            .then(function (me) {
+              return validateRequest(mapping, req, res, null, me, database);
+            })
+            .then(function () {
+              if (cache) {
+                cacheStore.resources.del(req.originalUrl);
+                // TODO do this more efficiently? (only delete the entries where this resource is present)
+                cacheStore.list.flushAll();
+              }
+              next();
+            })
+            .catch(function (error) {
+              if (error && error.type && error.status && error.body) {
+                res.status(error.status).send(error.body);
+              } else {
+                res.status(403).send({
+                  type: 'access.denied',
+                  status: 403,
+                  body: 'Forbidden'
+                });
+              }
+            })
+            .finally(function () {
+              database.done();
+            });
+        }
+
+      } else if (req.method === 'DELETE') {
+        validateRequest(config, mapping, req, res)
           .then(function () {
             if (cache) {
               cacheStore.resources.del(req.originalUrl);
@@ -381,29 +422,6 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
               });
             }
           });
-        }
-
-      } else if (req.method === 'DELETE') {
-        validateRequest(config, mapping, req, res)
-        .then(function () {
-          if (cache) {
-            cacheStore.resources.del(req.originalUrl);
-            // TODO do this more efficiently? (only delete the entries where this resource is present)
-            cacheStore.list.flushAll();
-          }
-          next();
-        })
-        .catch(function (error) {
-          if (error && error.type && error.status && error.body) {
-            res.status(error.status).send(error.body);
-          } else {
-            res.status(403).send({
-              type: 'access.denied',
-              status: 403,
-              body: 'Forbidden'
-            });
-          }
-        });
       } else {
         next();
       }
