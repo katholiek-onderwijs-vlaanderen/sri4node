@@ -164,11 +164,10 @@ function store(url, cache, req, res, mapping) {
     };
   }
 
-  res.send = function (output, db) {
+  res.send = function (output) {
 
     var self;
     var batch;
-    var database = db;
     var user;
     var deferred = Q.defer();
 
@@ -194,14 +193,14 @@ function store(url, cache, req, res, mapping) {
         batch = createBatch(resources, 'GET');
       }
 
-      getMe(req, db)
+      getMe(req, res.database)
         .then(function (me) {
           user = me;
-          return validateRequest(mapping, req, res, batch, user, db);
+          return validateRequest(mapping, req, res, batch, user, res.database);
         })
         .then(function () {
           if (resources) {
-            return executeAfterReadFunctions(database, resources, mapping, user, req.originalUrl);
+            return executeAfterReadFunctions(res.database, resources, mapping, user, req.originalUrl);
           }
           return true;
         })

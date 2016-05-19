@@ -917,7 +917,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       debug('* sending response to client :');
       debug(output);
       resp.set('Content-Type', 'application/json');
-      return resp.send(output, database);
+      resp.database = database;
+      return resp.send(output);
     }).fail(function (err) {
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);
@@ -982,7 +983,8 @@ function getRegularResource(executeExpansion) {
       debug('* sending response to the client :');
       debug(element);
       resp.set('Content-Type', 'application/json');
-      return resp.send(element, database);
+      resp.database = database;
+      return resp.send(element);
     }).fail(function (err) {
       if (err.type && err.status && err.body) {
         resp.status(err.status).send(err.body);
@@ -1110,6 +1112,7 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
     }).then(function (identity) {
       me = identity;
       debug('Handing control to the custom route handler.');
+      res.database = database;
       return customRouteHandler(req, res, database, me);
     }).then(function () {
       debug('Processing of custom route went OK. Returning database client to pool.');
