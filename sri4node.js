@@ -67,7 +67,7 @@ var generateError = function (status, type, errors) {
 
 function showDbPoolInfo(pool, prefix) {
   'use strict';
-  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waitingClients:', pool.waitingClientsCount()); //eslint-disable-line
+  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waiting:', pool.waitingClientsCount()); //eslint-disable-line
 }
 
 // apply extra parameters on request URL for a list-resource to a select.
@@ -412,7 +412,7 @@ function logRequests(req, res, next) {
   var start;
   if (configuration.logrequests) {
     showDbPoolInfo(common.pgPool(postgres, configuration), (req.method + ' ' + req.path + ' starting.'
-                                    + (req.headers['x-request-id'] ? 'req_id: ' + req.headers['x-request-id'] : '')));
+                                    + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '')));
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
@@ -938,10 +938,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         if (err) {
           database.done(err);
         } else {
-          if (req.headers['x-request-id']) {
-            console.log('Free db connection of req_id: ' + req.headers['x-request-id']);
-          }
           database.done();
+          if (req.headers['x-request-id']) {
+            showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db connection of req_id: ' + req.headers['x-request-id']));
+          }
         }
       });
     });
@@ -1000,10 +1000,10 @@ function getRegularResource(executeExpansion) {
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
     }).finally(function () {
-      if (req.headers['x-request-id']) {
-        console.log('Free db connection of req_id: ' + req.headers['x-request-id']);
-      }
       database.done();
+      if (req.headers['x-request-id']) {
+        showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db connection of req_id: ' + req.headers['x-request-id']));
+      }
     });
   };
 }
