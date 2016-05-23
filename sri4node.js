@@ -411,7 +411,8 @@ function logRequests(req, res, next) {
   'use strict';
   var start;
   if (configuration.logrequests) {
-    showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' starting.');
+    showDbPoolInfo(common.pgPool(postgres, configuration), (req.method + ' ' + req.path + ' starting.'
+                                    + (req.headers['x-request-id'] ? 'req_id: ' + req.headers['x-request-id'] : '')));
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
@@ -937,6 +938,9 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         if (err) {
           database.done(err);
         } else {
+          if (req.headers['x-request-id']) {
+            console.log('Free db connection of req_id: ' + req.headers['x-request-id']);
+          }
           database.done();
         }
       });
@@ -996,6 +1000,9 @@ function getRegularResource(executeExpansion) {
         resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
       }
     }).finally(function () {
+      if (req.headers['x-request-id']) {
+        console.log('Free db connection of req_id: ' + req.headers['x-request-id']);
+      }
       database.done();
     });
   };

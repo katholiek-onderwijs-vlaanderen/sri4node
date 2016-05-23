@@ -322,6 +322,9 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
 
             })
             .finally(function () {
+              if (req.headers['x-request-id']) {
+                console.log('Free db connection in cache flow of req_id: ' + req.headers['x-request-id']);
+              }
               database.done();
             });
 
