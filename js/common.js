@@ -164,6 +164,12 @@ exports = module.exports = {
     return pg.pools.getOrCreate(dbUrl);
   },
 
+  pgPoolInfo: function(pg, configuration) {
+    return 'poolSize: ' + this.pgPool(pg, configuration).getPoolSize()
+      + ' availableObjects: ' + this.pgPool(pg, configuration).availableObjectsCount()
+      + ' waiting: ' + this.pgPool(pg, configuration).waitingClientsCount();
+  },
+
   // Q wrapper to get a node-postgres client from the client pool.
   // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
   pgConnect: function (pg, configuration) {

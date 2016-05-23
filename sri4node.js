@@ -65,11 +65,6 @@ var generateError = function (status, type, errors) {
   };
 };
 
-function showDbPoolInfo(pool, prefix) {
-  'use strict';
-  console.log(prefix, 'poolSize:', pool.getPoolSize(), 'availableObjects:', pool.availableObjectsCount(), 'waiting:', pool.waitingClientsCount()); //eslint-disable-line
-}
-
 // apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, urlparameters, select, database, count) {
   'use strict';
@@ -411,13 +406,14 @@ function logRequests(req, res, next) {
   'use strict';
   var start;
   if (configuration.logrequests) {
-    showDbPoolInfo(common.pgPool(postgres, configuration), (req.method + ' ' + req.path + ' starting.'
-                                    + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '')));
+    common.cl(req.method + ' ' + req.path + ' starting.'
+           + (req.headers['x-request-id'] ? 'req_id: ' + req.headers['x-request-id'] : '') + ' '
+           + common.pgPoolInfo(postgres, configuration));
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
-      showDbPoolInfo(common.pgPool(postgres, configuration), req.method + ' ' + req.path + ' took ' + duration
-        + ' ms. ');
+      common.cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
+              + common.pgPoolInfo(postgres, configuration));
     });
   }
   next();
@@ -940,7 +936,8 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           database.done();
           if (req.headers['x-request-id']) {
-            showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db of req_id: ' + req.headers['x-request-id']));
+            common.cl('Freed db of list req_id: ' + req.headers['x-request-id'] + ' '
+                      + common.pgPoolInfo(postgres, configuration));
           }
         }
       });
@@ -1002,7 +999,8 @@ function getRegularResource(executeExpansion) {
     }).finally(function () {
       database.done();
       if (req.headers['x-request-id']) {
-        showDbPoolInfo(common.pgPool(postgres, configuration), 'Freed db of req_id: ' + req.headers['x-request-id']);
+        common.cl('Freed db of resource req_id: ' + req.headers['x-request-id'] + ' '
+                  + common.pgPoolInfo(postgres, configuration));
       }
     });
   };
