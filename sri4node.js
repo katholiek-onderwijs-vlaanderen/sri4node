@@ -940,7 +940,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           database.done();
           if (req.headers['x-request-id']) {
-            showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db connection of req_id: ' + req.headers['x-request-id']));
+            showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db of req_id: ' + req.headers['x-request-id']));
           }
         }
       });
@@ -1002,7 +1002,7 @@ function getRegularResource(executeExpansion) {
     }).finally(function () {
       database.done();
       if (req.headers['x-request-id']) {
-        showDbPoolInfo(common.pgPool(postgres, configuration), console.log('Freed db connection of req_id: ' + req.headers['x-request-id']));
+        showDbPoolInfo(common.pgPool(postgres, configuration), 'Freed db of req_id: ' + req.headers['x-request-id']);
       }
     });
   };
