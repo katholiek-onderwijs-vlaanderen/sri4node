@@ -407,13 +407,14 @@ function logRequests(req, res, next) {
   var start;
   if (configuration.logrequests) {
     common.cl(req.method + ' ' + req.path + ' starting.'
-           + (req.headers['x-request-id'] ? 'req_id: ' + req.headers['x-request-id'] : '') + ' '
-           + common.pgPoolInfo(postgres, configuration));
+              + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
+              + common.pgPoolInfo(postgres, configuration));
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
       common.cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
-              + common.pgPoolInfo(postgres, configuration));
+                + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
+                + common.pgPoolInfo(postgres, configuration));
     });
   }
   next();
