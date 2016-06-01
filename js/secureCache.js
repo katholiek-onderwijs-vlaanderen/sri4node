@@ -323,6 +323,10 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
             })
             .finally(function () {
               database.done();
+              if (req.headers['x-request-id']) {
+                common.cl('Freed db in cache flow of req_id: ' + req.headers['x-request-id'] + ' '
+                          + common.pgPoolInfo(postgres, configuration));
+              }
             });
 
         } else {
