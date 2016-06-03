@@ -1164,7 +1164,8 @@ function handleBatchOperations(secureCacheFns) {
           method: 'PUT',
           path: 'batch',
           body: element.batch,
-          user: req.user
+          user: req.user,
+          headers: req.headers
         };
         secureCacheFns[type](elementReq, res, nextElement);
       } else {
