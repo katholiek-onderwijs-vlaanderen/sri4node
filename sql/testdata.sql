@@ -85,3 +85,14 @@ insert into alldatatypes (key, id, textvarchar) values ('2778802a-524f-47f5-a1c0
 insert into alldatatypes (key, id, textchar) values ('a419889a-314a-4b46-95c2-d860683a81c7', 36, 'char');
 insert into alldatatypes (key, id, textchar) values ('628f96ef-7bbd-4d85-903d-eb290a402261', 37, 'not a text char');
 insert into alldatatypes (key, id) values ('e7e49d48-010b-480d-9f90-cdcd802a3096', 38);
+
+-- Data for packages
+INSERT INTO "packages" VALUES ('1edb2754-5684-4996-ae5b-ec33c903ee4d', 'Export');
+INSERT INTO "packages" VALUES ('2edb2754-1598-4996-ae5b-ec33c903ee4d', 'Internal');
+
+-- Data for products
+INSERT INTO "products" VALUES ('1edb2754-5684-1234-ae5b-ec33c903ee4d', 'Shirt', 'Cloth', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-4567-ae5b-ec33c903ee4d', 'Hat', 'Cloth', '2edb2754-1598-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-7896-ae5b-ec33c903ee4d', 'Meat', 'Food', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-6547-ae5b-ec33c903ee4d', 'Rice', 'Food', '2edb2754-1598-4996-ae5b-ec33c903ee4d');
+

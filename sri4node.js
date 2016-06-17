@@ -1,7 +1,7 @@
 /*
- The core server for the REST api.
- It is configurable, and provides a simple framework for creating REST interfaces.
- */
+  The core server for the REST api.
+  It is configurable, and provides a simple framework for creating REST interfaces.
+*/
 
 // Constants
 var DEFAULT_LIMIT = 30;
@@ -157,7 +157,7 @@ function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
   var row, output, msg;
   var v;
   var result;
@@ -299,7 +299,7 @@ function doBasicAuthentication(authenticator) {
 
     if (path !== '/me' && path !== '/batch') {
       typeToMapping = typeToConfig(resources);
-      type = '/' + req.route.path.split('/')[1];
+      type = req.route.path.split(':')[0].replace(/\/$/, '');
       mapping = typeToMapping[type];
       if (mapping.public) {
         next();
@@ -359,7 +359,7 @@ function checkBasicAuthentication(authenticator) {
 
     if (path !== '/me' && path !== '/batch') {
       typeToMapping = typeToConfig(resources);
-      type = '/' + req.route.path.split('/')[1];
+      type = req.route.path.split(':')[0].replace(/\/$/, '');
       mapping = typeToMapping[type];
       if (mapping.public) {
         next();
@@ -457,18 +457,18 @@ function postProcess(functions, db, body, req, path) {
 
 /* eslint-disable */
 function executePutInsideTransaction(db, url, body, req, res) {
-  'use strict';
-  var deferred, element, errors;
-  var type = '/' + url.split('/')[1];
-  var key = url.split('/')[2];
+    'use strict';
+    var deferred, element, errors;
+    var type = url.split('/').slice(0, url.split('/').length-1).join('/');
+    var key = url.replace(type, '').substr(1);
 
   debug('PUT processing starting. Request body :');
   debug(body);
   debug('Key received on URL : ' + key);
 
-  var typeToMapping = typeToConfig(resources);
-  var mapping = typeToMapping[type];
-  var table = mapping.table ? mapping.table : mapping.type.split("/")[1];
+    var typeToMapping = typeToConfig(resources);
+    var mapping = typeToMapping[type];
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
 
   debug('Validating schema.');
   if (mapping.schema) {
@@ -495,30 +495,29 @@ function executePutInsideTransaction(db, url, body, req, res) {
     }
     debug('Mapped incomming object according to configuration');
 
-    // check and remove types from references.
-    for (k in mapping.map) {
-      if (mapping.map.hasOwnProperty(k)) {
-        if (mapping.map[k].references && typeof element[k] != 'undefined') {
-          value = element[k].href;
-          if (!value) {
-            throw new Error('No href found inside reference ' + k);
-          }
-          referencedType = mapping.map[k].references;
-          referencedMapping = typeToMapping[referencedType];
-          parts = value.split('/');
-          type = '/' + parts[1];
-          refkey = parts[2];
-          if (type === referencedMapping.type) {
-            element[k] = refkey;
-          } else {
-            cl('Faulty reference detected [' + element[key].href + '], ' +
-              'detected [' + type + '] expected [' + referencedMapping.type + ']');
-            return;
+      // check and remove types from references.
+      for (k in mapping.map) {
+        if (mapping.map.hasOwnProperty(k)) {
+          if (mapping.map[k].references && typeof element[k] != 'undefined') {
+            value = element[k].href;
+            if (!value) {
+              throw new Error('No href found inside reference ' + k);
+            }
+            referencedType = mapping.map[k].references;
+            referencedMapping = typeToMapping[referencedType];
+            type = value.replace(value.split(referencedType)[1], '');
+            refkey = value.replace(type, '').substr(1);
+            if (type === referencedMapping.type) {
+              element[k] = refkey;
+            } else {
+              cl('Faulty reference detected [' + element[key].href + '], ' +
+                'detected [' + type + '] expected [' + referencedMapping.type + ']');
+              return;
+            }
           }
         }
       }
-    }
-    debug('Converted references to values for update');
+      debug('Converted references to values for update');
 
     var countquery = prepare('check-resource-exists-' + table);
     countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
@@ -642,7 +641,7 @@ function executeAfterReadFunctions(database, elements, mapping, me, route) {
 function getSchema(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
   var mapping = typeToMapping[type];
 
   resp.set('Content-Type', 'application/json');
@@ -653,13 +652,13 @@ function getSchema(req, resp) {
 function getDocs(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
   var mapping;
   if (type in typeToMapping) {
     mapping = typeToMapping[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping, queryUtils: exports.queryUtils});
-  } else if (type === '/docs') {
+  } else if (req.route.path === '/docs') {
     resp.render('index', {config: configuration});
   } else {
     resp.status(404).send('Not Found');
@@ -670,11 +669,11 @@ function getSQLFromListResource(path, parameters, count, database, query) {
   'use strict';
 
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + path.split('/')[1];
+  var type = path;
   var mapping = typeToMapping[type];
 
   var sql;
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
   var columns;
 
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
@@ -715,7 +714,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
-    var type = '/' + req.route.path.split('/')[1];
+    var type = req.route.path;
     var mapping = typeToMapping[type];
 
     var database;
@@ -950,7 +949,7 @@ function getRegularResource(executeExpansion) {
   'use strict';
   return function (req, resp) {
     var typeToMapping = typeToConfig(resources);
-    var type = '/' + req.route.path.split('/')[1];
+    var type = req.route.path.split(':')[0].replace(/\/$/, '');
     var mapping = typeToMapping[type];
     var key = req.params.key;
 
@@ -1026,7 +1025,7 @@ function createOrUpdate(req, res) {
       });
     }).fail(function (puterr) {
       cl('PUT processing failed. Rolling back database transaction. Error was :');
-      cl(puterr);
+      cl(puterr && puterr.stack ? puterr.stack : puterr);
       db.client.query('ROLLBACK', function (rollbackerr) {
         // If err is defined, client will be removed from pool.
         db.done(rollbackerr);
@@ -1047,9 +1046,9 @@ function deleteResource(req, resp) {
   'use strict';
   debug('sri4node DELETE invoked');
   var typeToMapping = typeToConfig(resources);
-  var type = '/' + req.route.path.split('/')[1];
+  var type = req.route.path.split(':')[0].replace(/\/$/, '');
   var mapping = typeToMapping[type];
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
 
   var database;
 
@@ -1083,7 +1082,7 @@ function deleteResource(req, resp) {
     });
   }).fail(function (delerr) {
     cl('DELETE processing failed. Rolling back database transaction. Error was :');
-    cl(delerr);
+    cl(delerr && delerr.stack ? delerr.stack : delerr);
     database.client.query('ROLLBACK', function (rollbackerr) {
       // If err is defined, client will be removed from pool.
       database.done(rollbackerr);
@@ -1146,7 +1145,7 @@ function handleBatchOperations(secureCacheFns) {
     // split batch into different response handlers (per resource)
     for (i = 0; i < batch.length; i++) {
       url = batch[i].href;
-      type = '/' + url.split('/')[1];
+      type = url.split('/').slice(0, url.split('/').length-1).join('/');
       batches.push({
         type: type,
         batch: batch[i]
@@ -1240,7 +1239,7 @@ function checkRequiredFields(mapping, information) {
   var i;
   var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    table = mapping.table ? mapping.table : mapping.type.split('/')[1];
+    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
     idx = '/' + table;
     if (!information[idx]) {
       throw new Error('Table \'' + table + '\' seems to be missing in the database.');

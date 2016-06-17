@@ -41,7 +41,7 @@ exports = module.exports = function (database, configuration) {
     for (i = 0; i < configuration.resources.length; i++) {
       type = configuration.resources[i].type;
       table = configuration.resources[i].table;
-      tableName = table ? table : type.split('/')[1];
+      tableName = table ? table : type.split('/')[type.split('/').length-1];
       tableNames.push(tableName);
     }
     tableNames = unique(tableNames);
