@@ -1459,6 +1459,7 @@ exports = module.exports = {
 
             //register docs for this type
             app.get(mapping.type + '/docs', logRequests, getDocs);
+            app.use(mapping.type +'/docs/static', express.static(__dirname + '/js/docs/static'));
 
             // register list resource for this type.
             url = mapping.type;

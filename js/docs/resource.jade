@@ -73,12 +73,8 @@ doctype html
 html(lang='en')
     head
         title API Documentation
-        if(path.substring(path.length - 1, path.length) === '/')
-            link(href='../../docs/static/bootstrap.min.css', rel='stylesheet')
-            link(href='../../docs/static/custom.css', rel='stylesheet')
-        else
-            link(href='../docs/static/bootstrap.min.css', rel='stylesheet')
-            link(href='../docs/static/custom.css', rel='stylesheet')
+        link(href='../docs/static/bootstrap.min.css', rel='stylesheet')
+        link(href='../docs/static/custom.css', rel='stylesheet')
     body
         .container
             .header.clearfix
