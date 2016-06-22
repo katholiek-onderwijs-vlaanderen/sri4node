@@ -164,7 +164,8 @@ exports = module.exports = {
     return pg.pools.getOrCreate(dbUrl);
   },
 
-  pgPoolInfo: function(pg, configuration) {
+  pgPoolInfo: function (pg, configuration) {
+    'use strict';
     return 'poolSize: ' + this.pgPool(pg, configuration).getPoolSize()
       + ' availableObjects: ' + this.pgPool(pg, configuration).availableObjectsCount()
       + ' waiting: ' + this.pgPool(pg, configuration).waitingClientsCount();
