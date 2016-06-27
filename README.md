@@ -61,7 +61,8 @@ The declaration of the editor is a reference to a second resource (/person), whi
             resources : [
                 {
                     // Base url, maps 1:1 with a table in postgres
-                    // Same name, except the '/' is removed
+                    // Can be defined as /x or /x/y/..
+                    // Table name will be the last part of the path
                     type: '/content',
                     // Is this resource public ?
                     // Can it be read / updated / inserted publicly ?
@@ -139,6 +140,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                         html: {},
                         // Reference to another resource of type /persons.
                         // (mapping of 'persons' is not shown in this example)
+                        // Can also be referenced as /x/y/.. if another resources is defined like this
                         editor: {references : '/persons'}
                     },
                     // After read, update, insert or delete

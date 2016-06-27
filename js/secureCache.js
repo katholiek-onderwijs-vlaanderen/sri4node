@@ -208,7 +208,10 @@ function store(url, cache, req, res, mapping) {
           send.call(self, output);
         })
         .catch(function (error) {
-          if (configuration.postAuthenticationFailed) {
+          if (!user) {
+            cl('No user set in the request. Note: possible cause invalid in REDIS');
+            res.status(error.status).send(error.body);
+          } else if (configuration.postAuthenticationFailed) {
             configuration.postAuthenticationFailed(req, res, user, error);
           } else if (error && error.type && error.status && error.body) {
             res.status(error.status).send(error.body);

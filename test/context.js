@@ -171,7 +171,9 @@ exports = module.exports = {
         require('./context/table.js')(roa, commonResourceConfig),
         require('./context/selfreferential.js')(commonResourceConfig),
         require('./context/jsonb.js')(commonResourceConfig),
-        require('./context/alldatatypes.js')(roa, commonResourceConfig)
+        require('./context/alldatatypes.js')(roa, commonResourceConfig),
+        require('./context/products.js')(roa, commonResourceConfig),
+        require('./context/packages.js')(roa, commonResourceConfig)
       ]
     };
 
