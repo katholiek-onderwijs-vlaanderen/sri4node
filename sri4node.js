@@ -406,13 +406,13 @@ function logRequests(req, res, next) {
   'use strict';
   var start;
   if (configuration.logrequests) {
-    common.cl(req.method + ' ' + req.path + ' starting.'
+    debug(req.method + ' ' + req.path + ' starting.'
               + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
               + common.pgPoolInfo(postgres, configuration));
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
-      common.cl(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
+      debug(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
                 + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
                 + common.pgPoolInfo(postgres, configuration));
     });
@@ -936,7 +936,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           database.done();
           if (req.headers['x-request-id']) {
-            common.cl('Freed db of list req_id: ' + req.headers['x-request-id'] + ' '
+            debug('Freed db of list req_id: ' + req.headers['x-request-id'] + ' '
                       + common.pgPoolInfo(postgres, configuration));
           }
         }
@@ -999,7 +999,7 @@ function getRegularResource(executeExpansion) {
     }).finally(function () {
       database.done();
       if (req.headers['x-request-id']) {
-        common.cl('Freed db of resource req_id: ' + req.headers['x-request-id'] + ' '
+        debug('Freed db of resource req_id: ' + req.headers['x-request-id'] + ' '
                   + common.pgPoolInfo(postgres, configuration));
       }
     });
