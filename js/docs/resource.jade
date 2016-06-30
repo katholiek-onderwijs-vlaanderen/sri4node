@@ -152,28 +152,29 @@ html(lang='en')
                     .panel-heading
                         h3.panel-title Endpoints
                     .panel-body
-                        each route, key in resource.customroutes
+                        if resource.customroutes
+                            each route, key in resource.customroutes
+                                .panel.panel-default
+                                    .panel-heading
+                                        h3.panel-title
+                                            a #{ route.route }
+                                        span.label.label-success.pull-right(style='margin-left: 5px; margin-top: -15px') #{ route.method }
+                                    if route.description
+                                        .panel-body
+                                            | #{ route.description }
                             .panel.panel-default
                                 .panel-heading
                                     h3.panel-title
-                                        a #{ route.route }
-                                    span.label.label-success.pull-right(style='margin-left: 5px; margin-top: -15px') #{ route.method }
-                                if route.description
-                                    .panel-body
-                                        | #{ route.description }
-                        .panel.panel-default
-                            .panel-heading
-                                h3.panel-title 
-                                    a(href='#{resource.type}/schema') #{ resource.type }/schema
-                                span.label.label-success.pull-right(style='margin-top: -15px') GET
-                            .panel-body
-                                | JSON Schema for #{ resource.type }
-                        .panel.panel-default
-                            .panel-heading
-                                h3.panel-title #{ resource.type }/docs
-                                span.label.label-success.pull-right(style='margin-top: -15px') GET
-                            .panel-body
-                                | This generated documentation about #{ resource.type }.
+                                        a(href='#{resource.type}/schema') #{ resource.type }/schema
+                                    span.label.label-success.pull-right(style='margin-top: -15px') GET
+                                .panel-body
+                                    | JSON Schema for #{ resource.type }
+                            .panel.panel-default
+                                .panel-heading
+                                    h3.panel-title #{ resource.type }/docs
+                                    span.label.label-success.pull-right(style='margin-top: -15px') GET
+                                .panel-body
+                                    | This generated documentation about #{ resource.type }.
             footer.footer
                 p
                     | Powered by&nbsp;
