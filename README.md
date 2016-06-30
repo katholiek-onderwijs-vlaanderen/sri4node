@@ -517,6 +517,7 @@ Each element of the customroutes array contains:
   - `method` the route method, possible values GET, PUT. Default GET.
   - `handler` function called when the route is accessed [required].
   - `middleware` optional Express.js middleware function or *array of* such functions to be called before the handler.
+  - `description` a description of the custom route.
 
 A handler function receives this arguments:
 

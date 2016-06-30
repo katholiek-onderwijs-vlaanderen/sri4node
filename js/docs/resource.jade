@@ -152,6 +152,15 @@ html(lang='en')
                     .panel-heading
                         h3.panel-title Endpoints
                     .panel-body
+                        each route, key in resource.customroutes
+                            .panel.panel-default
+                                .panel-heading
+                                    h3.panel-title
+                                        a #{ route.route }
+                                    span.label.label-success.pull-right(style='margin-left: 5px; margin-top: -15px') #{ route.method }
+                                if route.description
+                                    .panel-body
+                                        | #{ route.description }
                         .panel.panel-default
                             .panel-heading
                                 h3.panel-title 
