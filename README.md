@@ -926,6 +926,7 @@ Read the specification for details. Example queries are :
     GET /schools?institutionNumberGreater=100000
     GET /schools?nameContains=vbs
     GET /schools?nameCaseInsensitive=Minnestraal
+    GET /schools?seatAddresses.key=a39c809e-a3a4-11e3-ace8-005056872b95
 
 # Generated API Documentation
 
