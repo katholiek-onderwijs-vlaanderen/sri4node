@@ -1329,7 +1329,7 @@ exports = module.exports = {
     app.use(bodyParser.json());
 
     //to parse html pages
-    //app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
+    app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
     app.engine('.jade', require('jade').__express);
     app.set('view engine', 'jade');
     app.set('views', __dirname + '/js/docs');
