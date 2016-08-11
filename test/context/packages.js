@@ -1,12 +1,9 @@
-var Q = require('q');
 var common = require('../../js/common.js');
 
 exports = module.exports = function (roa, extra) {
   'use strict';
 
-  var $m = roa.mapUtils;
   var $s = roa.schemaUtils;
-  var $u = roa.utils;
 
   var ret = {
     type: '/store/packages',

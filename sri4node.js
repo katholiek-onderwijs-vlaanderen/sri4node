@@ -157,7 +157,7 @@ function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
   debug('** queryByKey()');
   var columns = sqlColumnNames(mapping);
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
   var row, output, msg;
   var v;
   var result;
@@ -459,7 +459,7 @@ function postProcess(functions, db, body, req, path) {
 function executePutInsideTransaction(db, url, body, req, res) {
     'use strict';
     var deferred, element, errors;
-    var type = url.split('/').slice(0, url.split('/').length-1).join('/');
+    var type = url.split('/').slice(0, url.split('/').length - 1).join('/');
     var key = url.replace(type, '').substr(1);
 
   debug('PUT processing starting. Request body :');
@@ -468,7 +468,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
 
     var typeToMapping = typeToConfig(resources);
     var mapping = typeToMapping[type];
-    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
 
   debug('Validating schema.');
   if (mapping.schema) {
@@ -641,7 +641,7 @@ function executeAfterReadFunctions(database, elements, mapping, me, route) {
 function getSchema(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   var mapping = typeToMapping[type];
 
   resp.set('Content-Type', 'application/json');
@@ -652,7 +652,7 @@ function getSchema(req, resp) {
 function getDocs(req, resp) {
   'use strict';
   var typeToMapping = typeToConfig(resources);
-  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length-1).join('/');
+  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   var mapping;
   if (type in typeToMapping) {
     mapping = typeToMapping[type];
@@ -673,7 +673,7 @@ function getSQLFromListResource(path, parameters, count, database, query) {
   var mapping = typeToMapping[type];
 
   var sql;
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
   var columns;
 
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
@@ -1048,7 +1048,7 @@ function deleteResource(req, resp) {
   var typeToMapping = typeToConfig(resources);
   var type = req.route.path.split(':')[0].replace(/\/$/, '');
   var mapping = typeToMapping[type];
-  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
+  var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
 
   var database;
 
@@ -1145,7 +1145,7 @@ function handleBatchOperations(secureCacheFns) {
     // split batch into different response handlers (per resource)
     for (i = 0; i < batch.length; i++) {
       url = batch[i].href;
-      type = url.split('/').slice(0, url.split('/').length-1).join('/');
+      type = url.split('/').slice(0, url.split('/').length - 1).join('/');
       batches.push({
         type: type,
         batch: batch[i]
@@ -1239,7 +1239,7 @@ function checkRequiredFields(mapping, information) {
   var i;
   var table, idx;
   for (i = 0; i < mandatoryFields.length; i++) {
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length-1];
+    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
     idx = '/' + table;
     if (!information[idx]) {
       throw new Error('Table \'' + table + '\' seems to be missing in the database.');
@@ -1329,7 +1329,7 @@ exports = module.exports = {
     app.use(bodyParser.json());
 
     //to parse html pages
-    app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
+    //app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
     app.engine('.jade', require('jade').__express);
     app.set('view engine', 'jade');
     app.set('views', __dirname + '/js/docs');
@@ -1458,7 +1458,8 @@ exports = module.exports = {
 
             //register docs for this type
             app.get(mapping.type + '/docs', logRequests, getDocs);
-            app.use(mapping.type +'/docs/static', express.static(__dirname + '/js/docs/static'));
+            app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
+            app.use(mapping.type + '/docs/docs/static', express.static(__dirname + '/js/docs/static'));
 
             // register list resource for this type.
             url = mapping.type;
