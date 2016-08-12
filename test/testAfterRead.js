@@ -61,5 +61,15 @@ exports = module.exports = function (base, logverbose) {
         });
       });
     });
+
+    describe('Should be able to modify response headers', function () {
+      it('should have a test header when reading a resource', function () {
+        return doGet(base + '/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16').
+        then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.headers.test, 'TestHeader');
+        });
+      });
+    });
   });
 };

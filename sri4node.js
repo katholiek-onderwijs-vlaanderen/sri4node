@@ -573,7 +573,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
 }
 /* eslint-enable */
 
-function executeAfterReadFunctions(database, elements, mapping, me, route) {
+function executeAfterReadFunctions(database, elements, mapping, me, route, headerFn) {
   'use strict';
   var promises, i, ret;
   debug('executeAfterReadFunctions');
@@ -582,7 +582,7 @@ function executeAfterReadFunctions(database, elements, mapping, me, route) {
   if (elements.length > 0 && mapping.afterread && mapping.afterread.length > 0) {
     promises = [];
     for (i = 0; i < mapping.afterread.length; i++) {
-      promises.push(mapping.afterread[i](database, elements, me, route));
+      promises.push(mapping.afterread[i](database, elements, me, route, headerFn));
     }
 
     Q.allSettled(promises).then(function (results) {
@@ -909,7 +909,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       }
 
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req, resp.header.bind(resp));
     }).then(function () {
       debug('* sending response to client :');
       debug(output);
@@ -979,7 +979,7 @@ function getRegularResource(executeExpansion) {
       elements = [];
       elements.push(element);
       debug('* executing expansion : ' + req.query.expand);
-      return executeExpansion(database, elements, mapping, resources, req.query.expand, req);
+      return executeExpansion(database, elements, mapping, resources, req.query.expand, req, resp.header.bind(resp));
     }).then(function () {
       debug('* sending response to the client :');
       debug(element);

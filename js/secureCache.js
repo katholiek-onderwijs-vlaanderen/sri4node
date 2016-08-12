@@ -200,7 +200,7 @@ function store(url, cache, req, res, mapping) {
         })
         .then(function () {
           if (resources) {
-            return executeAfterReadFunctions(res.database, resources, mapping, user, req.originalUrl);
+            return executeAfterReadFunctions(res.database, resources, mapping, user, req.originalUrl, res.header.bind(res));
           }
           return true;
         })
@@ -300,7 +300,7 @@ exports = module.exports = function (mapping, config, pg, afterReadFunctionsFn) 
               res.send(value.data);
             })
             .then(function () {
-              return executeAfterReadFunctions(database, value.resources, mapping, user, req.originalUrl);
+              return executeAfterReadFunctions(database, value.resources, mapping, user, req.originalUrl, res.header.bind(res));
             })
             .then(function () {
               for (header in value.headers) {

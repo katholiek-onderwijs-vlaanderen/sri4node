@@ -25,6 +25,10 @@ exports = module.exports = function (roa, extra) {
     }
   };
 
+  var addTestHeader = function (database, elements, me, route, headerFn) {
+    headerFn('Test', 'TestHeader');
+  };
+
   var ret = {
     type: '/alldatatypes',
     'public': false, // eslint-disable-line
@@ -86,7 +90,7 @@ exports = module.exports = function (roa, extra) {
       defaultFilter: $q.defaultFilter
     },
     afterread: [
-      checkRead, checkRoute
+      checkRead, checkRoute, addTestHeader
     ],
     defaultlimit: 5,
     maxlimit: 50

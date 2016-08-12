@@ -378,6 +378,7 @@ The function receives these parameters :
 - `elements` is an array of one or more resources that you can manipulate.
 - `me` the return of the identify function
 - `route` the url route that originated the response
+- `headersFn` A function of the form (field [, value]): Sets the response’s HTTP header field to value. To set multiple fields at once, pass an object as the parameter.
 
 The function must return a [Q promise][kriskowal-q].
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response by default. It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
