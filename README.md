@@ -544,6 +544,29 @@ reading the source for one of these functions should contain no surprises.
 ### General Utilities
 The utilities are found in `sri4node.utils`.
 
+#### getConnection(pg, configuration)
+Used for obtaining a new connection to the database. **It must be properly closed after done using it**.
+Failure to do so will create connection leaks in the pool.
+Arguments:
+
+- `pg`: a postgres object (https://www.npmjs.com/package/pg)
+- `config`: a configuration object with the attributes: ```{defaultdatabaseurl: databaseUrl, logsql: verbose}```
+
+Example usage:
+
+```
+var db;
+getConnection(pg, config)
+.then(function (database) {
+  db = database;
+
+  // do something with the database
+})
+.finally(function () {
+  db.done();
+});
+```
+
 #### prepareSQL()
 Used for preparing SQL. Supply a `name` to keep the query in the database as a prepared statement.
 It returns a query object with these functions :

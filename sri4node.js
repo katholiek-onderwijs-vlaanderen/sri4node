@@ -1522,6 +1522,7 @@ exports = module.exports = {
   utils: {
     // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
     executeSQL: pgExec,
+    getConnection: pgConnect,
     prepareSQL: queryobject.prepareSQL,
 
     generateError: generateError,
