@@ -24,6 +24,27 @@ exports = module.exports = function (roa, logverbose, extra) {
     return deferred.promise;
   }
 
+  function disallowOneCommunity(forbiddenKey) {
+    return function (req) {
+      var deferred = Q.defer();
+      var key;
+
+      if (req.method === 'GET') {
+        key = req.params.key;
+        if (req.params.key === forbiddenKey || req.path == '/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c') {
+          cl('security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
+          deferred.reject();
+        } else {
+          deferred.resolve();
+        }
+      } else {
+        deferred.resolve();
+      }
+
+      return deferred.promise;
+    };
+  }
+
   // Don't really need the extra parameters when using CTE.
   function parameterWithExtraQuery(value, select, param, database, count) {
     var deferred = Q.defer();
@@ -128,8 +149,8 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   var ret = {
     type: '/communities',
-    'public': true, // eslint-disable-line
-    secure: [],
+    'public': false, // eslint-disable-line
+    secure: [disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c')],
     cache: {
       ttl: 0,
       type: 'local'

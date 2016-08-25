@@ -88,12 +88,26 @@ exports = module.exports = function (base, logverbose) {
           assert.equal(response.statusCode, 403);
         });
       });
+
+      it('should succeed since the expanded resource is valid', function () {
+        return doGet(base + '/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person',
+          'kevin@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 200);
+        });
+      });
+
+      it('should fail since the expanded chained resource is restricted', function () {
+        return doGet(base + '/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community',
+          'kevin@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 403);
+        });
+      });
     });
 
     // Test expand=results.href,results.href.community on lists of messages
     describe('on list resources', function () {
       it('should succeed with $$expanded as result.', function () {
-        return doGet(base + '/messages?expand=results.community', 'sabine@email.be', 'pwd').then(function (response) {
+        return doGet(base + '/messages?limit=6&expand=results.community', 'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           debug(response.body.results[0].$$expanded);
           if (response.body.results[0].$$expanded.community.$$expanded === null) {
@@ -111,6 +125,20 @@ exports = module.exports = function (base, logverbose) {
       it('should fail due to secure function on expanded resource', function () {
         return doGet(base + '/messages?expand=results.person',
           'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 403);
+        });
+      });
+
+      it('should succeed since the expanded resource is valid', function () {
+        return doGet(base + '/messages?titleContains=Vervoer&expand=results.person',
+          'kevin@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 200);
+        });
+      });
+
+      it('should fail since the expanded chained resource is restricted', function () {
+        return doGet(base + '/messages?titleContains=Vervoer&expand=results.person.community',
+          'kevin@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 403);
         });
       });

@@ -131,7 +131,8 @@ exports = module.exports = function (roa, logverbose, extra) {
       postedSince: messagesPostedSince, // For compatability, to be removed.
       modifiedsince: messagesPostedSince,
       cteOneGuid: cteOneGuid,
-      cteOneGuid2: cteOneGuid2
+      cteOneGuid2: cteOneGuid2,
+      defaultFilter: $q.defaultFilter
     },
     afterread: [
       addExtraKeysAfterRead
