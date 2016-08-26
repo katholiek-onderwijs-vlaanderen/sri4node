@@ -595,6 +595,8 @@ Example of using a common table expression :
 Used for executing SQL.
 Call with the a `database` object you received, and a `query` object (as returned by `prepareSQL()`, or as received for `query` functions).
 The function returns a [Q promise][kriskowal-q].
+**It's not a responsible of this function to close the connection on error since it's an argument, hence the caller must properly
+make sure that the connection is disposed regardless of the result.**
 
 #### addReferencingResources(type, foreignkey, targetkey)
 Afterread utility function. Adds, for convenience, an array of referencing resource to the currently retrieved resource(s).
