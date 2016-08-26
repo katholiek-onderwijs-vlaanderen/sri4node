@@ -488,7 +488,7 @@ function executePutInsideTransaction(db, url, body, req, res) {
     element = {};
     for (k in mapping.map) {
       if (mapping.map.hasOwnProperty(k)) {
-        if (body[k]) {
+        if (body.hasOwnProperty(k)) {
           element[k] = body[k];
         }
       }
