@@ -5,6 +5,7 @@ var cl = common.cl;
 var sriclient = require('sri4node-client');
 var doGet = sriclient.get;
 var doPut = sriclient.put;
+var doPost = sriclient.post;
 var doDelete = sriclient.delete;
 var uuid = require('node-uuid');
 var Q = require('q');
@@ -20,10 +21,11 @@ exports = module.exports = function (base, logverbose) {
     }
   }
 
-  function generateRandomPerson(key, communityPermalink) {
+  function generateRandomPerson(key, communityPermalink, firstname, lastname) {
     return {
-      firstname: 'Sabine',
-      lastname: 'Eeckhout',
+      key: key,
+      firstname: firstname ? firstname : 'Sabine',
+      lastname: lastname ? lastname : 'Eeckhout',
       street: 'Stationstraat',
       streetnumber: '17',
       zipcode: '9280',
@@ -40,6 +42,7 @@ exports = module.exports = function (base, logverbose) {
 
   function generateRandomCommunity(key) {
     return {
+      key: key,
       name: 'LETS ' + key,
       street: 'Leuvensesteenweg',
       streetnumber: '34',
@@ -54,6 +57,7 @@ exports = module.exports = function (base, logverbose) {
 
   function generateRandomMessage(key, person, community) {
     return {
+      key: key,
       person: {
         href: person
       },
@@ -70,6 +74,7 @@ exports = module.exports = function (base, logverbose) {
 
   function generateTransaction(key, permalinkFrom, permalinkTo, amount) {
     return {
+      key: key,
       fromperson: {
         href: permalinkFrom
       },
@@ -225,6 +230,74 @@ exports = module.exports = function (base, logverbose) {
           });
 
       });
+    });
+  });
+
+  describe('VALIDATION', function () {
+    describe('schema validation', function () {
+      it('should detect if a field is too long', function () {
+        var key = uuid.v4();
+        var body = generateRandomCommunity(key);
+        body.email = body.email + body.email + body.email;
+        return doPost(base + '/communities/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 409);
+        });
+      });
+    });
+
+    describe('with rejecting custom validation function', function () {
+      it('should return a 409 Conflict', function () {
+        var key = uuid.v4();
+        var body = generateRandomMessage(key, personSabine, communityDendermonde);
+        return doPost(base + '/messages/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 409);
+          assert.equal(response.body.errors[0].code, 'not.enough');
+        });
+      });
+    });
+
+    describe('with a missing field (community without name)', function () {
+      it('should return a 409 Conflict', function () {
+        var key = uuid.v4();
+        var body = generateRandomCommunity(key);
+        delete body.name;
+        return doPost(base + '/communities/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 409);
+          assert.equal(response.body.errors[0].code, 'requires.property.name');
+        });
+      });
+    });
+
+    describe('with a numeric value of 0', function () {
+      it('should work and not skip 0 as a null value', function () {
+
+        var keyt = uuid.v4();
+        var t = generateTransaction(keyt, '/persons/9abe4102-6a29-4978-991e-2a30655030e6', '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', 0);
+        return doPost(base + '/transactions/validate', t, 'sabine@email.be', 'pwd')
+          .then(function (response) {
+            assert.equal(response.statusCode, 201);
+          });
+
+      });
+    });
+
+    describe('should have no side effects', function () {
+
+      var key = uuid.v4();
+      var p = generateRandomPerson(key, communityDendermonde, 'Rodrigo', 'Uroz');
+
+      it('must return 201 on a new resource but the person must not be persisted', function () {
+        return doPost(base + '/persons/validate', p, 'sabine@email.be', 'pwd').then(function (response) {
+          debug(response);
+          assert.equal(response.statusCode, 201);
+
+          return doGet(base + '/persons/' + key, 'sabine@email.be', 'pwd').then(function (response) {
+            assert.equal(response.statusCode, 404);
+          });
+
+        });
+      });
+
     });
   });
 

@@ -22,7 +22,7 @@
     "needle": "0.10.x",
     "node-cache": "^3.0.0",
     "q": "^1.0.1",
-    "sri4node-client": "^1.0.0",
+    "sri4node-client": "https://github.com/rodrigouroz/sri-client.git",
     "uuid": "2.0.x"
   },
   "devDependencies": {

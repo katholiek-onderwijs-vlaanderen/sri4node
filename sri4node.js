@@ -297,9 +297,9 @@ function doBasicAuthentication(authenticator) {
     var path = req.route.path;
     var database;
 
-    if (path !== '/me' && path !== '/batch') {
+    if (path !== '/me' && path !== '/batch' && path !== '/validate') {
       typeToMapping = typeToConfig(resources);
-      type = req.route.path.split(':')[0].replace(/\/$/, '');
+      type = req.route.path.split(':')[0].replace(/\/$/, '').replace('/validate','');
       mapping = typeToMapping[type];
       if (mapping.public) {
         next();
@@ -424,6 +424,12 @@ function postProcess(functions, db, body, req, path) {
   'use strict';
   var promises;
   var deferred = Q.defer();
+
+  // special case for validate
+  if (path.indexOf('validate') != -1) {
+    path = path.replace('validate', body.key);
+  }
+
   var elements = [{path: path, body: body}];
 
   if (functions && functions.length > 0) {
@@ -461,6 +467,11 @@ function executePutInsideTransaction(db, url, body, req, res) {
     var deferred, element, errors;
     var type = url.split('/').slice(0, url.split('/').length - 1).join('/');
     var key = url.replace(type, '').substr(1);
+
+    // special case - validation
+    if (key == 'validate') {
+      key = body.key;
+    }
 
   debug('PUT processing starting. Request body :');
   debug(body);
@@ -1042,6 +1053,42 @@ function createOrUpdate(req, res) {
   }); // pgConnect
 }
 
+function validate(req, res) {
+  'use strict';
+  debug('* sri4node VALIDATE processing invoked.');
+  var url = req.path;
+  pgConnect(postgres, configuration).then(function (db) {
+    var begin = prepare('begin-transaction');
+    begin.sql('BEGIN');
+    return pgExec(db, begin, logsql, logdebug).then(function () {
+      return executePutInsideTransaction(db, url, req.body, req, res);
+    }).then(function () {
+      debug('VALIDATE processing went OK. Rolling back database transaction.');
+      db.client.query('ROLLBACK', function (err) {
+        // If err is defined, client will be removed from pool.
+        db.done(err);
+        debug('ROLLBACK DONE.');
+        res.send(true);
+      });
+    }).fail(function (puterr) {
+      cl('VALIDATE processing failed. Rolling back database transaction. Error was :');
+      cl(puterr && puterr.stack ? puterr.stack : puterr);
+      db.client.query('ROLLBACK', function (rollbackerr) {
+        // If err is defined, client will be removed from pool.
+        db.done(rollbackerr);
+        cl('ROLLBACK DONE.');
+        if (puterr === 'resource.gone') {
+          res.status(410).send();
+        } else if (puterr && puterr.statusCode) {
+          res.status(puterr.statusCode).send(puterr.body);
+        } else {
+          res.status(409).send(puterr);
+        }
+      });
+    });
+  }); // pgConnect
+}
+
 function deleteResource(req, resp) {
   'use strict';
   debug('sri4node DELETE invoked');
@@ -1487,6 +1534,10 @@ exports = module.exports = {
                 emt.instrument(getRegularResource(executeExpansion), 'getResource'))
               .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
               .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+
+            // validation route
+            url = mapping.type + '/validate';
+            app.post(url, logRequests, config.authenticate, secureCacheFn, validate);
 
             // register custom routes (if any)
 
