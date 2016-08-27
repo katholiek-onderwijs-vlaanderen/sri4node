@@ -218,7 +218,7 @@ exports = module.exports = function (base, logverbose) {
       it('should work and not skip 0 as a null value', function () {
 
         var keyt = uuid.v4();
-        var t = generateTransaction(keyt, '/persons/9abe4102-6a29-4978-991e-2a30655030e6', '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', 0);
+        var t = generateTransaction(keyt, '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 0);
         return doPut(base + '/transactions/' + keyt, t, 'sabine@email.be', 'pwd')
           .then(function (response) {
             assert.equal(response.statusCode, 201);
