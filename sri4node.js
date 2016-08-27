@@ -937,7 +937,20 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         } else {
           cl(err);
         }
-        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
+        if (err.message) {
+          resp.status(409).send({
+            errors: [
+              {
+                type: 'ERROR',
+                code: 'invalid.query.parameter',
+                message: err.message
+              }
+            ]
+          });
+        } else {
+          resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
+        }
+
       }
     }).finally(function () {
       database.client.query('ROLLBACK', function (err) {
