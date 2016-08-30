@@ -456,7 +456,6 @@ function parseFilters(value, select, parameter, mapping) {
 
     // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
     filter = analyseParameter(parameter);
-    console.log(filter);
 
     // 2) Find data type on database from information schema;
     idx = mapping.table ? '/' + mapping.table : mapping.type;
@@ -495,7 +494,8 @@ function parseFilters(value, select, parameter, mapping) {
       error = {
         code: 'invalid.query.parameter',
         parameter: parameter,
-        type: 'ERROR'
+        type: 'ERROR',
+        possibleParameters: Object.keys(informationSchema[idx])
       };
       throw error;
     }
