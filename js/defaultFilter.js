@@ -153,23 +153,19 @@ function filterString(select, filter, value) {
   }
   else if (not && sensitive) {
 
-    select.sql(' AND TRIM("' + filter.key + '") NOT LIKE ').param(value).sql(' OR ' + filter.key + ' IS NULL');
+    select.sql(' AND "' + filter.key + '" <> ').param(value).sql(' OR ' + filter.key + ' IS NULL');
 
   }
   else if (!not && sensitive) {
-
-    select.sql(' AND TRIM("' + filter.key + '") LIKE ').param(value);
-
+    select.sql(' AND "' + filter.key + '" = ').param(value);
   }
   else if (not && !sensitive) {
 
-    select.sql(' AND TRIM("' + filter.key + '") NOT ILIKE ').param(value).sql(' OR ' + filter.key + ' IS NULL');
+    select.sql(' AND LOWER("' + filter.key + '") <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + ' IS NULL');
 
   }
   else {
-
-    select.sql(' AND TRIM("' + filter.key + '") ILIKE ').param(value);
-
+    select.sql(' AND LOWER("' + filter.key + '") = ').param(value.toLowerCase());
   }
 
 }
