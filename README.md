@@ -933,7 +933,7 @@ The value being passed in as a URL parameter can be a single href, or a comma-se
 
 #### defaultFilter
 
-An implementation of [sri-query][sri-query]. SRI-query defines default, basic filternig on list resources. The function is a default, shared implementation of that.
+An implementation of [sri-query][sri-query]. SRI-query defines default, basic filtering on list resources. The function is a default, shared implementation of that.
 
     {
         type: '/schools',
@@ -953,6 +953,42 @@ Read the specification for details. Example queries are :
     GET /schools?nameContains=vbs
     GET /schools?nameCaseInsensitive=Minnestraal
     GET /schools?seatAddresses.key=a39c809e-a3a4-11e3-ace8-005056872b95
+    
+### Relations query filters
+
+When a resource is detected as a relation (has from and to properties) some query filters are added for the list resources. 
+
+    {
+        type: '/relations',
+        map: {
+            from: {references: '/messages'},
+            to: {references: '/messages'}
+        },
+        ...
+        query: {
+            ...
+        }
+    }
+    
+#### fromTypes
+Can be used to filter those relations where the 'from' resource is some of the given types.
+
+#### toTypes
+Can be used to filter those relations where the 'to' resource is some of the given types.
+
+#### froms
+Filter those relations where the 'from' resources is one of the given ones. 
+
+#### tos
+Filter those relations where the 'to' resources is one of the given ones. 
+
+
+Example queries are :
+
+    GET /relations?fromTypes=request,offer
+    GET /relations?toTypes=response
+    GET /relations?froms=/messages/{guid}
+    GET /relations?tos=/messages/{guid}
 
 # Generated API Documentation
 

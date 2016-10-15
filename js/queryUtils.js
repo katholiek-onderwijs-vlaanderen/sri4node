@@ -83,10 +83,11 @@ exports = module.exports = {
     };
   },
 
-  modifiedSince: function (value, select) {
+  modifiedSince: function (value, select, key, database, count, mapping) {
     'use strict';
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
 
-    return select.sql(' AND "$$meta.modified" >= ').param(value);
+    return select.sql(' AND ' + table + '."$$meta.modified" >= ').param(value);
 
   },
 

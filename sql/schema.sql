@@ -138,3 +138,27 @@ CREATE TABLE "products" (
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp
 );
+
+CREATE TABLE "relations" (
+  key uuid primary key,
+  "from" uuid REFERENCES messages (key),
+  "to" uuid REFERENCES messages (key),
+  type text,
+  startdate timestamp with time zone,
+  enddate timestamp with time zone,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "personrelations" (
+  key uuid primary key,
+  "from" uuid REFERENCES persons (key),
+  "to" uuid REFERENCES persons (key),
+  type text,
+  startdate timestamp with time zone,
+  enddate timestamp with time zone,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);

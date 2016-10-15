@@ -36,6 +36,9 @@ describe('Sri4node testing', function () {
   require('./defaultFilter/testDefaultFilterQ.js')(base, logdebug);
   require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
   require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);
+  require('./relationsFilter/testRelationsFilterFromTypes.js')(base, logdebug);
+  require('./relationsFilter/testRelationsFilterToTypes.js')(base, logdebug);
+  require('./relationsFilter/testRelationsFilterNoType.js')(base, logdebug);
   require('./testModified.js')(base, logdebug);
   require('./testDocs.js')(base, logdebug);
   require('./testErrorHandling.js')(base, logdebug);

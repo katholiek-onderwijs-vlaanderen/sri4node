@@ -173,7 +173,9 @@ exports = module.exports = {
         require('./context/jsonb.js')(commonResourceConfig),
         require('./context/alldatatypes.js')(roa, commonResourceConfig),
         require('./context/products.js')(roa, commonResourceConfig),
-        require('./context/packages.js')(roa, commonResourceConfig)
+        require('./context/packages.js')(roa, commonResourceConfig),
+        require('./context/relations.js')(roa, commonResourceConfig),
+        require('./context/personrelations.js')(roa, commonResourceConfig)
       ]
     };
 

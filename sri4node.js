@@ -104,7 +104,7 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
         } else if (key === 'hrefs') {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count));
         } else if (key === 'modifiedSince') {
-          promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select));
+          promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select, key, database, count, mapping));
         }
       }
     }
@@ -695,23 +695,23 @@ function getSQLFromListResource(path, parameters, count, database, query) {
 
   if (count) {
     if (parameters['$$meta.deleted'] === 'true') {
-      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = true ';
+      sql = 'select count(*) from "' + table + '" where "' + table + '"."$$meta.deleted" = true ';
     } else if (parameters['$$meta.deleted'] === 'any') {
       sql = 'select count(*) from "' + table + '" where 1=1 ';
     } else {
-      sql = 'select count(*) from "' + table + '" where "$$meta.deleted" = false ';
+      sql = 'select count(*) from "' + table + '" where "' + table + '"."$$meta.deleted" = false ';
     }
     query.sql(sql);
   } else {
     if (parameters['$$meta.deleted'] === 'true') {
       sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-      sql += table + '" where "$$meta.deleted" = true ';
+      sql += table + '" where "' + table + '"."$$meta.deleted" = true ';
     } else if (parameters['$$meta.deleted'] === 'any') {
       sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
       sql += table + '" where 1=1 ';
     } else {
       sql = 'select ' + columns + ', "$$meta.deleted", "$$meta.created", "$$meta.modified" from "';
-      sql += table + '" where "$$meta.deleted" = false ';
+      sql += table + '" where "' + table + '"."$$meta.deleted" = false ';
     }
     query.sql(sql);
   }
@@ -1373,6 +1373,7 @@ exports = module.exports = {
     var msg;
     var database;
     var authentication;
+    var relationFilters;
     var d = Q.defer();
 
     configuration = config;
@@ -1556,6 +1557,22 @@ exports = module.exports = {
 
             if (mapping.customroutes && mapping.customroutes instanceof Array) {
               registerCustomRoutes(mapping, app, config, secureCacheFn);
+            }
+
+            // append relation filters if auto-detected a relation resource
+            if (mapping.map.from && mapping.map.to) {
+
+              //mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
+              relationFilters = require('./js/relationsFilter.js');
+              if (!mapping.query) {
+                mapping.query = {};
+              }
+
+              for (var key in relationFilters) {
+                if (relationFilters.hasOwnProperty(key)) {
+                  mapping.query[key] = relationFilters[key];
+                }
+              }
             }
           } catch (err) {
             cl('\n\nSRI4NODE FAILURE: \n');

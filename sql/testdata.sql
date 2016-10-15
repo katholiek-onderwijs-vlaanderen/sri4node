@@ -96,3 +96,13 @@ INSERT INTO "products" VALUES ('1edb2754-5684-4567-ae5b-ec33c903ee4d', 'Hat', 'C
 INSERT INTO "products" VALUES ('1edb2754-5684-7896-ae5b-ec33c903ee4d', 'Meat', 'Food', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
 INSERT INTO "products" VALUES ('1edb2754-5684-6547-ae5b-ec33c903ee4d', 'Rice', 'Food', '2edb2754-1598-4996-ae5b-ec33c903ee4d');
 
+
+INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-5684-4996-ae5b-ec33c903ee4d', 'ad9ff799-7727-4193-a34a-09f3819c3479', 'd70c98ca-9559-47db-ade6-e5da590b2435', 'IS_RELATED');
+INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-7412-4996-ae5b-ec33c903ee4d', 'cf328c0a-7793-4b01-8544-bea8854147ab', 'd70c98ca-9559-47db-ade6-e5da590b2435', 'IS_RELATED');
+INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-3699-4996-ae5b-ec33c903ee4d', 'd70c98ca-9559-47db-ade6-e5da590b2435', 'a391efaf-485e-45bb-8688-87d7bdfee9f6', 'IS_PART_OF');
+INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-8526-4996-ae5b-ec33c903ee4d', '7f5f646c-8f0b-4ce6-97ce-8549b8b78234', '5a2747d4-ed99-4ceb-9058-8152e34f4cd5', 'IS_PART_OF');
+
+INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-5684-4996-ae5b-ec33c903ee4d', '2f11714a-9c45-44d3-8cde-cd37eb0c048b', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON');
+INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-7412-4996-ae5b-ec33c903ee4d', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON');
+INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-3699-4996-ae5b-ec33c903ee4d', 'da6dcc12-c46f-4626-a965-1a00536131b2', '9abe4102-6a29-4978-991e-2a30655030e6', 'DAUGHTER');
+INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-8526-4996-ae5b-ec33c903ee4d', '692fa054-33ec-4a28-87eb-53df64e3d09d', '9abe4102-6a29-4978-991e-2a30655030e6', 'NICE');
