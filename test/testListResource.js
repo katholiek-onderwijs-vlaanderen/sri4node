@@ -198,6 +198,21 @@ exports = module.exports = function (base, logverbose) {
       });
     });
 
+    it('should allow unlimited resources with expand NONE', function () {
+      return doGet(base + '/alldatatypes?limit=*&expand=NONE', 'kevin@email.be', 'pwd').then(function (response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.results.length, 38);
+      });
+    });
+
+    it('should forbid unlimited  resources with expand different to NONE', function () {
+      return doGet(base + '/alldatatypes?limit=*', 'kevin@email.be', 'pwd').then(function (response) {
+        assert.equal(response.statusCode, 409);
+        assert.equal(response.body[0].code, 'invalid.limit.parameter');
+        assert.equal(response.body[0].message, 'The maximum allowed limit is 50');
+      });
+    });
+
     it('should propagate parameters in the next page', function () {
       return doGet(base + '/alldatatypes?textContains=a&limit=2', 'kevin@email.be', 'pwd').then(function (response) {
         assert.equal(response.statusCode, 200);

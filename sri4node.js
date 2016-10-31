@@ -803,7 +803,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       offset = req.query.offset || 0;
       var err;
 
-      if (queryLimit > maxlimit) {
+      if (queryLimit > maxlimit || (queryLimit === '*' && req.query.expand !== 'NONE')) {
 
         err = {
           status: 409,
@@ -820,7 +820,10 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
         throw err;
       }
 
-      query.sql(' limit ').param(queryLimit);
+      if (!(queryLimit === '*' && req.query.expand === 'NONE')) {
+        // limit condition is always added except special case where the paremeter limit=* and expand is NONE (#104)
+        query.sql(' limit ').param(queryLimit);
+      }
 
       if (offset) {
         query.sql(' offset ').param(offset);

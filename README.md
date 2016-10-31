@@ -533,6 +533,9 @@ The following attributes dictate how the lists are paginated:
 - `defaultlimit`: the number of resources per page. If empty, a default of 30 is used.
 - `maxlimit`: The maximum limit allowed. If empty, a default of 500 is used.
 
+The limit query parameter can be used to specify the amount of retrieved results.
+A special case is allowed where the limit value is '\*' and the expand parameter is 'NONE', this means unlimited results.
+
 ## Bundled Utility Functions
 
 These utilities live independently of the basic processing described above.
