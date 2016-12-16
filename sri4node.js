@@ -101,7 +101,7 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
             });
             break;
           }
-        } else if (key === 'hrefs') {
+        } else if (key === 'hrefs' && urlparameters.hrefs) {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count));
         } else if (key === 'modifiedSince') {
           promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select, key, database, count, mapping));
