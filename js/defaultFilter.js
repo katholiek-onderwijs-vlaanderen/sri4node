@@ -10,7 +10,7 @@ function analyseParameter(parameter) {
   var path = null;
   var matches;
 
-  var pattern = /^(.*?)(CaseSensitive)?(Not)?(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains)?$/;
+  var pattern = /^(.*?)(CaseSensitive)?(Not)?(Greater(OrEqual)?|After|Less(OrEqual)?|Before|In|RegEx|Contains|Overlaps)?$/;
 
   if ((matches = key.match(pattern)) !== null) {
     key = matches[1];
@@ -230,14 +230,18 @@ function filterArray(select, filter, value) {
     else {
       select.sql(' AND (');
     }
-    for (i = 0; i < values.length; i++) {
-      if (i > 0) {
-        select.sql(' AND');
+    if (filter.operator === 'Overlaps') {
+      select.sql('ARRAY[\'' + values.join('\',\'') + '\']' + ' && "' + filter.key + '"');
+    } else {
+      for (i = 0; i < values.length; i++) {
+        if (i > 0) {
+          select.sql(' AND');
+        }
+        select.sql(' \'' + values[i] + '\' = ANY("' + filter.key + '")');
       }
-      select.sql(' \'' + values[i] + '\' = ANY("' + filter.key + '")');
-    }
-    if (filter.operator !== 'Contains') {
-      select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+      if (filter.operator !== 'Contains') {
+        select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
+      }
     }
     select.sql(')');
   }
