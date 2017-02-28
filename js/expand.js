@@ -76,7 +76,8 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
             permalink = element.$$meta.permalink;
             targetlink = element[expand].href;
             key = permalink.split('/')[2];
-            targetkey = targetlink.split('/')[2];
+            var targetkeySplit = targetlink.split('/');
+            targetkey = targetlink.split('/')[targetkeySplit.length - 1];
             // Remove duplicates and items that are already expanded.
             if (targetkeys.indexOf(targetkey) === -1 && !element[expand].$$expanded) {
               targetkeys.push(targetkey);
@@ -87,7 +88,7 @@ exports = module.exports = function (logdebug, prepare, pgExec, executeAfterRead
           targetType = mapping.map[expand].references;
           typeToMapping = typeToConfig(resources);
           targetMapping = typeToMapping[targetType];
-          table = targetMapping.type.substr(1);
+          table = targetMapping.table ? targetMapping.table : targetMapping.type.split('/')[targetMapping.type.split('/').length - 1];
           columns = sqlColumnNames(targetMapping);
           targetpermalinkToObject = {};
           expandedElements = [];
