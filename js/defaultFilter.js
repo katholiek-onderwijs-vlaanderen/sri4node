@@ -368,7 +368,7 @@ function getTextFieldsFromTable(informationSchema) {
       type = informationSchema[field].type;
 
       if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char' ||
-        type === 'character') {
+        type === 'character' || type === 'uuid') {
         textFields.push(field);
       }
     }
@@ -488,7 +488,7 @@ function parseFilters(value, select, parameter, mapping) {
       }
     }
     else if (filter.key === 'q') {
-      filterGeneral(select, value, getTextFieldsFromTable(informationSchema[mapping.type]));
+      filterGeneral(select, value, getTextFieldsFromTable(informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
     }
     else {
       error = {
