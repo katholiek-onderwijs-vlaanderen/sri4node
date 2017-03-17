@@ -1648,7 +1648,7 @@ exports = module.exports = {
             result.rows.forEach(function (row) {
               var element = elementKeysToElement[row.fkey];
               var target = {href: type + '/' + row.key};
-              var key;
+              var key, referencedType;
               if (expand) {
                 target.$$expanded = {};
                 for (key in row) {
