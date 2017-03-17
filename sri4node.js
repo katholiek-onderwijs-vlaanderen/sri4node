@@ -1625,9 +1625,11 @@ exports = module.exports = {
         var tablename, query, elementKeys, elementKeysToElement;
         var permalink, elementKey;
         var deferred = Q.defer();
+        var typeToMapping = typeToConfig(resources);
+        var mapping = typeToMapping[type];
 
         if (elements && elements.length && elements.length > 0) {
-          tablename = type.split('/')[1];
+          tablename = type.split('/')[type.split('/').length - 1];
           query = prepare();
           elementKeys = [];
           elementKeysToElement = {};
@@ -1651,7 +1653,12 @@ exports = module.exports = {
                 target.$$expanded = {};
                 for (key in row) {
                   if (row.hasOwnProperty(key) && row[key] && key.indexOf('$$meta.') === -1 && key !== 'fkey') {
-                    target.$$expanded[key] = row[key];
+                    if (mapping.map[key].references) {
+                      referencedType = mapping.map[key].references;
+                      target.$$expanded[key] = {href: typeToMapping[referencedType].type + '/' + row[key]};
+                    } else {
+                      target.$$expanded[key] = row[key];
+                    }
                   }
                 }
 
