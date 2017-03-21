@@ -15,7 +15,7 @@ exports = module.exports = {
         keys = [];
         reject = false;
         for (i = 0; i < permalinks.length; i++) {
-          key = permalinks[i].split('/')[2];
+          key = permalinks[i].split('/')[permalinks[i].split('/').length - 1];
           if (key.length === 36) {
             keys.push(key);
           } else {
