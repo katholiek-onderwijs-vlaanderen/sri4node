@@ -3,6 +3,7 @@ var uuid = require('node-uuid');
 var sriclient = require('sri4node-client');
 var doGet = sriclient.get;
 var doPut = sriclient.put;
+var doPost = sriclient.post;
 var doDelete = sriclient.delete;
 
 exports = module.exports = function (base) {
@@ -69,6 +70,23 @@ exports = module.exports = function (base) {
         return doPut(base + '/batch', batch, 'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 201);
           assert.equal(response.body, true);
+        });
+      });
+    });
+
+    describe(' batch get resources', function () {
+      it('should succeed all of them with correct status.', function () {
+        var batch = ['82565813-943e-4d1a-ac58-8b4cbc865bdb', '692fa054-33ec-4a28-87eb-53df64e3d09d']
+          .map(function (key) {
+            return {
+              verb: 'GET',
+              href: '/persons/' + key
+            };
+        });
+
+        return doPost(base + '/batch', batch, 'sabine@email.be', 'pwd').then(function (response) {
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.$$meta.count, 2);
         });
       });
     });

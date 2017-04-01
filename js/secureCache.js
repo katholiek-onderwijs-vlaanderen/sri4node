@@ -49,7 +49,7 @@ function validateRequest(mapping, req, res, batch, me, db) {
     Q.all(promises).then(function () {
       deferred.resolve();
     }).catch(function () {
-      deferred.reject();
+      deferred.reject({msg: 'secure functions failed'});
     });
   } else {
     deferred.resolve();

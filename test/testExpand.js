@@ -107,7 +107,7 @@ exports = module.exports = function (base, logverbose) {
     // Test expand=results.href,results.href.community on lists of messages
     describe('on list resources', function () {
       it('should succeed with $$expanded as result.', function () {
-        return doGet(base + '/messages?limit=6&expand=results.community', 'sabine@email.be', 'pwd').then(function (response) {
+        return doGet(base + '/messages?limit=3&expand=results.community', 'sabine@email.be', 'pwd').then(function (response) {
           assert.equal(response.statusCode, 200);
           debug(response.body.results[0].$$expanded);
           if (response.body.results[0].$$expanded.community.$$expanded === null) {

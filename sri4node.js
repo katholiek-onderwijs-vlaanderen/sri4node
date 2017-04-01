@@ -1223,8 +1223,9 @@ function handleBatchOperations(secureCacheFns) {
         element = batches.pop();
         type = element.type;
         elementReq = {
-          method: 'PUT',
+          method: element.batch.verb,
           path: 'batch',
+          originalUrl: element.batch.href,
           body: element.batch,
           user: req.user,
           headers: req.headers
@@ -1243,6 +1244,9 @@ function handleBatchOperations(secureCacheFns) {
 function batchOperation(req, resp) {
   'use strict';
   var database;
+  var batchVerb;
+  var batchType;
+  var hrefs = [];
 
   // An array of objects with 'href', 'verb' and 'body'
   var batch = req.body;
@@ -1262,11 +1266,16 @@ function batchOperation(req, resp) {
         cl('executing /batch section ' + url);
         body = element.body;
         verb = element.verb;
+        batchVerb = verb;
+        batchType = url;
         if (verb === 'PUT') {
           // we continue regardless of an individual error
           return executePutInsideTransaction(database, url, body, req, resp).finally(function () {
             return recurse();
           });
+        } else if (verb === 'GET') {
+          hrefs.push(element.href);
+          recurse();
         } else { // eslint-disable-line
           // To Do : Implement other operations here too.
           cl('UNIMPLEMENTED - /batch ONLY SUPPORTS PUT OPERATIONS !!!');
@@ -1277,21 +1286,28 @@ function batchOperation(req, resp) {
 
     return recurse(batch);
   }).then(function () {
-    cl('PUT processing went OK. Committing database transaction.');
-    database.client.query('COMMIT', function (err) {
-      // If err is defined, client will be removed from pool.
-      database.done(err);
-      cl('COMMIT DONE.');
-      resp.send(true);
-    });
-  }).fail(function (puterr) {
-    cl('PUT processing failed. Rolling back database transaction. Error was :');
-    cl(puterr);
+    if (batchVerb === 'PUT') {
+      cl('PUT processing went OK. Committing database transaction.');
+      database.client.query('COMMIT', function (err) {
+        // If err is defined, client will be removed from pool.
+        database.done(err);
+        cl('COMMIT DONE.');
+        resp.send(true);
+      });
+    } else if (batchVerb === 'GET') {
+      var executeExpansion = require('./js/expand.js')(false, prepare, pgExec, executeAfterReadFunctions, null);
+      req.query.hrefs = hrefs.join(',');
+      req.route.path = batchType.split('/').slice(0, -1).join('/');
+      getListResource(executeExpansion, 1000, 1000)(req, resp);
+    }
+  }).fail(function (err) {
+    cl('Batch processing failed. Rolling back database transaction. Error was :');
+    cl(err);
     database.client.query('ROLLBACK', function (rollbackerr) {
       // If err is defined, client will be removed from pool.
       database.done(rollbackerr);
       cl('ROLLBACK DONE.');
-      resp.status(500).send(puterr);
+      resp.status(500).send(err);
     });
   });
 }
@@ -1372,7 +1388,7 @@ exports = module.exports = {
     var maxlimit;
     var secureCacheFn;
     var i;
-    var secureCacheFns = [];
+    var secureCacheFns = {};
     var msg;
     var database;
     var authentication;
@@ -1589,6 +1605,7 @@ exports = module.exports = {
       .then(function () {
         url = '/batch';
         app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
+        app.post(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
         d.resolve();
       })
       .fail(function (err) {
@@ -1653,7 +1670,7 @@ exports = module.exports = {
                 target.$$expanded = {};
                 for (key in row) {
                   if (row.hasOwnProperty(key) && row[key] && key.indexOf('$$meta.') === -1 && key !== 'fkey') {
-                    if (mapping.map[key].references) {
+                    if (mapping.map[key] && mapping.map[key].references) {
                       referencedType = mapping.map[key].references;
                       target.$$expanded[key] = {href: typeToMapping[referencedType].type + '/' + row[key]};
                     } else {

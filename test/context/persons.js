@@ -98,6 +98,9 @@ exports = module.exports = function (roa, logverbose, extra) {
           cl('** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
           deferred.reject();
         }
+      } else if (url === 'batch') {
+        // special case, testing as batch always allow
+        deferred.resolve();
       } else {
         key = url.split('/')[2];
         myCommunityKey = me.community.href.split('/')[2];
@@ -112,7 +115,7 @@ exports = module.exports = function (roa, logverbose, extra) {
             deferred.resolve();
           } else {
             debug('results.rows[0].count = ' + result.rows[0].count);
-            cl('** security method restrictedReadPersons denies access.');
+            console.log('** security method restrictedReadPersons denies access.', key, myCommunityKey);
             deferred.reject();
           }
         }).fail(function (error) {
@@ -134,7 +137,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       var key;
 
       if (req.method === 'GET') {
-        key = req.params.key;
+        key = req.path === 'batch' ? req.originalUrl.split('/').pop() : req.params.key;
         if (key === forbiddenKey) {
           cl('security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
           deferred.reject();
