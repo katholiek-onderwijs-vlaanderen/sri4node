@@ -525,6 +525,7 @@ A handler function receives this arguments:
   - `req` the express.js request object.
   - `res` the express.js response object.
   - `database` is a database object (see above) that you can use for querying the database.
+  - `me` the return of the identify function
 
 ## Limiting results
 
