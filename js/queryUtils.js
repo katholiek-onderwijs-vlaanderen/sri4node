@@ -4,10 +4,11 @@ var utils = require('./common.js');
 var cl = utils.cl;
 
 exports = module.exports = {
-  filterHrefs: function (value, query) {
+  filterHrefs: function (value, query, key, database, count, mapping) {
     'use strict';
     var deferred = Q.defer();
     var permalinks, keys, i, key, reject;
+    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
 
     try {
       if (value) {
@@ -27,7 +28,7 @@ exports = module.exports = {
           }
         }
         if (!reject) {
-          query.sql(' and key in (').array(keys).sql(') ');
+          query.sql(' and ' + table + '.key in (').array(keys).sql(') ');
           deferred.resolve();
         }
       }
