@@ -458,7 +458,7 @@ function parseFilters(value, select, parameter, mapping) {
     filter = analyseParameter(parameter);
 
     // 2) Find data type on database from information schema;
-    idx = mapping.table ? '/' + mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    idx = mapping.table ? '/' + mapping.table : '/' + mapping.type.split('/')[mapping.type.split('/').length - 1];
     field = informationSchema[idx][filter.key];
 
     // 3) Extend the sql query with the correct WHERE clause.
