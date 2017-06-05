@@ -1558,6 +1558,10 @@ exports = module.exports = {
               emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
               emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
+            // batch route
+            url = mapping.type + '/batch';
+            app.post(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
+
             // register single resource
             url = mapping.type + '/:key';
 
