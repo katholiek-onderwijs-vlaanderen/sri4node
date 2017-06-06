@@ -407,14 +407,16 @@ function logRequests(req, res, next) {
   var start;
   if (configuration.logrequests) {
     debug(req.method + ' ' + req.path + ' starting.'
-              + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
-              + common.pgPoolInfo(postgres, configuration));
+              + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
+              //+ common.pgPoolInfo(postgres, configuration)); // NOTE: pgPoolInfo function is not working with new
+    // pg version
     start = Date.now();
     res.on('finish', function () {
       var duration = Date.now() - start;
       debug(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
-                + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' '
-                + common.pgPoolInfo(postgres, configuration));
+                + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
+                //+ common.pgPoolInfo(postgres, configuration)); // NOTE: pgPoolInfo function is not working with new
+      // pg version
     });
   }
   next();

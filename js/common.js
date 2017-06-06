@@ -164,6 +164,10 @@ exports = module.exports = {
     return pg.pools.getOrCreate(dbUrl);
   },
 
+  /**
+   * Deprecated function.
+   * pg internal functions are not working with the new module version
+   */
   pgPoolInfo: function (pg, configuration) {
     'use strict';
     return 'poolSize: ' + this.pgPool(pg, configuration).getPoolSize()
