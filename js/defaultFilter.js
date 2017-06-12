@@ -86,7 +86,7 @@ function filterString(select, filter, value) {
   else if (filter.operator === 'In' && not && sensitive) {
 
     values = value.split(',');
-    select.sql(' AND "' + filter.key + '"::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND ("' + filter.key + '"::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'In' && !not && sensitive) {
@@ -100,7 +100,7 @@ function filterString(select, filter, value) {
     values = value.split(',').map(function(v) {
       return v.toLowerCase();
     });
-    select.sql(' AND LOWER("' + filter.key + '"::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND (LOWER("' + filter.key + '"::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'In' && !not && !sensitive) {
@@ -133,7 +133,7 @@ function filterString(select, filter, value) {
   }
   else if (filter.operator === 'Contains' && not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND ("' + filter.key + '"::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && sensitive) {
@@ -143,7 +143,7 @@ function filterString(select, filter, value) {
   }
   else if (filter.operator === 'Contains' && not && !sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND ("' + filter.key + '"::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && !sensitive) {
@@ -153,7 +153,7 @@ function filterString(select, filter, value) {
   }
   else if (not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text <> ').param(value).sql(' OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND ("' + filter.key + '"::text <> ').param(value).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (!not && sensitive) {
@@ -161,7 +161,7 @@ function filterString(select, filter, value) {
   }
   else if (not && !sensitive) {
 
-    select.sql(' AND LOWER("' + filter.key + '"::text) <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + '::text IS NULL');
+    select.sql(' AND (LOWER("' + filter.key + '"::text) <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else {
@@ -200,7 +200,7 @@ function filterNumericOrTimestamp(select, filter, value) {
   else if (filter.operator === 'In') {
 
     if (filter.postfix === 'Not') {
-      select.sql(' AND "' + filter.key + '" NOT IN (').array(value.split(',')).sql(') OR ' + filter.key + ' IS NULL');
+      select.sql(' AND ("' + filter.key + '" NOT IN (').array(value.split(',')).sql(') OR ' + filter.key + ' IS NULL)');
     }
     else {
       select.sql(' AND "' + filter.key + '" IN (').array(value.split(',')).sql(')');
