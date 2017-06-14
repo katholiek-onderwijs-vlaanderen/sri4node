@@ -194,7 +194,7 @@ function filterNumericOrTimestamp(select, filter, value) {
   else if (!filter.postfix && (filter.operator === 'GreaterOrEqual' || filter.operator === 'After') ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && filter.postfix === 'Not') {
 
-    select.sql(' AND "' + filter.key + '" >= ').param(value);
+    select.sql(' AND ("' + filter.key + '" >= ').param(value).sql(' OR "' + filter.key + '" IS NULL)');
 
   }
   else if (filter.operator === 'In') {
