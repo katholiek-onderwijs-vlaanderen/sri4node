@@ -78,8 +78,25 @@ function tosFilter(value, select, key, database, count, mapping) {
   }
 }
 
+function fromsFilter(value, select, key, database, count, mapping) {
+  var froms;
+
+  if (value) {
+
+    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+
+    froms = value.split(',').map(function(val) {
+      return val.split('/')[val.split('/').length - 1];
+    }).join('\',\'');
+
+    select.sql(' AND ' + table + '.from in (\'' + froms + '\')');
+  }
+}
+
+
 exports = module.exports = {
     fromTypes: fromTypesFilter,
     toTypes: toTypesFilter,
-    tos: tosFilter
+    tos: tosFilter,
+    froms: tosFilter
   };
