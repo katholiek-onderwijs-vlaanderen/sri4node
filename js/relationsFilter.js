@@ -98,5 +98,5 @@ exports = module.exports = {
     fromTypes: fromTypesFilter,
     toTypes: toTypesFilter,
     tos: tosFilter,
-    froms: tosFilter
+    froms: fromsFilter
   };
