@@ -33,66 +33,67 @@ function analyseParameter(parameter) {
 }
 
 // filter function for text fields
-function filterString(select, filter, value) {
+function filterString(select, filter, value, mapping) {
   'use strict';
   var values;
   var not = filter.postfix === 'Not';
   var sensitive = filter.prefix === 'CaseSensitive';
+  var tablename = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
 
   if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text < ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text < ').param(value);
 
   }
   else if (filter.operator === 'Greater' && !not && sensitive || filter.operator === 'Less' && not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text > ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text > ').param(value);
 
   }
   else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
 
-    select.sql(' AND LOWER("' + filter.key + '"::text) < LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) < LOWER(\'' + value + '\')');
 
   }
   else if (filter.operator === 'Greater' && !not && !sensitive || filter.operator === 'Less' && not && !sensitive) {
 
-    select.sql(' AND LOWER("' + filter.key + '"::text) > LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) > LOWER(\'' + value + '\')');
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text <= ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text <= ').param(value);
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text >= ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text >= ').param(value);
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && !sensitive) {
 
-    select.sql(' AND LOWER("' + filter.key + '"::text) <= LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) <= LOWER(\'' + value + '\')');
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && !sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && !sensitive) {
 
-    select.sql(' AND LOWER("' + filter.key + '"::text) >= LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) >= LOWER(\'' + value + '\')');
 
   }
   else if (filter.operator === 'In' && not && sensitive) {
 
     values = value.split(',');
-    select.sql(' AND ("' + filter.key + '"::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'In' && !not && sensitive) {
 
     values = value.split(',');
-    select.sql(' AND "' + filter.key + '"::text IN (').array(values).sql(')');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text IN (').array(values).sql(')');
 
   }
   else if (filter.operator === 'In' && not && !sensitive) {
@@ -100,7 +101,7 @@ function filterString(select, filter, value) {
     values = value.split(',').map(function(v) {
       return v.toLowerCase();
     });
-    select.sql(' AND (LOWER("' + filter.key + '"::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (LOWER(' + tablename + '."' + filter.key + '"::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'In' && !not && !sensitive) {
@@ -108,64 +109,64 @@ function filterString(select, filter, value) {
     values = value.split(',').map(function(v) {
       return v.toLowerCase();
     });
-    select.sql(' AND LOWER("' + filter.key + '"::text) IN (').array(values).sql(')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) IN (').array(values).sql(')');
 
   }
   else if (filter.operator === 'RegEx' && not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text !~ ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text !~ ').param(value);
 
   }
   else if (filter.operator === 'RegEx' && !not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text ~ ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ~ ').param(value);
 
   }
   else if (filter.operator === 'RegEx' && not && !sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text !~* ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text !~* ').param(value);
 
   }
   else if (filter.operator === 'RegEx' && !not && !sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text ~* ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ~* ').param(value);
 
   }
   else if (filter.operator === 'Contains' && not && sensitive) {
 
-    select.sql(' AND ("' + filter.key + '"::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text LIKE \'%' + value + '%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text LIKE \'%' + value + '%\'');
 
   }
   else if (filter.operator === 'Contains' && not && !sensitive) {
 
-    select.sql(' AND ("' + filter.key + '"::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && !sensitive) {
 
-    select.sql(' AND "' + filter.key + '"::text ILIKE \'%' + value + '%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ILIKE \'%' + value + '%\'');
 
   }
   else if (not && sensitive) {
 
-    select.sql(' AND ("' + filter.key + '"::text <> ').param(value).sql(' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text <> ').param(value).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (!not && sensitive) {
-    select.sql(' AND "' + filter.key + '"::text = ').param(value);
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text = ').param(value);
   }
   else if (not && !sensitive) {
 
-    select.sql(' AND (LOWER("' + filter.key + '"::text) <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (LOWER(' + tablename + '."' + filter.key + '"::text) <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else {
-    select.sql(' AND LOWER("' + filter.key + '"::text) = ').param(value.toLowerCase());
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) = ').param(value.toLowerCase());
   }
 
 }
