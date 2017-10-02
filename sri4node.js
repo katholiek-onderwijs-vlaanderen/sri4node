@@ -1161,39 +1161,6 @@ function deleteResource(req, resp) {
   });
 }
 
-function wrapCustomRouteHandler(customRouteHandler, config) {
-  'use strict';
-
-  return function (req, res) {
-    var database;
-    var me;
-
-    debug('Start processing of custom route. [' + req.url + ']');
-    debug('Connecting to database.');
-    pgConnect(postgres, configuration).then(function (db) {
-      if (!db) {
-        throw new Error('No database connection !');
-      }
-      database = db;
-      debug('Database connection ok.');
-      debug('Establishing security context through the config.identify function.');
-      return config.identify(req, database);
-    }).then(function (identity) {
-      me = identity;
-      debug('Handing control to the custom route handler.');
-      res.database = database;
-      return customRouteHandler(req, res, database, me);
-    }).then(function () {
-      debug('Processing of custom route went OK. Returning database client to pool.');
-      database.done();
-    }).catch(function (err) {
-      debug('Error on processing of custom route. Discarding database client.');
-      debug('Sending internal server error 500 to client');
-      database.done(err);
-      res.status(500).end();
-    });
-  };
-}
 
 
 function batchOperation(req, resp) {
@@ -1285,52 +1252,6 @@ function checkRequiredFields(mapping, information) {
 
 }
 
-function registerCustomRoutes(mapping, app, config) {
-  'use strict';
-  var i;
-  var customroute;
-  var wrapped;
-  var msg;
-  var authentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
-
-  var customMiddleware = function (req, res, next) {
-    next();
-  };
-  for (i = 0; i < mapping.customroutes.length; i++) {
-    customroute = mapping.customroutes[i];
-    if (customroute.route && customroute.handler) {
-
-      if (!customroute.method) {
-        customroute.method = 'GET';
-      }
-
-      if (customroute.middleware) {
-        // Can be an array or a single function. Express.js handles this
-        // gracefully.
-        customMiddleware = customroute.middleware;
-      }
-
-      if (customroute.method === 'GET') {
-        wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        // Only for GET we allow for public resources
-        app.get(customroute.route, logRequests, authentication, compression(),
-          customMiddleware, wrapped);
-      } else if (customroute.method === 'PUT') {
-        wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        app.put(customroute.route, logRequests, config.authenticate, compression(),
-          customMiddleware, wrapped);
-      } else if (customroute.method === 'DELETE') {
-        wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        app.delete(customroute.route, logRequests, config.authenticate, compression(),
-          customMiddleware, wrapped);
-      } else {
-        msg = 'Method not supported on custom routes : ' + customroute.method;
-        error(msg);
-        throw new Error(msg);
-      }
-    }
-  }
-}
 
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
@@ -1525,12 +1446,6 @@ exports = module.exports = {
             // validation route
             url = mapping.type + '/validate';
             app.post(url, logRequests, config.authenticate, validate);
-
-            // register custom routes (if any)
-
-            if (mapping.customroutes && mapping.customroutes instanceof Array) {
-              registerCustomRoutes(mapping, app, config);
-            }
 
             // append relation filters if auto-detected a relation resource
             if (mapping.map.from && mapping.map.to) {
