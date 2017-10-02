@@ -16,7 +16,6 @@ var express = require('express');
 
 // Utility function.
 var common = require('./js/common.js');
-var secureCache = require('./js/secureCache');
 var informationSchema = require('./js/informationSchema.js');
 var cl = common.cl;
 var pgConnect = common.pgConnect;
@@ -1196,52 +1195,6 @@ function wrapCustomRouteHandler(customRouteHandler, config) {
   };
 }
 
-function handleBatchOperations(secureCacheFns) {
-  'use strict';
-
-  return function (req, res, next) {
-    var batch = req.body.slice();
-    batch.reverse();
-    var i;
-    var batches = [];
-    var url;
-    var type;
-
-    // split batch into different response handlers (per resource)
-    for (i = 0; i < batch.length; i++) {
-      url = batch[i].href;
-      type = url.split('/').slice(0, url.split('/').length - 1).join('/');
-      batches.push({
-        type: type,
-        batch: batch[i]
-      });
-    }
-
-    function nextElement() {
-      var element;
-      var elementReq;
-
-      if (batches.length > 0) {
-        element = batches.pop();
-        type = element.type;
-        elementReq = {
-          method: element.batch.verb,
-          path: 'batch',
-          originalUrl: element.batch.href,
-          body: element.batch,
-          user: req.user,
-          headers: req.headers
-        };
-        secureCacheFns[type](elementReq, res, nextElement);
-      } else {
-        return next();
-      }
-    }
-
-    return nextElement();
-  };
-
-}
 
 function batchOperation(req, resp) {
   'use strict';
@@ -1332,7 +1285,7 @@ function checkRequiredFields(mapping, information) {
 
 }
 
-function registerCustomRoutes(mapping, app, config, secureCacheFn) {
+function registerCustomRoutes(mapping, app, config) {
   'use strict';
   var i;
   var customroute;
@@ -1360,15 +1313,15 @@ function registerCustomRoutes(mapping, app, config, secureCacheFn) {
       if (customroute.method === 'GET') {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
         // Only for GET we allow for public resources
-        app.get(customroute.route, logRequests, authentication, secureCacheFn, compression(),
+        app.get(customroute.route, logRequests, authentication, compression(),
           customMiddleware, wrapped);
       } else if (customroute.method === 'PUT') {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        app.put(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
+        app.put(customroute.route, logRequests, config.authenticate, compression(),
           customMiddleware, wrapped);
       } else if (customroute.method === 'DELETE') {
         wrapped = wrapCustomRouteHandler(customroute.handler, config);
-        app.delete(customroute.route, logRequests, config.authenticate, secureCacheFn, compression(),
+        app.delete(customroute.route, logRequests, config.authenticate, compression(),
           customMiddleware, wrapped);
       } else {
         msg = 'Method not supported on custom routes : ' + customroute.method;
@@ -1388,9 +1341,7 @@ exports = module.exports = {
     var configIndex, mapping, url;
     var defaultlimit;
     var maxlimit;
-    var secureCacheFn;
     var i;
-    var secureCacheFns = {};
     var msg;
     var database;
     var authentication;
@@ -1546,9 +1497,6 @@ exports = module.exports = {
             // register list resource for this type.
             url = mapping.type;
 
-            secureCacheFn = secureCache(mapping, configuration, postgres, executeAfterReadFunctions);
-            secureCacheFns[url] = secureCacheFn;
-
             // register list resource for this type.
             maxlimit = mapping.maxlimit || MAX_LIMIT;
             defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
@@ -1557,31 +1505,31 @@ exports = module.exports = {
 
             // app.get - list resource
             app.get(url, emt.instrument(logRequests), emt.instrument(authentication, 'authenticate'),
-              emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
+              emt.instrument(compression()),
               emt.instrument(getListResource(executeExpansion, defaultlimit, maxlimit), 'list'));
 
             // batch route
             url = mapping.type + '/batch';
-            app.post(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
+            app.post(url, logRequests, config.authenticate, batchOperation);
 
             // register single resource
             url = mapping.type + '/:key';
 
             app.route(url)
               .get(logRequests, emt.instrument(authentication, 'authenticate'),
-                emt.instrument(secureCacheFn, 'secureCache'), emt.instrument(compression()),
+                emt.instrument(compression()),
                 emt.instrument(getRegularResource(executeExpansion), 'getResource'))
-              .put(logRequests, config.authenticate, secureCacheFn, createOrUpdate)
-              .delete(logRequests, config.authenticate, secureCacheFn, deleteResource); // app.delete
+              .put(logRequests, config.authenticate, createOrUpdate)
+              .delete(logRequests, config.authenticate, deleteResource); // app.delete
 
             // validation route
             url = mapping.type + '/validate';
-            app.post(url, logRequests, config.authenticate, secureCacheFn, validate);
+            app.post(url, logRequests, config.authenticate, validate);
 
             // register custom routes (if any)
 
             if (mapping.customroutes && mapping.customroutes instanceof Array) {
-              registerCustomRoutes(mapping, app, config, secureCacheFn);
+              registerCustomRoutes(mapping, app, config);
             }
 
             // append relation filters if auto-detected a relation resource
@@ -1610,8 +1558,8 @@ exports = module.exports = {
       })
       .then(function () {
         url = '/batch';
-        app.put(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
-        app.post(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
+        app.put(url, logRequests, config.authenticate, batchOperation);
+        app.post(url, logRequests, config.authenticate, batchOperation);
         d.resolve();
       })
       .fail(function (err) {
