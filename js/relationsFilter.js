@@ -9,7 +9,7 @@ function fromTypesFilter(value, select, key, database, count, mapping) {
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
     types = value.split(',').join('\',\'');
     fromTable = mapping.map.from.references.split('/')[mapping.map.from.references.split('/').length - 1];
 
@@ -33,7 +33,7 @@ function toTypesFilter(value, select, key, database, count, mapping) {
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
     types = value.split(',').join('\',\'');
     toTable = mapping.map.to.references.split('/')[mapping.map.to.references.split('/').length - 1];
 
@@ -53,7 +53,7 @@ function fromsFilter(value, select, key, database, count, mapping) {
 
   if (value) {
 
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
 
     froms = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];
@@ -68,7 +68,7 @@ function tosFilter(value, select, key, database, count, mapping) {
 
   if (value) {
 
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
 
     tos = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];
@@ -83,7 +83,7 @@ function fromsFilter(value, select, key, database, count, mapping) {
 
   if (value) {
 
-    table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
 
     froms = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];

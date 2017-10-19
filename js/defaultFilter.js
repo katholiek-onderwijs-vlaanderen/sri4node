@@ -38,7 +38,7 @@ function filterString(select, filter, value, mapping) {
   var values;
   var not = filter.postfix === 'Not';
   var sensitive = filter.prefix === 'CaseSensitive';
-  var tablename = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+  const table = tableFromMapping(mapping)
 
   if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
 
@@ -308,7 +308,6 @@ function filterJson(select, filter, value, mapping) {
 
       }
     })
-    console.log(schemaPath);
     if (schemaPath.slice('-1') != '.') {
       if (_.has(mapping.schema, schemaPath)) {
         for (var i = 0; i < values.length; i++) {
@@ -334,8 +333,6 @@ function filterJson(select, filter, value, mapping) {
           if (orOpened) {
             select.sql(' ) ');
           }
-
-          console.log(select);
       }
       else {
         throw {
@@ -444,70 +441,51 @@ function getFieldBaseType(fieldType) {
   return null;
 }
 
-function parseFilters(value, select, parameter, mapping) {
-
+exports = module.exports = async (valueEnc, query, parameter, mapping, database, configuration) =>  {
   'use strict';
-  return function(informationSchema) {
-    var filter;
-    var field;
+
+  const value = decodeURIComponent(valueEnc)
+
+  // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
+  const filter = analyseParameter(parameter);
+
+  // 2) Find data type on database from information schema;
+  const idx = mapping.table ? '/' + mapping.table : '/' + mapping.type.split('/')[mapping.type.split('/').length - 1];
+  const field = configuration.informationSchema[idx][filter.key];
+
+  // 3) Extend the sql query with the correct WHERE clause.
+  if (field) {
+
+    const baseType = getFieldBaseType(field.type);
     var filterFn;
-    var baseType;
-    var error;
-    var idx;
-
-    // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
-    filter = analyseParameter(parameter);
-
-    // 2) Find data type on database from information schema;
-    idx = mapping.table ? '/' + mapping.table : '/' + mapping.type.split('/')[mapping.type.split('/').length - 1];
-    field = informationSchema[idx][filter.key];
-
-    // 3) Extend the sql query with the correct WHERE clause.
-    if (field) {
-
-      baseType = getFieldBaseType(field.type);
-
-      if (baseType === 'text') {
-        filterFn = filterString;
-      }
-      else if (baseType === 'numeric' || baseType === 'timestamp') {
-        filterFn = filterNumericOrTimestamp;
-      }
-      else if (baseType === 'array') {
-        filterFn = filterArray;
-      }
-      else if (baseType === 'boolean') {
-        filterFn = filterBoolean;
-      }
-      else if (baseType === 'json') {
-        console.log('json');
-        filterFn = filterJson;
-      }
-
-      if (filterFn) {
-        filterFn(select, filter, value, mapping);
-      }
+    if (baseType === 'text') {
+      filterFn = filterString;
     }
-    else if (filter.key === 'q') {
-      filterGeneral(select, value, getTextFieldsFromTable(informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
+    else if (baseType === 'numeric' || baseType === 'timestamp') {
+      filterFn = filterNumericOrTimestamp;
     }
-    else {
-      error = {
-        code: 'invalid.query.parameter',
-        parameter: parameter,
-        type: 'ERROR',
-        possibleParameters: Object.keys(informationSchema[idx])
-      };
-      throw error;
+    else if (baseType === 'array') {
+      filterFn = filterArray;
+    }
+    else if (baseType === 'boolean') {
+      filterFn = filterBoolean;
+    }
+    else if (baseType === 'json') {
+      filterFn = filterJson;
     }
 
-  };
+    if (filterFn) {
+      filterFn(query, filter, value, mapping);
+    }
+  }
+  else if (filter.key === 'q') {
+    filterGeneral(query, value, getTextFieldsFromTable(configuration.informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
+  }
+  else {
+    throw new SriError(404, [{
+      code: 'invalid.query.parameter',
+      parameter: parameter,
+      possibleParameters: Object.keys(configuration.informationSchema[idx])
+    }])
+  }
 }
-
-exports = module.exports = function(value, select, parameter, database, mapping, configuration) { // eslint-disable-line
-  'use strict';
-
-  return require('./informationSchema.js')(database, configuration)
-    .then(parseFilters(decodeURIComponent(value), select, parameter, mapping));
-
-};
