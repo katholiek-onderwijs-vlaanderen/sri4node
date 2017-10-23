@@ -22,7 +22,9 @@
     "lodash": "^4.13.1",
     "needle": "0.10.x",
     "node-cache": "^3.0.0",
+    "path-to-regexp": "^2.0.0",
     "pg-promise": "^6.10.2",
+    "pycollections": "^0.9.0",
     "q": "^1.0.1",
     "sri4node-client": "https://github.com/rodrigouroz/sri-client.git",
     "uuid": "2.0.x"

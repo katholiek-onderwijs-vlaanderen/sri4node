@@ -12,6 +12,8 @@ const express = require('express');
 const route = require('route-parser');
 const lsRoutes = require('express-ls-routes')
 var pathfinderUI = require('pathfinder-ui')
+const _ = require('lodash')
+
 
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError,
@@ -167,11 +169,26 @@ const middlewareErrorWrapper = (fun) => {
 
 
 
-const expressWrapper = (db, func) => {
+const expressWrapper = (db, func, handleSecure) => {
   return async function (req, resp) {
     try {
-      const result = await func(db, req.me, req.originalUrl, req.query, req.body)
-      resp.status(result.status).send(result.body)
+      const type = req.route.path.replace(/\/:[^\/]*/g, '')
+      const mapping = typeToConfig(global.configuration.resources)[type]
+
+      if (handleSecure) {
+        const secureResults = await Q.all(mapping.secure.map( (func) => 
+                                            func(db, req.user, [{ href: req.originalUrl, verb: req.method }]) ))
+
+        if (_.every(_.flatten(secureResults))) {
+          const result = await func(db, req.user, req.originalUrl, req.query, req.body)
+          resp.status(result.status).send(result.body)
+        } else {
+          resp.status(403).send('')
+        }
+      } else {
+        const result = await func(db, req.user, req.originalUrl, req.query, req.body)
+        resp.status(result.status).send(result.body)        
+      }
     } catch (err) {
       if (err instanceof SriError) {
         resp.status(err.obj.status).send(err.obj.body);
@@ -264,14 +281,8 @@ exports = module.exports = {
         app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
 
         // batch route
-        app.get(mapping.type + '/batch',  expressWrapper(db, batch.batchOperation));
-        app.put(mapping.type + '/batch',  expressWrapper(db, batch.batchOperation));
-
-        // app.get(mapping.type + '/batch',  () => console.log('FOO'));
-        // app.put(mapping.type + '/batch',  () => console.log('BAR'));
-
-        // app.get(mapping.type + '/batch', config.authenticate, batch.batchOperation);
-        // app.put(mapping.type + '/batch', config.authenticate, batch.batchOperation);
+        app.get(mapping.type + '/batch', config.authenticate, expressWrapper(db, batch.batchOperation, false));
+        app.put(mapping.type + '/batch', config.authenticate, expressWrapper(db, batch.batchOperation, false));
 
         // append relation filters if auto-detected a relation resource
         if (mapping.map.from && mapping.map.to) {
@@ -313,8 +324,8 @@ exports = module.exports = {
       // register indivual routes in express
       batchHandlerMap.forEach( ([path, verb, authFunc, func]) => {
         app[verb.toLowerCase()]( path, 
-                                 authFunc, 
-                                 emt.instrument(expressWrapper(db, func), 'func') )
+                                 emt.instrument(authFunc, 'oauth'), 
+                                 emt.instrument(expressWrapper(db, func, true), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch
