@@ -145,9 +145,9 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
 
   debug('Validating schema.');
   if (mapping.schema) {
-    const errors = getSchemaValidationErrors(reqBody, mapping.schema);
+    const { errors } = getSchemaValidationErrors(reqBody, mapping.schema);
     if (errors) {
-      throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s): ' + errors.toString()}])
+      throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s)', errors}])
     } else {
       debug('Schema validation passed.');
     }
@@ -240,8 +240,9 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
 async function validate(db, me, reqUrl, reqParams, reqBody) {
   'use strict';
   debug('* sri4node VALIDATE processing invoked.');
+  const strippedReqUrl = reqUrl.replace('validate', reqBody.key)
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  const result = await executePutInsideTransaction(tx, me, reqUrl, reqBody);
+  const result = await executePutInsideTransaction(tx, me, strippedReqUrl, reqBody);
   debug('VALIDATE processing went OK. Rolling back database transaction.');
   rejectTx()
   return result
@@ -309,5 +310,6 @@ async function deleteResource(db, me, reqUrl, reqParams, reqBody) {
 exports = module.exports = {
   getRegularResource: getRegularResource,
   createOrUpdate: createOrUpdate,
-  deleteResource: deleteResource
+  deleteResource: deleteResource,
+  validate: validate
 }

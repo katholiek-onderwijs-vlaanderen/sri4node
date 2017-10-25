@@ -172,7 +172,7 @@ const middlewareErrorWrapper = (fun) => {
 const expressWrapper = (db, func, handleSecure) => {
   return async function (req, resp) {
     try {
-      const type = req.route.path.replace(/\/:[^\/]*/g, '')
+      const type = req.route.path.replace(/\/validate$/g, '').replace(/\/:[^\/]*/g, '')
       const mapping = typeToConfig(global.configuration.resources)[type]
 
       if (handleSecure) {
@@ -309,14 +309,10 @@ exports = module.exports = {
         acc.push([ mapping.type + '/:key', 'PUT', config.authenticate, regularResource.createOrUpdate])
         acc.push([ mapping.type + '/:key', 'DELETE', config.authenticate, regularResource.deleteResource])
         acc.push([ mapping.type, 'GET', checkAuthentication, listResource.getListResource])
+
         // validation route
-//TODO        app.post(mapping.type + '/validate',  config.authenticate, middlewareErrorWrapper(validate));
-        // TODO: check spec -> probably instead of own route detect trailing /validate behind /batch and /:key
-//     TODO: strip trailing /validate earlier !!!
-//     // special case for validate
-//     if (path.indexOf('validate') != -1) {
-//       path = path.replace('validate', body.key);
-//     }
+        acc.push([ mapping.type + '/validate', 'POST', config.authenticate, regularResource.validate])
+        //  REMARK: this is according sri4node spec; persons-api validate is implemented differently; to be discussed!
 
         return acc        
       }, [])
