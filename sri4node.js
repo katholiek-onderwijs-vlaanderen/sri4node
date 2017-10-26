@@ -1564,6 +1564,11 @@ exports = module.exports = {
             url = mapping.type + '/batch';
             app.post(url, logRequests, config.authenticate, handleBatchOperations(secureCacheFns), batchOperation);
 
+            // register custom routes (if any)
+            if (mapping.customroutes && mapping.customroutes instanceof Array) {
+              registerCustomRoutes(mapping, app, config, secureCacheFn);
+            }
+
             // register single resource
             url = mapping.type + '/:key';
 
@@ -1577,12 +1582,6 @@ exports = module.exports = {
             // validation route
             url = mapping.type + '/validate';
             app.post(url, logRequests, config.authenticate, secureCacheFn, validate);
-
-            // register custom routes (if any)
-
-            if (mapping.customroutes && mapping.customroutes instanceof Array) {
-              registerCustomRoutes(mapping, app, config, secureCacheFn);
-            }
 
             // append relation filters if auto-detected a relation resource
             if (mapping.map.from && mapping.map.to) {
