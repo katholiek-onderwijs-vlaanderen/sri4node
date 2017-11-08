@@ -2,6 +2,7 @@ const configuration = global.configuration
 
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
+const parse = require('url-parse')
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, mapColumnsToObject, errorAsCode,
         executeOnFunctions, SriError, startTransaction, getCountResult } = require('./common.js');
@@ -14,7 +15,7 @@ const prepare = queryobject.prepareSQL;
 
 async function queryByKey(config, db, mapping, key, wantsDeleted) {
   'use strict';
-  debug('** queryByKey()');
+  debug(`** queryByKey(${key})`);
   const columns = sqlColumnNames(mapping);
   const table = tableFromMapping(mapping);
 
@@ -74,6 +75,10 @@ async function getRegularResource(db, me, reqUrl, reqParams, reqBody) {
   debug('* executing expansion');
   await expand.executeExpansion(db, [element], mapping, resources, reqParams.expand, me, reqUrl);
   
+  debug('* executing afterread functions on results');
+  debug(elements);
+  await hooks.applyHooks('after read', mapping.afterread, f => f(db, elements, me, reqUrl))
+
   debug('* sending response to the client :');
   return { status: 200, body: element }
 }
@@ -113,7 +118,9 @@ const urlToTypeAndKey = (url) => {
   // const type = url.split('/').slice(0, url.split('/').length - 1).join('/');
   // const key = url.replace(type, '').substr(1);
 
-  const parts = url.split('/')
+  const parsedUrl = parse(url);
+  const pathName = parsedUrl.pathname.replace(/\/$/, '') 
+  const parts = pathName.split('/')
   const type = _.initial(parts).join('/')
   const key = _.last(parts)
 
@@ -145,9 +152,10 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
 
   debug('Validating schema.');
   if (mapping.schema) {
-    const { errors } = getSchemaValidationErrors(reqBody, mapping.schema);
-    if (errors) {
-      throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s)', errors}])
+    const validationErrors  = getSchemaValidationErrors(reqBody, mapping.schema);
+    if (validationErrors) {
+      errors = { validationErrors }
+      throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s)', errors }])
     } else {
       debug('Schema validation passed.');
     }

@@ -1,4 +1,7 @@
 var _ = require('lodash');
+
+const { tableFromMapping, SriError } = require('./common.js');
+
 // analyses parameter and return its parts (key, operator, prefix and postfix)
 function analyseParameter(parameter) {
   'use strict';
@@ -38,7 +41,7 @@ function filterString(select, filter, value, mapping) {
   var values;
   var not = filter.postfix === 'Not';
   var sensitive = filter.prefix === 'CaseSensitive';
-  const table = tableFromMapping(mapping)
+  const tablename = tableFromMapping(mapping)
 
   if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
 
@@ -441,7 +444,7 @@ function getFieldBaseType(fieldType) {
   return null;
 }
 
-exports = module.exports = async (valueEnc, query, parameter, mapping, database, configuration) =>  {
+exports = module.exports = (valueEnc, query, parameter, mapping, database, configuration) =>  {
   'use strict';
 
   const value = decodeURIComponent(valueEnc)

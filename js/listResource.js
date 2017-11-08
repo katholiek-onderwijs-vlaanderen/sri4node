@@ -1,9 +1,9 @@
 const configuration = global.configuration  
-const _ = require('underscore')
+const _ = require('lodash')
 
 const expand = require('./expand.js');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, pgExec } = require('./common.js');
+        mapColumnsToObject, executeOnFunctions, tableFromMapping, pgExec, SriError } = require('./common.js');
 var queryobject = require('./queryObject.js');
 const prepare = queryobject.prepareSQL; 
 
@@ -187,7 +187,12 @@ const handleListQueryResult = (rows, count, mapping, reqParams, originalUrl, que
       // Error expand must be either 'full','none' or start with 'href'
       msg = 'expand value unknown : ' + reqParams.expand;
       debug(msg);
-      throw new Error(msg);
+      throw new SriError(400, [{ code: 'parameter.value.unknown', 
+                                 msg: `Unknown value [${reqParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
+                                 parameter: "expand",
+                                 value: reqParams.expand,
+                                 possibleValues: [ 'NONE', 'SUMMARY', 'FULL' ]
+                               }])      
     }
     results.push(element);
   })
