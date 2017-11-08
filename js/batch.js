@@ -2,8 +2,6 @@ const configuration = global.configuration
 
 const _ = require('lodash')
 const parse = require('url-parse')
-const Promise = require('bluebird')
-const Q = require('q');
 
 const { debug, cl, SriError, startTransaction, typeToConfig } = require('./common.js');
 const listResource = require('./listResource.js')
@@ -55,10 +53,10 @@ exports = module.exports = {
 
 
     // step 2: call batched secure functions for each type
-    const preprocessingLists = await Q.all(batchByType.keys().map( async type => {
+    const preprocessingLists = await Promise.all(batchByType.keys().map( async type => {
       const mapping = typeToConfig(global.configuration.resources)[type]
       const tBatch = batchByType.get(type)
-      const secureResults = await Q.all(mapping.secure.map( (func) => 
+      const secureResults = await Promise.all(mapping.secure.map( (func) => 
                                           func(db, me, tBatch.map( e => e.section ) ) ))
 
       return _.zip(...secureResults).map( (l, i) => [ tBatch[i].idx, [_.every(l), tBatch[i].func ] ] )
@@ -68,7 +66,8 @@ exports = module.exports = {
 
 
     // step 3: evaluating /batch sections
-    const batchResults = await Promise.map(reqBody, async (e, idx) => {
+    //const batchResults = await Promise.map(reqBody, async (e, idx) => {
+    const batchResults = await Promise.all(reqBody.map( async (e, idx) => {
       try {
         debug('executing /batch section ' + e.href);
 
@@ -102,7 +101,7 @@ exports = module.exports = {
           return (new SriError(500, [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}])).obj
         }
       }
-    })
+    }))
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
     // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the 

@@ -1,7 +1,6 @@
 /* Internal utilities for sri4node */
 
-var Q = require('q');
-const _ =require('underscore')
+const _ =require('lodash')
 
 var env = require('./env.js');
 var qo = require('./queryObject.js');
