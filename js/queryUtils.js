@@ -1,7 +1,5 @@
 /* External query utilities. use in the 'query' section of your sri4node configuration */
-var Q = require('q');
-var utils = require('./common.js');
-var cl = utils.cl;
+const { cl, SriError} = require('./common.js');
 
 exports = module.exports = {
   filterHrefs: function (value, query, key, database, count, mapping) {
@@ -13,11 +11,15 @@ exports = module.exports = {
       const permalinks = value.split(',');
       const keys = [];
       permalinks.forEach( (permalink) => {
-          key = permalink.split('/')[permalink.split('/').length - 1];
+          const key = permalink.split('/')[permalink.split('/').length - 1];
           if (key.length === 36) {
             keys.push(key);
           } else {
-            throw new { code: 'parameter.hrefs.invalid.value' }
+            throw new SriError(400, [{ code: 'parameter.hrefs.invalid.key.length', 
+                                       msg: `Parameter 'href' has invalid key length for key [${key}].`,
+                                       parameter: "href",
+                                       value: key
+                                     }])               
           }        
       })
      
@@ -25,47 +27,36 @@ exports = module.exports = {
     }
   },
 
- ///  TODO
-  // // filterReferencedType('/persons','person')
-  // filterReferencedType: function (resourcetype, columnname) {
-  //   'use strict';
-  //   return function (value, query) {
-  //     var deferred = Q.defer();
-  //     var permalinks, keys, i, reject, key;
 
-  //     if (value) {
-  //       permalinks = value.split(',');
-  //       keys = [];
-  //       reject = false;
-  //       for (i = 0; i < permalinks.length; i++) {
-  //         if (permalinks[i].indexOf(resourcetype + '/') === 0) {
-  //           key = permalinks[i].substr(resourcetype.length + 1);
-  //           if (key.length === 36) {
-  //             keys.push(key);
-  //           } else {
-  //             deferred.reject({
-  //               code: 'parameter.invalid.value'
-  //             });
-  //             reject = true;
-  //             break;
-  //           }
-  //         } else {
-  //           deferred.reject({
-  //             code: 'parameter.invalid.value'
-  //           });
-  //           reject = true;
-  //           break;
-  //         }
-  //       }
-  //       if (!reject) {
-  //         query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
-  //         deferred.resolve();
-  //       }
-  //     }
+  // filterReferencedType('/persons','person')
+  filterReferencedType: function (resourcetype, columnname) {
+    'use strict';
+    return function (value, query) {
+      if (value) {
+        const permalinks = value.split(',');
+        const keys = permalinks.map( permalink => {
+          if (permalink.indexOf(resourcetype + '/') !== 0) {
+            throw new SriError(400, [{ code: 'parameter.referenced.type.invalid.value', 
+                                       msg: `Parameter '${columnname}' should start with '${resourcetype + '/'}'.`,
+                                       parameter: columnname,
+                                       value: permalink
+                                     }])
+          }
+          const key = permalink.split('/')[permalink.split('/').length - 1];
+          if (key.length !== 36) {
+            throw new SriError(400, [{ code: 'parameter.referenced.type.invalid.key.length', 
+                                       msg: `Parameter '${columnname}' contains key with invalid length for key [${key}].`,
+                                       parameter: columnname,
+                                       value: permalink
+                                     }])
+          }
+          return key
+        })
 
-  //     return deferred.promise;
-  //   };
-  // },
+        query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
+      }
+    };
+  },
 
   modifiedSince: function (value, query, key, database, count, mapping) {
     'use strict';
