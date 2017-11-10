@@ -74,8 +74,9 @@ async function getRegularResource(db, me, reqUrl, reqParams, reqBody) {
 
   debug('* executing expansion');
   await expand.executeExpansion(db, [element], mapping, resources, reqParams.expand, me, reqUrl);
-  
+
   debug('* executing afterread functions on results');
+  const elements = [ element ]  
   debug(elements);
   await hooks.applyHooks('after read', mapping.afterread, f => f(db, elements, me, reqUrl))
 
