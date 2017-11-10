@@ -78,20 +78,20 @@ function tosFilter(value, select, key, database, count, mapping) {
   }
 }
 
-function fromsFilter(value, select, key, database, count, mapping) {
-  var froms;
+// function fromsFilter(value, select, key, database, count, mapping) {
+//   var froms;
 
-  if (value) {
+//   if (value) {
 
-    const table = tableFromMapping(mapping)
+//     const table = tableFromMapping(mapping)
 
-    froms = value.split(',').map(function(val) {
-      return val.split('/')[val.split('/').length - 1];
-    }).join('\',\'');
+//     froms = value.split(',').map(function(val) {
+//       return val.split('/')[val.split('/').length - 1];
+//     }).join('\',\'');
 
-    select.sql(' AND ' + table + '.from in (\'' + froms + '\')');
-  }
-}
+//     select.sql(' AND ' + table + '.from in (\'' + froms + '\')');
+//   }
+// }
 
 
 exports = module.exports = {
