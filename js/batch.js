@@ -20,7 +20,7 @@ exports = module.exports = {
     const {tx, resolveTx, rejectTx} = await startTransaction(db)
 
     //spec: The batch operation itself MUST be a PUT operation, unless the entire batch is composed of GET operations, in which case the batch it's HTTP verb MUST be GET.
-    const onlyGets = (reqBody.every( e => ( e.verb == 'GET') ))
+    const onlyGets = (reqBody.length > 0) && (reqBody.every( e => ( e.verb == 'GET') ))
     if (onlyGets && globalVerb != 'GET') {
       throw new SriError(400, [{code: 'batch.of.gets.requires.get.verb', msg: 'Batch entirely composed of GET operations, MUST have HTTP verb GET.'}])
     }
@@ -110,7 +110,7 @@ exports = module.exports = {
     if (batchResults.filter( e => (e.status == 403) ).length > 0) {
       status = 403
     } else {
-      status = Math.max(...batchResults.map( e => e.status ))
+      status = Math.max(200, ...batchResults.map( e => e.status ))
     }
 
     if (status < 300) {
