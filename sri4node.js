@@ -167,7 +167,7 @@ const middlewareErrorWrapper = (fun) => {
     }
 }
 
-
+process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
 const expressWrapper = (db, func, handleSecure) => {
   return async function (req, resp) {
@@ -191,6 +191,8 @@ const expressWrapper = (db, func, handleSecure) => {
       }
     } catch (err) {
       if (err instanceof SriError) {
+        debug('++++++++++++++CONVERTING SRIERROR TO RESPONSE++++++++++++++++++++++++++')
+        debug(err)
         resp.status(err.obj.status).send(err.obj.body);
       } else {      
         console.log('____________________________ E R R O R ____________________________________________________') 
