@@ -19,8 +19,8 @@ function analyseParameter(parameter) {
     operator = matches[4];
   }
   if (parameter.indexOf('.') > -1 && parameter.indexOf('$$meta') == -1) {
-    path = parameter;
-    key = parameter.split('.')[0];
+    path = key;
+    key = key.split('.')[0];
   }
 
   return {
@@ -268,12 +268,7 @@ function filterBoolean(select, filter, value) {
 
 function filterJson(select, filter, value, mapping) {
   'use strict';
-  var inputJson = {};
   var path = filter.path;
-  var schemaPath = '';
-  var searchPath = '';
-  var values = value.split(',');
-  var orOpened = false;
   if (path == null) {
     throw {
       code: 'invalid.query.property',
@@ -281,78 +276,147 @@ function filterJson(select, filter, value, mapping) {
       message: 'There is no valid path defined, use \'.\' to define path.'
     };
 
-  }
-  else {
+  } else {
+    var jsonKey = '';
     _.each(path.split('.'), function(part) {
-      if (schemaPath == '') {
-        schemaPath += 'properties.';
+      if(jsonKey === ''){
+        jsonKey = '"'+ part + '"';
+      } else {
+        jsonKey = '('+jsonKey+')::json->>\''+part+'\'';
       }
-      if (_.result(mapping.schema, schemaPath + part) && _.result(mapping.schema, schemaPath + part).type === 'object') {
-        schemaPath += part + '.properties.';
-        searchPath += part + '.';
-      }
-      else if (_.result(mapping.schema, schemaPath + part) && _.result(mapping.schema, schemaPath + part).type === 'array') {
-        schemaPath += part + '.items.properties.';
-        searchPath += part + '[0].';
-      }
-      else if (_.result(mapping.schema, schemaPath + part)) {
-        schemaPath += part;
-        searchPath += part;
-      }
-      else {
-        throw {
-          code: 'invalid.query.property',
-          parameter: filter.path,
-          message: part + ' is not in the schema'
-        };
+    });
+    jsonKey = '(' + jsonKey + ')';
 
-      }
-    })
-    console.log(schemaPath);
-    if (schemaPath.slice('-1') != '.') {
-      if (_.has(mapping.schema, schemaPath)) {
-        for (var i = 0; i < values.length; i++) {
-          value = values[i];
-          if (value) {
-            if (value === 'true') {
-              value = true;
-            }
-            if (value === 'false') {
-              value = false;
-            }
-            _.set(inputJson, searchPath, value);
-            if (!orOpened) {
-              select.sql(' AND ( "' + filter.key + '" @> \'' + JSON.stringify(inputJson[filter.key]) + '\'::jsonb ');
-              orOpened = true;
-            }
-            else {
-              select.sql(' OR "' + filter.key + '" @> \'' + JSON.stringify(inputJson[filter.key]) + '\'::jsonb ');
+    var not = filter.postfix === 'Not';
+    var sensitive = filter.prefix === 'CaseSensitive';
 
-            }
-          }
-        }
-          if (orOpened) {
-            select.sql(' ) ');
-          }
+    if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
 
-          console.log(select);
-      }
-      else {
-        throw {
-          code: 'invalid.query.property',
-          parameter: filter.path,
-          message: schemaPath + ' is not in the schema'
-        };
-      }
+      select.sql(' AND ' + jsonKey + '::text < ').param(value);
+
     }
-    else {
-      throw {
-        code: 'invalid.query.property',
-        parameter: filter.path,
-        message: filter.path + ' is not searchable since it is an array or an object'
-      };
-    };
+    else if (filter.operator === 'Greater' && !not && sensitive || filter.operator === 'Less' && not && sensitive) {
 
+      select.sql(' AND ' + jsonKey + '::text > ').param(value);
+
+    }
+    else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
+
+      select.sql(' AND LOWER(' + jsonKey + '::text) < LOWER(\'' + value + '\')');
+
+    }
+    else if (filter.operator === 'Greater' && !not && !sensitive || filter.operator === 'Less' && not && !sensitive) {
+
+      select.sql(' AND LOWER(' + jsonKey + '::text) > LOWER(\'' + value + '\')');
+
+    }
+    else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive ||
+      (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text <= ').param(value);
+
+    }
+    else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && sensitive ||
+      (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text >= ').param(value);
+
+    }
+    else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive ||
+      (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && !sensitive) {
+
+      select.sql(' AND LOWER(' + jsonKey + '::text) <= LOWER(\'' + value + '\')');
+
+    }
+    else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && !sensitive ||
+      (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && !sensitive) {
+
+      select.sql(' AND LOWER(' + jsonKey + '::text) >= LOWER(\'' + value + '\')');
+
+    }
+    else if (filter.operator === 'In' && not && sensitive) {
+
+      values = value.split(',');
+      select.sql(' AND (' + jsonKey + '::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
+
+    }
+    else if (filter.operator === 'In' && !not && sensitive) {
+
+      values = value.split(',');
+      select.sql(' AND ' + jsonKey + '::text IN (').array(values).sql(')');
+
+    }
+    else if (filter.operator === 'In' && not && !sensitive) {
+
+      values = value.split(',').map(function(v) {
+        return v.toLowerCase();
+      });
+      select.sql(' AND (LOWER(' + jsonKey + '::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
+
+    }
+    else if (filter.operator === 'In' && !not && !sensitive) {
+
+      values = value.split(',').map(function(v) {
+        return v.toLowerCase();
+      });
+      select.sql(' AND LOWER(' + jsonKey + '::text) IN (').array(values).sql(')');
+
+    }
+    else if (filter.operator === 'RegEx' && not && sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text !~ ').param(value);
+
+    }
+    else if (filter.operator === 'RegEx' && !not && sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text ~ ').param(value);
+
+    }
+    else if (filter.operator === 'RegEx' && not && !sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text !~* ').param(value);
+
+    }
+    else if (filter.operator === 'RegEx' && !not && !sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text ~* ').param(value);
+
+    }
+    else if (filter.operator === 'Contains' && not && sensitive) {
+
+      select.sql(' AND (' + jsonKey + '::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+
+    }
+    else if (filter.operator === 'Contains' && !not && sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text LIKE \'%' + value + '%\'');
+
+    }
+    else if (filter.operator === 'Contains' && not && !sensitive) {
+
+      select.sql(' AND (' + jsonKey + '::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+
+    }
+    else if (filter.operator === 'Contains' && !not && !sensitive) {
+
+      select.sql(' AND ' + jsonKey + '::text ILIKE \'%' + value + '%\'');
+
+    }
+    else if (not && sensitive) {
+
+      select.sql(' AND (' + jsonKey + '::text <> ').param(value).sql(' OR ' + filter.key + '::text IS NULL)');
+
+    }
+    else if (!not && sensitive) {
+      select.sql(' AND ' + jsonKey + '::text = ').param(value);
+    }
+    else if (not && !sensitive) {
+
+      select.sql(' AND (LOWER(' + jsonKey + '::text) <> ').param(value.toLowerCase()).sql(' OR ' + filter.key + '::text IS NULL)');
+
+    } else {
+      select.sql(' AND LOWER(' + jsonKey + '::text) = ').param(value.toLowerCase());
+    }
   }
 }
 
@@ -437,7 +501,7 @@ function getFieldBaseType(fieldType) {
     type === 'serial' || type === 'bigserial') {
     return 'numeric';
   }
-  if (type === 'jsonb') {
+  if (type === 'jsonb' || type === 'json') {
     return 'json';
   }
 
@@ -480,7 +544,6 @@ function parseFilters(value, select, parameter, mapping) {
         filterFn = filterBoolean;
       }
       else if (baseType === 'json') {
-        console.log('json');
         filterFn = filterJson;
       }
 
@@ -508,6 +571,6 @@ exports = module.exports = function(value, select, parameter, database, mapping,
   'use strict';
 
   return require('./informationSchema.js')(database, configuration)
-    .then(parseFilters(decodeURIComponent(value), select, parameter, mapping));
+  .then(parseFilters(decodeURIComponent(value), select, parameter, mapping));
 
 };
