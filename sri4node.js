@@ -1408,7 +1408,8 @@ exports = module.exports = {
       app.use(forceSecureSockets);
     }
 
-    app.use(bodyParser.json());
+    app.use(bodyParser.json({limit: '1mb', extended: true}));
+ 
 
     //to parse html pages
     app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
