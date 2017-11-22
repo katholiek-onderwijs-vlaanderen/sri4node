@@ -1,24 +1,26 @@
-const configuration = global.configuration  
+const configuration = global.configuration 
 
-const { errorAsCode, debug } = require('./common.js')
+const pMap = require('p-map'); 
+
+const { errorAsCode, debug, SriError } = require('./common.js')
 
 exports = module.exports = {
 
-  // TODO: apply in order ? one-by-one?
   applyHooks: async (type, functions, applyFun) => {
     debug(`applyHooks ${type}`);
 
     if (functions && functions.length > 0) {
       try {
-        const promises = functions.map( applyFun )
-        await Q.all(promises)
+        await pMap(functions, applyFun, {concurrency: 1})
         debug(`All ${type} functions resolved.`);
       } catch(err) {
-        debug('Error during one of the ${type} functions.');
         if (err instanceof SriError) {
           throw err
         } else {
-          throw new SriError(500, [{code: errorAsCode(`${type} failed`), msg: err}])
+          console.log('_______________________ H O O K S - E R R O R _____________________________________________') 
+          console.log(err)
+          console.log('___________________________________________________________________________________________')
+          throw new SriError(500, [{code: errorAsCode(`${type} failed`), msg: err.toString()}])
         }
       }
     } else {

@@ -25,72 +25,41 @@ exports = module.exports = {
       throw new SriError(400, [{code: 'batch.of.gets.requires.get.verb', msg: 'Batch entirely composed of GET operations, MUST have HTTP verb GET.'}])
     }
 
-    // step 1: group batch content by type, to be able to call batched secure functions
-    const pyc = require('pycollections')
-    const batchByType = reqBody.reduce( (acc, e, idx) => {
-        const parsedUrl = parse(e.href, true);
-        const pathName = parsedUrl.pathname.replace(/\/$/, '') 
-
-        // spec: if verb is omitted, it MUST be interpreted as PUT.
-        if (!e.verb) {
-          e.verb = 'PUT'
-        }
-
-        const applicableHandlers = configuration.batchHandlerMap.filter( ([ route, verb, func ]) => {
-          return (verb == e.verb && route.match(pathName))
-        })
-
-        if (applicableHandlers.length > 1) {
-          cl(`WARNING: multiple handler functions match for batch request ${pathname}. Only first will be used. Check configuration.`)
-        }
-        
-        const [ route, verb, func ] = _.first(applicableHandlers)    
-        const type = route.spec.replace(/\/:[^\/]*/g, '')
-
-        acc.get(type).push({idx, section: e, func, pathName});
-        return acc
-    }, new pyc.DefaultDict([].constructor))
-
-
-    // step 2: call batched secure functions for each type
-    const preprocessingLists = await Promise.all(batchByType.keys().map( async type => {
-      const mapping = typeToConfig(global.configuration.resources)[type]
-      const tBatch = batchByType.get(type)
-      const secureResults = await Promise.all(mapping.secure.map( (func) => 
-                                          func(db, me, tBatch.map( e => e.section ) ) ))
-
-      return _.zip(...secureResults).map( (l, i) => [ tBatch[i].idx, [_.every(l), tBatch[i].func ] ] )
-    }))
-    
-    const preprocessingMap = new Map(_.flatten(preprocessingLists))
-
-
-    // step 3: evaluating /batch sections
-    //const batchResults = await Promise.map(reqBody, async (e, idx) => {
-    const batchResults = await Promise.all(reqBody.map( async (e, idx) => {
+    const batchResults = await pMap(reqBody, async (element, idx) => {
       try {
-        debug('executing /batch section ' + e.href);
+        // spec: if verb is omitted, it MUST be interpreted as PUT.
+        if (!element.verb) {
+          element.verb = 'PUT'
+        }
+
+        debug(`Executing /batch section ${element.verb} - ${element.href}`)
 
         const batchBase = reqUrl.split('/batch')[0]
-        const parsedUrl = parse(e.href, true);
+        const parsedUrl = parse(element.href, true);
         const pathName = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
-
-
-        const [ allowed, func ] = preprocessingMap.get(idx)
-        if (!allowed) {
-          throw new SriError(403, []) 
-        } 
 
         // only allow batch operations within the same resources (will be extended later with 'boundaries')
         if (!pathName.startsWith(batchBase)) {
           throw new SriError(400, [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]) 
         }
 
+        const allowed = await pEvery(mapping.secure, (func) => func(db, me, element.href, element.verb ) )
+        if (!allowed) {
+          throw new SriError(403, []) 
+        } 
+        
+        const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func }) => {
+          return (route.match(pathName) && element.verb === verb)
+        })
+        if (applicableHandlers.length > 1) {
+          cl(`WARNING: multiple handler functions match for batch request ${pathname}. Only first will be used. Check configuration.`)
+        }
+        func  = _.first(applicableHandlers).func
         if (!func) {
           throw new SriError(404, [{code: 'no.handler.found', msg: `No handler found for ${e.verb} on ${pathName}.`}])
         }
         
-        return ( await func(tx, me, e.href, parsedUrl.query, (_.isObject(e.body) ? e.body : JSON.parse(e.body) ) ) )
+        return ( await func(tx, me, element.href, parsedUrl.query, (_.isObject(e.body) ? e.body : JSON.parse(element.body) ) ) )
       } catch (err) {  
         if (err instanceof SriError) {
           return err.obj
@@ -101,7 +70,7 @@ exports = module.exports = {
           return (new SriError(500, [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}])).obj
         }
       }
-    }))
+    })
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
     // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the 

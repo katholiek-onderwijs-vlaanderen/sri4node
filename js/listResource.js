@@ -1,6 +1,7 @@
 const configuration = global.configuration  
 const _ = require('lodash')
 
+const hooks = require('./hooks.js')
 const expand = require('./expand.js');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, pgExec, SriError } = require('./common.js');
@@ -236,9 +237,7 @@ const handleListQueryResult = (rows, count, mapping, reqParams, originalUrl, que
 
 async function getListResource(db, me, reqUrl, reqParams, reqBody) {
   'use strict';
-  const type = '/' + _.last(reqUrl.replace(/\/$/, '').split('?')[0].split('/'))
-console.log('TYPE')
-console.log(type)  
+  const type = '/' + _.last(reqUrl.replace(/\/$/, '').split('?')[0].split('/'))  
   const mapping = typeToConfig(global.configuration.resources)[type];
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
@@ -272,6 +271,9 @@ console.log(type)
                                   reqParams.expand, me, reqUrl);
   }
 
+  debug('* executing afterread functions on results');
+  await hooks.applyHooks('after read', mapping.afterread, f => f(db, me, reqUrl, 'read', output.results))  
+
   debug('* sending response to client :');
   debug(output);
 
@@ -279,5 +281,6 @@ console.log(type)
 }
 
 exports = module.exports = {
-  getListResource: getListResource
+  getListResource: getListResource,
+  getSQLFromListResource: getSQLFromListResource
 }

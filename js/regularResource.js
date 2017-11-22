@@ -40,11 +40,13 @@ async function queryByKey(config, db, mapping, key, wantsDeleted) {
       mapColumnsToObject(config, mapping, row, result);
       debug('** executing onread functions');
       executeOnFunctions(config, mapping, 'onread', result);
+
       result.$$meta = _.pickBy({ // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
           deleted: row['$$meta.deleted'],
           created: row['$$meta.created'],
           modified: row['$$meta.modified']
         })
+      result.$$meta.permalink = mapping.type + '/' + key;      
       debug('** queryResult of queryByKey() : ');
       debug(result);      
       return result
@@ -76,9 +78,7 @@ async function getRegularResource(db, me, reqUrl, reqParams, reqBody) {
   await expand.executeExpansion(db, [element], mapping, resources, reqParams.expand, me, reqUrl);
 
   debug('* executing afterread functions on results');
-  const elements = [ element ]  
-  debug(elements);
-  await hooks.applyHooks('after read', mapping.afterread, f => f(db, elements, me, reqUrl))
+  await hooks.applyHooks('after read', mapping.afterread, f => f(db, me, reqUrl, 'read', element))
 
   debug('* sending response to the client :');
   return { status: 200, body: element }
@@ -222,7 +222,7 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
       debug('No row affected - resource is gone');
       throw new SriError(410, [{code: 'resource.gone', msg: 'Resource is gone'}])
     } else {
-      await hooks.applyHooks('after update', mapping.afterupdate, f => f(tx, [{path: reqUrl, body: reqBody}], me))
+      await hooks.applyHooks('after update', mapping.afterupdate, f => f(tx, me, reqUrl, 'update', {body: reqBody}))
       return { status: 200 }
     }
   } else {
@@ -237,7 +237,7 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
       debug('No row affected ?!');
       throw new SriError(500, [{code: 'insert.failed', msg: 'No row affected.'}])
     } else {
-      await hooks.applyHooks('after insert', mapping.afterinsert, f => f(tx, [{path: reqUrl, body: reqBody}], me))
+      await hooks.applyHooks('after insert', mapping.afterinsert, f => f(tx, me, reqUrl, 'create', {body: reqBody}))
       return { status: 201 }
     }
   }
@@ -293,7 +293,7 @@ async function deleteResource(db, me, reqUrl, reqParams, reqBody) {
     throw new SriError(410, [{code: 'resource.gone', msg: 'Resource is gone'}])
   } else { // eslint-disable-line
     debug('Processing afterdelete');
-    await hooks.applyHooks('after delete', mapping.afterdelete, f => f(tx, [{path: reqUrl, body: reqBody}], me))
+    await hooks.applyHooks('after delete', mapping.afterdelete, f => f(tx, me, reqUrl, 'delete', null))
   }
   debug('DELETE processing went OK. Committing database transaction.');
   resolveTx()
