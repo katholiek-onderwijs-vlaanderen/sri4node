@@ -77,8 +77,8 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
   var promises = [];
   var reject = false;
   if (mapping.query) {
-    for (key in urlparameters) {
-      if (urlparameters.hasOwnProperty(key)) {
+    Object.keys(urlparameters).forEach( function(key) {
+
         if (standardParameters.indexOf(key) === -1) {
           if (mapping.query[key] || mapping.query.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
@@ -99,15 +99,14 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
                 errors: [{code: 'invalid.query.parameter', parameter: key}]
               }
             });
-            break;
+            // break;
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count, mapping));
         } else if (key === 'modifiedSince') {
           promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select, key, database, count, mapping));
         }
-      }
-    }
+    });
   }
 
   if (!reject) {
@@ -1409,7 +1408,7 @@ exports = module.exports = {
     }
 
     app.use(bodyParser.json({limit: '1mb', extended: true}));
- 
+
 
     //to parse html pages
     app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
