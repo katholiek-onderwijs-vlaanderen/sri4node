@@ -27,7 +27,7 @@ async function queryByKey(config, db, mapping, key, wantsDeleted) {
   }
 
   const query = prepare('select-row-by-key-from-' + table);
-  const sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified" from "${table}" where "key" = `
+  const sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version" from "${table}" where "key" = `
   query.sql(sql).param(key);
   const rows= await pgExec(db, query)
   if (rows.length === 1) {
@@ -44,9 +44,10 @@ async function queryByKey(config, db, mapping, key, wantsDeleted) {
       result.$$meta = _.pickBy({ // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
           deleted: row['$$meta.deleted'],
           created: row['$$meta.created'],
-          modified: row['$$meta.modified']
+          modified: row['$$meta.modified'],
         })
       result.$$meta.permalink = mapping.type + '/' + key;      
+      result.$$meta.version =row['$$meta.version'];   
       debug('** queryResult of queryByKey() : ');
       debug(result);      
       return result
