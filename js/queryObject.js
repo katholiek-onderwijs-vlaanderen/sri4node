@@ -15,12 +15,15 @@ exports = module.exports = {
       name: name,
       text: '',
       params: [],
-      param: function (x) {
+      param: function (x, noQuotes = false) {
         // Convenience function for adding a parameter to the text, it
         // automatically adds $x to the SQL text, and adds the supplied value
         // to the 'value'-array.
         this.params.push(x);
         this.text = this.text + exports.parameterPattern;
+        if (noQuotes) {
+          this.text += ':value'
+        }
 
         return this;
       },

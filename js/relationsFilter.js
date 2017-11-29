@@ -49,49 +49,30 @@ function toTypesFilter(value, select, key, database, count, mapping) {
 }
 
 function fromsFilter(value, select, key, database, count, mapping) {
-  var froms;
-
   if (value) {
 
     const table = tableFromMapping(mapping)
 
-    froms = value.split(',').map(function(val) {
+    const froms = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];
-    }).join('\',\'');
+    });
 
-    select.sql(' AND ' + table + '.from in (\'' + froms + '\')');
+    select.sql(' AND ' + table + '.from in (').array(froms).sql(')');
   }
 }
 
 function tosFilter(value, select, key, database, count, mapping) {
-  var tos;
-
   if (value) {
 
     const table = tableFromMapping(mapping)
 
-    tos = value.split(',').map(function(val) {
+    const tos = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];
-    }).join('\',\'');
+    });
 
-    select.sql(' AND ' + table + '.to in (\'' + tos + '\')');
+    select.sql(' AND ' + table + '.to in (').array(tos).sql(')');
   }
 }
-
-// function fromsFilter(value, select, key, database, count, mapping) {
-//   var froms;
-
-//   if (value) {
-
-//     const table = tableFromMapping(mapping)
-
-//     froms = value.split(',').map(function(val) {
-//       return val.split('/')[val.split('/').length - 1];
-//     }).join('\',\'');
-
-//     select.sql(' AND ' + table + '.from in (\'' + froms + '\')');
-//   }
-// }
 
 
 exports = module.exports = {

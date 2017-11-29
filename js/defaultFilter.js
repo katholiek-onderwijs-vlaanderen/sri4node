@@ -55,12 +55,12 @@ function filterString(select, filter, value, mapping) {
   }
   else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
 
-    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) < LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) < LOWER(').param(value).sql(')');
 
   }
   else if (filter.operator === 'Greater' && !not && !sensitive || filter.operator === 'Less' && not && !sensitive) {
 
-    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) > LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) > LOWER(').param(value).sql(')');
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive ||
@@ -78,13 +78,13 @@ function filterString(select, filter, value, mapping) {
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && !sensitive) {
 
-    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) <= LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) <= LOWER(').param(value).sql(')');
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && !sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && !sensitive) {
 
-    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) >= LOWER(\'' + value + '\')');
+    select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) >= LOWER(').param(value).sql(')');
 
   }
   else if (filter.operator === 'In' && not && sensitive) {
@@ -101,17 +101,13 @@ function filterString(select, filter, value, mapping) {
   }
   else if (filter.operator === 'In' && not && !sensitive) {
 
-    values = value.split(',').map(function(v) {
-      return v.toLowerCase();
-    });
+    values = value.split(',').map (v => v.toLowerCase() );
     select.sql(' AND (LOWER(' + tablename + '."' + filter.key + '"::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'In' && !not && !sensitive) {
 
-    values = value.split(',').map(function(v) {
-      return v.toLowerCase();
-    });
+    values = value.split(',').map (v => v.toLowerCase() );
     select.sql(' AND LOWER(' + tablename + '."' + filter.key + '"::text) IN (').array(values).sql(')');
 
   }
@@ -137,22 +133,22 @@ function filterString(select, filter, value, mapping) {
   }
   else if (filter.operator === 'Contains' && not && sensitive) {
 
-    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT LIKE \'%').param(value, true).sql('%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text LIKE \'%' + value + '%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text LIKE \'%').param(value, true).sql('%\'');
 
   }
   else if (filter.operator === 'Contains' && not && !sensitive) {
 
-    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT ILIKE \'%').param(value, true).sql('%\' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && !sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ILIKE \'%' + value + '%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ILIKE \'%').param(value, true).sql('%\'');
 
   }
   else if (not && sensitive) {
@@ -264,7 +260,7 @@ function filterBoolean(select, filter, value) {
       select.sql(' AND ');
     }
 
-    select.sql('"' + filter.key + '" = ' + value);
+    select.sql('"' + filter.key + '" = ').param(value);
   }
 
 }
@@ -388,7 +384,7 @@ function filterFieldByValues(select, value, textFields) {
     if (i > 0) {
       select.sql(' OR ');
     }
-    select.sql('"' + textFields[i] + '"::text ILIKE \'%' + value + '%\'');
+    select.sql('"' + textFields[i] + '"::text ILIKE \'%').param(value, true).sql('%\'');
   }
   select.sql(')');
 }
