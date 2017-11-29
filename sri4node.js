@@ -7,16 +7,16 @@
 // External dependencies.
 const compression = require('compression');
 const bodyParser = require('body-parser');
-const Q = require('q');
 const express = require('express');
 const route = require('route-parser');
 const lsRoutes = require('express-ls-routes')
 var pathfinderUI = require('pathfinder-ui')
 const _ = require('lodash')
+const pMap = require('p-map');
 
 
 const informationSchema = require('./js/informationSchema.js');
-const { cl, debug, pgConnect, pgExec, typeToConfig, SriError,
+const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable,
         mapColumnsToObject, executeOnFunctions, tableFromMapping } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 
@@ -176,9 +176,8 @@ const expressWrapper = (db, func, handleSecure) => {
       const mapping = typeToConfig(global.configuration.resources)[type]
 
       if (handleSecure) {
-        const secureResults = await Q.all(mapping.secure.map( (func) => 
-                                            func(db, req.user, [{ href: req.originalUrl, verb: req.method }]) ))
-
+        const secureResults = await pMap(mapping.secure, (func) => 
+                                            func(db, req.user, req.originalUrl, req.method), {concurrency: 1} )
         if (_.every(_.flatten(secureResults))) {
           const result = await func(db, req.user, req.originalUrl, req.query, req.body)
           resp.status(result.status).send(result.body)
@@ -208,9 +207,11 @@ exports = module.exports = {
   configure: async function (app, pg, config) {
     'use strict';
     try {
+
       global.configuration = config // share configuration with other modules
 
       const db = await pgConnect(config)
+
       global.configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
 
       const auth  = require('./js/auth.js')
@@ -218,6 +219,25 @@ exports = module.exports = {
       const regularResource = require('./js/regularResource.js')
       const batch = require('./js/batch.js')
       const utilLib = require('./js/utilLib.js')
+
+      global.configuration.utils = {
+        // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
+        executeSQL: pgExec,
+        prepareSQL: queryobject.prepareSQL,
+        convertListResourceURLToSQL: listResource.getSQLFromListResource,
+        addReferencingResources: utilLib.addReferencingResources,
+        basicAuthentication: auth.doBasicAuthentication,
+        checkBasicAuthentication: auth.checkBasicAuthentication,
+        postAuthenticationFailed: auth.postAuthenticationFailed
+      } //utils
+
+      if (config.securityPlugin) {
+        config.securityPlugin.install(global.configuration)
+      }
+      if (config.auditPlugin) {
+        config.auditPlugin.install(global.configuration)
+      }
+
 
       const emt = installEMT()
 
@@ -228,7 +248,7 @@ exports = module.exports = {
 
       app.use(emt.instrument(compression()))
       app.use(emt.instrument(logRequests))
-      app.use(emt.instrument(bodyParser.json()));
+      app.use(emt.instrument(bodyParser.json({limit: '5mb', extended: true})));
 
       app.use('/pathfinder', function(req, res, next){
         pathfinderUI(app)
@@ -274,6 +294,8 @@ exports = module.exports = {
 
       config.resources.forEach( (mapping) => {
         checkRequiredFields(mapping, config.informationSchema);
+
+        installVersionIncTriggerOnTable(db, tableFromMapping(mapping))
 
         // register schema for external usage. public.
         app.get(mapping.type + '/schema', middlewareErrorWrapper(getSchema));
@@ -328,21 +350,8 @@ exports = module.exports = {
 
       // transform map with 'routes' to be usable in batch
       config.batchHandlerMap = batchHandlerMap.map( ([path, verb, auth, func]) => {
-        return [ new route(path), verb, func ]
+        return { route: new route(path), verb, func }
       })
-
-
-      this.utils = {
-        // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
-        executeSQL: pgExec,
-        prepareSQL: queryobject.prepareSQL,
-        // generateError: generateError,
-        convertListResourceURLToSQL: listResource.getSQLFromListResource,
-        addReferencingResources: utilLib.addReferencingResources,
-        basicAuthentication: auth.doBasicAuthentication,
-        checkBasicAuthentication: auth.checkBasicAuthentication,
-        postAuthenticationFailed: auth.postAuthenticationFailed
-      } //utils
 
 
 

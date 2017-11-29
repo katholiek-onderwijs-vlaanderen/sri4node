@@ -101,7 +101,8 @@ exports = module.exports = {
           referencedType = mapping.map[key].references;
           if (row[key] !== null) {
             element[key] = {
-              href: typeToMapping[referencedType].type + '/' + row[key]
+              //href: typeToMapping[referencedType].type + '/' + row[key]
+              href: referencedType + '/' + row[key]
             };
           } else {
             element[key] = null;
@@ -151,8 +152,6 @@ exports = module.exports = {
   },
 
 
-
-
   // Q wrapper for executing SQL statement on a node-postgres client.
   //
   // Instead the db object is a node-postgres Query config object.
@@ -198,6 +197,42 @@ exports = module.exports = {
             }
           }
     }))
+  },
+
+  installVersionIncTriggerOnTable: async function(db, tableName) {
+
+    const plpgsql = `
+      DO $___$
+      BEGIN
+        -- 1. add column '$$meta.version' if not yet present
+        IF NOT EXISTS (
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = '${tableName}'
+            AND column_name = '$$meta.version'
+        ) THEN
+          ALTER TABLE ${tableName} ADD "$$meta.version" integer DEFAULT 0;
+        END IF;
+
+        -- 2. create func vsko_resource_version_inc_function if not yet present
+        IF NOT EXISTS (SELECT proname from pg_proc where proname = 'vsko_resource_version_inc_function') THEN
+          CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+          BEGIN
+            NEW."$$meta.version" := OLD."$$meta.version" + 1;
+            RETURN NEW;
+          END' LANGUAGE 'plpgsql';
+        END IF;
+
+        -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'vsko_resource_version_trigger_${tableName}') THEN
+            CREATE TRIGGER vsko_resource_version_trigger_${tableName} BEFORE INSERT OR UPDATE ON ${tableName}
+            FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
+        END IF;
+      END
+      $___$
+      LANGUAGE 'plpgsql';
+    `
+    await db.query(plpgsql)
   },
 
   getCountResult: async (tx, countquery) => {

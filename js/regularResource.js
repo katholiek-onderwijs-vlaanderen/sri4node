@@ -155,7 +155,7 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
   if (mapping.schema) {
     const validationErrors  = getSchemaValidationErrors(reqBody, mapping.schema);
     if (validationErrors) {
-      errors = { validationErrors }
+      const errors = { validationErrors }
       throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s)', errors }])
     } else {
       debug('Schema validation passed.');
@@ -185,14 +185,13 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
           throw new SriError(409, [{code: 'no.href.inside.reference', msg: 'No href found inside reference ' + k}])
         }
         referencedType = mapping.map[k].references;
-        referencedMapping = typeToMapping[referencedType];
         type = value.replace(value.split(referencedType)[1], '');
         refkey = value.replace(type, '').substr(1);
-        if (type === referencedMapping.type) {
+        if (type === referencedType) {
           element[k] = refkey;
         } else {
           const msg = 'Faulty reference detected [' + element[key].href + '], ' +
-            'detected [' + type + '] expected [' + referencedMapping.type + ']'
+            'detected [' + type + '] expected [' + referencedType + ']'
           cl(msg);
           throw new SriError(409, [{code: 'faulty.reference', msg: msg}])
         }
