@@ -290,13 +290,12 @@ async function deleteResource(db, me, reqUrl, reqParams, reqBody) {
   const rows = await pgExec(tx, deletequery);
   if (rows.length === 0) {
     debug('No row affected - the resource is already gone');
-    throw new SriError(410, [{code: 'resource.gone', msg: 'Resource is gone'}])
   } else { // eslint-disable-line
     debug('Processing afterdelete');
     await hooks.applyHooks('after delete', mapping.afterdelete, f => f(tx, me, reqUrl, 'delete', null))
+    debug('DELETE processing went OK. Committing database transaction.');
+    resolveTx()
   }
-  debug('DELETE processing went OK. Committing database transaction.');
-  resolveTx()
   return { status: 200 }
 }
 
