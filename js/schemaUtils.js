@@ -34,13 +34,21 @@ exports = module.exports = {
     return ret;
   },
 
-  numeric: function (description) {
-    'use strict';
-    return {
-      type: 'numeric',
-      multipleOf: '1.0',
-      description: description
-    };
+  numeric: function(description, min, max) {
+      'use strict';
+      const ret = {
+          type: 'numeric',
+          multipleOf: '1.0',
+          description: description,
+      };
+      if (min || min==0) {
+          ret.minimum = min;
+      }
+      if (max) {
+          ret.maximum = max;
+      }
+
+      return ret;
   },
 
   email: function (description) {
