@@ -70,7 +70,7 @@ exports = module.exports = {
           return (new SriError(500, [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}])).obj
         }
       }
-    })
+    }, {concurrency: 1})
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
     // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the 
