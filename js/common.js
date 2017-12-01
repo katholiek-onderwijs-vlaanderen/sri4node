@@ -19,6 +19,14 @@ const pgpInitOptions = {
 };
 const pgp = require('pg-promise')(pgpInitOptions);
 
+// The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
+//   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
+// In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
+// override the pg handler for type 'timestamp without time zone' with one that appends a 'Z' before conversion
+// to a JS Date object to indicate UTC.
+pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
+
+
 const configuration = global.configuration
 
 
@@ -81,11 +89,7 @@ exports = module.exports = {
   mergeObject: function (source, target) {
     'use strict';
     var key;
-    for (key in source) {
-      if (source.hasOwnProperty(key)) {
-        target[key] = source[key];
-      }
-    }
+    Object.keys(source).forEach( key => target[key] = source[key] );
   },
 
   // Create a ROA resource, based on a row result from node-postgres.
@@ -95,30 +99,28 @@ exports = module.exports = {
     var key, referencedType;
 
     // add all mapped columns to output.
-    for (key in mapping.map) {
-      if (mapping.map.hasOwnProperty(key)) {
-        if (mapping.map[key].references) {
-          referencedType = mapping.map[key].references;
-          if (row[key] !== null) {
-            element[key] = {
-              //href: typeToMapping[referencedType].type + '/' + row[key]
-              href: referencedType + '/' + row[key]
-            };
-          } else {
-            element[key] = null;
-          }
-        } else if (mapping.map[key].onlyinput) {
-          // Skip on output !
-        } else if (key.indexOf('$$meta.') === -1) {
-          element[key] = row[key];
+    Object.keys(mapping.map).forEach( key => {
+      if (mapping.map[key].references) {
+        referencedType = mapping.map[key].references;
+        if (row[key] !== null) {
+          element[key] = {
+            //href: typeToMapping[referencedType].type + '/' + row[key]
+            href: referencedType + '/' + row[key]
+          };
         } else {
-          if (!element.$$meta) {
-            element.$$meta = {};
-          }
-          element.$$meta[key.split('$$meta.')[1]] = row[key];
+          element[key] = null;
         }
+      } else if (mapping.map[key].onlyinput) {
+        // Skip on output !
+      } else if (key.indexOf('$$meta.') === -1) {
+        element[key] = row[key];
+      } else {
+        if (!element.$$meta) {
+          element.$$meta = {};
+        }
+        element.$$meta[key.split('$$meta.')[1]] = row[key];
       }
-    }
+    } )
   },
 
   // Execute registered mapping functions for elements of a ROA resource.
