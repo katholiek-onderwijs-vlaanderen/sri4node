@@ -201,19 +201,33 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
   }
   debug('Converted references to values for update');
 
-  const countquery = prepare('check-resource-exists-' + table);
-  countquery.sql('select count(*) from ' + table + ' where "key" = ').param(key);
-  const count = await getCountResult(tx, countquery) 
-  if (count === 1) {
+  const columns = sqlColumnNames(mapping);
+  const readquery = prepare('read-resource-' + table);
+  readquery.sql(`select ${columns} from ${table} where "key" = `).param(key);
+  const [ resource ] = await pgExec(tx, readquery)
+  if (resource) {
+    // If new resource is the same as the one in the database => don't update the resource. Otherwise meta 
+    // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
+    if ( Object.keys(element).every( k => {
+            if (mapping.schema.properties[k].format === 'date-time') {
+              return ( (new Date(element[k])).getTime() === resource[k].getTime() )
+            } else {
+              return (resource[k] === element[k])
+            }
+          } ) )  {
+      debug('Putted resource does NOT contain changes -> ignore PUT.');
+      return { status: 200 }
+    }
+
     executeOnFunctions(resources, mapping, 'onupdate', element);
 
     var update = prepare('update-' + table);
     update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
-    for (var k in element) {
-      if (k !== '$$meta.created' && k !== '$$meta.modified' && element.hasOwnProperty(k)) {
+    Object.keys(element).forEach( k => {
+      if (k !== '$$meta.created' && k !== '$$meta.modified') {
         update.sql(',\"' + k + '\"' + '=').param(element[k]);
-      }
-    }
+      }  
+    })
     update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
     update.sql(' returning key')
 
@@ -251,23 +265,30 @@ async function validate(db, me, reqUrl, reqParams, reqBody) {
   debug('* sri4node VALIDATE processing invoked.');
   const strippedReqUrl = reqUrl.replace('validate', reqBody.key)
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  const result = await executePutInsideTransaction(tx, me, strippedReqUrl, reqBody);
-  debug('VALIDATE processing went OK. Rolling back database transaction.');
-  rejectTx()
-  return result
+  try {
+    const result = await executePutInsideTransaction(tx, me, strippedReqUrl, reqBody);
+    debug('VALIDATE processing went OK. Rolling back database transaction.');
+    rejectTx()
+    return result    
+  } catch (err) {
+    rejectTx()
+    throw err
+  }
 }
-
-
-
 
 async function createOrUpdate(db, me, reqUrl, reqParams, reqBody) {
   'use strict';
   debug('* sri4node PUT processing invoked.');
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  const result = await executePutInsideTransaction(tx, me, reqUrl, reqBody)
-  debug('PUT processing went OK. Committing database transaction.');
-  resolveTx()
-  return result
+  try {
+    const result = await executePutInsideTransaction(tx, me, reqUrl, reqBody)
+    debug('PUT processing went OK. Committing database transaction.');
+    resolveTx()
+    return result
+  } catch (err) {
+    rejectTx()
+    throw err
+  }
 }
 
 
