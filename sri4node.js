@@ -1656,7 +1656,7 @@ exports = module.exports = {
           elementKeysToElement = {};
           elements.forEach(function (element) {
             permalink = element.$$meta.permalink;
-            elementKey = permalink.split('/')[2];
+            elementKey = permalink.split('/')[permalink.split('/').length-1];
             elementKeys.push(elementKey);
             elementKeysToElement[elementKey] = element;
             element[targetkey] = [];
