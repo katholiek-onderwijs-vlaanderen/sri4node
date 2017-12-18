@@ -20,7 +20,7 @@ exports = module.exports = {
           console.log('_______________________ H O O K S - E R R O R _____________________________________________') 
           console.log(err)
           console.log('___________________________________________________________________________________________')
-          throw new SriError(500, [{code: errorAsCode(`${type} failed`), msg: err.toString()}])
+          throw new SriError({status: 500, errors: [{code: errorAsCode(`${type} failed`), msg: err.toString()}] })
         }
       }
     } else {

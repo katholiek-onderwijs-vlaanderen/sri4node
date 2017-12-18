@@ -27,12 +27,6 @@ exports = module.exports = async function (db, configuration) {
   var q, tableNames;
   var i, type, table, tableName, row, typeCache, columnCache;
 
-  /*function debug(x) {
-    if (configuration.logdebug) {
-      cl(x);
-    }
-  }*/
-
   if (cache !== null) {
     deferred.resolve(cache);
   } else {

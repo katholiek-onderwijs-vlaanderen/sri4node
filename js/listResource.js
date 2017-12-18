@@ -4,8 +4,8 @@ const _ = require('lodash')
 const hooks = require('./hooks.js')
 const expand = require('./expand.js');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, pgExec, SriError } = require('./common.js');
-var queryobject = require('./queryObject.js');
+        transformRowToObject, tableFromMapping, pgExec, SriError } = require('./common.js');
+const queryobject = require('./queryObject.js');
 const prepare = queryobject.prepareSQL; 
 
 
@@ -17,29 +17,29 @@ const MAX_LIMIT = 500;
 // apply extra parameters on request URL for a list-resource to a select.
 function applyRequestParameters(mapping, query, urlparameters, database, count) {
   'use strict';
-  var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
+  const standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   if (mapping.query) {
-    const reqParamsects = _.keys(urlparameters)
-            .forEach( (key) => {
-                if (!standardParameters.includes(key)) {
-                  if (mapping.query[key] || mapping.query.defaultFilter) {
-                    // Execute the configured function that will apply this URL parameter
-                    // to the SELECT statement
-                    if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
-                      mapping.query.defaultFilter(urlparameters[key], query, key, mapping, database, configuration)
-                    } else {
-                      mapping.query[key](urlparameters[key], query, key, database, count, mapping)
-                    }
-                  } else {
-                    throw new SriError(404, 'unknown.query.parameter', key) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
-                  }          
-                } else if (key === 'hrefs' && urlparameters.hrefs) {
-                  queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
-                } else if (key === 'modifiedSince') {
-                  queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
+    _.keys(urlparameters)
+        .forEach( (key) => {
+            if (!standardParameters.includes(key)) {
+              if (mapping.query[key] || mapping.query.defaultFilter) {
+                // Execute the configured function that will apply this URL parameter
+                // to the SELECT statement
+                if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
+                  mapping.query.defaultFilter(urlparameters[key], query, key, mapping, database, configuration)
+                } else {
+                  mapping.query[key](urlparameters[key], query, key, database, count, mapping)
                 }
-            })
+              } else {
+                throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
+              }          
+            } else if (key === 'hrefs' && urlparameters.hrefs) {
+              queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
+            } else if (key === 'modifiedSince') {
+              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
+            }
+        })
   }
 }
 
@@ -49,9 +49,7 @@ function getSQLFromListResource(type, parameters, count, database, query) {
   const mapping = typeToConfig(global.configuration.resources)[type]
   const table = tableFromMapping(mapping)
 
-  var sql;
-  var columns;
-
+  let sql, columns;
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
     columns = '"key"';
   } else {
@@ -87,12 +85,12 @@ function getSQLFromListResource(type, parameters, count, database, query) {
 }
 
 
-const applyOrderAndPagingParameters = (query, reqParams, mapping, queryLimit, maxlimit, offset) => {
+const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, offset) => {
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
-  const orderBy = reqParams.orderBy;
-  const descending = reqParams.descending;
+  const orderBy = queryParams.orderBy;
+  const descending = queryParams.descending;
 
   if (orderBy) {
     valid = true;
@@ -133,7 +131,7 @@ const applyOrderAndPagingParameters = (query, reqParams, mapping, queryLimit, ma
 
   // Paging parameters
 
-  if (queryLimit > maxlimit || (queryLimit === '*' && reqParams.expand !== 'NONE')) {
+  if (queryLimit > maxlimit || (queryLimit === '*' && queryParams.expand !== 'NONE')) {
     throw new SriHttpObject(409, 'ERROR', 
         {
           code: 'invalid.limit.parameter',
@@ -142,7 +140,7 @@ const applyOrderAndPagingParameters = (query, reqParams, mapping, queryLimit, ma
         })
   }
 
-  if (!(queryLimit === '*' && reqParams.expand === 'NONE')) {
+  if (!(queryLimit === '*' && queryParams.expand === 'NONE')) {
     // limit condition is always added except special case where the paremeter limit=* and expand is NONE (#104)
     query.sql(' limit ').param(queryLimit);
   }
@@ -153,52 +151,43 @@ const applyOrderAndPagingParameters = (query, reqParams, mapping, queryLimit, ma
 }
 
 
-const handleListQueryResult = (rows, count, mapping, reqParams, originalUrl, queryLimit, offset) => {
-  var results = [];
-  var row, currentrow;
-  var element, msg;
+//sriRequest
+const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, offset) => {  
+  const results = [];
+  const originalUrl = sriRequest.originalUrl
+  const queryParams = sriRequest.query
 
-  const elements = [];
+  // const elements = [];
   rows.forEach( (currentrow) => {
-    element = {
+    const element = {
       href: mapping.type + '/' + currentrow.key
     };
 
     // full, or any set of expansion values that must
     // all start with "results.href" or "results.href.*" will result in inclusion
     // of the regular resources in the list resources.
-    if (!reqParams.expand ||
-      (reqParams.expand.toLowerCase() === 'full' || reqParams.expand.indexOf('results') === 0)) {
-      element.$$expanded = {
-        $$meta: {
-          permalink: mapping.type + '/' + currentrow.key
-        }
-      };
-      if (currentrow['$$meta.deleted']) {
-        element.$$expanded.$$meta.deleted = true;
-      }
-      element.$$expanded.$$meta.created = currentrow['$$meta.created'];
-      element.$$expanded.$$meta.modified = currentrow['$$meta.modified'];
-      mapColumnsToObject(global.configuration.resources, mapping, currentrow, element.$$expanded);
-      executeOnFunctions(global.configuration.resources, mapping, 'onread', element.$$expanded);
-      elements.push(element.$$expanded);
-    } else if (reqParams.expand && reqParams.expand.toLowerCase() === 'none') {
+    if (!queryParams.expand ||
+      (queryParams.expand.toLowerCase() === 'full' || queryParams.expand.indexOf('results') === 0)) {
+      element.$$expanded = transformRowToObject(currentrow, mapping)
+    } else if (queryParams.expand && queryParams.expand.toLowerCase() === 'none') {
       // Intentionally left blank.
-    } else if (reqParams.expand) {
+    } else if (queryParams.expand) {
       // Error expand must be either 'full','none' or start with 'href'
-      msg = 'expand value unknown : ' + reqParams.expand;
+      const msg = 'expand value unknown : ' + queryParams.expand;
       debug(msg);
-      throw new SriError(400, [{ code: 'parameter.value.unknown', 
-                                 msg: `Unknown value [${reqParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
+      throw new SriError({ status: 400, 
+                           errors: [{ code: 'parameter.value.unknown', 
+                                 msg: `Unknown value [${queryParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
                                  parameter: "expand",
-                                 value: reqParams.expand,
+                                 value: queryParams.expand,
                                  possibleValues: [ 'NONE', 'SUMMARY', 'FULL' ]
-                               }])      
+                               }]
+                         })      
     }
     results.push(element);
   })
 
-  output = {
+  const output = {
     $$meta: {
       count: count,
       schema: mapping.type + '/schema',
@@ -207,7 +196,7 @@ const handleListQueryResult = (rows, count, mapping, reqParams, originalUrl, que
     results: results
   };
 
-  var newOffset = queryLimit * 1 + offset * 1;
+  let newOffset = queryLimit * 1 + offset * 1;
 
   if (newOffset < count) {
     if (originalUrl.match(/offset/)) {
@@ -235,44 +224,65 @@ const handleListQueryResult = (rows, count, mapping, reqParams, originalUrl, que
 }
 
 
-async function getListResource(db, me, reqUrl, reqParams, reqBody) {
+async function getListResource(db, sriRequest) {
   'use strict';
-  const type = '/' + _.last(reqUrl.replace(/\/$/, '').split('?')[0].split('/'))  
+  const queryParams = sriRequest.query
+  const type = '/' + _.last(sriRequest.path.replace(/\/$/, '').split('?')[0].split('/'))  
   const mapping = typeToConfig(global.configuration.resources)[type];
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
-  const queryLimit = reqParams.limit || defaultlimit;
-  const offset = reqParams.offset || 0;
+  const queryLimit = queryParams.limit || defaultlimit;
+  const offset = queryParams.offset || 0;
 
   debug('GET list resource ' + type);
 
   const countquery = prepare();
-  getSQLFromListResource(type, reqParams, true, db, countquery);
+  getSQLFromListResource(type, queryParams, true, db, countquery);
   debug('* executing SELECT COUNT query on database');
   const count = await getCountResult(db, countquery) 
   
   const query = prepare();
-  getSQLFromListResource(type, reqParams, false, db, query);
-  applyOrderAndPagingParameters(query, reqParams, mapping, queryLimit, maxlimit, offset)
+  getSQLFromListResource(type, queryParams, false, db, query);
+  applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, offset)
   debug('* executing SELECT query on database');
   const rows = await pgExec(db, query);
   
   debug('pgExec select ... OK');
-  debug(rows);
 
-  var output
+  const containsDeleted = rows.some( r => r['$$meta.deleted'] === true )
+
+  sriRequest.containsDeleted = { get: () => containsDeleted } 
+
+  let output
   if (mapping.handlelistqueryresult) {
     output = await mapping.handlelistqueryresult(rows)
   } else {
-    output = handleListQueryResult(rows, count, mapping, reqParams, reqUrl, queryLimit, offset)
-    debug('* executing expansion : ' + reqParams.expand);
-    await expand.executeExpansion(db, output.results, mapping, global.configuration.resources, 
-                                  reqParams.expand, me, reqUrl);
+    output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
   }
 
   debug('* executing afterread functions on results');
-  await hooks.applyHooks('after read', mapping.afterread, f => f(db, me, reqUrl, 'read', output.results))  
+
+  await hooks.applyHooks( 'after read', 
+                          mapping.afterread, 
+                          f => f( db, 
+                                  sriRequest, 
+                                  output.results.map( e => {
+                                    if (e['$$expanded']) {
+                                      return { permalink: e.href
+                                             , incoming: null
+                                             , stored: e['$$expanded'] }
+                                    } else {
+                                      return { permalink: e.href
+                                             , incoming: null
+                                             , stored: null }
+                                    }
+                                  })
+                                )
+                        )  
+
+  debug('* executing expansion : ' + queryParams.expand);
+  await expand.executeExpansion(db, sriRequest, output.results, mapping, global.configuration.resources);
 
   debug('* sending response to client :');
   debug(output);

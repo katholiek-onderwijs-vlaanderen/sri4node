@@ -19,8 +19,6 @@ function fromTypesFilter(value, select, key, database, count, mapping) {
     sql += ' AND c.type in (\'' + types + '\') AND c."$$meta.deleted" = false ';
 
     select.text = sql;
-
-    //console.log('fromTypes:', sql);
   }
 }
 
@@ -43,8 +41,6 @@ function toTypesFilter(value, select, key, database, count, mapping) {
     sql += ' AND c2.type in (\'' + types + '\') AND c2."$$meta.deleted" = false ';
 
     select.text = sql;
-
-    //console.log('toTypes:', sql);
   }
 }
 

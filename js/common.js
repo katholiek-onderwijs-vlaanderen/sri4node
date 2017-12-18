@@ -1,6 +1,7 @@
 /* Internal utilities for sri4node */
 
-const _ =require('lodash')
+const _ = require('lodash')
+const url = require('url')
 
 var env = require('./env.js');
 var qo = require('./queryObject.js');
@@ -43,6 +44,18 @@ exports = module.exports = {
     }
   },
 
+
+  urlToTypeAndKey: (urlToParse) => {
+    const parsedUrl = url.parse(urlToParse);
+    const pathName = parsedUrl.pathname.replace(/\/$/, '') 
+    const parts = pathName.split('/')
+    const type = _.initial(parts).join('/')
+    const key = _.last(parts)
+
+    return { type, key }
+  },
+
+
   errorAsCode: (s) => {
     'use strict';
     // return any string as code for REST API error object.
@@ -82,7 +95,7 @@ exports = module.exports = {
       }
     }
 
-    return sqlColumnNames;
+    return sqlColumnNames + ', "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"'
   },
 
   /* Merge all direct properties of object 'source' into object 'target'. */
@@ -92,46 +105,77 @@ exports = module.exports = {
     Object.keys(source).forEach( key => target[key] = source[key] );
   },
 
-  // Create a ROA resource, based on a row result from node-postgres.
-  mapColumnsToObject: function (config, mapping, row, element) {
-    'use strict';
-    var typeToMapping = exports.typeToConfig(config);
-    var key, referencedType;
-
-    // add all mapped columns to output.
-    Object.keys(mapping.map).forEach( key => {
-      if (mapping.map[key].references) {
-        referencedType = mapping.map[key].references;
+  transformRowToObject: function (row, resourceMapping) {
+    const map = resourceMapping.map
+    const element = {}
+    Object.keys(map).forEach( key => {
+      if (map[key].references) {
+        const referencedType = map[key].references;
         if (row[key] !== null) {
           element[key] = {
-            //href: typeToMapping[referencedType].type + '/' + row[key]
             href: referencedType + '/' + row[key]
           };
         } else {
           element[key] = null;
         }
-      } else if (mapping.map[key].onlyinput) {
-        // Skip on output !
-      } else if (key.indexOf('$$meta.') === -1) {
-        element[key] = row[key];
       } else {
-        if (!element.$$meta) {
-          element.$$meta = {};
-        }
-        element.$$meta[key.split('$$meta.')[1]] = row[key];
-      }
-    } )
+        element[key] = row[key];
+      } 
+
+      if (map[key]['toObject']) {
+        map[key]['toObject'].forEach( f => (key, element) );
+      }         
+    })
+
+    element.$$meta = _.pickBy({ // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+        deleted: row['$$meta.deleted'],
+        created: row['$$meta.created'],
+        modified: row['$$meta.modified'],
+      })
+    element.$$meta.permalink = resourceMapping.type + '/' + row.key;      
+    element.$$meta.version = row['$$meta.version'];  
+
+    // exports.debug('Transformed incoming row according to configuration');
+    return element
   },
 
-  // Execute registered mapping functions for elements of a ROA resource.
-  executeOnFunctions: function (config, mapping, ontype, element) {
-    'use strict';
-    _.keys(mapping.map).forEach( key => {
-        if (mapping.map[key][ontype]) {
-          mapping.map[key][ontype](key, element);
-        } 
-      })
+ 
+  transformObjectToRow: function (obj, resourceMapping) {  
+    const map = resourceMapping.map
+    const row = {}
+    Object.keys(map).forEach( key => {
+      if (map[key].references && obj[key] !== undefined) {
+        const permalink = obj[key].href;
+        if (!permalink) {
+          throw new SriError({status: 409, errors: [{code: 'no.href.inside.reference', msg: 'No href found inside reference ' + key}]})
+        }
+        const expectedType = map[key].references
+        const { type: refType, key: refKey } = exports.urlToTypeAndKey(permalink)
+        if (refType === expectedType) {
+          row[key] = refKey;
+        } else {
+          const msg = `Faulty reference detected [${permalink}], detected [${refType}] expected [${expectedType}].`
+          exports.cl(msg);
+          throw new exports.SriError({status: 409, errors: [{code: 'faulty.reference', msg: msg}]})
+        }
+      } else {
+        if (obj[key] !== undefined) {
+          row[key] = obj[key];
+        } else {
+          // explicitly set missing properties to null (https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/118)
+          row[key] = null
+        }
+      } 
+
+      if (map[key]['fromObject']) {
+        map[key]['fromObject'].forEach( f => (key, row) );
+      }         
+    })
+
+    // exports.debug('Transformed incoming object according to configuration');
+    return row
   },
+
 
   pgConnect: async function (configuration) {
     'use strict';
@@ -227,7 +271,7 @@ exports = module.exports = {
 
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'vsko_resource_version_trigger_${tableName}') THEN
-            CREATE TRIGGER vsko_resource_version_trigger_${tableName} BEFORE INSERT OR UPDATE ON ${tableName}
+            CREATE TRIGGER vsko_resource_version_trigger_${tableName} BEFORE UPDATE ON ${tableName}
             FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
         END IF;
       END
@@ -243,14 +287,33 @@ exports = module.exports = {
   },
 
   tableFromMapping: (mapping) => {
-    return (mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1]);
+    return (mapping.table ? mapping.table : _.last(mapping.type.split('/')) )
   },
 
-  SriError: function (status, errors) {
-    'use strict';
-    this.obj = {
-      status: status,
-      body: {
+  isEqualSriObject: (obj1, obj2, mapping) => {
+  
+    const compareAttr = (key, a1, a2) => {
+      if (mapping.schema.properties[key].format === 'date-time') {
+          return ( (new Date(a1)).getTime() === (new Date(a2)).getTime() )
+        } else {  
+          return (a1 === a2)
+        } 
+    }
+
+    return Object.keys(mapping.map).every( key => {
+      if ( ((obj1[key] === undefined) || (obj1[key] === null))
+        && ((obj2[key] === undefined) || (obj2[key] === null)) ) {
+        return true
+      } else if ( (obj1[key] !== undefined) && (obj2[key] !== undefined) ) {
+        return compareAttr(key, obj1[key], obj2[key])
+      } 
+    })
+  },
+
+  SriError: class {
+    constructor({status, errors = [], headers = {}}) {
+      this.status = status,
+      this.body = {
         errors: errors.map( e => {
                     if (e.type == undefined) {
                       e.type = 'ERROR' // if no type is specified, set to 'ERROR'
@@ -258,10 +321,9 @@ exports = module.exports = {
                     return e
                   }),
         status: status
-      }
-    };
-  },
-
-
+      },
+      this.headers = headers
+    }
+  }
 
 }

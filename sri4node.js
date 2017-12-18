@@ -9,8 +9,7 @@ const compression = require('compression');
 const bodyParser = require('body-parser');
 const express = require('express');
 const route = require('route-parser');
-const lsRoutes = require('express-ls-routes')
-var pathfinderUI = require('pathfinder-ui')
+const pathfinderUI = require('pathfinder-ui')
 const _ = require('lodash')
 const pMap = require('p-map');
 
@@ -32,7 +31,7 @@ function error(x) {
 // Force https in production.
 function forceSecureSockets(req, res, next) {
   'use strict';
-  var isHttps = req.headers['x-forwarded-proto'] === 'https';
+  const isHttps = req.headers['x-forwarded-proto'] === 'https';
   if (!isHttps && req.get('Host').indexOf('localhost') < 0 && req.get('Host').indexOf('127.0.0.1') < 0) {
     return res.redirect('https://' + req.get('Host') + req.url);
   }
@@ -43,13 +42,12 @@ function forceSecureSockets(req, res, next) {
 
 const logRequests = (req, res, next) => {
   'use strict';
-  var start;
   if (global.configuration.logrequests) {
     debug(req.method + ' ' + req.path + ' starting.'
               + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
-    start = Date.now();
+    const start = Date.now();
     res.on('finish', function () {
-      var duration = Date.now() - start;
+      const duration = Date.now() - start;
       debug(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
                 + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
     });
@@ -60,9 +58,9 @@ const logRequests = (req, res, next) => {
 /* Handle GET /{type}/schema */
 function getSchema(req, resp) {
   'use strict';
-  var typeToMapping = typeToConfig(global.configuration.resources);
-  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
-  var mapping = typeToMapping[type];
+  const typeToMapping = typeToConfig(global.configuration.resources);
+  const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
+  const mapping = typeToMapping[type];
 
   resp.set('Content-Type', 'application/json');
   resp.send(mapping.schema);
@@ -71,11 +69,10 @@ function getSchema(req, resp) {
 /* Handle GET /docs and /{type}/docs */
 function getDocs(req, resp) {
   'use strict';
-  var typeToMapping = typeToConfig(global.configuration.resources);
-  var type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
-  var mapping;
+  const typeToMapping = typeToConfig(global.configuration.resources);
+  const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   if (type in typeToMapping) {
-    mapping = typeToMapping[type];
+    const mapping = typeToMapping[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping, queryUtils: exports.queryUtils});
   } else if (req.route.path === '/docs') {
@@ -87,8 +84,8 @@ function getDocs(req, resp) {
 
 const getResourcesOverview = (req, resp) => {
   resp.set('Content-Type', 'application/json');
-  var resourcesToSend = {};
-  resources.forEach( (resource) => {
+  const resourcesToSend = {};
+  global.configuration.resources.forEach( (resource) => {
     const resourceName = resource.type.substring(1) // strip leading slash
     resourcesToSend[resourceName] = {
       docs: resource.type + '/docs',
@@ -106,20 +103,16 @@ const getResourcesOverview = (req, resp) => {
 
 function checkRequiredFields(mapping, information) {
   'use strict';
-  var mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
-  var i;
-  var table, idx;
-  for (i = 0; i < mandatoryFields.length; i++) {
-    const table = tableFromMapping(mapping)
-    idx = '/' + table;
-    if (!information[idx]) {
-      throw new Error('Table \'' + table + '\' seems to be missing in the database.');
-    }
-    if (!information[idx].hasOwnProperty(mandatoryFields[i])) {
-      throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + mandatoryFields[i]);
-    }
-  }
-
+  const idx = '/' + tableFromMapping(mapping)
+  if (!information[idx]) {
+    throw new Error('Table \'' + table + '\' seems to be missing in the database.');
+  }  
+  const mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
+  mandatoryFields.forEach( field => {
+    if (! field in information[idx]) {
+      throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + field);
+    }    
+  })
 }
 
 const installEMT = () => {
@@ -129,18 +122,12 @@ const installEMT = () => {
     // init timer
     app.use(emt.init(function emtReporter(req, res) {
       // Write report to file.
-      var report = emt.calculate(req, res);
-      var out = 'middleware timing: ';
-      var timer;
-      var timers = [];
-
-      for (timer in report.timers) {
-        if (report.timers.hasOwnProperty(timer)) {
-          timers.push('[' + timer + ' took ' + report.timers[timer].took + ']');
-        }
-      }
-
-      console.log(out + timers.join(',')); //eslint-disable-line
+      const report = emt.calculate(req, res);
+      const out = 'middleware timing: ';
+      const timerLogs = Object.keys(report.timers).map.filter(timer => {
+        '[' + timer + ' took ' + report.timers[timer].took + ']'
+      })
+      console.log(out + timerLogs.join(',')); //eslint-disable-line
 
     }));
     return emt
@@ -169,30 +156,35 @@ const middlewareErrorWrapper = (fun) => {
 
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
-const expressWrapper = (db, func, handleSecure) => {
+const expressWrapper = (db, func, isBatch) => {
   return async function (req, resp) {
     try {
-      const type = req.route.path.replace(/\/validate$/g, '').replace(/\/:[^\/]*/g, '')
+      const type = req.route.path.replace(/\/validate$/g, '')
+                                 .replace(/\/batch$/g, '')
+                                 .replace(/\/:[^\/]*/g, '')
       const mapping = typeToConfig(global.configuration.resources)[type]
 
-      if (handleSecure) {
-        const secureResults = await pMap(mapping.secure, (func) => 
-                                            func(db, req.user, req.originalUrl, req.method), {concurrency: 1} )
-        if (_.every(_.flatten(secureResults))) {
-          const result = await func(db, req.user, req.originalUrl, req.query, req.body)
-          resp.status(result.status).send(result.body)
-        } else {
-          resp.status(403).send('')
-        }
-      } else {
-        const result = await func(db, req.user, req.originalUrl, req.query, req.body)
-        resp.status(result.status).send(result.body)        
+      const sriRequest  = {
+        path: req.path,
+        originalUrl: req.originalUrl,
+        query: req.query,
+        params: req.params,
+        httpMethod: req.method,
+        headers: req.headers,
+        protocol: req.protocol,
+        body: req.body,
+        // isListRequest: 'uuid' in req.params
+        SriError: SriError
       }
+
+      // if (isBatch) {
+      await pMap(mapping.transformRequest, (func) => func(req, sriRequest), {concurrency: 1}  )
+
+      const result = await func(db, sriRequest)
+      resp.status(result.status).send(result.body)
     } catch (err) {
       if (err instanceof SriError) {
-        debug('++++++++++++++CONVERTING SRIERROR TO RESPONSE++++++++++++++++++++++++++')
-        debug(err)
-        resp.status(err.obj.status).send(err.obj.body);
+        resp.set(err.headers).status(err.status).send(err.body);
       } else {      
         console.log('____________________________ E R R O R ____________________________________________________') 
         console.log(err)
@@ -208,13 +200,19 @@ exports = module.exports = {
     'use strict';
     try {
 
+      // initialize undefined hooks in all resources with empty list
+      config.resources.forEach( (resource) => 
+        [ 'afterread', 'beforeupdate', 'afterupdate', 'beforeinsert', 
+          'afterinsert', 'beforedelete', 'afterdelete' ]
+            .forEach((name) => { if (resource[name] === undefined) { resource[name] = [] } })
+      )
+      
       global.configuration = config // share configuration with other modules
 
       const db = await pgConnect(config)
 
       global.configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
 
-      const auth  = require('./js/auth.js')
       const listResource = require('./js/listResource.js')
       const regularResource = require('./js/regularResource.js')
       const batch = require('./js/batch.js')
@@ -226,18 +224,10 @@ exports = module.exports = {
         prepareSQL: queryobject.prepareSQL,
         convertListResourceURLToSQL: listResource.getSQLFromListResource,
         addReferencingResources: utilLib.addReferencingResources,
-        basicAuthentication: auth.doBasicAuthentication,
-        checkBasicAuthentication: auth.checkBasicAuthentication,
-        postAuthenticationFailed: auth.postAuthenticationFailed
       } //utils
 
-      if (config.securityPlugin) {
-        config.securityPlugin.install(global.configuration)
-      }
-      if (config.auditPlugin) {
-        config.auditPlugin.install(global.configuration)
-      }
 
+      config.plugins.forEach( plugin => plugin.install(global.configuration) )
 
       const emt = installEMT()
 
@@ -261,25 +251,6 @@ exports = module.exports = {
       app.engine('.jade', require('jade').__express);
       app.set('view engine', 'jade');
       app.set('views', __dirname + '/js/docs');
-
-
-      if (!config.authenticate) {
-        msg = 'No authenticate function installed !';
-        cl(msg);
-        throw new Error(msg);
-      }
-      if (!config.identify) {
-        msg = 'No identify function installed !';
-        cl(msg);
-        throw new Error(msg);
-      }
-
-      app.get('/me', config.authenticate, middlewareErrorWrapper(async function (req, resp) {
-        const id = await config.identify(req, db) 
-        resp.set('Content-Type', 'application/json');
-        resp.send(id);
-        resp.end();
-      }))
 
       app.put('/log', middlewareErrorWrapper(function (req, resp) {
         const err = req.body;
@@ -305,8 +276,8 @@ exports = module.exports = {
         app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
 
         // batch route
-        app.get(mapping.type + '/batch', config.authenticate, expressWrapper(db, batch.batchOperation, false));
-        app.put(mapping.type + '/batch', config.authenticate, expressWrapper(db, batch.batchOperation, false));
+        app.get(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
+        app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
 
         // append relation filters if auto-detected a relation resource
         if (mapping.map.from && mapping.map.to) {
@@ -317,7 +288,7 @@ exports = module.exports = {
             mapping.query = {};
           }
 
-          for (var key in relationFilters) {
+          for (const key in relationFilters) {
             if (relationFilters.hasOwnProperty(key)) {
               mapping.query[key] = relationFilters[key];
             }
@@ -325,39 +296,38 @@ exports = module.exports = {
         }
       })
 
-      const checkAuthentication = config.checkAuthentication ? config.checkAuthentication : config.authenticate;
-
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
-        acc.push([ mapping.type + '/:key', 'GET', checkAuthentication, regularResource.getRegularResource])
-        acc.push([ mapping.type + '/:key', 'PUT', config.authenticate, regularResource.createOrUpdate])
-        acc.push([ mapping.type + '/:key', 'DELETE', config.authenticate, regularResource.deleteResource])
-        acc.push([ mapping.type, 'GET', checkAuthentication, listResource.getListResource])
+        acc.push([ mapping.type + '/:key', 'GET', regularResource.getRegularResource])
+        acc.push([ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate])
+        acc.push([ mapping.type + '/:key', 'DELETE', regularResource.deleteResource])
+        acc.push([ mapping.type, 'GET', listResource.getListResource])
 
         // validation route
-        acc.push([ mapping.type + '/validate', 'POST', config.authenticate, regularResource.validate])
+        acc.push([ mapping.type + '/validate', 'POST', regularResource.validate])
         //  REMARK: this is according sri4node spec; persons-api validate is implemented differently; to be discussed!
 
         return acc        
       }, [])
 
       // register indivual routes in express
-      batchHandlerMap.forEach( ([path, verb, authFunc, func]) => {
+      batchHandlerMap.forEach( ([path, verb, func]) => {
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(authFunc, 'oauth'), 
-                                 emt.instrument(expressWrapper(db, func, true), 'func') )
+                                 emt.instrument(expressWrapper(db, func, false), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch
-      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, auth, func]) => {
+      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func]) => {
         return { route: new route(path), verb, func }
       })
 
 
+      // does not seem to work anymore?
+      // app.get('/', lsRoutes(app), function (req, res) {
+      //   res.json(200, req.routes)
+      // })
+      app.get('/', (req, res) => res.redirect('/resources'))
 
-      app.get('/', lsRoutes(app), function (req, res) {
-        res.json(200, req.routes)
-      })
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
     } catch (err) {
       console.log('___________________________ SRI4NODE INITIALIZATION ERROR _____________________________')
@@ -368,5 +338,6 @@ exports = module.exports = {
   utils: null,
   queryUtils: require('./js/queryUtils.js'),
   mapUtils: require('./js/mapUtils.js'),
-  schemaUtils: require('./js/schemaUtils.js')    
+  schemaUtils: require('./js/schemaUtils.js'),
+  SriError: SriError   
 };

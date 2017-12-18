@@ -28,7 +28,6 @@ exports = module.exports = {
   },
 
 
-  // filterReferencedType('/persons','person')
   filterReferencedType: function (resourcetype, columnname) {
     'use strict';
     return function (value, query) {

@@ -2,10 +2,9 @@ const configuration = global.configuration
 
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
-const parse = require('url-parse')
 
-const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, mapColumnsToObject, errorAsCode,
-        executeOnFunctions, SriError, startTransaction, getCountResult } = require('./common.js');
+const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
+        executeOnFunctions, SriError, startTransaction, getCountResult, urlToTypeAndKey, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js')
 var queryobject = require('./queryObject.js');
@@ -13,7 +12,7 @@ const prepare = queryobject.prepareSQL;
 
 
 
-async function queryByKey(config, db, mapping, key, wantsDeleted) {
+async function queryByKey(db, mapping, key, wantsDeleted) {
   'use strict';
   debug(`** queryByKey(${key})`);
   const columns = sqlColumnNames(mapping);
@@ -22,64 +21,64 @@ async function queryByKey(config, db, mapping, key, wantsDeleted) {
   if (mapping.schema && mapping.schema.properties.key) {
     const result = (new Validator()).validate(key, mapping.schema.properties.key);
     if (result.errors.length > 0) {
-      throw new SriError(400, result.errors.map( e => ({code: 'key.invalid', msg: 'key ' + e.message}) ))
+      throw new SriError({status: 400, errors: result.errors.map( e => ({code: 'key.invalid', msg: 'key ' + e.message}) )})
     }
   }
 
   const query = prepare('select-row-by-key-from-' + table);
-  const sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version" from "${table}" where "key" = `
+  const sql = `select ${columns} from "${table}" where "key" = `
   query.sql(sql).param(key);
-  const rows= await pgExec(db, query)
+  const rows = await pgExec(db, query)
   if (rows.length === 1) {
     const row = rows[0];
     if (row['$$meta.deleted'] && !wantsDeleted) {
-      throw new SriError(410, [{code: 'resource.gone', msg: 'Resource is gone'}])
+      return { code: 'resource.gone' }
     } else {
-      const result = {};
-      debug('** mapping columns to JSON object');
-      mapColumnsToObject(config, mapping, row, result);
-      debug('** executing onread functions');
-      executeOnFunctions(config, mapping, 'onread', result);
-
-      result.$$meta = _.pickBy({ // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
-          deleted: row['$$meta.deleted'],
-          created: row['$$meta.created'],
-          modified: row['$$meta.modified'],
-        })
-      result.$$meta.permalink = mapping.type + '/' + key;      
-      result.$$meta.version =row['$$meta.version'];   
-      debug('** queryResult of queryByKey() : ');
-      debug(result);      
-      return result
+      debug('** transforming row to JSON object');
+      return { code: 'found', object: transformRowToObject(row, mapping) }
     }
   } else if (rows.length === 0) {
-    throw new SriError(404, [{code: 'not.found', msg: 'Not Found'}])
+    return { code: 'not.found' }
   } else {
-    msg = 'More than one entry with key ' + key + ' found for ' + mapping.type;
+    msg = `More than one entry with key ${key} found for ${mapping.type}`;
     debug(msg);
-    throw SriError(500, [{code: 'duplicate.key', msg: msg}])
+    throw SriError({status: 500, errors: [{code: 'duplicate.key', msg: msg}]})
   }
 }
 
 
 
 
-async function getRegularResource(db, me, reqUrl, reqParams, reqBody) {
+async function getRegularResource(db, sriRequest) {
   'use strict';
   const resources = global.configuration.resources
-  const { type, key } = urlToTypeAndKey(reqUrl)
+  const { type, key } = urlToTypeAndKey(sriRequest.path)
   const typeToMapping = typeToConfig(resources);
   const mapping = typeToMapping[type];
 
   debug('* query by key');
-  const element = await queryByKey(resources, db, mapping, key,
-                                   reqParams['$$meta.deleted'] === 'true' || reqParams['$$meta.deleted'] === 'any');
+  const result = await queryByKey(db, mapping, key,
+                                   sriRequest.query['$$meta.deleted'] === 'true' 
+                                          || sriRequest.query['$$meta.deleted'] === 'any');
+
+  if (result.code == 'resource.gone') {
+    throw new SriError({status: 410, errors: [{code: 'resource.gone', msg: 'Resource is gone'}]})
+  } else if (result.code == 'not.found') {
+    throw new SriError({status: 404, errors: [{code: 'not.found', msg: 'Not Found'}]})
+  }
+
+  const element = result.object
 
   debug('* executing expansion');
-  await expand.executeExpansion(db, [element], mapping, resources, reqParams.expand, me, reqUrl);
+  await expand.executeExpansion(db, sriRequest, [element], mapping, resources);
 
   debug('* executing afterread functions on results');
-  await hooks.applyHooks('after read', mapping.afterread, f => f(db, me, reqUrl, 'read', element))
+  await hooks.applyHooks( 'after read', 
+                          mapping.afterread, 
+                          f => f(db, sriRequest, [{ permalink: element.$$meta.permalink
+                                                  , incoming: null
+                                                  , stored: element }] )
+                        )
 
   debug('* sending response to the client :');
   return { status: 200, body: element }
@@ -116,143 +115,100 @@ function getSchemaValidationErrors(json, schema) {
   }
 }
 
-const urlToTypeAndKey = (url) => {
-  // const type = url.split('/').slice(0, url.split('/').length - 1).join('/');
-  // const key = url.replace(type, '').substr(1);
-
-  const parsedUrl = parse(url);
-  const pathName = parsedUrl.pathname.replace(/\/$/, '') 
-  const parts = pathName.split('/')
-  const type = _.initial(parts).join('/')
-  const key = _.last(parts)
-
-  return { type, key }
-}
-
 
 
 
 /* eslint-disable */
-async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
+async function executePutInsideTransaction(tx, sriRequest) {
   'use strict';
-  var { type, key } = urlToTypeAndKey(reqUrl)
+  const { type, key } = urlToTypeAndKey(sriRequest.path)
+  const obj = sriRequest.body
 
-//TODO: strip '/validation' earlier and use boolean where nescessary
-  // special case - validation
-  if (key == 'validate') {
-    key = reqBody.key;
-  }
-
-  debug('PUT processing starting. Request body :');
-  debug(reqBody);
+  debug('PUT processing starting. Request object :');
+  debug(obj);
   debug('Key received on URL : ' + key);
+
+  if (obj.key !== key) {
+    throw new SriError({status: 400, errors: [{code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }]})
+  }
 
   const resources = global.configuration.resources
   const typeToMapping = typeToConfig(resources);
-  const mapping = typeToMapping[type];
-  const table = tableFromMapping(mapping);
+  const resourceMapping = typeToMapping[type];
+  const table = tableFromMapping(resourceMapping);
 
   debug('Validating schema.');
-  if (mapping.schema) {
-    const validationErrors  = getSchemaValidationErrors(reqBody, mapping.schema);
+  if (resourceMapping.schema) {
+    const validationErrors  = getSchemaValidationErrors(obj, resourceMapping.schema);
     if (validationErrors) {
       const errors = { validationErrors }
-      throw new SriError(409, [{code: 'validation.errors', msg: 'Validation error(s)', errors }])
+      throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
     } else {
       debug('Schema validation passed.');
     }
   }
 
-  await hooks.applyHooks('validation', mapping.validate, f => f(body, tx))
+  const permalink = resourceMapping.type + '/' + key
 
-  // create an object that only has mapped properties
-  var k, value, referencedType, referencedMapping, parts, refkey;
-  const element = {};
-  for (k in mapping.map) {
-    if (mapping.map.hasOwnProperty(k)) {
-      if (reqBody.hasOwnProperty(k)) {
-        element[k] = reqBody[k];
-      }
+  const result = await queryByKey(tx, resourceMapping, key, true)
+  if (result.code != 'found') {
+    // insert new element
+    await hooks.applyHooks('before insert'
+                          , resourceMapping.beforeinsert
+                          , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}]))
+
+    const newRow = transformObjectToRow(obj, resourceMapping)
+    newRow.key = key;
+
+    const insert = prepare('insert-' + table);
+    insert.sql('insert into "' + table + '" (').keys(newRow).sql(') values (').values(newRow).sql(') ');
+    insert.sql(' returning key') // to be able to check rows.length
+    const insertRes = await pgExec(tx, insert) 
+    if (insertRes.length === 1) {
+      await hooks.applyHooks('after insert'
+                            , resourceMapping.afterinsert
+                            , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))      
+      return { status: 201 }      
+    } else {
+      debug('No row affected ?!');
+      throw new SriError({status: 500, errors: [{code: 'insert.failed', msg: 'No row affected.'}]})
     }
-  }
-  debug('Mapped incomming object according to configuration');
+  } else {
+    // update existing element 
+    const prevObj = result.object
 
-  // check and remove types from references.
-  for (k in mapping.map) {
-    if (mapping.map.hasOwnProperty(k)) {
-      if (mapping.map[k].references && typeof element[k] != 'undefined') {
-        value = element[k].href;
-        if (!value) {
-          throw new SriError(409, [{code: 'no.href.inside.reference', msg: 'No href found inside reference ' + k}])
-        }
-        referencedType = mapping.map[k].references;
-        type = value.replace(value.split(referencedType)[1], '');
-        refkey = value.replace(type, '').substr(1);
-        if (type === referencedType) {
-          element[k] = refkey;
-        } else {
-          const msg = 'Faulty reference detected [' + element[key].href + '], ' +
-            'detected [' + type + '] expected [' + referencedType + ']'
-          cl(msg);
-          throw new SriError(409, [{code: 'faulty.reference', msg: msg}])
-        }
-      }
-    }
-  }
-  debug('Converted references to values for update');
-
-  const columns = sqlColumnNames(mapping);
-  const readquery = prepare('read-resource-' + table);
-  readquery.sql(`select ${columns} from ${table} where "key" = `).param(key);
-  const [ resource ] = await pgExec(tx, readquery)
-  if (resource) {
     // If new resource is the same as the one in the database => don't update the resource. Otherwise meta 
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
-    if ( Object.keys(element).every( k => {
-            if (mapping.schema.properties[k].format === 'date-time') {
-              return ( (new Date(element[k])).getTime() === resource[k].getTime() )
-            } else {
-              return (resource[k] === element[k])
-            }
-          } ) )  {
+    if (isEqualSriObject(prevObj, obj, resourceMapping)) {
       debug('Putted resource does NOT contain changes -> ignore PUT.');
       return { status: 200 }
     }
 
-    executeOnFunctions(resources, mapping, 'onupdate', element);
+    await hooks.applyHooks('before update'
+                          , resourceMapping.beforeupdate
+                          , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
+
+    const updateRow = transformObjectToRow(obj, resourceMapping)
 
     var update = prepare('update-' + table);
-    update.sql('update "' + table + '" set "$$meta.modified" = current_timestamp ');
-    Object.keys(element).forEach( k => {
-      if (k !== '$$meta.created' && k !== '$$meta.modified') {
-        update.sql(',\"' + k + '\"' + '=').param(element[k]);
+    update.sql(`update "${table}" set "$$meta.modified" = current_timestamp `);
+    Object.keys(updateRow).forEach( key => {
+      if (!key.startsWith('$$meta')) {
+        update.sql(',\"' + key + '\"' + '=').param(updateRow[key]);
       }  
     })
     update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
     update.sql(' returning key')
 
-    const rows = await pgExec(tx, update)
-    if (rows.length !== 1) {
-      debug('No row affected - resource is gone');
-      throw new SriError(410, [{code: 'resource.gone', msg: 'Resource is gone'}])
-    } else {
-      await hooks.applyHooks('after update', mapping.afterupdate, f => f(tx, me, reqUrl, 'update', {body: reqBody}))
+    const updateRes = await pgExec(tx, update)
+    if (updateRes.length === 1) {
+      await hooks.applyHooks('after update'
+                            , resourceMapping.afterupdate
+                            , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
       return { status: 200 }
-    }
-  } else {
-    element.key = key;
-    executeOnFunctions(resources, mapping, 'oninsert', element);
-
-    var insert = prepare('insert-' + table);
-    insert.sql('insert into "' + table + '" (').keys(element).sql(') values (').values(element).sql(') ');
-    insert.sql(' returning key') // to be able to check rows.length
-    const rows = await pgExec(tx, insert) 
-    if (rows.length != 1) {
-      debug('No row affected ?!');
-      throw new SriError(500, [{code: 'insert.failed', msg: 'No row affected.'}])
     } else {
-      await hooks.applyHooks('after insert', mapping.afterinsert, f => f(tx, me, reqUrl, 'create', {body: reqBody}))
-      return { status: 201 }
+      debug('No row affected - resource is gone');
+      throw new SriError({status: 410, errors: [{code: 'resource.gone', msg: 'Resource is gone'}]})
     }
   }
 
@@ -260,13 +216,19 @@ async function executePutInsideTransaction(tx, me, reqUrl, reqBody) {
 /* eslint-enable */
 
 
-async function validate(db, me, reqUrl, reqParams, reqBody) {
+
+async function validate(db, sriRequest) {
   'use strict';
   debug('* sri4node VALIDATE processing invoked.');
-  const strippedReqUrl = reqUrl.replace('validate', reqBody.key)
+
+  // adapt sriRequest as how it should be in case of a regular update/create request
+  sriRequest.path = sriRequest.path.replace('validate', sriRequest.body.key)
+  sriRequest.originalUrl = sriRequest.originalUrl.replace('validate', sriRequest.body.key)
+  sriRequest.params['uuid'] = sriRequest.body.key
+
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
   try {
-    const result = await executePutInsideTransaction(tx, me, strippedReqUrl, reqBody);
+    const result = await executePutInsideTransaction(tx, sriRequest);
     debug('VALIDATE processing went OK. Rolling back database transaction.');
     rejectTx()
     return result    
@@ -276,12 +238,12 @@ async function validate(db, me, reqUrl, reqParams, reqBody) {
   }
 }
 
-async function createOrUpdate(db, me, reqUrl, reqParams, reqBody) {
+async function createOrUpdate(db, sriRequest) {
   'use strict';
   debug('* sri4node PUT processing invoked.');
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
   try {
-    const result = await executePutInsideTransaction(tx, me, reqUrl, reqBody)
+    const result = await executePutInsideTransaction(tx, sriRequest)
     debug('PUT processing went OK. Committing database transaction.');
     resolveTx()
     return result
@@ -294,48 +256,49 @@ async function createOrUpdate(db, me, reqUrl, reqParams, reqBody) {
 
 
 
-async function deleteResource(db, me, reqUrl, reqParams, reqBody) {
+async function deleteResource(db, sriRequest) {
   'use strict';
   debug('sri4node DELETE invoked');
-  const { type, key } = urlToTypeAndKey(reqUrl)
-  const mapping = typeToConfig(global.configuration.resources)[type];
-  const table = tableFromMapping(mapping);
+  const { type, key } = urlToTypeAndKey(sriRequest.path)
+  const resourceMapping = typeToConfig(global.configuration.resources)[type];
+  const table = tableFromMapping(resourceMapping);
 
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  
-  const deletequery = prepare('delete-by-key-' + table);
-  const sql = 'update ' + table + ' set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp '
-               + 'where "$$meta.deleted" = false and "key" = ';
-  deletequery.sql(sql).param(key);
-  deletequery.sql(' returning key') // to be able to check rows.length
-  const rows = await pgExec(tx, deletequery);
-  if (rows.length === 0) {
-    debug('No row affected - the resource is already gone');
-  } else { // eslint-disable-line
-    debug('Processing afterdelete');
-    await hooks.applyHooks('after delete', mapping.afterdelete, f => f(tx, me, reqUrl, 'delete', null))
+  try {
+    const result = await queryByKey(tx, resourceMapping, key, false)
+    if (result.code != 'found') {
+      debug('No row affected - the resource is already gone');
+    } else {
+      const prevObj = result.object
+      await hooks.applyHooks('before delete'
+                            , resourceMapping.beforedelete
+                            , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
+
+      const deletequery = prepare('delete-by-key-' + table);
+      const sql = `update ${table} set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp `
+                   + `where "$$meta.deleted" = false and "key" = `
+      deletequery.sql(sql).param(key);
+      deletequery.sql(' returning key') // to be able to check rows.length
+      const rows = await pgExec(tx, deletequery);
+      if (rows.length === 0) {
+        debug('No row affected - the resource is already gone');
+      } else { // eslint-disable-line
+        debug('Processing afterdelete');
+        await hooks.applyHooks('after delete'
+                              , resourceMapping.afterdelete
+                              , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
+      }
+    }
     debug('DELETE processing went OK. Committing database transaction.');
     resolveTx()
-  }
-  return { status: 200 }
+    return { status: 200 }
+  } catch (err) {
+    rejectTx()
+    throw err
+  }    
 }
 
-// await db.tx( tx => async () => {
-//     const deletequery = prepare('delete-by-key-' + table);
-//     const sql = 'update ' + table + ' set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp ';
-//                  + 'where "$$meta.deleted" = false and "key" = ';
-//     deletequery.sql(sql).param(key);
-//     results = await pgExec(tx, deletequery);
-//     if (results.rowCount === 0) {
-//       debug('No row affected - the resource is already gone');
-//       return { status: 410 }
-//     } else { // eslint-disable-line
-//       debug('Processing afterdelete');
-//       await hooks.applyHooks('after delete', mapping.afterdelete, f => f(tx, [{path: reqUrl, body: reqBody}], me))
-//     }
-//     debug('DELETE processing went OK. Committing database transaction.');
-//     return
-//   })
+
 exports = module.exports = {
   getRegularResource: getRegularResource,
   createOrUpdate: createOrUpdate,

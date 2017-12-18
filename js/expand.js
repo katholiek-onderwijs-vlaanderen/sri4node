@@ -2,21 +2,27 @@
 
 const configuration = global.configuration
 
-var Q = require('q');
-const { debug, cl, typeToConfig, sqlColumnNames, mapColumnsToObject, 
-        executeOnFunctions, tableFromMapping } = require('./common.js');
+const _ = require('lodash')
+const pMap = require('p-map');
+
+
+const hooks = require('./hooks.js')
+const { debug, cl, typeToConfig, sqlColumnNames, transformRowToObject, 
+        executeOnFunctions, tableFromMapping, pgExec, SriError } = require('./common.js');
+const queryobject = require('./queryObject.js');
+const prepare = queryobject.prepareSQL; 
 
 'use strict';
 
-function executeSecureFunctionsOnExpandedElements(database, expandedElements, targetMapping, me) {
+async function executeSecureFunctionsOnExpandedElements(db, expandedElements, targetMapping, me) {
   if (targetMapping.secure && targetMapping.secure.length) {
-    const batch = expandedElements.map( (e) => ({ 
+    const batch = expandedElements.map( e => ({ 
                         href: e.$$meta.permalink,
                         verb: 'GET'
                       }) )
-    return Q.all(targetMapping.secure.map( (fun) => fun(database, me, batch) ));
+    return (await pMap(targetMapping.secure, (fun) => fun(db, me, batch) ))
   } else {
-    return Q.all([]);
+    return []
   }
 }
 
@@ -34,54 +40,61 @@ const checkRecurse = (expandpath) => {
 // Expands a single path on an array of elements.
 // Potential improvement : when the expansion would load obejcts that are already
 // in the cluster currently loaded, re-use the loaded element, rather that querying it again.
-async function executeSingleExpansion(db, elements, mapping, resources, expandpath, me, reqUrl) {
+// async function executeSingleExpansion(db, elements, mapping, resources, expandpath, me, reqUrl) {
+
+async function executeSingleExpansion(db, sriRequest, elements, mapping, resources, expandpath) {
+  console.log(expandpath)
   if (elements && elements.length > 0) {
     const { expand, recurse, recursepath } = checkRecurse(expandpath)
     if (!mapping.map[expand]) {
       debug('** rejecting expand value [' + expand + ']');
       throw new SriError(404, [{code: 'expansion.failed', msg: `Cannot expand [${expand}] because it is not mapped.`}])
     } else {
-      const targetkeys = elements.reduce( (acc, element) => {
-        const targetlink = element[expand].href;
-        const targetkey = _.last(targetlink.split('/'))
-        // Don't add already included and items that are already expanded.
-        if (!targetkeys.includes(targetkey) && !element[expand].$$expanded) {
-          acc.push(targetkey);
-        }
-        return acc
-      }, [])
+      const keysToExpand = elements.reduce( 
+          (acc, element) => {
+            if (element[expand]!=undefined) { // ignore if undefined
+              const targetlink = element[expand].href;
+              const targetkey = _.last(targetlink.split('/'))
+              // Don't add already included and items that are already expanded.
+              if (!acc.includes(targetkey) && !element[expand].$$expanded) {
+                acc.push(targetkey);
+              }
+            }
+            return acc
+          }, [])
 
-      const targetType = mapping.map[expand].references;  // TODO: what if no references ??
-      const typeToMapping = typeToConfig(resources);
-      const targetMapping = typeToMapping[targetType];
-      const table = tableFromMapping(table)
-      const columns = sqlColumnNames(targetMapping);
-      const targetpermalinkToObject = {};
+      if (keysToExpand.length > 0) {
 
-      debug(table);
-      const query = prepare();
-      query.sql('select ' + columns + ' from "' + table + '" where key in (').array(targetkeys).sql(')');
-      const rows = await pgExec(database, query)
-      debug('** expansion query done');
+        const targetType = mapping.map[expand].references;
+        const typeToMapping = typeToConfig(resources);
+        const targetMapping = typeToMapping[targetType];
+        const table = tableFromMapping(targetMapping)
+        const columns = sqlColumnNames(targetMapping);
 
-      const expandedElements = rows.map( (row) => {
-        const expandedObj = {};
-        mapColumnsToObject(resources, targetMapping, row, expandedObj);
-        executeOnFunctions(resources, targetMapping, 'onread', expandedObj);
-        targetpermalinkToObject[targetType + '/' + row.key] = expandedObj;
-        expandedObj.$$meta = { permalink: targetMapping.type + '/' + row.key };
-        return expandedObj;
-      })
+        debug(table);
+        const query = prepare();
+        query.sql(`select ${columns} from "${table}" where key in (`).array(keysToExpand).sql(')');
+        const rows = await pgExec(db, query)
+        debug('** expansion query done');
 
-      debug('** executing secure functions on expanded resources');
-      await executeSecureFunctionsOnExpandedElements(database, expandedElements, targetMapping, me);
-      debug('** executing afterread functions on expanded resources');
-      await hooks.applyHooks('after read', targetMapping.afterread, f => f(database, expandedElements, me, reqUrl))
+        const expandedElements = rows.map( row => transformRowToObject(row, targetMapping) )
+        const expandedElementsDict = _.fromPairs(expandedElements.map( obj => ([ obj.$$meta.permalink, obj ])))
 
-      elements.forEach( (elem) => {
-        target = elem[expand].href;
-        elem[expand].$$expanded = targetpermalinkToObject[target];
-      })
+        debug('** executing afterread functions on expanded resources');
+        await hooks.applyHooks( 'after read'
+                              , targetMapping.afterread
+                              , f => f( db, sriRequest, 
+                                        expandedElements.map( e => 
+                                            ({ permalink: e.$$meta.permalink, incoming: null, stored: e }) )
+                                      )
+                              )
+
+        // put expanded elements in place
+        elements.forEach( (elem) => {
+          permalinkToExpand = elem[expand].href;
+          elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
+        })
+      }
       if (recurse) {
         debug('** recursing to next level of expansion : ' + recursepath);                          
         await executeSingleExpansion(db, expandedElements, targetMapping, resources, recursepath, me, reqUrl)
@@ -100,32 +113,16 @@ async function executeSingleExpansion(db, elements, mapping, resources, expandpa
  If none appears anywhere in the list, an empty array is returned.
  */
 function parseExpand(expand) {
-  var ret = [];
-  var i, path, prefix, index, npath;
+  const paths = expand.split(',').map( p => p.toLowerCase())
 
-  var paths = expand.split(',');
-  for (i = 0; i < paths.length; i++) {
-    path = paths[i].toLowerCase();
-    if (path === 'none') {
-      return [];
-    } else if (path === 'full') {
-      // If this was a list resource full is already handled.
-    } else if (path === 'results') {
-      // If this was a list resource full is already handled.
-    } else {
-      prefix = 'results.';
-      index = paths[i].indexOf(prefix);
-      if (index === 0) {
-        npath = path.substr(prefix.length);
-        if (npath && npath.length > 0) {
-          debug(npath);
-          ret.push(npath);
-        }
-      } else if (index === -1) {
-        ret.push(path);
-      }
-    }
+  let ret;
+  if (paths.includes('none')) {
+    ret = []
+  } else {
+    ret = paths.filter( p => ! [ 'full', 'results' ].includes(p) ) // 'full', 'results' are already handled
+               .map( p => p.replace(/^results\./, '') )
   }
+
   debug('** parseExpand() results in :');
   debug(ret);
 
@@ -150,17 +147,17 @@ function parseExpand(expand) {
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
 
-module.exports.executeExpansion = async (database, elements, mapping, resources, expand, me, reqUrl) => { // eslint-disable-line
+module.exports.executeExpansion = async (db, sriRequest, elements, mapping, resources) => { // eslint-disable-line
+  const expand = sriRequest.query.expand
 
-  var paths, path, promises, i, errors;
-  var deferred = Q.defer();
   debug('** executeExpansion()');
   if (expand) {
-    paths = parseExpand(expand, mapping);
+    const paths = parseExpand(expand, mapping);
     if (paths && paths.length > 0) {
-      const promises = paths.map( (path) => executeSingleExpansion(database, elements, mapping, resources, path, me, reqUrl) )
-      const resulsts = await Q.allSettled(promises)
-      debug('allSettled');
+      console.log('GOING TO EXPAND PATHS')
+      console.log(paths)
+      const results = await pMap(paths, (path) => executeSingleExpansion(db, sriRequest, elements, mapping, resources, path) )
+      debug('expansion done');
     }
   }
   return 
