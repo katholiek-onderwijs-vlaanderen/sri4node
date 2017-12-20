@@ -196,7 +196,7 @@ const expressWrapper = (db, func, isBatch) => {
 }
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
-  configure: async function (app, pg, config) {
+  configure: async function (app, config) {
     'use strict';
     try {
 
