@@ -29,7 +29,8 @@
     "sri4node-client": "https://github.com/rodrigouroz/sri-client.git",
     "uuid": "2.0.x",
     "pathfinder-ui": "1.0.3",
-    "route-parser": "0.0.5"
+    "route-parser": "0.0.5",
+    "p-map": "1.2.0"
   },
   "devDependencies": {
     "express": "~4.9.x",
