@@ -103,14 +103,15 @@ const getResourcesOverview = (req, resp) => {
 
 function checkRequiredFields(mapping, information) {
   'use strict';
-  const idx = '/' + tableFromMapping(mapping)
+  const table = tableFromMapping(mapping)
+  const idx = '/' + table
   if (!information[idx]) {
-    throw new Error('Table \'' + table + '\' seems to be missing in the database.');
+    throw new Error(`Table '${table}' seems to be missing in the database.`);
   }  
   const mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
   mandatoryFields.forEach( field => {
     if (! field in information[idx]) {
-      throw new Error('Mapping ' + mapping.type + ' lacks mandatory field ' + field);
+      throw new Error(`Mapping '${mapping.type}' lacks mandatory field '${field}'`);
     }    
   })
 }
