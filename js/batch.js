@@ -22,6 +22,10 @@ exports = module.exports = {
 
     const {tx, resolveTx, rejectTx} = await startTransaction(db)
 
+    if (!Array.isArray(reqBody)) {
+      throw new SriError(400, [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}])  
+    }
+
     //spec: The batch operation itself MUST be a PUT operation, unless the entire batch is composed of GET operations, in which case the batch it's HTTP verb MUST be GET.
     const onlyGets = (reqBody.length > 0) && (reqBody.every( e => ( e.verb == 'GET') ))
     if (onlyGets && sriRequest.httpMethod != 'GET') {

@@ -204,8 +204,17 @@ exports = module.exports = {
       // initialize undefined hooks in all resources with empty list
       config.resources.forEach( (resource) => 
         [ 'afterread', 'beforeupdate', 'afterupdate', 'beforeinsert', 
-          'afterinsert', 'beforedelete', 'afterdelete' ]
-            .forEach((name) => { if (resource[name] === undefined) { resource[name] = [] } })
+          'afterinsert', 'beforedelete', 'afterdelete', 'transformRequest'  ]
+            .forEach((name) => { 
+                if (resource[name] === undefined) { 
+                  resource[name] = [] 
+                } else if (resource[name] === null) {
+                  console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
+                  resource[name] = []
+                } else if (!Array.isArray(resource[name])) {
+                  resource[name] = [ resource[name] ]
+                } 
+            })
       )
       
       global.configuration = config // share configuration with other modules
