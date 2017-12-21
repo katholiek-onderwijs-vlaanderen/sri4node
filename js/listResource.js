@@ -258,7 +258,7 @@ async function getListResource(db, sriRequest) {
   if (mapping.handlelistqueryresult) {
     output = await mapping.handlelistqueryresult(rows)
 
-TODO!!
+// TODO!! (for audit-broadcast; handlelistqueryresult needs to be replaced by transformResponse)
 
   } else {
     output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
