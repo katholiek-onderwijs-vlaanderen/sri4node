@@ -311,7 +311,7 @@ exports = module.exports = {
   },
 
   SriError: class {
-    constructor({status, errors = [], headers = {}}) {
+    constructor({status = 500, errors = [], headers = {}}) {
       this.status = status,
       this.body = {
         errors: errors.map( e => {
