@@ -15,11 +15,11 @@ exports = module.exports = {
           if (key.length === 36) {
             keys.push(key);
           } else {
-            throw new SriError(400, [{ code: 'parameter.hrefs.invalid.key.length', 
+            throw new SriError({status: 400, [{ code: 'parameter.hrefs.invalid.key.length', 
                                        msg: `Parameter 'href' has invalid key length for key [${key}].`,
                                        parameter: "href",
                                        value: key
-                                     }])               
+                                     }]})               
           }        
       })
      
@@ -35,19 +35,19 @@ exports = module.exports = {
         const permalinks = value.split(',');
         const keys = permalinks.map( permalink => {
           if (permalink.indexOf(resourcetype + '/') !== 0) {
-            throw new SriError(400, [{ code: 'parameter.referenced.type.invalid.value', 
+            throw new SriError({status: 400, [{ code: 'parameter.referenced.type.invalid.value', 
                                        msg: `Parameter '${columnname}' should start with '${resourcetype + '/'}'.`,
                                        parameter: columnname,
                                        value: permalink
-                                     }])
+                                     }]})
           }
           const key = permalink.split('/')[permalink.split('/').length - 1];
           if (key.length !== 36) {
-            throw new SriError(400, [{ code: 'parameter.referenced.type.invalid.key.length', 
+            throw new SriError({status: 400, [{ code: 'parameter.referenced.type.invalid.key.length', 
                                        msg: `Parameter '${columnname}' contains key with invalid length for key [${key}].`,
                                        parameter: columnname,
                                        value: permalink
-                                     }])
+                                     }]})
           }
           return key
         })

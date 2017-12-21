@@ -48,7 +48,7 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
     const { expand, recurse, recursepath } = checkRecurse(expandpath)
     if (!mapping.map[expand]) {
       debug('** rejecting expand value [' + expand + ']');
-      throw new SriError(404, [{code: 'expansion.failed', msg: `Cannot expand [${expand}] because it is not mapped.`}])
+      throw new SriError({status: 404, errors: [{code: 'expansion.failed', msg: `Cannot expand [${expand}] because it is not mapped.`}]})
     } else {
       const keysToExpand = elements.reduce( 
           (acc, element) => {

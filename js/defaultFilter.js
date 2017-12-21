@@ -481,10 +481,10 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database, confi
     filterGeneral(query, value, getTextFieldsFromTable(configuration.informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
   }
   else {
-    throw new SriError(404, [{
+    throw new SriError({status: 404, errors: [{
       code: 'invalid.query.parameter',
       parameter: parameter,
       possibleParameters: Object.keys(configuration.informationSchema[idx])
-    }])
+    }]})
   }
 }

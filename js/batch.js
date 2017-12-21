@@ -23,13 +23,13 @@ exports = module.exports = {
     const {tx, resolveTx, rejectTx} = await startTransaction(db)
 
     if (!Array.isArray(reqBody)) {
-      throw new SriError(400, [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}])  
+      throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
 
     //spec: The batch operation itself MUST be a PUT operation, unless the entire batch is composed of GET operations, in which case the batch it's HTTP verb MUST be GET.
     const onlyGets = (reqBody.length > 0) && (reqBody.every( e => ( e.verb == 'GET') ))
     if (onlyGets && sriRequest.httpMethod != 'GET') {
-      throw new SriError(400, [{code: 'batch.of.gets.requires.get.verb', msg: 'Batch entirely composed of GET operations, MUST have HTTP verb GET.'}])
+      throw new SriError({status: 400, errors: [{code: 'batch.of.gets.requires.get.verb', msg: 'Batch entirely composed of GET operations, MUST have HTTP verb GET.'}]})
     }
 
     const batchResults = await pMap(reqBody, async (element, idx) => {
@@ -49,7 +49,7 @@ exports = module.exports = {
 
         // only allow batch operations within the same resource (will be extended later with 'boundaries')
         if (!pathName.startsWith(batchBase)) {
-          throw new SriError(400, [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]) 
+          throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
         }
         
         const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func }) => {
@@ -60,7 +60,7 @@ exports = module.exports = {
         }
         const func  = _.first(applicableHandlers).func
         if (!func) {
-          throw new SriError(404, [{code: 'no.handler.found', msg: `No handler found for ${e.verb} on ${pathName}.`}])
+          throw new SriError({status: 404, errors: [{code: 'no.handler.found', msg: `No handler found for ${e.verb} on ${pathName}.`}]})
         }
         const routeParams = _.first(applicableHandlers).route.match(pathName)
 
@@ -85,7 +85,7 @@ exports = module.exports = {
           console.log('____________________________ E R R O R ____________________________________________________') 
           console.log(err)
           console.log('___________________________________________________________________________________________') 
-          return (new SriError(500, [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}])).obj
+          return new SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}]})
         }
       }
     }, {concurrency: 1})
