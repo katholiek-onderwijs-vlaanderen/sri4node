@@ -132,12 +132,12 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
   // Paging parameters
 
   if (queryLimit > maxlimit || (queryLimit === '*' && queryParams.expand !== 'NONE')) {
-    throw new SriHttpObject(409, 'ERROR', 
+    throw new SriError({status: 409, errors: [
         {
           code: 'invalid.limit.parameter',
           type: 'ERROR',
           message: 'The maximum allowed limit is ' + maxlimit
-        })
+        }]})
   }
 
   if (!(queryLimit === '*' && queryParams.expand === 'NONE')) {
@@ -257,6 +257,9 @@ async function getListResource(db, sriRequest) {
   let output
   if (mapping.handlelistqueryresult) {
     output = await mapping.handlelistqueryresult(rows)
+
+TODO!!
+
   } else {
     output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
   }
@@ -284,10 +287,15 @@ async function getListResource(db, sriRequest) {
   debug('* executing expansion : ' + queryParams.expand);
   await expand.executeExpansion(db, sriRequest, output.results, mapping, global.configuration.resources);
 
-  debug('* sending response to client :');
-  debug(output);
 
-  return {status: 200, body: output}
+  if (mapping.transformResponse) {
+    debug('* transforming response');
+    return transformResponse(db, sriRequest, responseBody) 
+  } else {
+    debug('* sending response to client :');
+    debug(output);
+    return {status: 200, body: output}
+  }
 }
 
 exports = module.exports = {
