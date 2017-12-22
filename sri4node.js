@@ -178,7 +178,6 @@ const expressWrapper = (db, func, isBatch) => {
         SriError: SriError
       }
 
-      // if (isBatch) {
       await pMap(mapping.transformRequest, (func) => func(req, sriRequest), {concurrency: 1}  )
 
       const result = await func(db, sriRequest)
@@ -237,7 +236,7 @@ exports = module.exports = {
       } //utils
 
 
-      config.plugins.forEach( plugin => plugin.install(global.configuration) )
+      await pMap(config.plugins, async (plugin) => await plugin.install(global.configuration, db), {concurrency: 1}  )
 
       const emt = installEMT()
 
