@@ -35,9 +35,9 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
                 throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
               }          
             } else if (key === 'hrefs' && urlparameters.hrefs) {
-              queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
+              global.configuration.queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
             } else if (key === 'modifiedSince') {
-              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
+              global.configuration.queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
             }
         })
   }
