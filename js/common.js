@@ -122,8 +122,8 @@ exports = module.exports = {
         element[key] = row[key];
       } 
 
-      if (map[key]['toObject']) {
-        map[key]['toObject'].forEach( f => f(key, element) );
+      if (map[key]['columnToField']) {
+        map[key]['columnToField'].forEach( f => f(key, element) );
       }         
     })
 
@@ -175,8 +175,8 @@ exports = module.exports = {
         row[key] = JSON.stringify(row[key])        
       }
 
-      if (map[key]['fromObject']) {
-        map[key]['fromObject'].forEach( f => f(key, row) );
+      if (map[key]['fieldToColumn']) {
+        map[key]['fieldToColumn'].forEach( f => f(key, row) );
       } 
 
     })
