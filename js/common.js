@@ -167,9 +167,18 @@ exports = module.exports = {
         }
       } 
 
+      const fieldTypeDb = global.configuration.informationSchema[resourceMapping.type][key].type
+      const fieldTypeObject = resourceMapping.schema.properties[key].type
+      if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
+        // for this type combination we need to explicitly stringify the JSON, 
+        // otherwise insert will attempt to store a postgres array which fails for jsonb
+        row[key] = JSON.stringify(row[key])        
+      }
+
       if (map[key]['fromObject']) {
-        map[key]['fromObject'].forEach( f => (key, row) );
-      }         
+        map[key]['fromObject'].forEach( f => f(key, row) );
+      } 
+
     })
 
     // exports.debug('Transformed incoming object according to configuration');
