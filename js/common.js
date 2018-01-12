@@ -123,7 +123,7 @@ exports = module.exports = {
       } 
 
       if (map[key]['toObject']) {
-        map[key]['toObject'].forEach( f => (key, element) );
+        map[key]['toObject'].forEach( f => f(key, element) );
       }         
     })
 
