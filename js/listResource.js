@@ -228,7 +228,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
 async function getListResource(db, sriRequest) {
   'use strict';
   const queryParams = sriRequest.query
-  const type = '/' + _.last(sriRequest.path.replace(/\/$/, '').split('?')[0].split('/'))  
+  const type = sriRequest.sriType
   const mapping = typeToConfig(global.configuration.resources)[type];
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;

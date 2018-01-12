@@ -163,6 +163,7 @@ const expressWrapper = (db, func, isBatch) => {
       const type = req.route.path.replace(/\/validate$/g, '')
                                  .replace(/\/batch$/g, '')
                                  .replace(/\/:[^\/]*/g, '')
+
       const mapping = typeToConfig(global.configuration.resources)[type]
 
       const sriRequest  = {
@@ -174,6 +175,7 @@ const expressWrapper = (db, func, isBatch) => {
         headers: req.headers,
         protocol: req.protocol,
         body: req.body,
+        sriType: type,
         // isListRequest: 'uuid' in req.params
         SriError: SriError
       }
