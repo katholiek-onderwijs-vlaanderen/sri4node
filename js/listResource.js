@@ -6,6 +6,7 @@ const expand = require('./expand.js');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
         transformRowToObject, tableFromMapping, pgExec, SriError } = require('./common.js');
 const queryobject = require('./queryObject.js');
+const queryUtils = require('./queryUtils.js');
 const prepare = queryobject.prepareSQL; 
 
 
@@ -35,9 +36,9 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
                 throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
               }          
             } else if (key === 'hrefs' && urlparameters.hrefs) {
-              global.configuration.queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
+              queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
             } else if (key === 'modifiedSince') {
-              global.configuration.queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
+              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
             }
         })
   }
