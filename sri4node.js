@@ -16,7 +16,7 @@ const pMap = require('p-map');
 
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping } = require('./js/common.js');
+        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 
 
@@ -350,5 +350,7 @@ exports = module.exports = {
   queryUtils: require('./js/queryUtils.js'),
   mapUtils: require('./js/mapUtils.js'),
   schemaUtils: require('./js/schemaUtils.js'),
-  SriError: SriError   
+  SriError: SriError,
+  transformRowToObject: transformRowToObject,
+  transformObjectToRow: transformObjectToRow
 };
