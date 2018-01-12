@@ -167,7 +167,7 @@ exports = module.exports = {
         }
       } 
 
-      const fieldTypeDb = global.configuration.informationSchema[resourceMapping.type][key].type
+      const fieldTypeDb = global.configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
       const fieldTypeObject = resourceMapping.schema.properties[key].type
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
         // for this type combination we need to explicitly stringify the JSON, 

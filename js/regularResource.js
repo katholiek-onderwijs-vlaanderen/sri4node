@@ -132,6 +132,13 @@ async function executePutInsideTransaction(tx, sriRequest) {
     throw new SriError({status: 400, errors: [{code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }]})
   }
 
+  // Treat fields with explicit null values the same as missing fields.
+  // We remove them now, before validation (otherwise validation will fail). They will be set
+  // to null again in 'transformObjectToRow' (just as fields missing in the original request).
+  Object.keys(obj).forEach( k => {
+    if (obj[k] === null) { delete obj[k] }
+  })
+
   const resources = global.configuration.resources
   const typeToMapping = typeToConfig(resources);
   const resourceMapping = typeToMapping[type];
