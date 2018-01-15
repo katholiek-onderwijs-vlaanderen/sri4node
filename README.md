@@ -43,6 +43,7 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * headers: headers of the original request (same for all requests in batch) 
  * protocol: protocol of original request (same for all requests in batch) 
  * body: body of the request 
+ * sriType: type of the matching entry in the sri4node resources config
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
 
@@ -73,10 +74,12 @@ The plugins work plug and play (an 'install' function is called by sri4node duri
 Whenever an uncaught exception happens, sri4node should be smart enough to send a 500 Internal Server Error, but when something else goes wrong, the implementer probably wants to be able to set the http response code himself (and expect the running transaction to be rolled back).
 
 ```javascript
-throw new sriRequest.SriError( { status, errors = [], headers = {} } )
+throw new sriRequest.SriError( { status = 500, errors = [], headers = {} } )
 ```
 
-As you can see, you can also set extra http headers at that time (a redirect when not logged in for example).
+When you throw an SriError somewhere in your hook code, the current request handling is terminated (of course the db transaction is also cancelled) and the request is answered according to the SriError object. So statuscode and headers of the response are set according to the values of the fields in the SirError object and the body of the response will be a JSON object contain the status (status code) and errors (errors provided in the SirError object, with 'type' field of each error set to 'ERROR' if not specified). All parameters of the SriError constructor have default values, so each parameter can be omitted.
+
+An example of the usage of setting extra http headers is setting the Location headers in case of redirect when not logged.
 
 ## Hooks
 
@@ -85,6 +88,8 @@ At the same time we took this opportunity to rename, add and remove a few 'hooks
 As a general principle for renaming those functions, we think that sri4node should make less assumptions about *what* these hooks are meant for, but make it clear to the implementer *when* the hook will be called.
 
 For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make it clear when the operation happens, but the function name doesn't suggest anymore what you should do at that time. Of course you could do some validation of the input before an insert, but you might as well dance the lambada if you wish. Sri4node shouldn't have an opinion about that.
+
+All hooks are 'await'ed for (and the result is ignored). This makes that a hook can be a plain synchronous function or an asynchronous function. You could return a promise but this will not have any added value.
 
 
 ### transformRequest
@@ -110,6 +115,35 @@ There is no **beforeread**, because we think there is nothing useful you can do 
 The tx is a tranaction/connection object from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
 
 The last parameter will always be an array (but it will most of the time only contain one element, but in the case of lists it could have many element). This makes it easy to implement this function once with an `array.forEach( x => ... )` and allows you to make optimizations (if possible) for list queries.
+
+Below is a code example showing how validation can be done with one beforeInsert/beforeUpdate hook. For validation, it of course makes sense to provide an error message with all validation errors. Therefore one hook function is needed, evaluating all validation function and throwing an SriError in case one or more validation functions has failed:
+
+```javascript
+const validateNoDuplicateEmailsForSamePerson = async (tx, incomingObj) => {
+    const res = await readDuplicateEmailsFromDatabase(incomingObj.email)
+    if (res.length > 0) {
+        throw {code: duplicate.email.address, error: ... }
+    }
+}
+
+const validateNationalIdentityNumber = (tx, incomingObj) => {
+    ...
+    if (controlNumber != calculatedControlNumber) {
+        throw {code: invalid.national.identity.number, error: ... }
+    }
+}
+
+const validationHook = (tx, sriRequest, elements) => {  // can be used for beforeInsert and beforeUpdate:
+    pMap(elements, ({incoming}) => {
+        const validationFuns = [ validateNoDuplicateEmailsForSamePerson, validateNationalIdentityNumber ]
+        const validationResults = await pSettle(validationFuns.map( f => f((tx, incoming) ))
+        const validationErrors = validationResults.filter(r => r.isRejected).map(r => r.reason)
+        if (validationResults.length > 0) {
+            throw new sriRequest.SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', validationErrors }]})
+        }
+    }
+}
+'''
 
 
 ### afterread, afterupdate, afterinsert, afterdelete
