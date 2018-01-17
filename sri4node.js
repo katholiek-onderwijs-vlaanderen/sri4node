@@ -205,7 +205,7 @@ exports = module.exports = {
       // initialize undefined hooks in all resources with empty list
       config.resources.forEach( (resource) => 
         [ 'afterread', 'beforeupdate', 'afterupdate', 'beforeinsert', 
-          'afterinsert', 'beforedelete', 'afterdelete', 'transformRequest'  ]
+          'afterinsert', 'beforedelete', 'afterdelete', 'transformRequest', 'transformBatchRequest'  ]
             .forEach((name) => { 
                 if (resource[name] === undefined) { 
                   resource[name] = [] 
@@ -309,27 +309,27 @@ exports = module.exports = {
 
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
-        acc.push([ mapping.type + '/:key', 'GET', regularResource.getRegularResource])
-        acc.push([ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate])
-        acc.push([ mapping.type + '/:key', 'DELETE', regularResource.deleteResource])
-        acc.push([ mapping.type, 'GET', listResource.getListResource])
+        acc.push([ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping.type])
+        acc.push([ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate, mapping.type])
+        acc.push([ mapping.type + '/:key', 'DELETE', regularResource.deleteResource, mapping.type])
+        acc.push([ mapping.type, 'GET', listResource.getListResource, mapping.type])
 
         // validation route
-        acc.push([ mapping.type + '/validate', 'POST', regularResource.validate])
+        acc.push([ mapping.type + '/validate', 'POST', regularResource.validate, mapping.type])
         //  REMARK: this is according sri4node spec; persons-api validate is implemented differently; to be discussed!
 
         return acc        
       }, [])
 
       // register indivual routes in express
-      batchHandlerMap.forEach( ([path, verb, func]) => {
+      batchHandlerMap.forEach( ([path, verb, func, type]) => {
         app[verb.toLowerCase()]( path, 
                                  emt.instrument(expressWrapper(db, func, false), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch
-      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func]) => {
-        return { route: new route(path), verb, func }
+      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, type]) => {
+        return { route: new route(path), verb, func, type }
       })
 
 

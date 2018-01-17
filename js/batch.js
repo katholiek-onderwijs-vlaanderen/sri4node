@@ -7,6 +7,7 @@ const url = require('url');
 const { debug, cl, SriError, startTransaction, typeToConfig } = require('./common.js');
 const listResource = require('./listResource.js')
 const regularResource = require('./regularResource.js')
+const hooks = require('./hooks.js')
 
 
 exports = module.exports = {
@@ -52,17 +53,19 @@ exports = module.exports = {
           throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
         }
         
-        const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func }) => {
+        const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func, type }) => {
           return (route.match(pathName) && element.verb === verb)
         })
         if (applicableHandlers.length > 1) {
           cl(`WARNING: multiple handler functions match for batch request ${pathname}. Only first will be used. Check configuration.`)
         }
-        const func  = _.first(applicableHandlers).func
+        const handler =  _.first(applicableHandlers)
+
+        const func  = handler.func
         if (!func) {
           throw new SriError({status: 404, errors: [{code: 'no.handler.found', msg: `No handler found for ${e.verb} on ${pathName}.`}]})
         }
-        const routeParams = _.first(applicableHandlers).route.match(pathName)
+        const routeParams = handler.route.match(pathName)
 
         const elementSriRequest  = {
           path: pathName,
@@ -73,9 +76,16 @@ exports = module.exports = {
           headers: sriRequest.headers,
           protocol: sriRequest.protocol,
           body: (_.isObject(element.body) ? element.body : JSON.parse(element.body) ),
+          sriType: handler.type,
           // isListRequest: !('uuid' in routeParams)
           SriError: SriError
         }
+        
+        const mapping = typeToConfig(configuration.resources)[handler.type]
+        await hooks.applyHooks('transform batch request'
+                              , mapping.transformBatchRequest
+                              , f => f(sriRequest, elementSriRequest))
+
 
         return ( await func(tx, elementSriRequest) )
       } catch (err) {  
