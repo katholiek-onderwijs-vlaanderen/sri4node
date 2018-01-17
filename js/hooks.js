@@ -2,7 +2,7 @@ const configuration = global.configuration
 
 const pMap = require('p-map'); 
 
-const { errorAsCode, debug, SriError } = require('./common.js')
+const { errorAsCode, debug, SriError, stringifyError } = require('./common.js')
 
 exports = module.exports = {
 
@@ -20,7 +20,7 @@ exports = module.exports = {
           console.log('_______________________ H O O K S - E R R O R _____________________________________________') 
           console.log(err)
           console.log('___________________________________________________________________________________________')
-          throw new SriError({status: 500, errors: [{code: errorAsCode(`${type} failed`), msg: err.toString()}] })
+          throw new SriError({status: 500, errors: [{code: errorAsCode(`${type} failed`), msg: stringifyError(err)}] })
         }
       }
     } else {

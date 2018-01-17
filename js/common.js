@@ -322,6 +322,15 @@ exports = module.exports = {
     })
   },
 
+  stringifyError: (e) => {
+    if (e instanceof Error) {
+      return e.toString()
+    } else {
+      return JSON.stringify(e)
+    }
+  },
+
+
   SriError: class {
     constructor({status = 500, errors = [], headers = {}}) {
       this.status = status,

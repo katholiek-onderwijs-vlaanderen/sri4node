@@ -4,7 +4,7 @@ const _ = require('lodash')
 const pMap = require('p-map');
 const url = require('url');
 
-const { debug, cl, SriError, startTransaction, typeToConfig } = require('./common.js');
+const { debug, cl, SriError, startTransaction, typeToConfig, stringifyError } = require('./common.js');
 const listResource = require('./listResource.js')
 const regularResource = require('./regularResource.js')
 const hooks = require('./hooks.js')
@@ -95,7 +95,7 @@ exports = module.exports = {
           console.log('____________________________ E R R O R ____________________________________________________') 
           console.log(err)
           console.log('___________________________________________________________________________________________') 
-          return new SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: 'Internal Server Error. [' + err.toString() + ']'}]})
+          return new SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: `Internal Server Error. [${stringifyError(err)}]`}]})
         }
       }
     }, {concurrency: 1})

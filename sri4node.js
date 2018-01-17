@@ -15,7 +15,7 @@ const pMap = require('p-map');
 
 
 const informationSchema = require('./js/informationSchema.js');
-const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable,
+const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 
@@ -150,7 +150,7 @@ const middlewareErrorWrapper = (fun) => {
         console.log('____________________________ E R R O R ____________________________________________________') 
         console.log(err)
         console.log('___________________________________________________________________________________________') 
-        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
+        resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
       }
     }
 }
