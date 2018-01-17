@@ -264,7 +264,10 @@ exports = module.exports = {
           SELECT column_name 
           FROM information_schema.columns 
           WHERE table_name = '${tableName}'
-            AND column_name = '$$meta.version'
+            AND column_name = '$$meta.version'     
+            ${( env.postgresSchema !== undefined
+              ? `AND table_schema = '${env.postgresSchema}'`
+              : '' )}
         ) THEN
           ALTER TABLE ${tableName} ADD "$$meta.version" integer DEFAULT 0;
         END IF;
