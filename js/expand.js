@@ -83,9 +83,9 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
         const expandedElements = rows.map( row => transformRowToObject(row, targetMapping) )
         const expandedElementsDict = _.fromPairs(expandedElements.map( obj => ([ obj.$$meta.permalink, obj ])))
 
-        debug('** executing afterread functions on expanded resources');
+        debug('** executing afterRead functions on expanded resources');
         await hooks.applyHooks( 'after read'
-                              , targetMapping.afterread
+                              , targetMapping.afterRead
                               , f => f( db, sriRequest, 
                                         expandedElements.map( e => 
                                             ({ permalink: e.$$meta.permalink, incoming: null, stored: e }) )

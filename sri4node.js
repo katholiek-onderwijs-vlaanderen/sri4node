@@ -204,8 +204,8 @@ exports = module.exports = {
 
       // initialize undefined hooks in all resources with empty list
       config.resources.forEach( (resource) => 
-        [ 'afterread', 'beforeupdate', 'afterupdate', 'beforeinsert', 
-          'afterinsert', 'beforedelete', 'afterdelete', 'transformRequest', 'transformBatchRequest'  ]
+        [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
+          'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformBatchRequest'  ]
             .forEach((name) => { 
                 if (resource[name] === undefined) { 
                   resource[name] = [] 

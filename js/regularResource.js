@@ -72,9 +72,9 @@ async function getRegularResource(db, sriRequest) {
   debug('* executing expansion');
   await expand.executeExpansion(db, sriRequest, [element], mapping, resources);
 
-  debug('* executing afterread functions on results');
+  debug('* executing afterRead functions on results');
   await hooks.applyHooks( 'after read', 
-                          mapping.afterread, 
+                          mapping.afterRead, 
                           f => f(db, sriRequest, [{ permalink: element.$$meta.permalink
                                                   , incoming: null
                                                   , stored: element }] )
@@ -161,7 +161,7 @@ async function executePutInsideTransaction(tx, sriRequest) {
   if (result.code != 'found') {
     // insert new element
     await hooks.applyHooks('before insert'
-                          , resourceMapping.beforeinsert
+                          , resourceMapping.beforeInsert
                           , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}]))
 
     const newRow = transformObjectToRow(obj, resourceMapping)
@@ -173,7 +173,7 @@ async function executePutInsideTransaction(tx, sriRequest) {
     const insertRes = await pgExec(tx, insert) 
     if (insertRes.length === 1) {
       await hooks.applyHooks('after insert'
-                            , resourceMapping.afterinsert
+                            , resourceMapping.afterInsert
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))      
       return { status: 201 }      
     } else {
@@ -192,7 +192,7 @@ async function executePutInsideTransaction(tx, sriRequest) {
     }
 
     await hooks.applyHooks('before update'
-                          , resourceMapping.beforeupdate
+                          , resourceMapping.beforeUpdate
                           , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
 
     const updateRow = transformObjectToRow(obj, resourceMapping)
@@ -210,7 +210,7 @@ async function executePutInsideTransaction(tx, sriRequest) {
     const updateRes = await pgExec(tx, update)
     if (updateRes.length === 1) {
       await hooks.applyHooks('after update'
-                            , resourceMapping.afterupdate
+                            , resourceMapping.afterUpdate
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
       return { status: 200 }
     } else {
@@ -278,7 +278,7 @@ async function deleteResource(db, sriRequest) {
     } else {
       const prevObj = result.object
       await hooks.applyHooks('before delete'
-                            , resourceMapping.beforedelete
+                            , resourceMapping.beforeDelete
                             , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
 
       const deletequery = prepare('delete-by-key-' + table);
@@ -292,7 +292,7 @@ async function deleteResource(db, sriRequest) {
       } else { // eslint-disable-line
         debug('Processing afterdelete');
         await hooks.applyHooks('after delete'
-                              , resourceMapping.afterdelete
+                              , resourceMapping.afterDelete
                               , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
       }
     }

@@ -265,10 +265,10 @@ async function getListResource(db, sriRequest) {
     output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
   }
 
-  debug('* executing afterread functions on results');
+  debug('* executing afterRead functions on results');
 
   await hooks.applyHooks( 'after read', 
-                          mapping.afterread, 
+                          mapping.afterRead, 
                           f => f( db, 
                                   sriRequest, 
                                   output.results.map( e => {
