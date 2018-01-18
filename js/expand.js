@@ -68,6 +68,9 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
         const targetType = mapping.map[expand].references;
         const typeToMapping = typeToConfig(resources);
         const targetMapping = typeToMapping[targetType];
+        if (targetMapping === undefined) {
+          throw new SriError({status: 400, errors: [{code: 'expand.across.boundary', msg: 'Only references to resources defined in the same sri4node configuration as the referer can be expanded.'}]})
+        }
         const table = tableFromMapping(targetMapping)
         const columns = sqlColumnNames(targetMapping);
 
