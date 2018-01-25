@@ -18,7 +18,7 @@ const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
-
+const $q = require('./js/queryUtils.js');
 
 
 function error(x) {
@@ -221,6 +221,15 @@ exports = module.exports = {
         config.bodyParserLimit = '5mb'
       }
       
+      // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
+      config.resources.forEach( (mapping) => {
+        Object.keys(mapping.map).forEach( (key) => {
+          if (mapping.map.key === 'references' && mapping.query.key === undefined) {
+            mapping.query.key = $q.filterReferencedType(map.key.references, key)
+          }
+        })
+      })
+
       global.configuration = config // share configuration with other modules
 
       const db = await pgConnect(config)
