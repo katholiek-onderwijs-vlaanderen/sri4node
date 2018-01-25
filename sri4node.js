@@ -217,6 +217,9 @@ exports = module.exports = {
                 } 
             })
       )
+      if (config.bodyParserLimit === undefined) {
+        config.bodyParserLimit = '5mb'
+      }
       
       global.configuration = config // share configuration with other modules
 
@@ -249,7 +252,7 @@ exports = module.exports = {
 
       app.use(emt.instrument(compression()))
       app.use(emt.instrument(logRequests))
-      app.use(emt.instrument(bodyParser.json({limit: '5mb', extended: true})));
+      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true})));
 
       app.use('/pathfinder', function(req, res, next){
         pathfinderUI(app)
