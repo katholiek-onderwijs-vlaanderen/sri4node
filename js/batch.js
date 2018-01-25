@@ -27,12 +27,6 @@ exports = module.exports = {
       throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
 
-    //spec: The batch operation itself MUST be a PUT operation, unless the entire batch is composed of GET operations, in which case the batch it's HTTP verb MUST be GET.
-    const onlyGets = (reqBody.length > 0) && (reqBody.every( e => ( e.verb == 'GET') ))
-    if (onlyGets && sriRequest.httpMethod != 'GET') {
-      throw new SriError({status: 400, errors: [{code: 'batch.of.gets.requires.get.verb', msg: 'Batch entirely composed of GET operations, MUST have HTTP verb GET.'}]})
-    }
-
     const batchResults = await pMap(reqBody, async (element, idx) => {
       try {
         // spec: if verb is omitted, it MUST be interpreted as PUT.

@@ -290,8 +290,8 @@ exports = module.exports = {
         app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
 
         // batch route
-        app.get(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
         app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
+        app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
 
         // append relation filters if auto-detected a relation resource
         if (mapping.map.from && mapping.map.to) {
