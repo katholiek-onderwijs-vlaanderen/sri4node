@@ -77,25 +77,17 @@ exports = module.exports = {
               }, {} )
   },
 
-  sqlColumnNames: function (mapping) {
-    'use strict';
-    var columnNames = [];
-    var key, j;
+  sqlColumnNames: function (mapping, summary=false) {
+    const columnNames = summary 
+                          ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn === 'summary'))
+                          : Object.keys(mapping.map)
 
-    for (key in mapping.map) {
-      if (mapping.map.hasOwnProperty(key)) {
-        columnNames.push(key);
-      }
-    }
-    var sqlColumnNames = columnNames.indexOf('key') === -1 ? '"key",' : '';
-    for (j = 0; j < columnNames.length; j++) {
-      sqlColumnNames += '"' + columnNames[j] + '"';
-      if (j < columnNames.length - 1) {
-        sqlColumnNames += ',';
-      }
-    }
+    console.log('columnNames:')
+    console.log(columnNames)
 
-    return sqlColumnNames + ', "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"'
+    return columnNames.includes('key') ? '' : '"key",' 
+            + (columnNames.map( c => `"${c}"`).join(','))
+            + ', "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"'
   },
 
   /* Merge all direct properties of object 'source' into object 'target'. */

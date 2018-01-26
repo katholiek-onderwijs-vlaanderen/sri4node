@@ -54,7 +54,8 @@ function getSQLFromListResource(type, parameters, count, database, query) {
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
     columns = '"key"';
   } else {
-    columns = sqlColumnNames(mapping);
+    columns = sqlColumnNames(mapping, 
+                             parameters.expand && parameters.expand.toLowerCase() === 'summary');
   }
 
   if (count) {
@@ -168,7 +169,9 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
     // all start with "results.href" or "results.href.*" will result in inclusion
     // of the regular resources in the list resources.
     if (!queryParams.expand ||
-      (queryParams.expand.toLowerCase() === 'full' || queryParams.expand.indexOf('results') === 0)) {
+      ( queryParams.expand.toLowerCase() === 'full' || 
+        queryParams.expand.toLowerCase() === 'summary' || 
+        queryParams.expand.indexOf('results') === 0)) {
       element.$$expanded = transformRowToObject(currentrow, mapping)
     } else if (queryParams.expand && queryParams.expand.toLowerCase() === 'none') {
       // Intentionally left blank.

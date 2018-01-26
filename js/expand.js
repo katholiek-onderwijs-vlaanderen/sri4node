@@ -122,7 +122,7 @@ function parseExpand(expand) {
   if (paths.includes('none')) {
     ret = []
   } else {
-    ret = paths.filter( p => ! [ 'full', 'results' ].includes(p) ) // 'full', 'results' are already handled
+    ret = paths.filter( p => ! [ 'full', 'summary', 'results' ].includes(p) ) // 'full', 'results' are already handled
                .map( p => p.replace(/^results\./, '') )
   }
 
