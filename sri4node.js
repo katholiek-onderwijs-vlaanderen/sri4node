@@ -191,7 +191,7 @@ const expressWrapper = (db, func, isBatch) => {
         console.log('____________________________ E R R O R ____________________________________________________') 
         console.log(err)
         console.log('___________________________________________________________________________________________') 
-        resp.status(500).send('Internal Server Error. [' + err.toString() + ']');
+        resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
       }
     }    
   }
