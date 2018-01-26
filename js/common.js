@@ -85,7 +85,7 @@ exports = module.exports = {
     console.log('columnNames:')
     console.log(columnNames)
 
-    return columnNames.includes('key') ? '' : '"key",' 
+    return (columnNames.includes('key') ? '' : '"key",')
             + (columnNames.map( c => `"${c}"`).join(','))
             + ', "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"'
   },
