@@ -49,13 +49,17 @@ async function queryByKey(db, mapping, key, wantsDeleted) {
 
 
 
-async function getRegularResource(db, sriRequest) {
+async function getRegularResource(phaseSyncer, db, sriRequest) {
   'use strict';
   const resources = global.configuration.resources
   const { type, key } = urlToTypeAndKey(sriRequest.path)
   const typeToMapping = typeToConfig(resources);
   const mapping = typeToMapping[type];
 
+  await phaseSyncer.phase()
+  // We don't do before read hooks because they don't make much sense
+
+  await phaseSyncer.phase()
   debug('* query by key');
   const result = await queryByKey(db, mapping, key,
                                    sriRequest.query['$$meta.deleted'] === 'true' 
@@ -72,6 +76,7 @@ async function getRegularResource(db, sriRequest) {
   debug('* executing expansion');
   await expand.executeExpansion(db, sriRequest, [element], mapping, resources);
 
+  await phaseSyncer.phase()
   debug('* executing afterRead functions on results');
   await hooks.applyHooks( 'after read', 
                           mapping.afterRead, 
@@ -119,7 +124,7 @@ function getSchemaValidationErrors(json, schema) {
 
 
 /* eslint-disable */
-async function executePutInsideTransaction(tx, sriRequest) {
+async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
   'use strict';
   const { type, key } = urlToTypeAndKey(sriRequest.path)
   const obj = sriRequest.body
@@ -164,6 +169,8 @@ async function executePutInsideTransaction(tx, sriRequest) {
                           , resourceMapping.beforeInsert
                           , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}]))
 
+    await phaseSyncer.phase()
+
     const newRow = transformObjectToRow(obj, resourceMapping)
     newRow.key = key;
 
@@ -172,6 +179,8 @@ async function executePutInsideTransaction(tx, sriRequest) {
     insert.sql(' returning key') // to be able to check rows.length
     const insertRes = await pgExec(tx, insert) 
     if (insertRes.length === 1) {
+      await phaseSyncer.phase()
+
       await hooks.applyHooks('after insert'
                             , resourceMapping.afterInsert
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))      
@@ -194,7 +203,9 @@ async function executePutInsideTransaction(tx, sriRequest) {
     await hooks.applyHooks('before update'
                           , resourceMapping.beforeUpdate
                           , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
-
+    
+    await phaseSyncer.phase()
+    
     const updateRow = transformObjectToRow(obj, resourceMapping)
 
     var update = prepare('update-' + table);
@@ -209,6 +220,8 @@ async function executePutInsideTransaction(tx, sriRequest) {
 
     const updateRes = await pgExec(tx, update)
     if (updateRes.length === 1) {
+      await phaseSyncer.phase()
+
       await hooks.applyHooks('after update'
                             , resourceMapping.afterUpdate
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
@@ -224,8 +237,10 @@ async function executePutInsideTransaction(tx, sriRequest) {
 
 
 
-async function validate(db, sriRequest) {
+async function validate(phaseSyncer, db, sriRequest) {
   'use strict';
+  await phaseSyncer.phase()
+
   debug('* sri4node VALIDATE processing invoked.');
 
   // adapt sriRequest as how it should be in case of a regular update/create request
@@ -235,7 +250,7 @@ async function validate(db, sriRequest) {
 
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
   try {
-    const result = await executePutInsideTransaction(tx, sriRequest);
+    const result = await executePutInsideTransaction(phaseSyncer, tx, sriRequest);
     debug('VALIDATE processing went OK. Rolling back database transaction.');
     rejectTx()
     return result    
@@ -245,12 +260,13 @@ async function validate(db, sriRequest) {
   }
 }
 
-async function createOrUpdate(db, sriRequest) {
+async function createOrUpdate(phaseSyncer, db, sriRequest) {
   'use strict';
+  await phaseSyncer.phase()
   debug('* sri4node PUT processing invoked.');
   const {tx, resolveTx, rejectTx} = await startTransaction(db)
   try {
-    const result = await executePutInsideTransaction(tx, sriRequest)
+    const result = await executePutInsideTransaction(phaseSyncer, tx, sriRequest)
     debug('PUT processing went OK. Committing database transaction.');
     resolveTx()
     return result
@@ -263,8 +279,10 @@ async function createOrUpdate(db, sriRequest) {
 
 
 
-async function deleteResource(db, sriRequest) {
+async function deleteResource(phaseSyncer, db, sriRequest) {
   'use strict';
+  await phaseSyncer.phase()
+
   debug('sri4node DELETE invoked');
   const { type, key } = urlToTypeAndKey(sriRequest.path)
   const resourceMapping = typeToConfig(global.configuration.resources)[type];
@@ -281,6 +299,8 @@ async function deleteResource(db, sriRequest) {
                             , resourceMapping.beforeDelete
                             , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
 
+      await phaseSyncer.phase()
+
       const deletequery = prepare('delete-by-key-' + table);
       const sql = `update ${table} set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp `
                    + `where "$$meta.deleted" = false and "key" = `
@@ -290,6 +310,8 @@ async function deleteResource(db, sriRequest) {
       if (rows.length === 0) {
         debug('No row affected - the resource is already gone');
       } else { // eslint-disable-line
+        await phaseSyncer.phase()
+
         debug('Processing afterdelete');
         await hooks.applyHooks('after delete'
                               , resourceMapping.afterDelete

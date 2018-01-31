@@ -15,10 +15,11 @@ const pMap = require('p-map');
 
 
 const informationSchema = require('./js/informationSchema.js');
-const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError,
+const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
+const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
 
 
 function error(x) {
@@ -182,8 +183,21 @@ const expressWrapper = (db, func, isBatch) => {
 
       await pMap(mapping.transformRequest, (func) => func(req, sriRequest), {concurrency: 1}  )
 
-      const result = await func(db, sriRequest)
+      let result
+      if (isBatch) {
+        result = await func(db, sriRequest)
+      } else {
+        // Also use phaseSyncedSettle like in batch to use same shared code,
+        // has no direct added value in case of single request.
+        const jobs = [ [func, [db, sriRequest]] ];
+        [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))
+      }
+
+      if (result.headers) {
+        resp.set(result.headers)
+      }
       resp.status(result.status).send(result.body)
+
     } catch (err) {
       if (err instanceof SriError) {
         resp.set(err.headers).status(err.status).send(err.body);

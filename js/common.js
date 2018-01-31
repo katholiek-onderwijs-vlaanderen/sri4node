@@ -322,6 +322,24 @@ exports = module.exports = {
     }
   },
 
+  settleResultsToSriResults: (results) => {
+    return results.map(res => {
+        if (res.isFulfilled) {
+          return res.value
+        } else {
+          const err = res.reason
+          if (err instanceof exports.SriError) {
+            return err
+          } else {      
+            console.log('____________________________ E R R O R ____________________________________________________') 
+            console.log(err)
+            console.log('___________________________________________________________________________________________') 
+            return new exports.SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: `Internal Server Error. [${stringifyError(err)}]`}]})
+          }
+        }
+      });    
+  },
+            
 
   SriError: class {
     constructor({status = 500, errors = [], headers = {}}) {

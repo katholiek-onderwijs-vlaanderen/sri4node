@@ -228,7 +228,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
 }
 
 
-async function getListResource(db, sriRequest) {
+async function getListResource(phaseSyncer, db, sriRequest) {
   'use strict';
   const queryParams = sriRequest.query
   const type = sriRequest.sriType
@@ -238,6 +238,11 @@ async function getListResource(db, sriRequest) {
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
   const queryLimit = queryParams.limit || defaultlimit;
   const offset = queryParams.offset || 0;
+
+  await phaseSyncer.phase()
+  // We don't do before read hooks because they don't make much sense
+
+  await phaseSyncer.phase()
 
   debug('GET list resource ' + type);
 
@@ -267,6 +272,8 @@ async function getListResource(db, sriRequest) {
   } else {
     output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
   }
+
+  await phaseSyncer.phase()
 
   debug('* executing afterRead functions on results');
 
