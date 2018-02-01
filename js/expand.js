@@ -1,6 +1,6 @@
 /* Handles the ?expand parameter */
 
-const configuration = global.configuration
+const configuration = global.sri4node_configuration
 
 const _ = require('lodash')
 const pMap = require('p-map');

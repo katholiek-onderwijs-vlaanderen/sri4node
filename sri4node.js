@@ -43,7 +43,7 @@ function forceSecureSockets(req, res, next) {
 
 const logRequests = (req, res, next) => {
   'use strict';
-  if (global.configuration.logrequests) {
+  if (global.sri4node_configuration.logrequests) {
     debug(req.method + ' ' + req.path + ' starting.'
               + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
     const start = Date.now();
@@ -59,7 +59,7 @@ const logRequests = (req, res, next) => {
 /* Handle GET /{type}/schema */
 function getSchema(req, resp) {
   'use strict';
-  const typeToMapping = typeToConfig(global.configuration.resources);
+  const typeToMapping = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   const mapping = typeToMapping[type];
 
@@ -70,14 +70,14 @@ function getSchema(req, resp) {
 /* Handle GET /docs and /{type}/docs */
 function getDocs(req, resp) {
   'use strict';
-  const typeToMapping = typeToConfig(global.configuration.resources);
+  const typeToMapping = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   if (type in typeToMapping) {
     const mapping = typeToMapping[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping, queryUtils: exports.queryUtils});
   } else if (req.route.path === '/docs') {
-    resp.render('index', {config: global.configuration});
+    resp.render('index', {config: global.sri4node_configuration});
   } else {
     resp.status(404).send('Not Found');
   }
@@ -86,7 +86,7 @@ function getDocs(req, resp) {
 const getResourcesOverview = (req, resp) => {
   resp.set('Content-Type', 'application/json');
   const resourcesToSend = {};
-  global.configuration.resources.forEach( (resource) => {
+  global.sri4node_configuration.resources.forEach( (resource) => {
     const resourceName = resource.type.substring(1) // strip leading slash
     resourcesToSend[resourceName] = {
       docs: resource.type + '/docs',
@@ -118,7 +118,7 @@ function checkRequiredFields(mapping, information) {
 }
 
 const installEMT = () => {
-  if (global.configuration.logmiddleware) {
+  if (global.sri4node_configuration.logmiddleware) {
     process.env.TIMER = true; //eslint-disable-line
     const emt = require('express-middleware-timer');
     // init timer
@@ -165,7 +165,7 @@ const expressWrapper = (db, func, isBatch) => {
                                  .replace(/\/batch$/g, '')
                                  .replace(/\/:[^\/]*/g, '')
 
-      const mapping = typeToConfig(global.configuration.resources)[type]
+      const mapping = typeToConfig(global.sri4node_configuration.resources)[type]
 
       const sriRequest  = {
         path: req.path,
@@ -244,18 +244,18 @@ exports = module.exports = {
         })
       })
 
-      global.configuration = config // share configuration with other modules
+      global.sri4node_configuration = config // share configuration with other modules
 
       const db = await pgConnect(config)
 
-      global.configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
+      global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
 
       const listResource = require('./js/listResource.js')
       const regularResource = require('./js/regularResource.js')
       const batch = require('./js/batch.js')
       const utilLib = require('./js/utilLib.js')
 
-      global.configuration.utils = {
+      global.sri4node_configuration.utils = {
         // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL: pgExec,
         prepareSQL: queryobject.prepareSQL,
@@ -264,12 +264,12 @@ exports = module.exports = {
       } //utils
 
       if (config.plugins !== undefined) {
-        await pMap(config.plugins, async (plugin) => await plugin.install(global.configuration, db), {concurrency: 1}  )
+        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
       }
-      
+
       const emt = installEMT()
 
-      if (global.configuration.forceSecureSockets) {
+      if (global.sri4node_configuration.forceSecureSockets) {
         // All URLs force SSL and allow cross origin access.
         app.use(forceSecureSockets);
       }

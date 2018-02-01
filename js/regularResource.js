@@ -1,4 +1,4 @@
-const configuration = global.configuration
+const configuration = global.sri4node_configuration
 
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
@@ -51,7 +51,7 @@ async function queryByKey(db, mapping, key, wantsDeleted) {
 
 async function getRegularResource(phaseSyncer, db, sriRequest) {
   'use strict';
-  const resources = global.configuration.resources
+  const resources = global.sri4node_configuration.resources
   const { type, key } = urlToTypeAndKey(sriRequest.path)
   const typeToMapping = typeToConfig(resources);
   const mapping = typeToMapping[type];
@@ -144,7 +144,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
     if (obj[k] === null) { delete obj[k] }
   })
 
-  const resources = global.configuration.resources
+  const resources = global.sri4node_configuration.resources
   const typeToMapping = typeToConfig(resources);
   const resourceMapping = typeToMapping[type];
   const table = tableFromMapping(resourceMapping);
@@ -285,7 +285,7 @@ async function deleteResource(phaseSyncer, db, sriRequest) {
 
   debug('sri4node DELETE invoked');
   const { type, key } = urlToTypeAndKey(sriRequest.path)
-  const resourceMapping = typeToConfig(global.configuration.resources)[type];
+  const resourceMapping = typeToConfig(global.sri4node_configuration.resources)[type];
   const table = tableFromMapping(resourceMapping);
 
   const {tx, resolveTx, rejectTx} = await startTransaction(db)

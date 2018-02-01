@@ -1,4 +1,4 @@
-const configuration = global.configuration  
+const configuration = global.sri4node_configuration  
 
 
 

@@ -28,7 +28,7 @@ const pgp = require('pg-promise')(pgpInitOptions);
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
 
 
-const configuration = global.configuration
+const configuration = global.sri4node_configuration
 
 
 exports = module.exports = {
@@ -39,7 +39,7 @@ exports = module.exports = {
 
   debug: (x) => {
     'use strict';
-    if (global.configuration.logdebug) {
+    if (global.sri4node_configuration.logdebug) {
       exports.cl(x);
     }
   },
@@ -159,7 +159,7 @@ exports = module.exports = {
         }
       } 
 
-      const fieldTypeDb = global.configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
+      const fieldTypeDb = global.sri4node_configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
       const fieldTypeObject = resourceMapping.schema.properties[key].type
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
         // for this type combination we need to explicitly stringify the JSON, 
@@ -214,7 +214,7 @@ exports = module.exports = {
     var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
-    if (global.configuration.logsql) {
+    if (global.sri4node_configuration.logsql) {
       const q = pgp.as.format(sql, values);
       cl(q);
     }

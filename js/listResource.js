@@ -1,4 +1,4 @@
-const configuration = global.configuration  
+const configuration = global.sri4node_configuration  
 const _ = require('lodash')
 
 const hooks = require('./hooks.js')
@@ -47,7 +47,7 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
 function getSQLFromListResource(type, parameters, count, database, query) {
   'use strict';
 
-  const mapping = typeToConfig(global.configuration.resources)[type]
+  const mapping = typeToConfig(global.sri4node_configuration.resources)[type]
   const table = tableFromMapping(mapping)
 
   let sql, columns;
@@ -232,7 +232,7 @@ async function getListResource(phaseSyncer, db, sriRequest) {
   'use strict';
   const queryParams = sriRequest.query
   const type = sriRequest.sriType
-  const mapping = typeToConfig(global.configuration.resources)[type];
+  const mapping = typeToConfig(global.sri4node_configuration.resources)[type];
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
@@ -296,7 +296,7 @@ async function getListResource(phaseSyncer, db, sriRequest) {
                         )  
 
   debug('* executing expansion : ' + queryParams.expand);
-  await expand.executeExpansion(db, sriRequest, output.results, mapping, global.configuration.resources);
+  await expand.executeExpansion(db, sriRequest, output.results, mapping, global.sri4node_configuration.resources);
 
 
   if (mapping.transformResponse) {
