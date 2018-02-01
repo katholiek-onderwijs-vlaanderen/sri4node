@@ -73,7 +73,7 @@ exports = module.exports = {
             httpMethod: element.verb,
             headers: sriRequest.headers,
             protocol: sriRequest.protocol,
-            body: (_.isObject(element.body) ? element.body : JSON.parse(element.body) ),
+            body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
             sriType: handler.type,
             // isListRequest: !('uuid' in routeParams)
             SriError: SriError
