@@ -16,7 +16,7 @@ const pMap = require('p-map');
 
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow } = require('./js/common.js');
+        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -156,6 +156,7 @@ const middlewareErrorWrapper = (fun) => {
     }
 }
 
+
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
 const expressWrapper = (db, func, isBatch) => {
@@ -183,14 +184,30 @@ const expressWrapper = (db, func, isBatch) => {
 
       await pMap(mapping.transformRequest, (func) => func(req, sriRequest), {concurrency: 1}  )
 
+      const {tx, resolveTx, rejectTx} = await startTransaction(db)
+
       let result
       if (isBatch) {
         result = await func(db, sriRequest)
       } else {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        const jobs = [ [func, [db, sriRequest]] ];
+
+        const jobs = [ [func, [tx, sriRequest]] ];
         [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))
+      }
+
+      if (result.status < 300) {
+        if (req.query.dryRun === 'true') {
+          debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+          rejectTx()   
+        } else {
+          debug('++ Processing went OK. Committing database transaction.');  
+          resolveTx()   
+        }
+      } else {
+        debug('++ Error during processing. Rolling back database transaction.');
+        rejectTx()          
       }
 
       if (result.headers) {

@@ -12,7 +12,7 @@ const prepare = queryobject.prepareSQL;
 
 
 
-async function queryByKey(db, mapping, key, wantsDeleted) {
+async function queryByKey(tx, mapping, key, wantsDeleted) {
   'use strict';
   debug(`** queryByKey(${key})`);
   const columns = sqlColumnNames(mapping);
@@ -28,7 +28,7 @@ async function queryByKey(db, mapping, key, wantsDeleted) {
   const query = prepare('select-row-by-key-from-' + table);
   const sql = `select ${columns} from "${table}" where "key" = `
   query.sql(sql).param(key);
-  const rows = await pgExec(db, query)
+  const rows = await pgExec(tx, query)
   if (rows.length === 1) {
     const row = rows[0];
     if (row['$$meta.deleted'] && !wantsDeleted) {
@@ -49,7 +49,7 @@ async function queryByKey(db, mapping, key, wantsDeleted) {
 
 
 
-async function getRegularResource(phaseSyncer, db, sriRequest) {
+async function getRegularResource(phaseSyncer, tx, sriRequest) {
   'use strict';
   const resources = global.sri4node_configuration.resources
   const { type, key } = urlToTypeAndKey(sriRequest.path)
@@ -61,7 +61,7 @@ async function getRegularResource(phaseSyncer, db, sriRequest) {
 
   await phaseSyncer.phase()
   debug('* query by key');
-  const result = await queryByKey(db, mapping, key,
+  const result = await queryByKey(tx, mapping, key,
                                    sriRequest.query['$$meta.deleted'] === 'true' 
                                           || sriRequest.query['$$meta.deleted'] === 'any');
 
@@ -74,18 +74,16 @@ async function getRegularResource(phaseSyncer, db, sriRequest) {
   const element = result.object
 
   debug('* executing expansion');
-  await expand.executeExpansion(db, sriRequest, [element], mapping, resources);
+  await expand.executeExpansion(tx, sriRequest, [element], mapping, resources);
 
   await phaseSyncer.phase()
   debug('* executing afterRead functions on results');
   await hooks.applyHooks( 'after read', 
                           mapping.afterRead, 
-                          f => f(db, sriRequest, [{ permalink: element.$$meta.permalink
+                          f => f(tx, sriRequest, [{ permalink: element.$$meta.permalink
                                                   , incoming: null
                                                   , stored: element }] )
                         )
-
-  debug('* sending response to the client :');
   return { status: 200, body: element }
 }
 
@@ -237,7 +235,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
 
 
 
-async function validate(phaseSyncer, db, sriRequest) {
+async function validate(phaseSyncer, tx, sriRequest) {
   'use strict';
   await phaseSyncer.phase()
 
@@ -248,38 +246,17 @@ async function validate(phaseSyncer, db, sriRequest) {
   sriRequest.originalUrl = sriRequest.originalUrl.replace('validate', sriRequest.body.key)
   sriRequest.params['uuid'] = sriRequest.body.key
 
-  const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  try {
-    const result = await executePutInsideTransaction(phaseSyncer, tx, sriRequest);
-    debug('VALIDATE processing went OK. Rolling back database transaction.');
-    rejectTx()
-    return result    
-  } catch (err) {
-    rejectTx()
-    throw err
-  }
+  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest);
 }
 
-async function createOrUpdate(phaseSyncer, db, sriRequest) {
+async function createOrUpdate(phaseSyncer, tx, sriRequest) {
   'use strict';
   await phaseSyncer.phase()
   debug('* sri4node PUT processing invoked.');
-  const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  try {
-    const result = await executePutInsideTransaction(phaseSyncer, tx, sriRequest)
-    debug('PUT processing went OK. Committing database transaction.');
-    resolveTx()
-    return result
-  } catch (err) {
-    rejectTx()
-    throw err
-  }
+  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest)
 }
 
-
-
-
-async function deleteResource(phaseSyncer, db, sriRequest) {
+async function deleteResource(phaseSyncer, tx, sriRequest) {
   'use strict';
   await phaseSyncer.phase()
 
@@ -288,49 +265,43 @@ async function deleteResource(phaseSyncer, db, sriRequest) {
   const resourceMapping = typeToConfig(global.sri4node_configuration.resources)[type];
   const table = tableFromMapping(resourceMapping);
 
-  const {tx, resolveTx, rejectTx} = await startTransaction(db)
-  try {
-    const result = await queryByKey(tx, resourceMapping, key, false)
-    if (result.code != 'found') {
-      debug('No row affected - the resource is already gone');
-    } else {
-      const prevObj = result.object
-      await hooks.applyHooks('before delete'
-                            , resourceMapping.beforeDelete
-                            , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
+  const result = await queryByKey(tx, resourceMapping, key, false)
+  if (result.code != 'found') {
+    debug('No row affected - the resource is already gone');
+  } else {
+    const prevObj = result.object
+    await hooks.applyHooks('before delete'
+                          , resourceMapping.beforeDelete
+                          , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
 
+    await phaseSyncer.phase()
+
+    const deletequery = prepare('delete-by-key-' + table);
+    const sql = `update ${table} set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp `
+                 + `where "$$meta.deleted" = false and "key" = `
+    deletequery.sql(sql).param(key);
+    deletequery.sql(' returning key') // to be able to check rows.length
+    const rows = await pgExec(tx, deletequery);
+    if (rows.length === 0) {
+      debug('No row affected - the resource is already gone');
+    } else { // eslint-disable-line
       await phaseSyncer.phase()
 
-      const deletequery = prepare('delete-by-key-' + table);
-      const sql = `update ${table} set "$$meta.deleted" = true, "$$meta.modified" = current_timestamp `
-                   + `where "$$meta.deleted" = false and "key" = `
-      deletequery.sql(sql).param(key);
-      deletequery.sql(' returning key') // to be able to check rows.length
-      const rows = await pgExec(tx, deletequery);
-      if (rows.length === 0) {
-        debug('No row affected - the resource is already gone');
-      } else { // eslint-disable-line
-        await phaseSyncer.phase()
-
-        debug('Processing afterdelete');
-        await hooks.applyHooks('after delete'
-                              , resourceMapping.afterDelete
-                              , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
-      }
+      debug('Processing afterdelete');
+      await hooks.applyHooks('after delete'
+                            , resourceMapping.afterDelete
+                            , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
     }
-    debug('DELETE processing went OK. Committing database transaction.');
-    resolveTx()
-    return { status: 200 }
-  } catch (err) {
-    rejectTx()
-    throw err
-  }    
+  }
+  return { status: 200 }
 }
+
+
 
 
 exports = module.exports = {
   getRegularResource: getRegularResource,
   createOrUpdate: createOrUpdate,
   deleteResource: deleteResource,
-  validate: validate
+  validate: validate,
 }

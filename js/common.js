@@ -224,6 +224,7 @@ exports = module.exports = {
 
 
   startTransaction: async (db) => {
+    exports.debug('++ Starting database transaction.');  
     
     // Special double promise construction to extract tx db context and resolve/reject functions from within db.tx().
     // This is needed because db.tx() does not 'await' async functions (in which case errors within db.tx() will 
@@ -334,7 +335,7 @@ exports = module.exports = {
             console.log('____________________________ E R R O R ____________________________________________________') 
             console.log(err)
             console.log('___________________________________________________________________________________________') 
-            return new exports.SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: `Internal Server Error. [${stringifyError(err)}]`}]})
+            return new exports.SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
         }
       });    

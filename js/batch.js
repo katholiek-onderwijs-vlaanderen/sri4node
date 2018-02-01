@@ -13,7 +13,7 @@ const phaseSyncedSettle = require('./phaseSyncedSettle.js')
 
 exports = module.exports = {
 
-  batchOperation: async (db, sriRequest) => {
+  batchOperation: async (tx, sriRequest) => {
     'use strict';
 
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
@@ -22,15 +22,25 @@ exports = module.exports = {
     debug('batchOperations')
     debug(reqBody)
 
-    const {tx, resolveTx, rejectTx} = await startTransaction(db)
-
     if (!Array.isArray(reqBody)) {
       throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
 
-    const handleBatch = async (batch) => {
+    const handleBatch = async (batch, tx) => {
       if ( batch.every(element =>  Array.isArray(element)) ) {
-        return await pMap(batch, async element => await handleBatch(element), {concurrency: 1})
+        return await pMap( batch
+                         , async element => {
+                              const {tx: tx1, resolveTx, rejectTx} = await startTransaction(tx)
+                              const result = await handleBatch(element, tx1)
+                              if (result.every(e => e.status < 300)) {
+                                resolveTx()
+                              } else {
+                                rejectTx()
+                              }
+                              return result
+                           }
+                         , {concurrency: 1}
+                         )
       } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
         const batchJobs = await pMap(batch, async element => {
           // spec: if verb is omitted, it MUST be interpreted as PUT.
@@ -51,6 +61,10 @@ exports = module.exports = {
             throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
           }
           
+          if (parsedUrl.query.dryRun === 'true') {
+            throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
+          }
+
           const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func, type }) => {
             return (route.match(pathName) && element.verb === verb)
           })
@@ -96,7 +110,7 @@ exports = module.exports = {
       }
     }
 
-    const batchResults = _.flatten(await handleBatch(reqBody))
+    const batchResults = _.flatten(await handleBatch(reqBody, tx))
     
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
@@ -106,12 +120,6 @@ exports = module.exports = {
                         ? 403 
                         : Math.max(200, ...batchResults.map( e => e.status ))
 
-    if (status < 300) {
-      resolveTx()
-      return { status: status, body: batchResults }
-    } else {
-      rejectTx()
-      return { status: status, body: batchResults }
-    }
+    return { status: status, body: batchResults }    
   }
 }
