@@ -263,9 +263,10 @@ exports = module.exports = {
         addReferencingResources: utilLib.addReferencingResources,
       } //utils
 
-
-      await pMap(config.plugins, async (plugin) => await plugin.install(global.configuration, db), {concurrency: 1}  )
-
+      if (config.plugins !== undefined) {
+        await pMap(config.plugins, async (plugin) => await plugin.install(global.configuration, db), {concurrency: 1}  )
+      }
+      
       const emt = installEMT()
 
       if (global.configuration.forceSecureSockets) {
