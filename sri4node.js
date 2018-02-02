@@ -255,8 +255,8 @@ exports = module.exports = {
       // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
       config.resources.forEach( (mapping) => {
         Object.keys(mapping.map).forEach( (key) => {
-          if (mapping.map.key === 'references' && mapping.query.key === undefined) {
-            mapping.query.key = $q.filterReferencedType(map.key.references, key)
+          if (mapping.map[key].references !== undefined && mapping.query[key] === undefined) {
+            mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key)
           }
         })
       })
