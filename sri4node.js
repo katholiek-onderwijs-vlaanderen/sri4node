@@ -252,8 +252,12 @@ exports = module.exports = {
         config.bodyParserLimit = '5mb'
       }
       
-      // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
       config.resources.forEach( (mapping) => {
+        // In case query is not defied -> use defaultFilter
+        if (mapping.query === undefined) {
+          mapping.query = { defaultFilter: $q.defaultFilter }
+        }
+        // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.        
         Object.keys(mapping.map).forEach( (key) => {
           if (mapping.map[key].references !== undefined && mapping.query[key] === undefined) {
             mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key)
