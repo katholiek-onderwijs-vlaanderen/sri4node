@@ -301,7 +301,7 @@ async function getListResource(phaseSyncer, db, sriRequest) {
 
   if (mapping.transformResponse) {
     debug('* transforming response');
-    return transformResponse(db, sriRequest, responseBody) 
+    return transformResponse(db, sriRequest, output) 
   } else {
     debug('* sending response to client :');
     debug(output);

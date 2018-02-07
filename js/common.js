@@ -2,6 +2,8 @@
 
 const _ = require('lodash')
 const url = require('url')
+const EventEmitter = require('events');
+const pEvent = require('p-event');
 
 var env = require('./env.js');
 var qo = require('./queryObject.js');
@@ -79,7 +81,7 @@ exports = module.exports = {
 
   sqlColumnNames: function (mapping, summary=false) {
     const columnNames = summary 
-                          ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn === 'summary'))
+                          ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
 
     console.log('columnNames:')
@@ -225,27 +227,47 @@ exports = module.exports = {
 
   startTransaction: async (db) => {
     exports.debug('++ Starting database transaction.');  
-    
-    // Special double promise construction to extract tx db context and resolve/reject functions from within db.tx().
-    // This is needed because db.tx() does not 'await' async functions (in which case errors within db.tx() will 
-    // get lost). With this construction we can use the db tx context and thow errors which will be bubble up 
-    // (in case await is used everywhere).
-    
-    return await (new Promise(async function(resolve, reject) {
-          try {
-            await db.tx( tx => {
-              return (new Promise(function(resolveTx, rejectTx) {
-                  resolve({tx, resolveTx: () => resolveTx('txResolved'), rejectTx: () => rejectTx('txRejected') })
-              }))
-            })
-          } catch(err) {
-            // 'txRejected' as err is expected behaviour in case rejectTx is called
-            if (err!='txRejected') {
-              throw err
-            }
+
+    const emitter = new EventEmitter()  
+
+    const txWrapper = async (emitter) => {
+      try {
+        await db.tx( async tx => {
+          emitter.emit('txEvent', tx)
+          const how = await pEvent(emitter, 'terminate')
+          if (how === 'reject') {
+            throw 'txRejected'
           }
-    }))
+        })
+        emitter.emit('txDone')
+      } catch(err) {
+        // 'txRejected' as err is expected behaviour in case rejectTx is called
+        if (err!='txRejected') {
+          emitter.emit('txDone', err)
+        } else {
+          emitter.emit('txDone')
+        }      
+      }
+    }
+    txWrapper(emitter)
+
+    const tx = await pEvent(emitter, 'txEvent')
+    await tx.none('SET CONSTRAINTS ALL DEFERRED;');
+
+    const terminateTx = (how) => async () => {
+        if (how !== 'reject') {
+          await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
+        }
+        emitter.emit('terminate', how)
+        const res = await pEvent(emitter, 'txDone')
+        if (res !== undefined) {
+          throw res
+        }
+    }
+
+    return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
   },
+
 
   installVersionIncTriggerOnTable: async function(db, tableName) {
 
