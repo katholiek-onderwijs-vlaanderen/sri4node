@@ -143,7 +143,7 @@ const validationHook = (tx, sriRequest, elements) => {  // can be used for befor
         }
     }
 }
-'''
+```
 
 
 ### afterread, afterupdate, afterinsert, afterdelete
