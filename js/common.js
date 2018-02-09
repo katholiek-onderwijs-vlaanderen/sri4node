@@ -81,7 +81,7 @@ exports = module.exports = {
 
   sqlColumnNames: function (mapping, summary=false) {
     const columnNames = summary 
-                          ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn.toLowerCase() === 'summary'))
+                          ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
 
     console.log('columnNames:')
@@ -362,7 +362,6 @@ exports = module.exports = {
         }
       });    
   },
-            
 
   SriError: class {
     constructor({status = 500, errors = [], headers = {}}) {
