@@ -228,11 +228,10 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
 }
 
 
-async function getListResource(phaseSyncer, db, sriRequest) {
+async function getListResource(phaseSyncer, db, sriRequest, mapping) {
   'use strict';
   const queryParams = sriRequest.query
   const type = sriRequest.sriType
-  const mapping = typeToConfig(global.sri4node_configuration.resources)[type];
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
@@ -263,15 +262,7 @@ async function getListResource(phaseSyncer, db, sriRequest) {
 
   sriRequest.containsDeleted = { get: () => containsDeleted } 
 
-  let output
-  if (mapping.handlelistqueryresult) {
-    output = await mapping.handlelistqueryresult(rows)
-
-// TODO!! (for audit-broadcast; handlelistqueryresult needs to be replaced by transformResponse)
-
-  } else {
-    output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
-  }
+  const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
 
   await phaseSyncer.phase()
 
@@ -298,15 +289,7 @@ async function getListResource(phaseSyncer, db, sriRequest) {
   debug('* executing expansion : ' + queryParams.expand);
   await expand.executeExpansion(db, sriRequest, output.results, mapping, global.sri4node_configuration.resources);
 
-
-  if (mapping.transformResponse) {
-    debug('* transforming response');
-    return transformResponse(db, sriRequest, output) 
-  } else {
-    debug('* sending response to client :');
-    debug(output);
-    return {status: 200, body: output}
-  }
+  return {status: 200, body: output}
 }
 
 exports = module.exports = {

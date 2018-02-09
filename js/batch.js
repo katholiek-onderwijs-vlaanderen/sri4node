@@ -2,6 +2,7 @@ const configuration = global.sri4node_configuration
 
 const _ = require('lodash')
 const pMap = require('p-map');
+const pEachSeries = require('p-each-series');
 const url = require('url');
 
 const { debug, cl, SriError, startTransaction, typeToConfig, stringifyError, settleResultsToSriResults } = require('./common.js');
@@ -13,11 +14,11 @@ const phaseSyncedSettle = require('./phaseSyncedSettle.js')
 
 exports = module.exports = {
 
-  batchOperation: async (tx, sriRequest) => {
+  batchOperation: async (tx, req) => {
     'use strict';
 
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
-    const reqBody = sriRequest.body
+    const reqBody = req.body
 
     debug('batchOperations')
     debug(reqBody)
@@ -52,7 +53,7 @@ exports = module.exports = {
           debug(`| Executing /batch section ${element.verb} - ${element.href} `)
           debug('└──────────────────────────────────────────────────────────────────────────────')
 
-          const batchBase = sriRequest.path.split('/batch')[0]
+          const batchBase = req.path.split('/batch')[0]
           const parsedUrl = url.parse(element.href, true);
           const pathName = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
 
@@ -65,11 +66,11 @@ exports = module.exports = {
             throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
           }
 
-          const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb, func, type }) => {
+          const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb }) => {
             return (route.match(pathName) && element.verb === verb)
           })
           if (applicableHandlers.length > 1) {
-            cl(`WARNING: multiple handler functions match for batch request ${pathname}. Only first will be used. Check configuration.`)
+            cl(`WARNING: multiple handler functions match for batch request ${pathName}. Only first will be used. Check configuration.`)
           }
           const handler =  _.first(applicableHandlers)
 
@@ -79,32 +80,39 @@ exports = module.exports = {
           }
           const routeParams = handler.route.match(pathName)
 
-          const elementSriRequest  = {
+          const sriRequest  = {
             path: pathName,
             originalUrl: element.href,
             query: parsedUrl.query,
             params: routeParams,
             httpMethod: element.verb,
-            headers: sriRequest.headers,
-            protocol: sriRequest.protocol,
+            headers: req.headers,
+            protocol: req.protocol,
             body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
-            sriType: handler.type,
-            // isListRequest: !('uuid' in routeParams)
+            sriType: handler.mapping.type,
             SriError: SriError
           }
           
-          const mapping = typeToConfig(configuration.resources)[handler.type]
-          await hooks.applyHooks('transform batch request'
-                                , mapping.transformBatchRequest
-                                , f => f(sriRequest, elementSriRequest))
+          await hooks.applyHooks('transform request'
+                                , handler.mapping.transformRequest
+                                , f => f(req, sriRequest))
 
 
-          return [ func, [tx, elementSriRequest] ]
+          return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})
 
+        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: true} ))
 
-        return settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: true} ))
-
+        await pEachSeries( results
+                     , async (res, idx) => {
+                          const [ _phaseSyncer, _tx, sriRequest, mapping ] = batchJobs[idx][1]
+                          if (! (res instanceof SriError)) {
+                            await hooks.applyHooks('transform response'
+                                                  , mapping.transformResponse
+                                                  , f => f(tx, sriRequest, res))
+                          }
+                       } )
+        return results
       } else {
         throw new SriError({status: 400, errors: [{code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.'}]})          
       }

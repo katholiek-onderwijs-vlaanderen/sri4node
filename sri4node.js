@@ -13,14 +13,13 @@ const pathfinderUI = require('pathfinder-ui')
 const _ = require('lodash')
 const pMap = require('p-map');
 
-
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
-
+const hooks = require('./js/hooks.js');
 
 function error(x) {
   'use strict';
@@ -159,42 +158,40 @@ const middlewareErrorWrapper = (fun) => {
 
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
-const expressWrapper = (db, func, isBatch) => {
+const expressWrapper = (db, func, mapping, isBatchRequest) => {
   return async function (req, resp) {
     try {
-      const type = req.route.path.replace(/\/validate$/g, '')
-                                 .replace(/\/batch$/g, '')
-                                 .replace(/\/:[^\/]*/g, '')
-
-      const mapping = typeToConfig(global.sri4node_configuration.resources)[type]
-
-      const sriRequest  = {
-        path: req.path,
-        originalUrl: req.originalUrl,
-        query: req.query,
-        params: req.params,
-        httpMethod: req.method,
-        headers: req.headers,
-        protocol: req.protocol,
-        body: req.body,
-        sriType: type,
-        // isListRequest: 'uuid' in req.params
-        SriError: SriError
-      }
-
-      await pMap(mapping.transformRequest, (func) => func(req, sriRequest), {concurrency: 1}  )
-
       const {tx, resolveTx, rejectTx} = await startTransaction(db)
 
       let result
-      if (isBatch) {
-        result = await func(db, sriRequest)
+      if (isBatchRequest) {
+        result = await func(db, req)
       } else {
-        // Also use phaseSyncedSettle like in batch to use same shared code,
-        // has no direct added value in case of single request.
+        const sriRequest  = {
+          path: req.path,
+          originalUrl: req.originalUrl,
+          query: req.query,
+          params: req.params,
+          httpMethod: req.method,
+          headers: req.headers,
+          protocol: req.protocol,
+          body: req.body,
+          sriType: mapping.type,
+          SriError: SriError
+        }
 
-        const jobs = [ [func, [tx, sriRequest]] ];
-        [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))
+        await hooks.applyHooks('transform request'
+                              , mapping.transformRequest
+                              , f => f(req, sriRequest))
+
+
+        const jobs = [ [func, [tx, sriRequest, mapping]] ];
+        [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
+        if (! (result instanceof SriError) ) {
+          await hooks.applyHooks('transform response'
+                                , mapping.transformResponse
+                                , f => f(db, sriRequest, result))
+        }
       }
 
       if (result.status < 300) {
@@ -206,7 +203,11 @@ const expressWrapper = (db, func, isBatch) => {
           resolveTx()   
         }
       } else {
-        debug('++ Error during processing. Rolling back database transaction.');
+        if (req.query.dryRun === 'true') {
+          debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
+        } else {
+          debug('++ Error during processing. Rolling back database transaction.');
+        }
         rejectTx()          
       }
 
@@ -227,6 +228,8 @@ const expressWrapper = (db, func, isBatch) => {
     }    
   }
 }
+
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: async function (app, config) {
@@ -236,7 +239,7 @@ exports = module.exports = {
       // initialize undefined hooks in all resources with empty list
       config.resources.forEach( (resource) => 
         [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
-          'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformBatchRequest'  ]
+          'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformResponse', 'customRoutes'  ]
             .forEach((name) => { 
                 if (resource[name] === undefined) { 
                   resource[name] = [] 
@@ -335,8 +338,8 @@ exports = module.exports = {
         app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
 
         // batch route
-        app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
-        app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, true));
+        app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, true));
+        app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, true));
 
         // append relation filters if auto-detected a relation resource
         if (mapping.map.from && mapping.map.to) {
@@ -357,27 +360,60 @@ exports = module.exports = {
 
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
-        acc.push([ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping.type])
-        acc.push([ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate, mapping.type])
-        acc.push([ mapping.type + '/:key', 'DELETE', regularResource.deleteResource, mapping.type])
-        acc.push([ mapping.type, 'GET', listResource.getListResource, mapping.type])
 
-        // validation route
-        acc.push([ mapping.type + '/validate', 'POST', regularResource.validate, mapping.type])
-        //  REMARK: this is according sri4node spec; persons-api validate is implemented differently; to be discussed!
+        const crudRoutes = 
+          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping]
+          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate, mapping]
+          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteResource, mapping]
+          , [ mapping.type, 'GET', listResource.getListResource, mapping]
+          ]
+
+// TODO: check customRoutes have required fields and make sense
+
+        mapping.customRoutes.forEach( cr => {
+            const customMapping = _.cloneDeep(mapping);
+            if (cr.transformRequest !== undefined) {
+              customMapping.transformRequest.push(cr.transformRequest)
+            }
+            if (cr.transformResponse !== undefined) {
+              customMapping.transformResponse.push(cr.transformResponse)
+            }
+
+            cr.httpMethods.forEach( method => {
+              if (cr.handler === undefined) {
+                const crudPath = mapping.type + cr.like;
+                Object.assign(customMapping.query, cr.query);
+
+                const likeMatches = crudRoutes.filter( ([path, verb]) => (path === crudPath && verb === method.toUpperCase()) )
+                if (likeMatches.length === 0) {
+                  console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`)
+                } else {
+                  const [path, verb, handler] = likeMatches[0]
+                  acc.push([ crudPath + cr.routePostfix, verb, handler, customMapping ])                  
+                }
+              } else {
+                acc.push([ mapping.type + cr.routePostfix, method.toUpperCase(), cr.handler, customMapping ])
+              }              
+            })
+          })
+
+        acc.push(...crudRoutes)
 
         return acc        
       }, [])
 
+
       // register indivual routes in express
-      batchHandlerMap.forEach( ([path, verb, func, type]) => {
+      batchHandlerMap.forEach( ([path, verb, func, mapping]) => {
+        // Also use phaseSyncedSettle like in batch to use same shared code,
+        // has no direct added value in case of single request.
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(expressWrapper(db, func, false), 'func') )
+                                 emt.instrument(expressWrapper(db, func, mapping, false), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch
-      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, type]) => {
-        return { route: new route(path), verb, func, type }
+      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, mapping]) => {
+        return { route: new route(path), verb, func, mapping }
       })
 
 

@@ -6,7 +6,7 @@ const { Validator } = require('jsonschema')
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
         executeOnFunctions, SriError, startTransaction, getCountResult, urlToTypeAndKey, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
-const hooks = require('./hooks.js')
+const hooks = require('./hooks.js');
 var queryobject = require('./queryObject.js');
 const prepare = queryobject.prepareSQL; 
 
@@ -49,12 +49,9 @@ async function queryByKey(tx, mapping, key, wantsDeleted) {
 
 
 
-async function getRegularResource(phaseSyncer, tx, sriRequest) {
+async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
-  const resources = global.sri4node_configuration.resources
-  const { type, key } = urlToTypeAndKey(sriRequest.path)
-  const typeToMapping = typeToConfig(resources);
-  const mapping = typeToMapping[type];
+  const key = sriRequest.params.key
 
   await phaseSyncer.phase()
   // We don't do before read hooks because they don't make much sense
@@ -74,7 +71,7 @@ async function getRegularResource(phaseSyncer, tx, sriRequest) {
   const element = result.object
 
   debug('* executing expansion');
-  await expand.executeExpansion(tx, sriRequest, [element], mapping, resources);
+  await expand.executeExpansion(tx, sriRequest, [element], mapping,  global.sri4node_configuration.resources);
 
   await phaseSyncer.phase()
   debug('* executing afterRead functions on results');
@@ -122,10 +119,11 @@ function getSchemaValidationErrors(json, schema) {
 
 
 /* eslint-disable */
-async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
+async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
-  const { type, key } = urlToTypeAndKey(sriRequest.path)
+  const key = sriRequest.params.key;
   const obj = sriRequest.body
+  const table = tableFromMapping(mapping);
 
   debug('PUT processing starting. Request object :');
   debug(obj);
@@ -142,14 +140,9 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
     if (obj[k] === null) { delete obj[k] }
   })
 
-  const resources = global.sri4node_configuration.resources
-  const typeToMapping = typeToConfig(resources);
-  const resourceMapping = typeToMapping[type];
-  const table = tableFromMapping(resourceMapping);
-
   debug('Validating schema.');
-  if (resourceMapping.schema) {
-    const validationErrors  = getSchemaValidationErrors(obj, resourceMapping.schema);
+  if (mapping.schema) {
+    const validationErrors  = getSchemaValidationErrors(obj, mapping.schema);
     if (validationErrors) {
       const errors = { validationErrors }
       throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
@@ -158,18 +151,18 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
     }
   }
 
-  const permalink = resourceMapping.type + '/' + key
+  const permalink = mapping.type + '/' + key
 
-  const result = await queryByKey(tx, resourceMapping, key, true)
+  const result = await queryByKey(tx, mapping, key, true)
   if (result.code != 'found') {
     // insert new element
     await hooks.applyHooks('before insert'
-                          , resourceMapping.beforeInsert
+                          , mapping.beforeInsert
                           , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}]))
 
     await phaseSyncer.phase()
 
-    const newRow = transformObjectToRow(obj, resourceMapping)
+    const newRow = transformObjectToRow(obj, mapping)
     newRow.key = key;
 
     const insert = prepare('insert-' + table);
@@ -180,7 +173,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
       await phaseSyncer.phase()
 
       await hooks.applyHooks('after insert'
-                            , resourceMapping.afterInsert
+                            , mapping.afterInsert
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))      
       return { status: 201 }      
     } else {
@@ -193,18 +186,18 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
 
     // If new resource is the same as the one in the database => don't update the resource. Otherwise meta 
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
-    if (isEqualSriObject(prevObj, obj, resourceMapping)) {
+    if (isEqualSriObject(prevObj, obj, mapping)) {
       debug('Putted resource does NOT contain changes -> ignore PUT.');
       return { status: 200 }
     }
 
     await hooks.applyHooks('before update'
-                          , resourceMapping.beforeUpdate
+                          , mapping.beforeUpdate
                           , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
     
     await phaseSyncer.phase()
     
-    const updateRow = transformObjectToRow(obj, resourceMapping)
+    const updateRow = transformObjectToRow(obj, mapping)
 
     var update = prepare('update-' + table);
     update.sql(`update "${table}" set "$$meta.modified" = current_timestamp `);
@@ -221,7 +214,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
       await phaseSyncer.phase()
 
       await hooks.applyHooks('after update'
-                            , resourceMapping.afterUpdate
+                            , mapping.afterUpdate
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
       return { status: 200 }
     } else {
@@ -234,44 +227,28 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest) {
 /* eslint-enable */
 
 
-
-async function validate(phaseSyncer, tx, sriRequest) {
-  'use strict';
-  await phaseSyncer.phase()
-
-  debug('* sri4node VALIDATE processing invoked.');
-
-  // adapt sriRequest as how it should be in case of a regular update/create request
-  sriRequest.path = sriRequest.path.replace('validate', sriRequest.body.key)
-  sriRequest.originalUrl = sriRequest.originalUrl.replace('validate', sriRequest.body.key)
-  sriRequest.params['uuid'] = sriRequest.body.key
-
-  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest);
-}
-
-async function createOrUpdate(phaseSyncer, tx, sriRequest) {
+async function createOrUpdate(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
   debug('* sri4node PUT processing invoked.');
-  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest)
+  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
 }
 
-async function deleteResource(phaseSyncer, tx, sriRequest) {
+async function deleteResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
 
   debug('sri4node DELETE invoked');
-  const { type, key } = urlToTypeAndKey(sriRequest.path)
-  const resourceMapping = typeToConfig(global.sri4node_configuration.resources)[type];
-  const table = tableFromMapping(resourceMapping);
+  const key = sriRequest.params.key;
+  const table = tableFromMapping(mapping);
 
-  const result = await queryByKey(tx, resourceMapping, key, false)
+  const result = await queryByKey(tx, mapping, key, false)
   if (result.code != 'found') {
     debug('No row affected - the resource is already gone');
   } else {
     const prevObj = result.object
     await hooks.applyHooks('before delete'
-                          , resourceMapping.beforeDelete
+                          , mapping.beforeDelete
                           , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
 
     await phaseSyncer.phase()
@@ -289,7 +266,7 @@ async function deleteResource(phaseSyncer, tx, sriRequest) {
 
       debug('Processing afterdelete');
       await hooks.applyHooks('after delete'
-                            , resourceMapping.afterDelete
+                            , mapping.afterDelete
                             , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
     }
   }
@@ -303,5 +280,4 @@ exports = module.exports = {
   getRegularResource: getRegularResource,
   createOrUpdate: createOrUpdate,
   deleteResource: deleteResource,
-  validate: validate,
 }

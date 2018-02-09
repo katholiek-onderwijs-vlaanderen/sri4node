@@ -1,5 +1,3 @@
-const configuration = global.sri4node_configuration 
-
 const pMap = require('p-map'); 
 
 const { errorAsCode, debug, SriError, stringifyError } = require('./common.js')
