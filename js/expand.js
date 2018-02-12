@@ -98,7 +98,7 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
       }
       if (recurse) {
         debug('** recursing to next level of expansion : ' + recursepath);                          
-        await executeSingleExpansion(db, expandedElements, targetMapping, resources, recursepath, me, reqUrl)
+        await executeSingleExpansion(db, expandedElements, targetMapping, resources, recursepath, reqUrl)
       } else {
         debug('** executeSingleExpansion resolving');
       }
