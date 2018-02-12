@@ -30,9 +30,6 @@ const pgp = require('pg-promise')(pgpInitOptions);
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
 
 
-const configuration = global.sri4node_configuration
-
-
 exports = module.exports = {
   cl: function (x) {
     'use strict';

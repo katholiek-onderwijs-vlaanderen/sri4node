@@ -1,5 +1,3 @@
-const configuration = global.sri4node_configuration  
-
 const _ = require('lodash')
 const pMap = require('p-map');
 const pEachSeries = require('p-each-series');
@@ -66,7 +64,7 @@ exports = module.exports = {
             throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
           }
 
-          const applicableHandlers = configuration.batchHandlerMap.filter( ({ route, verb }) => {
+          const applicableHandlers = global.sri4node_configuration.batchHandlerMap.filter( ({ route, verb }) => {
             return (route.match(pathName) && element.verb === verb)
           })
           if (applicableHandlers.length > 1) {

@@ -1,4 +1,3 @@
-const configuration = global.sri4node_configuration  
 const _ = require('lodash')
 
 const hooks = require('./hooks.js')
@@ -28,7 +27,7 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
                 // Execute the configured function that will apply this URL parameter
                 // to the SELECT statement
                 if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
-                  mapping.query.defaultFilter(urlparameters[key], query, key, mapping, database, configuration)
+                  mapping.query.defaultFilter(urlparameters[key], query, key, mapping, database)
                 } else {
                   mapping.query[key](urlparameters[key], query, key, database, count, mapping)
                 }
@@ -44,10 +43,9 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
   }
 }
 
-function getSQLFromListResource(type, parameters, count, database, query) {
+function getSQLFromListResource(mapping, parameters, count, database, query) {
   'use strict';
 
-  const mapping = typeToConfig(global.sri4node_configuration.resources)[type]
   const table = tableFromMapping(mapping)
 
   let sql, columns;
@@ -246,12 +244,12 @@ async function getListResource(phaseSyncer, db, sriRequest, mapping) {
   debug('GET list resource ' + type);
 
   const countquery = prepare();
-  getSQLFromListResource(type, queryParams, true, db, countquery);
+  getSQLFromListResource(mapping, queryParams, true, db, countquery);
   debug('* executing SELECT COUNT query on database');
   const count = await getCountResult(db, countquery) 
   
   const query = prepare();
-  getSQLFromListResource(type, queryParams, false, db, query);
+  getSQLFromListResource(mapping, queryParams, false, db, query);
   applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, offset)
   debug('* executing SELECT query on database');
   const rows = await pgExec(db, query);
@@ -287,7 +285,7 @@ async function getListResource(phaseSyncer, db, sriRequest, mapping) {
                         )  
 
   debug('* executing expansion : ' + queryParams.expand);
-  await expand.executeExpansion(db, sriRequest, output.results, mapping, global.sri4node_configuration.resources);
+  await expand.executeExpansion(db, sriRequest, output.results, mapping);
 
   return {status: 200, body: output}
 }

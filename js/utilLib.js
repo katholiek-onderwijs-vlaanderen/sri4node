@@ -1,7 +1,3 @@
-const configuration = global.sri4node_configuration  
-
-
-
 exports = module.exports = {
 
   /*

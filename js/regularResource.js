@@ -1,5 +1,3 @@
-const configuration = global.sri4node_configuration
-
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
 
@@ -71,7 +69,7 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   const element = result.object
 
   debug('* executing expansion');
-  await expand.executeExpansion(tx, sriRequest, [element], mapping,  global.sri4node_configuration.resources);
+  await expand.executeExpansion(tx, sriRequest, [element], mapping);
 
   await phaseSyncer.phase()
   debug('* executing afterRead functions on results');

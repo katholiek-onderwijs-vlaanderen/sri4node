@@ -1,7 +1,5 @@
 /* Handles the ?expand parameter */
 
-const configuration = global.sri4node_configuration
-
 const _ = require('lodash')
 const pMap = require('p-map');
 
@@ -150,8 +148,10 @@ function parseExpand(expand) {
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
 
-module.exports.executeExpansion = async (db, sriRequest, elements, mapping, resources) => { // eslint-disable-line
+module.exports.executeExpansion = async (db, sriRequest, elements, mapping) => { // eslint-disable-line
   const expand = sriRequest.query.expand
+
+  const resources = global.sri4node_configuration.resources
 
   debug('** executeExpansion()');
   if (expand) {

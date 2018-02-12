@@ -20,6 +20,10 @@ const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
 const hooks = require('./js/hooks.js');
+const listResource = require('./js/listResource.js')
+const regularResource = require('./js/regularResource.js')
+const batch = require('./js/batch.js')
+const utilLib = require('./js/utilLib.js')
 
 function error(x) {
   'use strict';
@@ -274,18 +278,6 @@ exports = module.exports = {
 
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
 
-      const listResource = require('./js/listResource.js')
-      const regularResource = require('./js/regularResource.js')
-      const batch = require('./js/batch.js')
-      const utilLib = require('./js/utilLib.js')
-
-      global.sri4node_configuration.utils = {
-        // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
-        executeSQL: pgExec,
-        prepareSQL: queryobject.prepareSQL,
-        convertListResourceURLToSQL: listResource.getSQLFromListResource,
-        addReferencingResources: utilLib.addReferencingResources,
-      } //utils
 
       if (config.plugins !== undefined) {
         await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
@@ -430,7 +422,13 @@ exports = module.exports = {
     }
   }, // configure
 
-  utils: null,
+  utils: 
+      { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
+        executeSQL: pgExec,
+        prepareSQL: queryobject.prepareSQL,
+        convertListResourceURLToSQL: listResource.getSQLFromListResource,
+        addReferencingResources: utilLib.addReferencingResources,
+      },
   queryUtils: require('./js/queryUtils.js'),
   mapUtils: require('./js/mapUtils.js'),
   schemaUtils: require('./js/schemaUtils.js'),

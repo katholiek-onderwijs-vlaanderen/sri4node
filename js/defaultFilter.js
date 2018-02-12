@@ -440,7 +440,7 @@ function getFieldBaseType(fieldType) {
   return null;
 }
 
-exports = module.exports = (valueEnc, query, parameter, mapping, database, configuration) =>  {
+exports = module.exports = (valueEnc, query, parameter, mapping, database) =>  {
   'use strict';
 
   const value = decodeURIComponent(valueEnc)
@@ -449,8 +449,9 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database, confi
   const filter = analyseParameter(parameter);
 
   // 2) Find data type on database from information schema;
+  const informationSchema = global.sri4node_configuration.informationSchema
   const idx = mapping.table ? '/' + mapping.table : '/' + mapping.type.split('/')[mapping.type.split('/').length - 1];
-  const field = configuration.informationSchema[idx][filter.key];
+  const field = informationSchema[idx][filter.key];
 
   // 3) Extend the sql query with the correct WHERE clause.
   if (field) {
@@ -478,13 +479,13 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database, confi
     }
   }
   else if (filter.key === 'q') {
-    filterGeneral(query, value, getTextFieldsFromTable(configuration.informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
+    filterGeneral(query, value, getTextFieldsFromTable(informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
   }
   else {
     throw new SriError({status: 404, errors: [{
       code: 'invalid.query.parameter',
       parameter: parameter,
-      possibleParameters: Object.keys(configuration.informationSchema[idx])
+      possibleParameters: Object.keys(informationSchema[idx])
     }]})
   }
 }
