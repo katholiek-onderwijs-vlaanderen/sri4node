@@ -272,6 +272,8 @@ exports = module.exports = {
 
   installVersionIncTriggerOnTable: async function(db, tableName) {
 
+    const tgname = `vsko_resource_version_trigger_${( env.postgresSchema !== undefined ? env.postgresSchema : '' )}_${tableName}`
+
     const plpgsql = `
       DO $___$
       BEGIN
@@ -298,8 +300,8 @@ exports = module.exports = {
         END IF;
 
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
-        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'vsko_resource_version_trigger_${tableName}') THEN
-            CREATE TRIGGER vsko_resource_version_trigger_${tableName} BEFORE UPDATE ON ${tableName}
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
+            CREATE TRIGGER ${tgname} BEFORE UPDATE ON ${tableName}
             FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
         END IF;
       END
