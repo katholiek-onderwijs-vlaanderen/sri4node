@@ -76,6 +76,10 @@ exports = module.exports = {
               }, {} )
   },
 
+  typeToMapping: function (type) {
+      return exports.typeToConfig(global.sri4node_configuration.resources)[type]
+  },
+
   sqlColumnNames: function (mapping, summary=false) {
     const columnNames = summary 
                           ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))

@@ -45,7 +45,6 @@ function applyRequestParameters(mapping, query, urlparameters, database, count) 
 
 function getSQLFromListResource(mapping, parameters, count, database, query) {
   'use strict';
-
   const table = tableFromMapping(mapping)
 
   let sql, columns;

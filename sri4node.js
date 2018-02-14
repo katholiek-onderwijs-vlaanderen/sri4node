@@ -15,7 +15,7 @@ const pMap = require('p-map');
 
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction } = require('./js/common.js');
+        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, typeToMapping } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -62,9 +62,8 @@ const logRequests = (req, res, next) => {
 /* Handle GET /{type}/schema */
 function getSchema(req, resp) {
   'use strict';
-  const typeToMapping = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
-  const mapping = typeToMapping[type];
+  const mapping = typeToMapping(type);
 
   resp.set('Content-Type', 'application/json');
   resp.send(mapping.schema);
@@ -73,10 +72,10 @@ function getSchema(req, resp) {
 /* Handle GET /docs and /{type}/docs */
 function getDocs(req, resp) {
   'use strict';
-  const typeToMapping = typeToConfig(global.sri4node_configuration.resources);
+  const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
-  if (type in typeToMapping) {
-    const mapping = typeToMapping[type];
+  if (type in typeToMappingMap) {
+    const mapping = typeToMappingMap[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping, queryUtils: exports.queryUtils});
   } else if (req.route.path === '/docs') {
@@ -271,6 +270,8 @@ exports = module.exports = {
           }
         })
       })
+
+      config.utils = exports.utils
 
       global.sri4node_configuration = config // share configuration with other modules
 
