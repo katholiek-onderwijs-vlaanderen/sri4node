@@ -127,7 +127,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
   debug(obj);
   debug('Key received on URL : ' + key);
 
-  if (obj.key !== key) {
+  if (obj.key !== undefined && obj.key !== key) {
     throw new SriError({status: 400, errors: [{code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }]})
   }
 
