@@ -103,6 +103,7 @@ exports = module.exports = {
   transformRowToObject: function (row, resourceMapping) {
     const map = resourceMapping.map
     const element = {}
+    element.$$meta = {}
     Object.keys(map).forEach( key => {
       if (map[key].references) {
         const referencedType = map[key].references;
@@ -114,7 +115,11 @@ exports = module.exports = {
           element[key] = null;
         }
       } else {
-        element[key] = row[key];
+        if (key.startsWith('$$meta.')) {
+          element['$$meta'][key.split('$$meta.')[1]] = row[key]
+        } else {
+          element[key] = row[key];          
+        }
       } 
 
       if (map[key]['columnToField']) {
@@ -122,11 +127,12 @@ exports = module.exports = {
       }         
     })
 
-    element.$$meta = _.pickBy({ // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+    Object.assign(element.$$meta, _.pickBy({ 
+        // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
         deleted: row['$$meta.deleted'],
         created: row['$$meta.created'],
         modified: row['$$meta.modified'],
-      })
+      }))
     element.$$meta.permalink = resourceMapping.type + '/' + row.key;      
     element.$$meta.version = row['$$meta.version'];  
 
