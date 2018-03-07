@@ -47,7 +47,7 @@ exports = module.exports = (jobList, {concurrency = 1, debug = false} = {}) => {
 	let phasePendingJobs;
 
 
-	startNewPhase = () => {
+	const startNewPhase = () => {
 		debug_log(debug, 'START A NEW PHASE')
 		const jobList = [...jobs.values()]
 		jobList.slice(0, concurrency).forEach( id => jobMap.get(id).jobEmitter.emit('ready') )
@@ -55,7 +55,7 @@ exports = module.exports = (jobList, {concurrency = 1, debug = false} = {}) => {
 		phasePendingJobs = new Set(jobs)
 	}
 
-	startQueuedJob = () => {
+	const startQueuedJob = () => {
 		if (queuedJobs.size > 0) {
 			const id = queuedJobs.values().next().value
 			jobMap.get(id).jobEmitter.emit('ready') 
