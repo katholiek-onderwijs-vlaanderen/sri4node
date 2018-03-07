@@ -85,9 +85,6 @@ exports = module.exports = {
                           ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
 
-    console.log('columnNames:')
-    console.log(columnNames)
-
     return (columnNames.includes('key') ? '' : '"key",')
             + (columnNames.map( c => `"${c}"`).join(','))
             + ', "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"'
