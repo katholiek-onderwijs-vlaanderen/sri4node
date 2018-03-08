@@ -99,7 +99,7 @@ exports = module.exports = {
           return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})
 
-        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: true} ))
+        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: false} ))
 
         await pEachSeries( results
                      , async (res, idx) => {
