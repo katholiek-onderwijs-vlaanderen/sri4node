@@ -265,7 +265,7 @@ async function deleteResource(phaseSyncer, tx, sriRequest, mapping) {
       debug('Processing afterdelete');
       await hooks.applyHooks('after delete'
                             , mapping.afterDelete
-                            , f => f(tx, sriRequest, [{ permalink: permalink, incoming: null, stored: prevObj}]))
+                            , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
     }
   }
   return { status: 200 }
