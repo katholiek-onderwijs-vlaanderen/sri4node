@@ -88,6 +88,7 @@ exports = module.exports = {
             protocol: req.protocol,
             body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
             sriType: handler.mapping.type,
+            isBatchPart: true,
             SriError: SriError
           }
           

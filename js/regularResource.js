@@ -72,6 +72,7 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   await expand.executeExpansion(tx, sriRequest, [element], mapping);
 
   await phaseSyncer.phase()
+
   debug('* executing afterRead functions on results');
   await hooks.applyHooks( 'after read', 
                           mapping.afterRead, 

@@ -5,8 +5,16 @@ const url = require('url')
 const EventEmitter = require('events');
 const pEvent = require('p-event');
 
-var env = require('./env.js');
-var qo = require('./queryObject.js');
+const env = require('./env.js');
+const qo = require('./queryObject.js');
+
+const { Readable } = require('stream')
+//const Readable = require('stream').Readable  // gives stream 3 which does not seem to work
+//const Readable = require('readable-stream').Readable; // explicitly set on stream2 ; BUT LEADS TO SEGFAULT AFTER A WHILE !!!
+
+const through2 = require("through2")
+const hash = require('farmhash').hash64
+
 
 
 const pgpInitOptions = {
@@ -84,9 +92,6 @@ exports = module.exports = {
     const columnNames = summary 
                           ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
-
-    console.log('columnNames:')
-    console.log(columnNames)
 
     return (columnNames.includes('key') ? '' : '"key",')
             + (columnNames.map( c => `"${c}"`).join(','))
@@ -233,7 +238,7 @@ exports = module.exports = {
 
 
   startTransaction: async (db) => {
-    exports.debug('++ Starting database transaction.');  
+    // exports.debug('++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
 
@@ -366,10 +371,59 @@ exports = module.exports = {
             console.log('____________________________ E R R O R ____________________________________________________') 
             console.log(err)
             console.log('___________________________________________________________________________________________') 
-            return new exports.SriError({status: 500, errors: [{code: 'internal.server.error.in.batch.part', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
+            return new exports.SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
         }
       });    
+  },
+
+  createReadableStream: () => {
+    const s = new Readable({ objectMode: true })
+    s._read = function () {}
+    return s
+  },
+
+
+  jsonArrayStream: (stream) => {
+    var chunksSent = 0;
+    const set = new Set()
+    return stream.pipe(through2({ objectMode: true }, function (chunk, enc, cb) {
+      if (chunk === '') {
+        // keep-a-live
+        this.push(chunk)
+      } else if (chunk === undefined) {
+
+      } else { 
+        const key = hash(chunk);
+          if (!set.has(key)) {
+            set.add(key);
+         
+          if (chunksSent === 0) {
+            this.push(new Buffer("["));
+          }
+          if (chunksSent > 0) {
+            this.push(new Buffer(","));
+          }
+          
+          this.push(JSON.stringify(chunk));
+          chunksSent++;
+        }
+      }
+      cb();
+    }, function (cb) {
+      if (chunksSent > 0) {
+        this.push(new Buffer("]"));
+      } else {
+        this.push(new Buffer("[]")); //means nothing sent
+      }
+      cb();
+    }))
+  },
+
+
+  getPersonFromSriRequest: (sriRequest) => {
+    // A userObject of null happens when the use is (not yet) logged in, in security context this matches which '*' (anyone)
+    return (sriRequest.userObject ? '/persons/' + sriRequest.userObject.uuid : '*')
   },
 
   SriError: class {
