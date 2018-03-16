@@ -173,6 +173,10 @@ exports = module.exports = {
         }
       } 
 
+      if (map[key]['fieldToColumn']) {
+        map[key]['fieldToColumn'].forEach( f => f(key, row) );
+      } 
+
       const fieldTypeDb = global.sri4node_configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
       const fieldTypeObject = resourceMapping.schema.properties[key].type
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
@@ -180,10 +184,6 @@ exports = module.exports = {
         // otherwise insert will attempt to store a postgres array which fails for jsonb
         row[key] = JSON.stringify(row[key])        
       }
-
-      if (map[key]['fieldToColumn']) {
-        map[key]['fieldToColumn'].forEach( f => f(key, row) );
-      } 
 
     })
 
