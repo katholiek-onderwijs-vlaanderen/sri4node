@@ -168,8 +168,8 @@ process.on("unhandledRejection", function (err) { console.log(err); throw err; }
 
 const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
   return async function (req, resp, next) {
+    const {tx, resolveTx, rejectTx} = await startTransaction(db)    
     try {
-      const {tx, resolveTx, rejectTx} = await startTransaction(db)
 
       let result
       if (isBatchRequest) {
@@ -240,6 +240,10 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
       }
     } catch (err) {
       //TODO: what with streaming errors
+
+      debug('++ Exception catched. Rolling back database transaction.');
+      rejectTx()  
+
       if (resp.headersSent) {
         console.log('NEED TO DESTROY STREAMING REQ')
         // TODO: HTTP trailer
