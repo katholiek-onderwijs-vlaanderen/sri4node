@@ -88,7 +88,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
-  const orderBy = queryParams.orderBy;
+  let orderBy = queryParams.orderBy;
   const descending = queryParams.descending;
 
   if (orderBy) {
