@@ -16,7 +16,6 @@ const readAllStream = require('read-all-stream')
 
 
 
-
 const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, 
@@ -210,19 +209,19 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
       if (resp.headersSent) {
           if (req.query.dryRun === 'true') {
             debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-            rejectTx()   
+            await rejectTx()   
           } else {
             debug('++ Processing went OK. Committing database transaction.');  
-            resolveTx()   
+            await resolveTx()   
           }
       } else {
         if (result.status < 300) {
           if (req.query.dryRun === 'true') {
             debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-            rejectTx()   
+            await rejectTx()   
           } else {
             debug('++ Processing went OK. Committing database transaction.');  
-            resolveTx()   
+            await resolveTx()   
           }
         } else {
           if (req.query.dryRun === 'true') {
@@ -230,7 +229,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
           } else {
             debug('++ Error during processing. Rolling back database transaction.');
           }
-          rejectTx()          
+          await rejectTx()          
         }
 
         if (result.headers) {
@@ -242,7 +241,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
       //TODO: what with streaming errors
 
       debug('++ Exception catched. Rolling back database transaction.');
-      rejectTx()  
+      await rejectTx()  
 
       if (resp.headersSent) {
         console.log('NEED TO DESTROY STREAMING REQ')

@@ -32,9 +32,9 @@ exports = module.exports = {
                               const {tx: tx1, resolveTx, rejectTx} = await startTransaction(tx)
                               const result = await handleBatch(element, tx1)
                               if (result.every(e => e.status < 300)) {
-                                resolveTx()
+                                await resolveTx()
                               } else {
-                                rejectTx()
+                                await rejectTx()
                               }
                               return result
                            }
