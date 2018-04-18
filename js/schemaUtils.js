@@ -8,9 +8,9 @@ exports = module.exports = {
       properties: {
         href: {
           type: 'string',
-          pattern: '^\/' + name + '\/[-0-9a-f].*$',
-          minLength: name.length + 38,
-          maxLength: name.length + 38,
+          pattern: '^\/' + name + '\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+          //minLength: name.length + 38,
+          //maxLength: name.length + 38,
           description: description
         }
       },
