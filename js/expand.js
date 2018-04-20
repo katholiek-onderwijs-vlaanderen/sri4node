@@ -95,13 +95,15 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
           permalinkToExpand = elem[expand].href;
           elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
         })
+              
+        if (recurse) {
+          debug('** recursing to next level of expansion : ' + recursepath);
+          await executeSingleExpansion(db, sriRequest, expandedElements, targetMapping, resources, recursepath);
+        } else {
+          debug('** executeSingleExpansion resolving');
+        }
       }
-      if (recurse) {
-        debug('** recursing to next level of expansion : ' + recursepath);                          
-        await executeSingleExpansion(db, expandedElements, targetMapping, resources, recursepath, reqUrl)
-      } else {
-        debug('** executeSingleExpansion resolving');
-      }
+      
     }
   }
   return
@@ -114,13 +116,13 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
  If none appears anywhere in the list, an empty array is returned.
  */
 function parseExpand(expand) {
-  const paths = expand.split(',').map( p => p.toLowerCase())
+  const paths = expand.split(',');
 
   let ret;
   if (paths.includes('none')) {
     ret = []
   } else {
-    ret = paths.filter( p => ! [ 'full', 'summary', 'results' ].includes(p) ) // 'full', 'results' are already handled
+    ret = paths.filter( p => ! [ 'full', 'summary', 'results' ].includes(p.toLowerCase()) ) // 'full', 'results' are already handled
                .map( p => p.replace(/^results\./, '') )
   }
 
@@ -159,7 +161,8 @@ module.exports.executeExpansion = async (db, sriRequest, elements, mapping) => {
     if (paths && paths.length > 0) {
       console.log('GOING TO EXPAND PATHS')
       console.log(paths)
-      const results = await pMap(paths, (path) => executeSingleExpansion(db, sriRequest, elements, mapping, resources, path) )
+      const expandedElements = elements.map( element => element.$$expanded || element );
+      const results = await pMap(paths, (path) => executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path) )
       debug('expansion done');
     }
   }
