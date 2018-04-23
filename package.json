@@ -36,6 +36,7 @@
     "read-all-stream": "^3.1.0",
     "route-parser": "0.0.5",
     "sri4node-client": "https://github.com/rodrigouroz/sri-client.git",
+    "through2": "^2.0.3",
     "uuid": "3.2.1"
   },
   "devDependencies": {
@@ -43,7 +44,11 @@
     "mocha": "~2.2.4",
     "node-uuid": "~1.4.3",
     "eslint": "~1.4.3",
-    "nodemon": "1.7.x"
+    "nodemon": "1.7.x",
+    "describe": "^1.2.0",
+    "dev": "^0.1.3",
+    "maintenance": "git+https://github.com/likeastore/maintenance.git",
+    "@kathondvla/sri-client": "git+https://github.com/rodrigouroz/sri-client.git"
   },
   "repository": {
     "type": "git",
