@@ -42,9 +42,8 @@ exports = module.exports = {
                          )
       } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
         const batchJobs = await pMap(batch, async element => {
-          // spec: if verb is omitted, it MUST be interpreted as PUT.
           if (!element.verb) {
-            element.verb = 'PUT'
+            throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]}) 
           }
 
           debug('┌──────────────────────────────────────────────────────────────────────────────')
@@ -100,7 +99,7 @@ exports = module.exports = {
           return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})
 
-        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: true} ))
+        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4} ))
 
         await pEachSeries( results
                      , async (res, idx) => {

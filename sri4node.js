@@ -172,7 +172,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 
       let result
       if (isBatchRequest) {
-        result = await func(db, req)
+        result = await func(tx, req)
       } else {
 
         const sriRequest  = {
