@@ -302,7 +302,12 @@ exports = module.exports = {
         END IF;
 
         -- 2. create func vsko_resource_version_inc_function if not yet present
-        IF NOT EXISTS (SELECT proname from pg_proc where proname = 'vsko_resource_version_inc_function') THEN
+        IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
+                        WHERE proname = 'vsko_resource_version_inc_function'
+                        ${( env.postgresSchema !== undefined
+                          ? `AND nspname = '${env.postgresSchema}'`
+                          : '' )}
+                      ) THEN
           CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
             NEW."$$meta.version" := OLD."$$meta.version" + 1;
