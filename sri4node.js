@@ -385,6 +385,12 @@ exports = module.exports = {
         app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
       })
 
+      // temporarilty allow a global /batch via config option for samenscholing
+      if (config.enableGlobalBatch) {
+        app.put('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+        app.post('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+      }
+
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
 
