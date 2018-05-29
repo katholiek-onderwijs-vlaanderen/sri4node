@@ -12,7 +12,9 @@ exports = module.exports = {
       const keys = [];
       permalinks.forEach( (permalink) => {
           const key = permalink.split('/')[permalink.split('/').length - 1];
-          if (key.length === 36) {
+          keys.push(key);
+          // use the schema to check on the format of the key because there can be resources that do not have a uuid as primarey key. Checking on length is weak anyway, do regex check on uuid, which you can get from the schema if you want to do it right.
+          /*if (key.length === 36) {
             keys.push(key);
           } else {
             throw new SriError({status: 400, errors: [{ code: 'parameter.hrefs.invalid.key.length',
@@ -20,7 +22,7 @@ exports = module.exports = {
                                        parameter: "href",
                                        value: key
                                      }]})
-          }
+          }*/
       })
 
       query.sql(' and ' + table + '.key in (').array(keys).sql(') ');
@@ -42,6 +44,7 @@ exports = module.exports = {
                                      }]})
           }
           const key = permalink.split('/')[permalink.split('/').length - 1];
+          // use the schema to check on the format of the key because there can be resources that do not have a uuid as primarey key. Checking on length is weak anyway, do regex check on uuid, which you can get from the schema if you want to do it right.
           /*if (key.length !== 36) {
             throw new SriError({status: 400, errors: [{ code: 'parameter.referenced.type.invalid.key.length',
                                        msg: `Parameter '${columnname}' contains key with invalid length for key [${key}].`,
