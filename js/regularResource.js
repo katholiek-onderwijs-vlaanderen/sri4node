@@ -2,7 +2,7 @@ const _ = require('lodash')
 const { Validator } = require('jsonschema')
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
-        executeOnFunctions, SriError, startTransaction, getCountResult, urlToTypeAndKey, isEqualSriObject } = require('./common.js');
+        executeOnFunctions, SriError, startTransaction, getCountResult, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
 var queryobject = require('./queryObject.js');
@@ -52,7 +52,14 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   const key = sriRequest.params.key
 
   await phaseSyncer.phase()
-  // We don't do before read hooks because they don't make much sense
+
+  await hooks.applyHooks( 'before read', 
+                          mapping.beforeRead, 
+                          f => f( tx, 
+                                  sriRequest
+                                )
+                        )                                      
+
 
   await phaseSyncer.phase()
   debug('* query by key');
@@ -89,7 +96,8 @@ function getSchemaValidationErrors(json, schema) {
   var v = new Validator();
   var result = v.validate(json, schema);
 
-  var ret, i, current, err;
+  const ret = {}
+  var i, current, err;
 
   if (result.errors && result.errors.length > 0) {
     cl('Schema validation revealed errors.');
@@ -98,7 +106,6 @@ function getSchemaValidationErrors(json, schema) {
     cl(schema);
     cl('Document was : ');
     cl(json);
-    ret = {};
     ret.errors = [];
     ret.document = json;
     for (i = 0; i < result.errors.length; i++) {
@@ -111,6 +118,8 @@ function getSchemaValidationErrors(json, schema) {
       ret.errors.push(err);
     }
     return ret;
+  } else {
+    return null;
   }
 }
 
@@ -142,7 +151,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
   debug('Validating schema.');
   if (mapping.schema) {
     const validationErrors  = getSchemaValidationErrors(obj, mapping.schema);
-    if (validationErrors) {
+    if (validationErrors !== null) {
       const errors = { validationErrors }
       throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
     } else {
@@ -161,7 +170,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
 
     await phaseSyncer.phase()
 
-    const newRow = transformObjectToRow(obj, mapping)
+    const newRow = transformObjectToRow(obj, mapping, true)
     newRow.key = key;
 
     const insert = prepare('insert-' + table);
@@ -196,7 +205,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     
     await phaseSyncer.phase()
     
-    const updateRow = transformObjectToRow(obj, mapping)
+    const updateRow = transformObjectToRow(obj, mapping, false)
 
     var update = prepare('update-' + table);
     update.sql(`update "${table}" set "$$meta.modified" = current_timestamp `);

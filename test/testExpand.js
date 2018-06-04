@@ -1,11 +1,22 @@
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
-var sriclient = require('sri4node-client');
+var sriclient = require('@kathondvla/sri-client/node-sri-client');
 var doGet = sriclient.get;
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+
+  const utils =  require('./utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') } }
+  const authHdrObjKevin = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
 
   function debug(x) {
     if (logverbose) {
@@ -16,200 +27,192 @@ exports = module.exports = function (base, logverbose) {
   describe('Expansion', function () {
     // Test expand=none
     describe(' with "none" on list resources', function () {
-      it('should succeed with $$expanded in results array.', function () {
-        return doGet(base + '/messages?expand=none', 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          if (response.body.results[0].$$expanded) {
-            assert.fail('Expansion was performed !');
-          }
-          if (response.body.results[1].$$expanded) {
-            assert.fail('Expansion was performed !');
-          }
-          if (response.body.results[2].$$expanded) {
-            assert.fail('Expansion was performed !');
-          }
-        });
+      it('should succeed with $$expanded in results array.', async function () {
+        const response = await doGet('/messages?expand=none', null, authHdrObj)
+        if (response.results[0].$$expanded) {
+          assert.fail('Expansion was performed !');
+        }
+        if (response.results[1].$$expanded) {
+          assert.fail('Expansion was performed !');
+        }
+        if (response.results[2].$$expanded) {
+          assert.fail('Expansion was performed !');
+        }
       });
     });
 
     // Test expand=full on list resources (all elements href expanded)
     describe(' with "full" on list resources', function () {
-      it('should succeed with $$expanded in results array.', function () {
-        return doGet(base + '/messages?expand=full', 'sabine@email.be', 'pwd')
-          .then(function (response) {
-            assert.equal(response.statusCode, 200);
-            if (!response.body.results[0].$$expanded) {
-              assert.fail('Expansion was not performed !');
-            }
-            if (!response.body.results[1].$$expanded) {
-              assert.fail('Expansion was not performed !');
-            }
-            if (!response.body.results[2].$$expanded) {
-              assert.fail('Expansion was not performed !');
-            }
-          });
+      it('should succeed with $$expanded in results array.', async function () {
+        const response = await doGet('/messages?expand=full', null, authHdrObj)
+        if (!response.results[0].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (!response.results[1].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (!response.results[2].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
       });
     });
 
     // Test expand=href on list resources
     describe(' with results on list resources', function () {
-      it('should succeed with $$expanded in results array.', function () {
-        return doGet(base + '/messages?expand=results', 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          if (!response.body.results[0].$$expanded) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (!response.body.results[1].$$expanded) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (!response.body.results[2].$$expanded) {
-            assert.fail('Expansion was not performed !');
-          }
-        });
+      it('should succeed with $$expanded in results array.', async function () {
+        const response = await doGet('/messages?expand=results', null, authHdrObj)
+        if (!response.results[0].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (!response.results[1].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (!response.results[2].$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
       });
     });
 
     // Test expand=community on regular message resource
     describe('on regular resources', function () {
-      it('should succeed with $$expanded as result.', function () {
-        return doGet(base + '/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=community',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.$$meta.permalink, '/messages/ad9ff799-7727-4193-a34a-09f3819c3479');
-          if (!response.body.community.$$expanded) {
-            assert.fail('Expansion was not performed !');
-          }
-        });
+      it('should succeed with $$expanded as result.', async function () {
+        const response = await doGet('/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=community', null, authHdrObj)
+        assert.equal(response.$$meta.permalink, '/messages/ad9ff799-7727-4193-a34a-09f3819c3479');
+        if (!response.community.$$expanded) {
+          assert.fail('Expansion was not performed !');
+        }
       });
 
-      it('should fail due to secure function on expanded resource', function () {
-        return doGet(base + '/messages/7f5f646c-8f0b-4ce6-97ce-8549b8b78234?expand=person',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
+      it('should fail due to secure function on expanded resource', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/messages/7f5f646c-8f0b-4ce6-97ce-8549b8b78234?expand=person', null, authHdrObj)
+          }, 
+          (error) => {
+            assert.equal(error.status, 403);
+          })
       });
 
-      it('should succeed since the expanded resource is valid', function () {
-        return doGet(base + '/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person',
-          'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-        });
+      it('should succeed since the expanded resource is valid', async function () {
+        await doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person', null, authHdrObjKevin)
       });
 
-      it('should fail since the expanded chained resource is restricted', function () {
-        return doGet(base + '/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community',
-          'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
+      it('should fail since the expanded chained resource is restricted', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community', null, authHdrObjKevin)
+          }, 
+          (error) => {
+            assert.equal(error.status, 403);
+          })
       });
     });
 
     // Test expand=results.href,results.href.community on lists of messages
     describe('on list resources', function () {
-      it('should succeed with $$expanded as result.', function () {
-        return doGet(base + '/messages?limit=3&expand=results.community', 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          debug(response.body.results[0].$$expanded);
-          if (response.body.results[0].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[1].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[2].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-        });
+      it('should succeed with $$expanded as result.', async function () {
+        const response = await doGet('/messages?limit=3&expand=results.community', null, authHdrObj)
+        if (response.results[0].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[1].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[2].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
       });
 
-      it('should fail due to secure function on expanded resource', function () {
-        return doGet(base + '/messages?expand=results.person',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
+      it('should fail due to secure function on expanded resource', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/messages?expand=results.person', null, authHdrObj)
+          }, 
+          (error) => {
+            assert.equal(error.status, 403);
+          })
       });
 
-      it('should succeed since the expanded resource is valid', function () {
-        return doGet(base + '/messages?titleContains=Vervoer&expand=results.person',
-          'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-        });
+      it('should succeed since the expanded resource is valid', async function () {
+        await doGet('/messages?titleContains=Vervoer&expand=results.person', null, authHdrObjKevin)
       });
 
-      it('should fail since the expanded chained resource is restricted', function () {
-        return doGet(base + '/messages?titleContains=Vervoer&expand=results.person.community',
-          'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
+      it('should fail since the expanded chained resource is restricted', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/messages?titleContains=Vervoer&expand=results.person.community', null, authHdrObjKevin)
+          }, 
+          (error) => {
+            assert.equal(error.status, 403);
+          })
       });
     });
 
     // Test expand=invalid send 404 Not Found.
     describe('with invalid', function () {
-      it('should say \'not found\'.', function () {
-        return doGet(base + '/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 404);
-        });
+      it('should say \'not found\'.', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid', null, authHdrObj)
+          }, 
+          (error) => {
+            assert.equal(error.status, 404);
+          })
       });
     });
 
     // Test expand=results.href.community,results.href.person
     describe('on list resources', function () {
-      it('should allow expanding multiple keys.', function () {
-        return doGet(base + '/messages?limit=3&expand=results.person,results.community',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          debug(response.body.results[0].$$expanded);
-          if (response.body.results[0].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[1].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[2].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[0].$$expanded.person.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[1].$$expanded.person.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[2].$$expanded.person.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-        });
+      it('should allow expanding multiple keys.', async function () {
+        const response = await doGet('/messages?limit=3&expand=results.person,results.community', null, authHdrObj)
+        if (response.results[0].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[1].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[2].$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[0].$$expanded.person.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[1].$$expanded.person.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[2].$$expanded.person.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
       });
     });
 
     describe('on list resource', function () {
-      it('should have executed afterread on expanded resources.', function () {
-        return doGet(base + '/messages?limit=3&expand=results.person,results.community',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          if (response.body.results[0].$$expanded.community.$$expanded.$$messagecount == null) {
-            assert.fail('afterread was not executed on expanded resource !');
-          }
-        });
+      it('should have executed afterread on expanded resources.', async function () {
+        const response = await doGet('/messages?limit=3&expand=results.person,results.community', null, authHdrObj) 
+        if (response.results[0].$$expanded.community.$$expanded === null
+          || response.results[0].$$expanded.community.$$expanded === undefined) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[0].$$expanded.community.$$expanded.$$messagecount == null) {
+          assert.fail('afterread was not executed on expanded resource !');
+        }
       });
     });
 
     describe('with 2 level path (x.y)', function () {
-      it('should expand recursively.', function () {
-        return doGet(base + '/messages?limit=3&expand=results.person.community,results.community',
-          'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          if (response.body.results[0].$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[0].$$expanded.person.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-          if (response.body.results[0].$$expanded.person.$$expanded.community.$$expanded === null) {
-            assert.fail('Expansion was not performed !');
-          }
-        });
+      it('should expand recursively.', async function () {
+        const response = await doGet('/messages?limit=3&expand=results.person.community,results.community', null, authHdrObj)
+        if (response.results[0].$$expanded.community.$$expanded === null
+          || response.results[0].$$expanded.community.$$expanded === undefined) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[0].$$expanded.person.$$expanded === null
+          || response.results[0].$$expanded.person.$$expanded === undefined) {
+          assert.fail('Expansion was not performed !');
+        }
+        if (response.results[0].$$expanded.person.$$expanded.community.$$expanded === null) {
+          assert.fail('Expansion was not performed !');
+        }
       });
     });
 

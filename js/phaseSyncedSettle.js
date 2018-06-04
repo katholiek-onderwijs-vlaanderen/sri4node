@@ -3,30 +3,26 @@ const pFinally = require('p-finally');
 const pEvent = require('p-event');
 const uuidv1 = require('uuid/v1');
 const EventEmitter = require('events');
+const { debug } = require('./common.js');
 
-
-debug_log = (debug, id, msg) => {
-    if (debug) {
-      console.log(`PS -${id}- ${msg}`);
-    }
+debug_log = (id, msg) => {
+	debug(`PS -${id}- ${msg}`)
 };
 
 
-
 PhaseSyncer = class {
-    constructor(fun, args, ctrlEmitter, debug ) {
+    constructor(fun, args, ctrlEmitter) {
     	this.ctrlEmitter = ctrlEmitter,
-    	this.debug = debug,
      	this.id = uuidv1()
      	this.phaseCntr = 0
 		this.jobEmitter = new EventEmitter()
 		args.unshift(this)
 		this.jobPromise = pFinally( fun(...args), () => { this.ctrlEmitter.emit('jobDone', this.id) } )
-		debug_log(debug, this.id, 'PhaseSyncer constructed.')
+		debug_log(this.id, 'PhaseSyncer constructed.')
     }
 
     phase() {
-    	debug_log(this.debug, this.id, `STEP ${this.phaseCntr}`); 
+    	debug_log(this.id, `STEP ${this.phaseCntr}`); 
     	// Need to construct pEvent promise before sending stepDone, otherwise event 'ready'
     	// might be sent before event handler waiting for 'ready' is set up. 
     	const promise = pEvent(this.jobEmitter, 'ready')
@@ -40,10 +36,10 @@ PhaseSyncer = class {
 }
 
 
-exports = module.exports = (jobList, {concurrency = 1, debug = false} = {}) => {
+exports = module.exports = (jobList, {concurrency = 1} = {}) => {
 
 	const ctrlEmitter = new EventEmitter()
-	const jobMap = new Map(jobList.map( ([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter, debug) )
+	const jobMap = new Map(jobList.map( ([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter) )
 							      .map( phaseSyncer => [ phaseSyncer.id, phaseSyncer ] ))
 	const jobs = new Set(jobMap.keys())
 
@@ -69,20 +65,20 @@ exports = module.exports = (jobList, {concurrency = 1, debug = false} = {}) => {
 
 
 	ctrlEmitter.on('stepDone', listener = function (id, stepnr) {
-		debug_log(debug, id,`*step ${stepnr}* done.`)
+		debug_log(id,`*step ${stepnr}* done.`)
 		phasePendingJobs.delete(id)
 
 		if (phasePendingJobs.size === 0) {
-			debug_log(debug, id,` Starting new phase.`)
+			debug_log(id,` Starting new phase.`)
 			startNewPhase()
 		} else {
-			debug_log(debug, id,` Starting queued job.`)
+			debug_log(id,` Starting queued job.`)
 			startQueuedJob()
 		}
 	});
 
 	ctrlEmitter.on('jobDone', listener = function (id) {
-		debug_log(debug, id, `*JOB* done.`)
+		debug_log(id, `*JOB* done.`)
 
 		jobs.delete(id)
 		queuedJobs.delete(id)

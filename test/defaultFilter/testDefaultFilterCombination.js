@@ -1,42 +1,43 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
 
 exports = module.exports = function (base) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+
+  const utils =  require('../utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
+
 
   describe('Generic Filters', function () {
 
     describe('Combination match', function () {
 
-      it('should find resources with a combined match', function () {
-        return doGet(base + '/alldatatypes?text=vsko&number=450', 'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.text, 'VSKO');
-          assert.equal(response.body.results[0].$$expanded.number, 450);
-        });
+      it('should find resources with a combined match', async function () {
+        const response = await doGet('/alldatatypes?text=vsko&number=450', null, authHdrObj)
+        assert.equal(response.results.length, 1);
+        assert.equal(response.results[0].$$expanded.text, 'VSKO');
+        assert.equal(response.results[0].$$expanded.number, 450);
       });
 
-      it('should find resources with a combined match and modifiers', function () {
-        return doGet(base + '/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230', 'kevin@email.be', 'pwd')
-        .then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 4);
-          assert.equal(response.body.results[2].$$expanded.text, 'dienst informatica');
-          assert.equal(response.body.results[2].$$expanded.number, 230);
-          assert.equal(response.body.results[3].$$expanded.text, 'combined unit');
-          assert.equal(response.body.results[3].$$expanded.number, 1000);
-        });
+      it('should find resources with a combined match and modifiers', async function () {
+        const response = await doGet('/alldatatypes?textCaseSensitiveNot=VSKO&numberAfter=230', null, authHdrObj)        
+        assert.equal(response.results.length, 2);
+        assert.equal(response.results[0].$$expanded.text, 'dienst informatica');
+        assert.equal(response.results[0].$$expanded.number, 230);
+        assert.equal(response.results[1].$$expanded.text, 'combined unit');
+        assert.equal(response.results[1].$$expanded.number, 1000);
       });
 
-      it('should not find resources with a combined match', function () {
-        return doGet(base + '/alldatatypes?textCaseSensitive=vsko&number=230', 'kevin@email.be', 'pwd')
-        .then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 0);
-        });
+      it('should not find resources with a combined match', async function () {
+        const response = await doGet('/alldatatypes?textCaseSensitive=vsko&number=230', null, authHdrObj)
+        assert.equal(response.results.length, 0);
       });
 
     });

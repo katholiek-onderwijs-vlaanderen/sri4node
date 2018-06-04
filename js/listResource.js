@@ -1,4 +1,5 @@
-const _ = require('lodash')
+const _ = require('lodash');
+const pMap = require('p-map'); 
 
 const hooks = require('./hooks.js')
 const expand = require('./expand.js');
@@ -15,35 +16,38 @@ const MAX_LIMIT = 500;
 
 
 // apply extra parameters on request URL for a list-resource to a select.
-function applyRequestParameters(mapping, query, urlparameters, database, count) {
+async function applyRequestParameters(mapping, query, urlparameters, tx, count) {
   'use strict';
   const standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
 
   if (mapping.query) {
-    _.keys(urlparameters)
-        .forEach( (key) => {
+    await pMap(
+        _.keys(urlparameters),
+        async (key) => {
             if (!standardParameters.includes(key)) {
               if (mapping.query[key] || mapping.query.defaultFilter) {
                 // Execute the configured function that will apply this URL parameter
                 // to the SELECT statement
                 if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
-                  mapping.query.defaultFilter(urlparameters[key], query, key, mapping, database)
+                  await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx)
                 } else {
-                  mapping.query[key](urlparameters[key], query, key, database, count, mapping)
+                  await mapping.query[key](urlparameters[key], query, key, tx, count, mapping)
                 }
               } else {
                 throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
               }          
             } else if (key === 'hrefs' && urlparameters.hrefs) {
-              queryUtils.filterHrefs(urlparameters.hrefs, query, key, database, count, mapping)
+              queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping)
             } else if (key === 'modifiedSince') {
-              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, database, count, mapping)
+              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping)
             }
-        })
+        },
+        {concurrency: 1}
+      )
   }
 }
 
-function getSQLFromListResource(mapping, parameters, count, database, query) {
+async function getSQLFromListResource(mapping, parameters, count, tx, query) {
   'use strict';
   const table = tableFromMapping(mapping)
 
@@ -79,7 +83,7 @@ function getSQLFromListResource(mapping, parameters, count, database, query) {
   }
 
   debug('* applying URL parameters to WHERE clause');
-  applyRequestParameters(mapping, query, parameters, database, count)
+  await applyRequestParameters(mapping, query, parameters, tx, count)
 
 }
 
@@ -130,16 +134,16 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
 
   // Paging parameters
 
-  if (queryLimit > maxlimit || (queryLimit === '*' && queryParams.expand !== 'NONE')) {
-    throw new SriError({status: 409, errors: [
-        {
-          code: 'invalid.limit.parameter',
-          type: 'ERROR',
-          message: 'The maximum allowed limit is ' + maxlimit
-        }]})
-  }
-
-  if (!(queryLimit === '*' && queryParams.expand === 'NONE')) {
+  const isGetAllExpandNone = (queryLimit === '*' && queryParams.expand !== undefined && queryParams.expand.toLowerCase() === 'none')
+  if (!isGetAllExpandNone) {
+    if (queryLimit > maxlimit || queryLimit === '*' ) {
+      throw new SriError({status: 409, errors: [
+          {
+            code: 'invalid.limit.parameter',
+            type: 'ERROR',
+            message: 'The maximum allowed limit is ' + maxlimit
+          }]})
+    }
     // limit condition is always added except special case where the paremeter limit=* and expand is NONE (#104)
     query.sql(' limit ').param(queryLimit);
   }
@@ -225,7 +229,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
 }
 
 
-async function getListResource(phaseSyncer, db, sriRequest, mapping) {
+async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   const queryParams = sriRequest.query
   const type = sriRequest.sriType
@@ -236,22 +240,37 @@ async function getListResource(phaseSyncer, db, sriRequest, mapping) {
   const offset = queryParams.offset || 0;
 
   await phaseSyncer.phase()
-  // We don't do before read hooks because they don't make much sense
+
+  await hooks.applyHooks( 'before read', 
+                          mapping.beforeRead, 
+                          f => f( tx, 
+                                  sriRequest,
+                                )
+                        )    
 
   await phaseSyncer.phase()
 
   debug('GET list resource ' + type);
 
-  const countquery = prepare();
-  getSQLFromListResource(mapping, queryParams, true, db, countquery);
-  debug('* executing SELECT COUNT query on database');
-  const count = await getCountResult(db, countquery) 
+  let count = 0
+  try {
+    const countquery = prepare();
+    await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
+    debug('* executing SELECT COUNT query on tx');
+    count = await getCountResult(tx, countquery) 
+  } catch (error) { 
+    if (error.code === '42703') { //UNDEFINED COLUMN
+      throw new SriError({status: 409, errors: [{code: 'invalid.query.parameter'}]})
+    } else {
+      throw error
+    }
+  }
   
   const query = prepare();
-  getSQLFromListResource(mapping, queryParams, false, db, query);
+  await getSQLFromListResource(mapping, queryParams, false, tx, query);
   applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, offset)
-  debug('* executing SELECT query on database');
-  const rows = await pgExec(db, query);
+  debug('* executing SELECT query on tx');
+  const rows = await pgExec(tx, query);
   
   debug('pgExec select ... OK');
 
@@ -267,7 +286,7 @@ async function getListResource(phaseSyncer, db, sriRequest, mapping) {
 
   await hooks.applyHooks( 'after read', 
                           mapping.afterRead, 
-                          f => f( db, 
+                          f => f( tx, 
                                   sriRequest, 
                                   output.results.map( e => {
                                     if (e['$$expanded']) {
@@ -284,7 +303,7 @@ async function getListResource(phaseSyncer, db, sriRequest, mapping) {
                         )  
 
   debug('* executing expansion : ' + queryParams.expand);
-  await expand.executeExpansion(db, sriRequest, output.results, mapping);
+  await expand.executeExpansion(tx, sriRequest, output.results, mapping);
 
   return {status: 200, body: output}
 }

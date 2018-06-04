@@ -1,5 +1,7 @@
-var Q = require('q');
 var common = require('../../js/common.js');
+const pMap = require('p-map'); 
+const queryobject = require('../../js/queryObject.js');
+const prepare = queryobject.prepareSQL; 
 
 exports = module.exports = function (roa, extra) {
   'use strict';
@@ -12,8 +14,9 @@ exports = module.exports = function (roa, extra) {
     type: '/transactions',
     'public': false, // eslint-disable-line
     map: {
+      key: {},
       transactiontimestamp: {
-        onupdate: $m.now
+        fieldToColumn: [ $m.now ]
       },
       fromperson: {
         references: '/persons'
@@ -24,12 +27,12 @@ exports = module.exports = function (roa, extra) {
       description: {},
       amount: {}
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A single transaction between 2 people.',
       type: 'object',
       properties: {
+        key: $s.guid('GUID for this transaction.'),
         transactiontimestamp: $s.timestamp('Date and time when the transaction was recorded.'),
         fromperson: $s.permalink('/persons', 'A permalink to the person that sent currency.'),
         toperson: $s.permalink('/persons', 'A permalink to the person that received currency.'),
@@ -40,36 +43,35 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['fromperson', 'toperson', 'description', 'amount']
     },
-    afterinsert: [
-      function (db, elements) {
-        var element = elements[0];
-        var amount = element.body.amount;
-        var tokey = element.body.toperson.href;
-        tokey = tokey.split('/')[2];
+    afterInsert: [
+      async function (tx, sriRequest, elements) {
+        await pMap(elements, async ({incoming}) => {
+          const amount = incoming.amount;
+          const tokey = incoming.toperson.href.split('/')[2];
 
-        var updateto = $u.prepareSQL();
-        updateto.sql('update persons set balance = (balance + ')
-          .param(amount).sql(') where key = ').param(tokey);
-        return $u.executeSQL(db, updateto);
+          const query = prepare();
+          query.sql('update persons set balance = (balance + ')
+            .param(amount).sql(') where key = ').param(tokey);
+
+          await common.pgExec(tx, query)
+        }, {concurrency: 1})
       },
-      function (db, elements) {
-        var element = elements[0];
-        var amount = element.body.amount;
-        var fromkey = element.body.fromperson.href;
-        fromkey = fromkey.split('/')[2];
+      async function (tx, sriRequest, elements) {
+        await pMap(elements, async ({incoming}) => {
+          const amount = incoming.amount;
+          const fromkey = incoming.fromperson.href.split('/')[2];
 
-        var updatefrom = $u.prepareSQL();
-        updatefrom.sql('update persons set balance = (balance - ')
-          .param(amount).sql(') where key = ').param(fromkey);
-        return $u.executeSQL(db, updatefrom);
+          const query = prepare();
+          query.sql('update persons set balance = (balance - ')
+            .param(amount).sql(') where key = ').param(fromkey);
+
+          await common.pgExec(tx, query)
+        }, {concurrency: 1})
       }
     ],
-    // TODO : Check if updates are blocked.
-    afterupdate: [
-      function () {
-        var deferred = Q.defer();
-        deferred.reject('Updates on transactions are not allowed.');
-        return deferred.promise;
+    afterUpdate: [
+      function ( tx, sriRequest, elements ) {
+        throw new sriRequest.SriError({status: 401, errors: [{code: 'update.on.transactions.not.allowed'}]})
       }
     ]
   };

@@ -14,9 +14,6 @@ const _ = require('lodash')
 const pMap = require('p-map');
 const readAllStream = require('read-all-stream')
 
-
-
-const informationSchema = require('./js/informationSchema.js');
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, 
         typeToMapping, createReadableStream, jsonArrayStream } = require('./js/common.js');
@@ -172,7 +169,8 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 
       let result
       if (isBatchRequest) {
-        result = await func(db, req)
+        result = await func(tx, req)    
+        resolveTx()
       } else {
 
         const sriRequest  = {
@@ -191,8 +189,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 
         await hooks.applyHooks('transform request'
                               , mapping.transformRequest
-                              , f => f(req, sriRequest))
-
+                              , f => f(req, sriRequest, tx))
 
         const jobs = [ [func, [tx, sriRequest, mapping, streaming ? resp : null]] ];
         [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
@@ -240,7 +237,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
     } catch (err) {
       //TODO: what with streaming errors
 
-      debug('++ Exception catched. Rolling back database transaction.');
+      debug('++ Exception catched. Rolling back database transaction. ++');
       await rejectTx()  
 
       if (resp.headersSent) {
@@ -267,6 +264,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 exports = module.exports = {
   configure: async function (app, config) {
     'use strict';
+
     try {
 
       // initialize undefined hooks in all resources with empty list
@@ -309,6 +307,15 @@ exports = module.exports = {
 
       const db = await pgConnect(config)
 
+
+      await pMap(
+        config.resources,
+        async (mapping) => {
+          if (!mapping.onlyCustom) {
+            await installVersionIncTriggerOnTable(db, tableFromMapping(mapping))
+          }
+        }, { concurrency: 1 })
+
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
 
 
@@ -350,40 +357,45 @@ exports = module.exports = {
       app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
 
-      config.resources.forEach( (mapping) => {
-        if (!mapping.onlyCustom) {
-          checkRequiredFields(mapping, config.informationSchema);
+      await pMap(
+        config.resources,
+        async (mapping) => {
+          if (!mapping.onlyCustom) {
+            checkRequiredFields(mapping, config.informationSchema);
 
-          installVersionIncTriggerOnTable(db, tableFromMapping(mapping))
+            // append relation filters if auto-detected a relation resource
+            if (mapping.map.from && mapping.map.to) {
 
-          // append relation filters if auto-detected a relation resource
-          if (mapping.map.from && mapping.map.to) {
+              //mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
+              const relationFilters = require('./js/relationsFilter.js');
+              if (!mapping.query) {
+                mapping.query = {};
+              }
 
-            //mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
-            const relationFilters = require('./js/relationsFilter.js');
-            if (!mapping.query) {
-              mapping.query = {};
-            }
-
-            for (const key in relationFilters) {
-              if (relationFilters.hasOwnProperty(key)) {
-                mapping.query[key] = relationFilters[key];
+              for (const key in relationFilters) {
+                if (relationFilters.hasOwnProperty(key)) {
+                  mapping.query[key] = relationFilters[key];
+                }
               }
             }
+
+            // register schema for external usage. public.
+            app.get(mapping.type + '/schema', middlewareErrorWrapper(getSchema));
+            
+            //register docs for this type
+            app.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
+            app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));                    
           }
 
-          // register schema for external usage. public.
-          app.get(mapping.type + '/schema', middlewareErrorWrapper(getSchema));
-          
-          //register docs for this type
-          app.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
-          app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));                    
-        }
+          // batch route
+          app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
+          app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
+        }, {concurrency: 1})
 
-        // batch route
-        app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
-        app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
-      })
+      if (config.enableGlobalBatch) {
+        app.put('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+        app.post('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+      }
 
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
@@ -497,6 +509,7 @@ exports = module.exports = {
       //   res.json(200, req.routes)
       // })
       app.get('/', (req, res) => res.redirect('/resources'))
+
 
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
     } catch (err) {

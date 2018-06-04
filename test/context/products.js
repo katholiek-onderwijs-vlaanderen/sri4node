@@ -16,7 +16,6 @@ exports = module.exports = function (roa, extra) {
         references: '/store/packages'
       }
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A product linked to a package.',
@@ -29,8 +28,6 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['key', 'name', 'category', 'package']
     },
-    afterinsert: [],
-    afterupdate: []
   };
 
   common.mergeObject(extra, ret);

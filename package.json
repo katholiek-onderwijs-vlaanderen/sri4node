@@ -30,6 +30,7 @@
     "p-settle": "2.0.0",
     "path-to-regexp": "^2.0.0",
     "pathfinder-ui": "1.0.3",
+    "pg-monitor": "^1.0.0",
     "pg-promise": "^6.10.2",
     "pycollections": "^0.9.0",
     "q": "^1.0.1",
@@ -40,15 +41,15 @@
     "uuid": "3.2.1"
   },
   "devDependencies": {
-    "express": "~4.9.x",
-    "mocha": "~2.2.4",
-    "node-uuid": "~1.4.3",
-    "eslint": "~1.4.3",
-    "nodemon": "1.7.x",
+    "@kathondvla/sri-client": "git+https://github.com/rodrigouroz/sri-client.git",
     "describe": "^1.2.0",
     "dev": "^0.1.3",
+    "eslint": "~1.4.3",
+    "express": "~4.9.x",
     "maintenance": "git+https://github.com/likeastore/maintenance.git",
-    "@kathondvla/sri-client": "git+https://github.com/rodrigouroz/sri-client.git"
+    "mocha": "~2.2.4",
+    "node-uuid": "~1.4.3",
+    "nodemon": "1.7.x"
   },
   "repository": {
     "type": "git",

@@ -16,7 +16,6 @@ const through2 = require("through2")
 const hash = require('farmhash').hash64
 
 
-
 const pgpInitOptions = {
     // explicitly set search_path to env parameter for each fresh connection
     // needed to get heroku shared databases with schemas working
@@ -28,6 +27,10 @@ const pgpInitOptions = {
     }
 
 };
+
+    // const monitor = require('pg-monitor');
+    // monitor.attach(pgpInitOptions);
+
 const pgp = require('pg-promise')(pgpInitOptions);
 
 // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
@@ -53,6 +56,9 @@ exports = module.exports = {
 
 
   urlToTypeAndKey: (urlToParse) => {
+    if (typeof urlToParse !== 'string') {
+      throw 'urlToTypeAndKey requires a string argument instead of ' + urlToParse
+    }
     const parsedUrl = url.parse(urlToParse);
     const pathName = parsedUrl.pathname.replace(/\/$/, '') 
     const parts = pathName.split('/')
@@ -138,7 +144,7 @@ exports = module.exports = {
         created: row['$$meta.created'],
         modified: row['$$meta.modified'],
       }))
-    element.$$meta.permalink = resourceMapping.type + '/' + row.key;      
+    element.$$meta.permalink = resourceMapping.type + '/' + row.key;     
     element.$$meta.version = row['$$meta.version'];  
 
     // exports.debug('Transformed incoming row according to configuration');
@@ -146,7 +152,7 @@ exports = module.exports = {
   },
 
  
-  transformObjectToRow: function (obj, resourceMapping) {  
+  transformObjectToRow: function (obj, resourceMapping, isNewResource) {  
     const map = resourceMapping.map
     const row = {}
     Object.keys(map).forEach( key => {
@@ -174,11 +180,13 @@ exports = module.exports = {
       } 
 
       if (map[key]['fieldToColumn']) {
-        map[key]['fieldToColumn'].forEach( f => f(key, row) );
+        map[key]['fieldToColumn'].forEach( f => f(key, row, isNewResource) );
       } 
 
       const fieldTypeDb = global.sri4node_configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
-      const fieldTypeObject = resourceMapping.schema.properties[key].type
+      const fieldTypeObject = resourceMapping.schema.properties[key] 
+                                  ? resourceMapping.schema.properties[key].type
+                                  : null
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
         // for this type combination we need to explicitly stringify the JSON, 
         // otherwise insert will attempt to store a postgres array which fails for jsonb
@@ -200,7 +208,7 @@ exports = module.exports = {
     // ssl=false is required for development on local postgres (Cloud9)
     var databaseUrl = env.databaseUrl;
     var dbUrl, searchPathPara;
-    if (databaseUrl) {
+    if (databaseUrl && databaseUrl.indexOf('ssl=false') === -1) {
       dbUrl = databaseUrl;
       pgp.pg.defaults.ssl = true
     } else {
@@ -236,15 +244,16 @@ exports = module.exports = {
     return db.query(sql, values)
   },
 
-
-  startTransaction: async (db) => {
+  startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
     // exports.debug('++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
 
     const txWrapper = async (emitter) => {
       try {
-        await db.tx( async tx => {
+        
+
+        await db.tx( {mode},  async tx => {
           emitter.emit('txEvent', tx)
           const how = await pEvent(emitter, 'terminate')
           if (how === 'reject') {
@@ -298,11 +307,16 @@ exports = module.exports = {
               ? `AND table_schema = '${env.postgresSchema}'`
               : '' )}
         ) THEN
-          ALTER TABLE ${tableName} ADD "$$meta.version" integer DEFAULT 0;
+          ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
         END IF;
 
         -- 2. create func vsko_resource_version_inc_function if not yet present
-        IF NOT EXISTS (SELECT proname from pg_proc where proname = 'vsko_resource_version_inc_function') THEN
+        IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
+                        WHERE proname = 'vsko_resource_version_inc_function'
+                        ${( env.postgresSchema !== undefined
+                          ? `AND nspname = '${env.postgresSchema}'`
+                          : '' )}
+                      ) THEN
           CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
             NEW."$$meta.version" := OLD."$$meta.version" + 1;
@@ -312,7 +326,7 @@ exports = module.exports = {
 
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
-            CREATE TRIGGER ${tgname} BEFORE UPDATE ON ${tableName}
+            CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
             FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
         END IF;
       END

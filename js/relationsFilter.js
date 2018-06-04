@@ -1,4 +1,6 @@
-var _ = require('lodash');
+const _ = require('lodash');
+
+const { tableFromMapping } = require('./common.js');
 
 function fromTypesFilter(value, select, key, database, count, mapping) {
   var sql, fromCondition, whereCondition, table, fromTable, types;

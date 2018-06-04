@@ -42,9 +42,8 @@ exports = module.exports = {
                          )
       } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
         const batchJobs = await pMap(batch, async element => {
-          // spec: if verb is omitted, it MUST be interpreted as PUT.
           if (!element.verb) {
-            element.verb = 'PUT'
+            throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]}) 
           }
 
           debug('┌──────────────────────────────────────────────────────────────────────────────')
@@ -94,13 +93,13 @@ exports = module.exports = {
           
           await hooks.applyHooks('transform request'
                                 , handler.mapping.transformRequest
-                                , f => f(req, sriRequest))
+                                , f => f(req, sriRequest, tx))
 
 
           return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})
 
-        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4, debug: true} ))
+        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4} ))
 
         await pEachSeries( results
                      , async (res, idx) => {
@@ -125,7 +124,7 @@ exports = module.exports = {
     // server MUST respond with 403 Forbidden.
     const status = batchResults.some( e => (e.status === 403) ) 
                         ? 403 
-                        : Math.max(200, ...batchResults.map( e => e.status ))
+                        : Math.max(200, ...batchResults.map( e => e.status ))                      
 
     return { status: status, body: batchResults }    
   }

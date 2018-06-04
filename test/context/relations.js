@@ -17,7 +17,6 @@ exports = module.exports = function (roa, extra) {
       startdate: {},
       enddate: {}
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A relation between messages.',
@@ -40,8 +39,6 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['key', 'from', 'to', 'type']
     },
-    afterinsert: [],
-    afterupdate: []
   };
 
   common.mergeObject(extra, ret);

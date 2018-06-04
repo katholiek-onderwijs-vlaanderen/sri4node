@@ -1,12 +1,21 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
 var common = require('../js/common.js');
 var cl = common.cl;
 
 exports = module.exports = function (base, logdebug) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+
+  const utils =  require('./utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
+  const authHdrObjIngrid = { headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') } }
 
   function debug(x) {
     if (logdebug) {
@@ -16,47 +25,54 @@ exports = module.exports = function (base, logdebug) {
 
   describe('Custom routes', function () {
 
-    it('should return the response for the custom route', function () {
-      return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple',
-                   'kevin@email.be', 'pwd').then(function (response) {
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.firstname, 'Kevin');
-        assert.equal(response.body.lastname, 'Boon');
-      });
+    it('should return the response for the custom route', async function () {
+      const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple', null,  authHdrObj)
+      assert.equal(response.firstname, 'Kevin');
+      assert.equal(response.lastname, 'Boon');
     });
 
-    it('should forbid the custom route because of a secure function', function () {
-      return doGet(base + '/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simple',
-                   'sabine@email.be', 'pwd').then(function (response) {
-        assert.equal(response.statusCode, 403);
-      });
+    it('should forbid the custom route because of a secure function', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simple', null,  authHdrObjIngrid)
+          }, 
+          (error) => {
+            assert.equal(error.status, 403);
+          })
     });
 
-    it('should return a server error for a problematic custom handler', function () {
-      return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/wrong-handler',
-                   'kevin@email.be', 'pwd').then(function (response) {
-        assert.equal(response.statusCode, 500);
-      });
+    it('should return a server error for a problematic custom handler', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+            await doGet('/persons/00000000-0000-0000-0000-000000000000/simple', null,  { headers: { authorization: auth }, maxAttempts: 1 })
+          }, 
+          (error) => {
+            assert.equal(error.status, 500);
+          })
     });
 
-    it('should call multiple middleware functions.', function () {
-      return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/multiple-middleware',
-                   'kevin@email.be', 'pwd').then(function (response) {
-        debug('response');
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body, '1');
-      });
+
+    it('should return the response for the custom \'like\' route', async function () {
+      const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike', null,  authHdrObj)
+      assert.equal(Object.keys(response).length, 2);
+      assert.equal(response.firstname, 'Kevin');
+      assert.equal(response.lastname, 'Boon');
     });
 
-    it('should a single multiple middleware functions.', function () {
-      return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/single-middleware',
-                   'kevin@email.be', 'pwd').then(function (response) {
-        debug('response');
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body, '0');
-      });
+    it('should return the response for the custom \'like\' route for forbidden user in \'original\' route', async function () {
+      await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simpleLike', null,  authHdrObjIngrid)
     });
+
+    it('no auth should be forbidden for the custom \'like\' route', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simpleLike', null,  {})
+          }, 
+          (error) => {
+            assert.equal(error.status, 401);
+          })
+    });
+
   });
 };

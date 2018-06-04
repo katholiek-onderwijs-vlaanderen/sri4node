@@ -1,4 +1,5 @@
 exports = module.exports = {
+
   permalink: function (type, description) {
     'use strict';
     var name = type.substring(1);
@@ -7,12 +8,10 @@ exports = module.exports = {
       type: 'object',
       properties: {
         href: {
-          type: 'string',
-          pattern: '^\/' + name + '\/[-0-9a-f].*$',
-          minLength: name.length + 38,
-          maxLength: name.length + 38,
-          description: description
-        }
+                type: 'string',
+                pattern: '^\/' + name + '\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+                description: description
+              }
       },
       required: ['href']
     };

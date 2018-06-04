@@ -1,6 +1,6 @@
-var Q = require('q');
 var common = require('../../js/common.js');
 var cl = common.cl;
+const utils = require('../utils.js')(null);
 
 exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
@@ -16,64 +16,41 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  function messagesPostedSince(value, select) {
-    var deferred = Q.defer();
+  async function messagesPostedSince(value, select) {
     select.sql(' and posted > ').param(value);
-    deferred.resolve();
-    return deferred.promise;
   }
 
   function validateMoreThan(field, max) {
-    return function (body) {
-      var deferred = Q.defer();
-      if (body.amount <= max) {
-        debug('Should be more, or equal to ' + max);
-        deferred.reject({
-          path: field,
-          code: 'not.enough'
-        });
-      } else {
-        deferred.resolve();
-      }
-
-      return deferred.promise;
+    return async function (tx, sriRequest, elements) {
+      elements.forEach( ({ incoming }) => {
+        if (incoming.amount <= max) {
+          debug('Should be more, or equal to ' + max);
+          throw new sriRequest.SriError({status: 409, errors: [{code: 'not.enough'}]})
+        }        
+      } )
     };
   }
 
-  function addExtraKeysAfterRead(database, elements) {
-    var deferred = Q.defer();
-    var i;
-
-    for (i = 0; i < elements.length; i++) {
-      elements[i].$$afterread = 'added by afterread method';
-    }
-    deferred.resolve();
-
-    return deferred.promise;
+  async function addExtraKeysAfterRead( tx, sriRequest, elements ) {
+    elements.forEach( ({ stored }) => {
+      if (stored!=null) {
+        stored.$$afterread = 'added by afterread method';
+      }      
+    })
   }
 
-  var cteOneGuid = function (value, select) {
-    var deferred = Q.defer();
-
+  var cteOneGuid = async function (value, select) {
     var cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte');
     select.sql(' AND "key" IN (SELECT key FROM cte)');
-    deferred.resolve();
-
-    return deferred.promise;
   };
 
-  var cteOneGuid2 = function (value, select) {
-    var deferred = Q.defer();
-
+  var cteOneGuid2 = async function (value, select) {
     var cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte2');
     select.sql(' AND "key" IN (SELECT key FROM cte2)');
-    deferred.resolve();
-
-    return deferred.promise;
   };
 
   var ret = {
@@ -84,24 +61,23 @@ exports = module.exports = function (roa, logverbose, extra) {
         references: '/persons'
       },
       posted: {
-        onupdate: $m.now
+        fieldToColumn: [ $m.now ]
       },
       type: {},
       title: {},
       description: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       amount: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       unit: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       community: {
         references: '/communities'
       }
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A messages posted to the LETS members.',
@@ -122,10 +98,6 @@ exports = module.exports = function (roa, logverbose, extra) {
       },
       required: ['person', 'type', 'title', 'community']
     },
-    validate: [
-      validateMoreThan('amount', 10),
-      validateMoreThan('amount', 20)
-    ],
     query: {
       communities: $q.filterReferencedType('/communities', 'community'),
       postedSince: messagesPostedSince, // For compatability, to be removed.
@@ -134,9 +106,19 @@ exports = module.exports = function (roa, logverbose, extra) {
       cteOneGuid2: cteOneGuid2,
       defaultFilter: $q.defaultFilter
     },
-    afterread: [
+    afterRead: [
       addExtraKeysAfterRead
-    ]
+    ],
+    afterInsert: [
+      validateMoreThan('amount', 10),
+      validateMoreThan('amount', 20)
+    ],
+    afterUpdate: [
+      validateMoreThan('amount', 10),
+      validateMoreThan('amount', 20)
+    ],
+
+    transformRequest: utils.lookForBasicAuthUser
   };
 
   common.mergeObject(extra, ret);

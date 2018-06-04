@@ -15,7 +15,6 @@ if(type === 'text') {
 
 var unique = require('array-unique');
 var qo = require('./queryObject.js');
-var Q = require('q');
 var common = require('./common.js');
 //var cl = common.cl;
 var pgExec = common.pgExec;
@@ -23,12 +22,11 @@ var cache = null;
 
 exports = module.exports = async function (db, configuration) {
   'use strict';
-  var deferred = Q.defer();
   var q, tableNames;
   var i, type, table, tableName, row, typeCache, columnCache;
 
   if (cache !== null) {
-    deferred.resolve(cache);
+    return cache;
   } else {
     q = qo.prepareSQL('information-schema');
     tableNames = [];
@@ -62,6 +60,4 @@ exports = module.exports = async function (db, configuration) {
     }
     return cache
   }
-
-  return deferred.promise;
 };

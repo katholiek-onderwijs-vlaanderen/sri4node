@@ -3,12 +3,20 @@ var uuid = require('node-uuid');
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
-var doPut = sriclient.put;
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+  const doPut = api.put;
+
+  const utils =  require('./utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+
 
   function debug(x) {
     if (logverbose) {
@@ -17,16 +25,14 @@ exports = module.exports = function (base, logverbose) {
   }
 
   describe('JSONB support', function () {
-    it('should allow reading JSON column as objects', function () {
-      return doGet(base + '/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504').then(function (response) {
-        debug(response.body);
-        assert.equal(response.statusCode, 200);
-        assert.equal(response.body.details.productDeliveryOptions[0].product,
-                     '/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c');
-      });
+    it('should allow reading JSON column as objects', async function () {
+      const response = await doGet('/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504')
+      debug(response);
+      assert.equal(response.details.productDeliveryOptions[0].product,
+                   '/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c');
     });
 
-    it('should support PUT with sub-objects', function () {
+    it('should support PUT with sub-objects', async function () {
       var key = uuid.v4();
       var x = {
         key: key,
@@ -39,17 +45,16 @@ exports = module.exports = function (base, logverbose) {
           ]
         }
       };
-      return doPut(base + '/jsonb/' + key, x, 'sabine@email.be', 'pwd').then(function (response) {
-        assert.equal(response.statusCode, 201);
-        return doGet(base + '/jsonb/' + key, 'sabine@email.be', 'pwd');
-      }).then(function (response) {
-        debug(response.statusCode);
-        debug(typeof response.body.details);
-        assert.equal(response.statusCode, 200);
-        if (typeof response.body.details !== 'object') {
-          assert.fail('should be object');
-        }
-      });
+
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const responsePut = await doPut('/jsonb/' + key, x, { headers: { authorization: auth } })
+      assert.equal(responsePut.getStatusCode(), 201);
+
+      const responseGet = await doGet('/jsonb/' + key, null, { headers: { authorization: auth } })
+      debug(typeof responseGet.details);
+      if (typeof responseGet.details !== 'object') {
+        assert.fail('should be object');
+      }
     });
   });
 };

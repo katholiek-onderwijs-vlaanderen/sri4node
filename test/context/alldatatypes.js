@@ -1,4 +1,5 @@
 var common = require('../../js/common.js');
+const utils = require('../utils.js')(null);
 
 exports = module.exports = function (roa, extra) {
   'use strict';
@@ -7,32 +8,28 @@ exports = module.exports = function (roa, extra) {
   var $q = roa.queryUtils;
   var $m = roa.mapUtils;
 
-  var checkRead = function (database, elements, me, route) {
+  const checkRead = function( tx, sriRequest, elements ) {
 
-    var publicRoutes = [
+    const publicRoutes = [
       '/alldatatypes?textIn=value',
       '/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16'
     ];
 
-    if (me === null && publicRoutes.indexOf(route) === -1) {
-      throw new Error('Invalid access');
+    if (sriRequest.userObject === undefined && !publicRoutes.includes(sriRequest.originalUrl)) {
+      throw new sriRequest.SriError({status: 401, errors: [{code: 'unauthorized'}]})
     }
   };
 
-  var checkRoute = function (database, elements, me, route) {
-    if (route === null) {
-      throw new Error('Route is not present and it should be');
+  const returnTestHeader = function( tx, sriRequest, elements ) {
+    if (sriRequest.path === '/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3') {
+      throw new sriRequest.SriError({status: 400, headers: { test: 'TestHeader' }, errors: [{code: 'a.test.error.with.header'}]})
     }
-  };
+  }
 
-  var addTestHeader = function (database, elements, me, route, headerFn) {
-    headerFn('Test', 'TestHeader');
-  };
 
   var ret = {
     type: '/alldatatypes',
     'public': false, // eslint-disable-line
-    secure: [],
     cache: {
       ttl: 60,
       type: 'local'
@@ -64,36 +61,36 @@ exports = module.exports = function (roa, extra) {
       },
       required: []
     },
-    validate: [],
     map: {
       id: {},
-      text: {onread: $m.removeifnull},
-      textvarchar: {onread: $m.removeifnull},
-      textchar: {onread: $m.removeifnull},
-      text2: {onread: $m.removeifnull},
-      texts: {onread: $m.removeifnull},
-      publication: {onread: $m.removeifnull},
-      publications: {onread: $m.removeifnull},
-      number: {onread: $m.removeifnull},
-      numbers: {onread: $m.removeifnull},
-      numberint: {onread: $m.removeifnull},
-      numberbigint: {onread: $m.removeifnull},
-      numbersmallint: {onread: $m.removeifnull},
-      numberdecimal: {onread: $m.removeifnull},
-      numberreal: {onread: $m.removeifnull},
-      numberdoubleprecision: {onread: $m.removeifnull},
-      numbersmallserial: {onread: $m.removeifnull},
-      numberserial: {onread: $m.removeifnull},
-      numberbigserial: {onread: $m.removeifnull}
+      text: {columnToField: [ $m.removeifnull ]},
+      textvarchar: {columnToField: [ $m.removeifnull ]},
+      textchar: {columnToField: [ $m.removeifnull ]},
+      text2: {columnToField: [ $m.removeifnull ]},
+      texts: {columnToField: [ $m.removeifnull ]},
+      publication: {columnToField: [ ]},
+      publications: {columnToField: [ $m.removeifnull ]},
+      number: {columnToField: [ $m.removeifnull ]},
+      numbers: {columnToField: [ $m.removeifnull ]},
+      numberint: {columnToField: [ $m.removeifnull ]},
+      numberbigint: {columnToField: [ $m.removeifnull ]},
+      numbersmallint: {columnToField: [ $m.removeifnull ]},
+      numberdecimal: {columnToField: [ $m.removeifnull ]},
+      numberreal: {columnToField: [ $m.removeifnull ]},
+      numberdoubleprecision: {columnToField: [ $m.removeifnull ]},
+      numbersmallserial: {columnToField: [ $m.removeifnull ]},
+      numberserial: {columnToField: [ $m.removeifnull ]},
+      numberbigserial: {columnToField: [ $m.removeifnull ]}
     },
     query: {
       defaultFilter: $q.defaultFilter
     },
-    afterread: [
-      checkRead, checkRoute, addTestHeader
-    ],
+    beforeRead: [ returnTestHeader ],
+    afterRead: [ checkRead ],
     defaultlimit: 5,
-    maxlimit: 50
+    maxlimit: 50,
+
+    transformRequest: utils.lookForBasicAuthUser
   };
 
   common.mergeObject(extra, ret);

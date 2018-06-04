@@ -12,7 +12,6 @@ exports = module.exports = function (roa, extra) {
       key: {},
       name: {}
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A package of products.',
@@ -23,8 +22,6 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['key', 'name']
     },
-    afterinsert: [],
-    afterupdate: []
   };
 
   common.mergeObject(extra, ret);
