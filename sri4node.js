@@ -392,6 +392,7 @@ exports = module.exports = {
           app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
         }, {concurrency: 1})
 
+      // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         app.put('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
         app.post('/batch', expressWrapper(db, batch.batchOperation, null, false, true));

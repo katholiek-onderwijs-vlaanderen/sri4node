@@ -6,7 +6,7 @@ const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, trans
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
 var queryobject = require('./queryObject.js');
-const prepare = queryobject.prepareSQL; 
+const prepare = queryobject.prepareSQL;
 
 
 
@@ -64,7 +64,7 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   await phaseSyncer.phase()
   debug('* query by key');
   const result = await queryByKey(tx, mapping, key,
-                                   sriRequest.query['$$meta.deleted'] === 'true' 
+                                   sriRequest.query['$$meta.deleted'] === 'true'
                                           || sriRequest.query['$$meta.deleted'] === 'any');
 
   if (result.code == 'resource.gone') {
@@ -81,8 +81,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   await phaseSyncer.phase()
 
   debug('* executing afterRead functions on results');
-  await hooks.applyHooks( 'after read', 
-                          mapping.afterRead, 
+  await hooks.applyHooks( 'after read',
+                          mapping.afterRead,
                           f => f(tx, sriRequest, [{ permalink: element.$$meta.permalink
                                                   , incoming: null
                                                   , stored: element }] )
@@ -137,7 +137,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
   debug(obj);
   debug('Key received on URL : ' + key);
 
-  if (obj.key !== undefined && obj.key !== key) {
+  if (obj.key !== undefined && obj.key.toString() !== key) {
     throw new SriError({status: 400, errors: [{code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }]})
   }
 
@@ -176,23 +176,23 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     const insert = prepare('insert-' + table);
     insert.sql('insert into "' + table + '" (').keys(newRow).sql(') values (').values(newRow).sql(') ');
     insert.sql(' returning key') // to be able to check rows.length
-    const insertRes = await pgExec(tx, insert) 
+    const insertRes = await pgExec(tx, insert)
     if (insertRes.length === 1) {
       await phaseSyncer.phase()
 
       await hooks.applyHooks('after insert'
                             , mapping.afterInsert
-                            , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))      
-      return { status: 201 }      
+                            , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))
+      return { status: 201 }
     } else {
       debug('No row affected ?!');
       throw new SriError({status: 500, errors: [{code: 'insert.failed', msg: 'No row affected.'}]})
     }
   } else {
-    // update existing element 
+    // update existing element
     const prevObj = result.object
 
-    // If new resource is the same as the one in the database => don't update the resource. Otherwise meta 
+    // If new resource is the same as the one in the database => don't update the resource. Otherwise meta
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
     if (isEqualSriObject(prevObj, obj, mapping)) {
       debug('Putted resource does NOT contain changes -> ignore PUT.');
@@ -202,7 +202,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     await hooks.applyHooks('before update'
                           , mapping.beforeUpdate
                           , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
-    
+
     await phaseSyncer.phase()
     
     const updateRow = transformObjectToRow(obj, mapping, false)
@@ -212,7 +212,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     Object.keys(updateRow).forEach( key => {
       if (!key.startsWith('$$meta')) {
         update.sql(',\"' + key + '\"' + '=').param(updateRow[key]);
-      }  
+      }
     })
     update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
     update.sql(' returning key')
