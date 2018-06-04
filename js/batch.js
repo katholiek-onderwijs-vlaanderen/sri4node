@@ -71,10 +71,11 @@ exports = module.exports = {
           }
           const handler =  _.first(applicableHandlers)
 
-          const func  = handler.func
-          if (!func) {
-            throw new SriError({status: 404, errors: [{code: 'no.handler.found', msg: `No handler found for ${e.verb} on ${pathName}.`}]})
+          if (!handler || !handler.func) {
+            throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${element.verb} on ${pathName}.`}]})
           }
+
+          const func  = handler.func
           const routeParams = handler.route.match(pathName)
 
           const sriRequest  = {
