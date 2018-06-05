@@ -244,7 +244,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   await hooks.applyHooks( 'before read', 
                           mapping.beforeRead, 
                           f => f( tx, 
-                                  sriRequest,
+                                  sriRequest
                                 )
                         )    
 
