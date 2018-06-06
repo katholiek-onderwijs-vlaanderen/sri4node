@@ -506,7 +506,7 @@ function getFieldBaseType(fieldType) {
     type === 'serial' || type === 'bigserial') {
     return 'numeric';
   }
-  if (type === 'jsonb') {
+  if (type === 'jsonb' || type === 'json') {
     return 'json';
   }
 
