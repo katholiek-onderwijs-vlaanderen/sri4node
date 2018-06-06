@@ -1,6 +1,9 @@
-var Q = require('q');
+const pMap = require('p-map');
 var common = require('../../js/common.js');
 var cl = common.cl;
+const queryobject = require('../../js/queryObject.js');
+const prepare = queryobject.prepareSQL; 
+
 
 exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
@@ -16,141 +19,80 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  function invalidQueryParameter() {
-    var deferred = Q.defer();
-    deferred.reject({
-      code: 'invalid.query.parameter'
-    });
-    return deferred.promise;
+  async function invalidQueryParameter() {
+    throw new common.SriError({status: 404, errors: [{code: 'invalid.query.parameter'}]})
   }
 
   function disallowOneCommunity(forbiddenKey) {
-    return function (req) {
-      var deferred = Q.defer();
-      var key;
+    return async function ( tx, sriRequest, elements ) {
+      if (sriRequest.httpMethod === 'GET') {
+        await pMap( elements, async (e) => {
+          if ( sriRequest.path === '/communities/' + forbiddenKey ||
+                (sriRequest.query.expand !== undefined && e.permalink === '/communities/' + forbiddenKey) ) {
 
-      if (req.method === 'GET') {
-        key = req.params.key;
-        if (req.params.key === forbiddenKey || req.path == '/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c') {
-          cl('security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
-          deferred.reject();
-        } else {
-          deferred.resolve();
-        }
-      } else {
-        deferred.resolve();
-      }
-
-      return deferred.promise;
-    };
+            cl('security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
+            throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
+          }
+        }, {concurrency: 1})
+      } 
+    } 
   }
+
 
   // Don't really need the extra parameters when using CTE.
-  function parameterWithExtraQuery(value, select, param, database, count) {
-    var deferred = Q.defer();
-    var q;
-
+  async function parameterWithExtraQuery(value, select, param, tx, count) {
     if (count) {
-      q = $u.prepareSQL('create-allcommunitykeys');
-      q.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
-      $u.executeSQL(database, q).then(function () {
-        select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
-        deferred.resolve();
-      }).catch(function (error) {
-        debug('Catch creating temp table');
-        debug(error);
-        deferred.reject(error);
-      }).fail(function (error) {
-        debug('Fail creating temp table');
-        debug(error);
-        deferred.reject(error);
-      });
+      const query = prepare('create-allcommunitykeys');
+      query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
+      await common.pgExec(tx, query)
+      
+      select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
     } else {
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
-      deferred.resolve();
     }
-
-    return deferred.promise;
   }
 
-  function parameterWithExtraQuery2(value, select, param, database, count) {
-    var deferred = Q.defer();
-    var q;
-
+  async function parameterWithExtraQuery2(value, select, param, tx, count) {
     if (count) {
-      q = $u.prepareSQL('create-allcommunitykeys2');
-      q.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
-      $u.executeSQL(database, q).then(function () {
-        select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
-        deferred.resolve();
-      }).catch(function (error) {
-        debug('Catch creating temp table');
-        debug(error);
-        deferred.reject(error);
-      }).fail(function (error) {
-        debug('Fail creating temp table');
-        debug(error);
-        deferred.reject(error);
-      });
+      const query = prepare('create-allcommunitykeys2');
+      query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
+      await common.pgExec(tx, query)
+
+      select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
     } else {
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
-      deferred.resolve();
     }
-
-    return deferred.promise;
   }
 
-  function addMessageCountToCommunities(database, elements) {
+
+  async function addMessageCountToCommunities( tx, sriRequest, elements ) {
     debug('addMessageCountToCommunities');
     debug(elements);
-    var deferred = Q.defer();
-    var query, keyToElement, keys, i, element, key;
-    var row;
 
-    // Lets do this efficiently. Remember that we receive an array of elements.
-    // We query the message counts in a single select.
-    // e.g. select community,count(*) from messages group by community having
-    // community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
-    if (elements && elements.length > 0) {
-      query = $u.prepareSQL();
-      keyToElement = {};
-      keys = [];
-      for (i = 0; i < elements.length; i++) {
-        element = elements[i];
-        key = element.$$meta.permalink.split('/')[2];
-        keys.push(key);
-        keyToElement[key] = element;
-        // Default to 0, The query will not return a row for those.
-        element.$$messagecount = 0;
-      }
+    if (elements.length > 0) {
+      // Lets do this efficiently. Remember that we receive an array of elements.
+      // We query the message counts in a single select.
+      // e.g. select community,count(*) from messages group by community having
+      // community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
+      const keyToElement = {};
+      const keys = elements.map( ({ permalink, stored }) => {
+        const key = permalink.split('/')[2]
+        keyToElement[key] = stored;
+        return key;
+      })
+
+      const query = prepare();
       query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
       query.array(keys);
       query.sql(')');
-
-      $u.executeSQL(database, query).then(function (result) {
-        debug(result);
-        var rows = result.rows;
-        for (i = 0; i < rows.length; i++) {
-          row = rows[i];
-          keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10);
-        }
-        deferred.resolve();
-      }).fail(function (error) {
-        debug(error);
-        deferred.reject(error);
-      });
-    } else {
-      // No elements in array, resolve promise.
-      deferred.resolve();
+      const rows = await common.pgExec(tx, query)
+      rows.forEach( row => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10) )
     }
-
-    return deferred.promise;
   }
 
   var ret = {
     type: '/communities',
     'public': false, // eslint-disable-line
-    secure: [disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c')],
     cache: {
       ttl: 0,
       type: 'local'
@@ -176,29 +118,28 @@ exports = module.exports = function (roa, logverbose, extra) {
       required: ['name', 'street', 'streetnumber', 'zipcode',
                  'city', 'phone', 'email', 'adminpassword', 'currencyname']
     },
-    validate: [],
     map: {
       name: {},
       street: {},
       streetnumber: {},
       streetbus: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       zipcode: {},
       city: {},
       // Only allow create/update to set adminpassword, never show on output.
       adminpassword: {
-        onread: $m.remove
+        columnToField: [ $m.remove ]
       },
       phone: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       email: {},
       facebook: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       website: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       currencyname: {}
     },
@@ -209,12 +150,13 @@ exports = module.exports = function (roa, logverbose, extra) {
       hrefs: $q.filterHrefs,
       defaultFilter: $q.defaultFilter
     },
-    afterread: [
+    afterRead: [
       // Add the result of a select query to the outgoing resource
       // SELECT count(*) FROM messages where community = [this community]
       // For example :
       // $$messagecount: 17
-      addMessageCountToCommunities
+      addMessageCountToCommunities,
+      disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c')
     ]
   };
 

@@ -12,7 +12,6 @@ exports = module.exports = function (roa, extra) {
       select: {},
       from: {}
     },
-    secure: [],
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A table with protected keywords, to check escaping of sri4node',
@@ -23,8 +22,6 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['select', 'from']
     },
-    afterinsert: [],
-    afterupdate: []
   };
 
   common.mergeObject(extra, ret);

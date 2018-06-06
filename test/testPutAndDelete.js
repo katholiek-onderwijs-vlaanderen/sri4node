@@ -1,19 +1,26 @@
 // Utility methods for calling the SRI interface
+const pMap = require('p-map'); 
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
-var doPut = sriclient.put;
-var doPost = sriclient.post;
-var doDelete = sriclient.delete;
+var sriclient = require('@kathondvla/sri-client/node-sri-client');
 var uuid = require('node-uuid');
-var Q = require('q');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+  const doPut = api.put;
+  const doDelete = api.delete;
+
+  const utils =  require('./utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
   function debug(x) {
     if (logverbose) {
@@ -92,285 +99,336 @@ exports = module.exports = function (base, logverbose) {
     var key = uuid.v4();
     var body = generateRandomCommunity(key);
 
-    before(function (done) {
-      doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function () {
-        done();
-      });
+    before(async function (done) {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      await doPut('/communities/' + key, body, { headers: { authorization: auth } })
+      done();      
     });
 
-    it('should be possible to delete a newly created resource', function () {
-      return doDelete(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-        }
-      );
+    it('should be possible to delete a newly created resource', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      await doDelete('/communities/' + key, { headers: { authorization: auth } })
     });
 
-    it('retrieving a deleted resource should return 410 - Gone', function () {
-      return doGet(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 410);
-        }
-      );
+    it('retrieving a deleted resource should return 410 - Gone', async function () {
+      await utils.testForStatusCode( 
+        async () => {
+          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+          await doGet('/communities/' + key, null,  { headers: { authorization: auth } })
+        }, 
+        (error) => {
+          assert.equal(error.status, 410);
+        })
     });
 
-    it('deleting a deleted resource should return 410 - Gone', function () {
-      return doDelete(base + '/communities/' + key, 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 410);
-        }
-      );
+    it('deleting a deleted resource should return 200 - OK', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      await doDelete('/communities/' + key, { headers: { authorization: auth } })
     });
 
-    it('updating a deleted resource should return 410 - Gone', function () {
-      return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 410);
-        }
-      );
+    it('updating a deleted resource should return 410 - Gone', async function () {
+      await utils.testForStatusCode( 
+        async () => {
+          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+          await doPut('/communities/' + key, body,  { headers: { authorization: auth } })
+        }, 
+        (error) => {
+          assert.equal(error.status, 410);
+        })
     });
 
-    it('retrieving a deleted resource with deleted=true should return the resource', function () {
-      return doGet(base + '/communities/' + key + '?$$meta.deleted=true', 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.email, key + '@email.com');
-          assert.equal(response.body.$$meta.deleted, true);
-        }
-      );
+    it('retrieving a deleted resource with deleted=true should return the resource', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/communities/' + key + '?$$meta.deleted=true', null,  { headers: { authorization: auth } })
+      assert.equal(response.email, key + '@email.com');
+      assert.equal(response.$$meta.deleted, true);
     });
 
-    it('listing a deleted resource should not return it', function () {
-      return doGet(base + '/communities?email=' + key + '@email.com', 'sabine@email.be', 'pwd').then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 0);
-        }
-      );
+    it('listing a deleted resource should not return it', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/communities?email=' + key + '@email.com', null,  { headers: { authorization: auth } })
+      assert.equal(response.results.length, 0);
     });
 
-    it('listing a deleted resource with deleted=true should return it only', function () {
-      return doGet(base + '/communities?$$meta.deleted=true&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
-      .then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.email, key + '@email.com');
-          assert.equal(response.body.results[0].$$expanded.$$meta.deleted, true);
-        }
-      );
+    it('listing a deleted resource with deleted=true should return it only', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/communities?$$meta.deleted=true&email=' + key + '@email.com', null,  { headers: { authorization: auth } })
+      assert.equal(response.results.length, 1);
+      assert.equal(response.results[0].$$expanded.email, key + '@email.com');
+      assert.equal(response.results[0].$$expanded.$$meta.deleted, true);
     });
 
-    it('listing a deleted resource with deleted=any should return everything', function () {
-      return doGet(base + '/communities?$$meta.deleted=any&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
-      .then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.email, key + '@email.com');
-          assert.equal(response.body.results[0].$$expanded.$$meta.deleted, true);
-        }
-      );
+    it('listing a deleted resource with deleted=any should return everything', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/communities?$$meta.deleted=any&email=' + key + '@email.com', null,  { headers: { authorization: auth } })
+      assert.equal(response.results.length, 1);
+      assert.equal(response.results[0].$$expanded.email, key + '@email.com');
+      assert.equal(response.results[0].$$expanded.$$meta.deleted, true);
     });
 
-    it('listing a deleted resource with deleted=false should not return it', function () {
-      return doGet(base + '/communities?$$meta.deleted=false&email=' + key + '@email.com', 'sabine@email.be', 'pwd')
-      .then(
-        function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.results.length, 0);
-        }
-      );
+    it('listing a deleted resource with deleted=false should not return it', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/communities?$$meta.deleted=false&email=' + key + '@email.com', null,  { headers: { authorization: auth } })
+      assert.equal(response.results.length, 0);
     });
   });
 
+
   describe('PUT', function () {
     describe('schema validation', function () {
-      it('should detect if a field is too long', function () {
-        var key = uuid.v4();
-        var body = generateRandomCommunity(key);
-        body.email = body.email + body.email + body.email;
-        return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-        });
+      it('should detect if a field is too long', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            const body = generateRandomCommunity(key);
+            body.email = body.email + body.email + body.email;
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/communities/' + key, body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+          })
       });
     });
 
     describe('with rejecting custom validation function', function () {
-      it('should return a 409 Conflict', function () {
-        var key = uuid.v4();
-        var body = generateRandomMessage(key, personSabine, communityDendermonde);
-        return doPut(base + '/messages/' + key, body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-          assert.equal(response.body.errors[0].code, 'not.enough');
-        });
+      it('should return a 409 Conflict', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            var body = generateRandomMessage(key, personSabine, communityDendermonde);
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/messages/' + key, body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].code, 'not.enough');
+          })
       });
     });
 
     describe('with a missing field (community without name)', function () {
-      it('should return a 409 Conflict', function () {
-        var key = uuid.v4();
-        var body = generateRandomCommunity(key);
-        delete body.name;
-        return doPut(base + '/communities/' + key, body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-          assert.equal(response.body.errors[0].code, 'requires.property.name');
-        });
+      it('should return a 409 Conflict', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            var body = generateRandomCommunity(key);
+            delete body.name;
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/communities/' + key, body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].errors.validationErrors.errors[0].code, 'requires.property.name');
+          })
       });
     });
 
     describe('with a numeric value of 0', function () {
-      it('should work and not skip 0 as a null value', function () {
+      it('should work and not skip 0 as a null value', async function () {
+        const key = uuid.v4();
+        var body = generateTransaction(key, '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 0);
 
-        var keyt = uuid.v4();
-        var t = generateTransaction(keyt, '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 0);
-        return doPut(base + '/transactions/' + keyt, t, 'sabine@email.be', 'pwd')
-          .then(function (response) {
-            assert.equal(response.statusCode, 201);
-          });
-
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+        await doPut('/transactions/' + key, body,  { headers: { authorization: auth } })
       });
     });
   });
 
   describe('VALIDATION', function () {
     describe('schema validation', function () {
-      it('should detect if a field is too long', function () {
-        var key = uuid.v4();
-        var body = generateRandomCommunity(key);
-        body.email = body.email + body.email + body.email;
-        return doPost(base + '/communities/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-        });
+      it('should detect if a field is too long', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            const body = generateRandomCommunity(key);
+            body.email = body.email + body.email + body.email;
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/communities/' + key + '?dryRun=true', body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+          })
       });
     });
 
     describe('with rejecting custom validation function', function () {
-      it('should return a 409 Conflict', function () {
-        var key = uuid.v4();
-        var body = generateRandomMessage(key, personSabine, communityDendermonde);
-        return doPost(base + '/messages/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-          assert.equal(response.body.errors[0].code, 'not.enough');
-        });
+      it('should return a 409 Conflict', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            var body = generateRandomMessage(key, personSabine, communityDendermonde);
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/messages/' + key + '?dryRun=true', body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].code, 'not.enough');
+          })
       });
     });
 
     describe('with a missing field (community without name)', function () {
-      it('should return a 409 Conflict', function () {
-        var key = uuid.v4();
-        var body = generateRandomCommunity(key);
-        delete body.name;
-        return doPost(base + '/communities/validate', body, 'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 409);
-          assert.equal(response.body.errors[0].code, 'requires.property.name');
-        });
+      it('should return a 409 Conflict', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const key = uuid.v4();
+            var body = generateRandomCommunity(key);
+            delete body.name;
+
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/communities/' + key + '?dryRun=true', body,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].errors.validationErrors.errors[0].code, 'requires.property.name');
+          })
       });
     });
 
     describe('with a numeric value of 0', function () {
-      it('should work and not skip 0 as a null value', function () {
+      it('should work and not skip 0 as a null value', async function () {
+        const key = uuid.v4();
+        var body = generateTransaction(key, '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', '/persons/9abe4102-6a29-4978-991e-2a30655030e6', 0);
 
-        var keyt = uuid.v4();
-        var t = generateTransaction(keyt, '/persons/9abe4102-6a29-4978-991e-2a30655030e6', '/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b', 0);
-        return doPost(base + '/transactions/validate', t, 'sabine@email.be', 'pwd')
-          .then(function (response) {
-            assert.equal(response.statusCode, 201);
-          });
-
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+        await doPut('/transactions/' + key + '?dryRun=true', body,  { headers: { authorization: auth } })
       });
     });
 
     describe('should have no side effects', function () {
+      const key = uuid.v4();
+      const person = generateRandomPerson(key, communityDendermonde, 'Rodrigo', 'Uroz');
 
-      var key = uuid.v4();
-      var p = generateRandomPerson(key, communityDendermonde, 'Rodrigo', 'Uroz');
-
-      it('must return 201 on a new resource but the person must not be persisted', function () {
-        return doPost(base + '/persons/validate', p, 'sabine@email.be', 'pwd').then(function (response) {
-          debug(response);
-          assert.equal(response.statusCode, 201);
-
-          return doGet(base + '/persons/' + key, 'sabine@email.be', 'pwd').then(function (response) {
-            assert.equal(response.statusCode, 404);
-          });
-
-        });
+      it('must return 201 on a new resource but the person must not be persisted', async function () {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+        await doPut('/persons/' + key + '?dryRun=true', person, { headers: { authorization: auth } })
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/persons/' + key, null,  { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 404);
+          })
       });
-
     });
   });
 
   describe('afterupdate', function () {
     describe('should support', function () {
-      it('multiple functions', function () {
-        var keyp1 = uuid.v4();
-        var keyp2, p2;
-        var p1 = generateRandomPerson(keyp1, communityDendermonde);
-        return doPut(base + '/persons/' + keyp1, p1, 'sabine@email.be', 'pwd').then(function (response) {
-          debug(response);
-          assert.equal(response.statusCode, 201);
-          debug('p1 created');
-          keyp2 = uuid.v4();
-          p2 = generateRandomPerson(keyp2, communityDendermonde);
-          return doPut(base + '/persons/' + keyp2, p2, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          assert.equal(response.statusCode, 201);
-          debug('p2 created');
-          var keyt = uuid.v4();
-          var t = generateTransaction(keyt, '/persons/' + keyp1, '/persons/' + keyp2, 20);
-          return doPut(base + '/transactions/' + keyt, t, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          debug(response.body);
-          assert.equal(response.statusCode, 201);
-          debug('t created');
-          return doGet(base + '/persons/' + keyp1, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.balance, -20);
-          return doGet(base + '/persons/' + keyp2, 'sabine@email.be', 'pwd');
-        }).then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.balance, 20);
-        });
+      it('multiple functions', async function () {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, communityDendermonde);
+        await doPut('/persons/' + keyp1, p1, { headers: { authorization: auth } })
+        debug('p1 created');
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        await doPut('/persons/' + keyp2, p2, { headers: { authorization: auth } })
+        debug('p2 created');
+        const keyt = uuid.v4();
+        const t = generateTransaction(keyt, '/persons/' + keyp1, '/persons/' + keyp2, 20);
+        await doPut('/transactions/' + keyt, t, { headers: { authorization: auth } })
+        debug('t created');
+
+        const responseP1 = await doGet('/persons/' + keyp1, null, { headers: { authorization: auth } });
+        assert.equal(responseP1.balance, -20);
+        const responseP2 = await doGet('/persons/' + keyp2, null, { headers: { authorization: auth } });
+        assert.equal(responseP2.balance, 20);
       });
     });
   });
 
+
+
+  describe('key in PUT ', function () {
+    it('should return error in case of url and permalink mismatch', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            const keyp1 = uuid.v4();
+            const keyp2 = uuid.v4();
+            const p1 = generateRandomPerson(keyp1, communityDendermonde);
+            await doPut('/persons/' + keyp2, p1, { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 400);
+            assert.equal(error.body.errors[0].code, 'key.mismatch');
+          })
+    });
+  
+    it('should return error for invalid UUID', async function () {
+      await utils.testForStatusCode( 
+          async () => {      
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            const keyp1 = 'invalid'
+            const p1 = generateRandomPerson(keyp1, communityDendermonde);
+            await doPut('/persons/' + keyp1, p1, { headers: { authorization: auth }, maxAttempts: 1  })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].code, 'validation.errors');
+            assert.equal( error.body.errors[0].errors.validationErrors.errors[0].code.substring(0, 22)
+                        , 'does.not.match.pattern');
+          })
+    });
+  });
+
+  describe('permalink reference in PUT', function () {
+    it('should return error in case of invalid UUID', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            const keyp = uuid.v4();
+            const p = generateRandomPerson(keyp, '/communities/foo-bar');
+            await doPut('/persons/' + keyp, p, { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal( error.body.errors[0].errors.validationErrors.errors[0].code.substring(0, 22)
+                        , 'does.not.match.pattern');
+          })
+    });
+  });
+
+
+
   describe('PUT must distinguish between create (201) and update (200)', function () {
 
-    var key = uuid.v4();
-    var p = generateRandomPerson(key, communityDendermonde);
+    const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    const key = uuid.v4();
+    const p = generateRandomPerson(key, communityDendermonde);
 
-    it('must return 201 on a new resource', function () {
-      return doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function (response) {
-        debug(response);
-        assert.equal(response.statusCode, 201);
-      });
+    it('must return 201 on a new resource', async function () {
+      const response = await doPut('/persons/' + key, p, { headers: { authorization: auth } } )
+      debug(response);
+      assert.equal(response.getStatusCode(), 201);
     });
 
-    it('must return 200 on an udpdate', function () {
-      return doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd').then(function (response) {
-        debug(response);
-        assert.equal(response.statusCode, 200);
-      });
+    it('must return 200 on an update', async function () {
+      const response = await doPut('/persons/' + key, p, { headers: { authorization: auth } })
+      debug(response);     
+      assert.equal(response.getStatusCode(), 200);
     });
   });
 
   describe('PUT of 100 items ', function () {
-    it('should be allowed in parallel.', function () {
-      var i, p, key;
-      var promises = [];
-      for (i = 0; i < 100; i++) {
-        key = uuid.v4();
-        p = generateRandomPerson(key, communityDendermonde);
-        promises.push(doPut(base + '/persons/' + key, p, 'sabine@email.be', 'pwd'));
-      }
-      return Q.allSettled(promises).then(function (results) {
-        for (i = 0; i < 100; i++) {
-          assert.equal(results[i].state, 'fulfilled');
-        }
-      });
+    it('should be allowed in parallel.', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const results = await pMap(
+        Array(100),
+        async (i) => {
+          const key = uuid.v4();
+          const person = generateRandomPerson(key, communityDendermonde);
+          await doPut('/persons/' + key, person, { headers: { authorization: auth } })
+        },
+        { concurrency: 100 }
+      )
     });
   });
 };

@@ -23,6 +23,173 @@ Express.js and node-postgress are *technically* not dependencies (as in npm depe
 But you need to pass them in when configuring.
 This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
 
+# Changes in sri4node 2.0
+
+In the latest version, we decided to rewrite a few things in order to be able to fix long-known problems (including the fact that GETs inside BATCH operations was not properly supported).
+
+So if your new to sri4node, it's best to jump to [Usage](#Usage) for the general principles first and then come back to read about the changes in the latest version!
+
+## 'request' parameter
+
+In order to fix the BATCH problem, we had to replace the express request object by our own version (which is *very* similar). At any point in the chain, you can add properties to this object that you might need later on, like the current user or something else.
+
+The 'sriRequest' object will have the following properties (but the developer can of course add its own extra properties like user or something else to this object)
+
+ * path: path of the request 
+ * originalUrl: full url of the request 
+ * query: parameters passed via the query string of the url, as object like express `{ key: value, key2: value2 }` 
+ * params: parameters matched in the request route like UUID in /person/:UUID => /persons/cf2dccb2-c77c-4402-e044-d4856467bfb8, as object like express `{ key: value, key2: value2 }`
+ * httpMethod: http method of the request (POST GET PUT DELETE (PATCH))
+ * headers: headers of the original request (same for all requests in batch) 
+ * protocol: protocol of original request (same for all requests in batch) 
+ * body: body of the request 
+ * sriType: type of the matching entry in the sri4node resources config
+ * SriError: constructor to create an error object to throw in a handler in case of error \
+ `new SriError( { status, errors = [], headers = {} } )`
+
+## 'me'
+
+We also removed the [me](###identify) concept, allowing the implementer to add stuff to the sriRequest object as it sees fit. If that info is 'the current user', so be it, you can just as well build an API that doesn't need an identity to work.
+
+## Plugins
+
+You have one array of plugins, that will be smart enough to add themselves to the express app.
+
+This means that you don't need to set hooks to functions from plugins anymore (no more `onread: myplugin.onread` etc.), but that a plugin will add the proper hooks itself.
+
+```javascript
+sri4node.configure( app,
+    {
+            // add some sri4node plugins
+            plugins : [ require( 'my-plugin' )( ... ) ],
+    ...
+```
+
+On top of that: if a plugin needs another plugin to work, it should be smart enough to automatically add that other plugin also to the list of plugins, so no more 'plugin A doesn't work because it needs plugin B' (cfr. AccessControl needing OAuth, including AccessControl should suffice).
+
+The plugins work plug and play (an 'install' function is called by sri4node during initialization with sriConfig object and the plugin will manipulate it to insert its hooks).
+
+## Throwing errors (the http response code)
+
+Whenever an uncaught exception happens, sri4node should be smart enough to send a 500 Internal Server Error, but when something else goes wrong, the implementer probably wants to be able to set the http response code himself (and expect the running transaction to be rolled back).
+
+```javascript
+throw new sriRequest.SriError( { status = 500, errors = [], headers = {} } )
+```
+
+When you throw an SriError somewhere in your hook code, the current request handling is terminated (of course the db transaction is also cancelled) and the request is answered according to the SriError object. So statuscode and headers of the response are set according to the values of the fields in the SirError object and the body of the response will be a JSON object contain the status (status code) and errors (errors provided in the SirError object, with 'type' field of each error set to 'ERROR' if not specified). All parameters of the SriError constructor have default values, so each parameter can be omitted.
+
+An example of the usage of setting extra http headers is setting the Location headers in case of redirect when not logged.
+
+## Hooks
+
+At the same time we took this opportunity to rename, add and remove a few 'hooks' (functions like onread, on...).
+
+As a general principle for renaming those functions, we think that sri4node should make less assumptions about *what* these hooks are meant for, but make it clear to the implementer *when* the hook will be called.
+
+For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make it clear when the operation happens, but the function name doesn't suggest anymore what you should do at that time. Of course you could do some validation of the input before an insert, but you might as well dance the lambada if you wish. Sri4node shouldn't have an opinion about that.
+
+All hooks are 'await'ed for (and the result is ignored). This makes that a hook can be a plain synchronous function or an asynchronous function. You could return a promise but this will not have any added value.
+
+
+### transformRequest
+
+
+```javascript
+transformRequest(expressRequest, sriRequest)
+```
+
+This function is called at the very start of each http request (i.e. for batch only once). Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe add the user's identity if it can be deducted from the headers).
+
+### beforeupdate, beforeinsert, beforedelete
+
+These functions replace [validate](###validate) and [secure](###secure). They are called before any changes to a record on the database are performed. Since you get both the incoming version of the resource and the one currently stored in the DB here, you could do some validation here (for example if a certain property can not be altered once the resource has been created).
+
+ * `beforeupdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )` 
+ * `beforeinsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+ * `beforedelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+
+
+There is no **beforeread**, because we think there is nothing useful you can do on a GET before you've actually fetched the item from the database.
+
+The tx is a tranaction/connection object from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
+
+The last parameter will always be an array (but it will most of the time only contain one element, but in the case of lists it could have many element). This makes it easy to implement this function once with an `array.forEach( x => ... )` and allows you to make optimizations (if possible) for list queries.
+
+Below is a code example showing how validation can be done with one beforeInsert/beforeUpdate hook. For validation, it of course makes sense to provide an error message with all validation errors. Therefore one hook function is needed, evaluating all validation function and throwing an SriError in case one or more validation functions has failed:
+
+```javascript
+const validateNoDuplicateEmailsForSamePerson = async (tx, incomingObj) => {
+    const res = await readDuplicateEmailsFromDatabase(incomingObj.email)
+    if (res.length > 0) {
+        throw {code: duplicate.email.address, error: ... }
+    }
+}
+
+const validateNationalIdentityNumber = (tx, incomingObj) => {
+    ...
+    if (controlNumber != calculatedControlNumber) {
+        throw {code: invalid.national.identity.number, error: ... }
+    }
+}
+
+const validationHook = (tx, sriRequest, elements) => {  // can be used for beforeInsert and beforeUpdate:
+    pMap(elements, ({incoming}) => {
+        const validationFuns = [ validateNoDuplicateEmailsForSamePerson, validateNationalIdentityNumber ]
+        const validationResults = await pSettle(validationFuns.map( f => f((tx, incoming) ))
+        const validationErrors = validationResults.filter(r => r.isRejected).map(r => r.reason)
+        if (validationResults.length > 0) {
+            throw new sriRequest.SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', validationErrors }]})
+        }
+    }
+}
+```
+
+
+### afterread, afterupdate, afterinsert, afterdelete
+
+The existing [afterread](#afterread), [afterupdate/afterinsert](###afterupdate/afterinsert) and [afterdelete](#afterdelete) functions will get a new signature, more in line with all the other functions (same parameters).
+
+`stored` should still be the one *before* the operation was executed.
+
+ * `afterread( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+ * `afterupdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
+ * `afterinsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+ * `afterdelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+
+### fieldToColumn and columnToField(popertyName, value) 
+
+Individual properties can be transformed when going to or coming from the database.
+
+For example: an sri array of references could be stored as an array of permalinks on the DB, but should be transformed to `[ { href: "..." }, { href: "..." }, ... ]` in the API. These functions could do that mapping from API-to-DB and back. Also when storing dates as dates, but outputting them as strings in the API, this would be the place to do the transformation.
+
+These hooks replace the now obsolete [onread](###onread)/[oninsert/onupdate](###oninsert/onupdate)... and should be configured as part of the 'mapping' component in your sri config object.
+ 
+ * `fieldToColumn(propertyName, value)`
+ * `columnToField(propertyName, value)`
+
+### transformResponse
+
+This replaces handlelistqueryresult(rows).
+
+This will be called just before sending out the response to the client, and it allows you to transform any response (not only list results) at will.
+
+This can be used if you want to generate custom output that is not necessarily sri-compliant on some route. It should not be necessary for a normal sri-compliant API (but you never know).
+
+```javascript
+transformResponse( tx, sriRequest, responseBody )
+```
+
+## Other changes and bug fixes
+
+ * [Deleted resource could not be retrieved as regalar resource with '$$meta.deleted=true'](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/128)
+ * [expand is not working sometimes bug](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/125)
+ * [Expand is expanding deleted resources.](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/123)
+ * [If a property is missing, it is not set to null enhancement](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/118)
+ * [Schema validation is not working bug](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/114)
+ * [expanded addReferencingResources ignores afterRead of referencing resource enhancement](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/108)
+
+
 # Usage
 
 Start by requiring the module in your code.

@@ -1,13 +1,10 @@
-var Q = require('q');
 var roa = require('../../sri4node.js');
 var $u = roa.utils;
 var common = require('../../js/common.js');
 var cl = common.cl;
 
-function allParentsOf(value, select) {
+async function allParentsOf(value, select) {
   'use strict';
-  var deferred = Q.defer();
-
   var key = value.split('/')[2];
   var nonrecursive = $u.prepareSQL();
   nonrecursive.sql('VALUES (').param(key).sql(')');
@@ -17,9 +14,6 @@ function allParentsOf(value, select) {
   select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
   select.sql(' AND key IN (SELECT key FROM parentsof)');
   cl(select.text);
-  deferred.resolve();
-
-  return deferred.promise;
 }
 
 exports = module.exports = function (extra) {

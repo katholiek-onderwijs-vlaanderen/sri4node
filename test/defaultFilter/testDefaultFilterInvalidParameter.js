@@ -1,40 +1,61 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
+const assert = require('assert');
+const _ = require('lodash');
+const roa = require('../../sri4node.js');
+const alldatatypes = require('../context/alldatatypes.js')(roa, {});
 
 exports = module.exports = function (base) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+
+  const utils =  require('../utils.js')(api);
+  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
+
 
   describe('Generic Filters', function () {
 
     describe('Invalid parameter (non existent)', function () {
 
-      it('should return 404 - not found', function () {
-        return doGet(base + '/alldatatypes?wrongParameter=multiple', 'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 404);
-          assert.equal(response.body.errors[0].code, 'invalid.query.parameter');
-          assert.equal(response.body.errors[0].parameter, 'wrongParameter');
-          assert.equal(response.body.errors[0].type, 'ERROR');
-        });
+      it('should return 404 - not found', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/alldatatypes?wrongParameter=multiple', null, authHdrObj)
+          }, 
+          (error) => {
+            assert.equal(error.status, 404);
+            assert.equal(error.body.errors[0].code, 'invalid.query.parameter');
+            assert.equal(error.body.errors[0].parameter, 'wrongParameter');
+            assert.equal(error.body.errors[0].type, 'ERROR');            
+          })
       });
 
-      it('should return the list of possible parameters', function () {
-        return doGet(base + '/alldatatypes?wrongParameter=multiple', 'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 404);
+      it('should return the list of possible parameters', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            await doGet('/alldatatypes?wrongParameter=multiple', null, authHdrObj)
+          }, 
+          (error) => {          
+            assert.equal(error.status, 404);
+            assert.equal(error.body.errors[0].code, 'invalid.query.parameter');
+            assert.equal(error.body.errors[0].parameter, 'wrongParameter');
+            assert.equal(error.body.errors[0].type, 'ERROR');            
 
-          var possibleParameters = [
-            "key", "id", "text", "text2", "texts", "publication", "publications", "number", "numbers", "numberint",
-            "numberbigint", "numbersmallint", "numberdecimal", "numberreal", "numberdoubleprecision",
-            "numbersmallserial", "numberserial", "numberbigserial", "textvarchar", "textchar", "$$meta.deleted",
-            "$$meta.modified", "$$meta.created"
-          ];
+            const possibleParameters = Object.keys(alldatatypes.schema.properties).concat(
+                  [ 'key'
+                  , '$$meta.deleted'
+                  , '$$meta.modified'
+                  , '$$meta.created'
+                  , '$$meta.version' ])
 
-          assert.equal(response.body.errors[0].code, 'invalid.query.parameter');
-          assert.equal(response.body.errors[0].parameter, 'wrongParameter');
-          assert.equal(response.body.errors[0].type, 'ERROR');
-          assert.deepEqual(response.body.errors[0].possibleParameters, possibleParameters);
-        });
+            assert.deepEqual( _.orderBy(error.body.errors[0].possibleParameters),
+                              _.orderBy(possibleParameters) );
+          })
       });
 
     });

@@ -2,13 +2,20 @@
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
-var sriclient = require('sri4node-client');
-var doGet = sriclient.get;
-//var needle = require('needle');
-//var Q = require('q');
+var sriclient = require('@kathondvla/sri-client/node-sri-client');
+
+const makeAuthHeader = (user, pw) => 
+  'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
+
+  const sriClientConfig = {
+    baseUrl: base
+  }
+  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
+  const doGet = api.get;
+
 
   function debug(x) {
     if (logverbose) {
@@ -18,95 +25,119 @@ exports = module.exports = function (base, logverbose) {
 
   describe('GET public regular resource', function () {
     describe('without authentication', function () {
-      it('should return LETS Regio Dendermonde', function () {
-        return doGet(base + '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849').then(function (response) {
-          debug(response.body);
-          assert.equal(response.body.name, 'LETS Regio Dendermonde');
-        });
+      it('should return LETS Regio Dendermonde', async function () {
+        const response = await doGet('/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849')
+        debug(response);
+        assert.equal(response.name, 'LETS Regio Dendermonde');
       });
     });
 
     describe('with authentication', function () {
-      it('should return LETS Hamme', function () {
-        return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
-                     'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.body.name, 'LETS Hamme');
-        });
+      it('should return LETS Hamme', async function () {
+        const auth = makeAuthHeader('sabine@email.be', 'pwd')
+        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
+        assert.equal(response.name, 'LETS Hamme');
       });
     });
 
     describe('with invalid authentication - non-existing user', function () {
-      it('should return LETS Hamme', function () {
-        return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
-                     'unknown@email.be', 'pwd').then(function (response) {
-          assert.equal(response.body.name, 'LETS Hamme');
-        });
+      it('should return LETS Hamme', async function () {
+        const auth = makeAuthHeader('unknown@email.be', 'pwd')
+        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
+        assert.equal(response.name, 'LETS Hamme');
       });
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
-      it('should return LETS Hamme', function () {
-        return doGet(base + '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
-                     'sabine@email.be', 'INVALID').then(function (response) {
-          assert.equal(response.body.name, 'LETS Hamme');
-        });
+      it('should return LETS Hamme', async function () {
+        const auth = makeAuthHeader('sabine@email.be', 'INVALID')
+        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
+        assert.equal(response.name, 'LETS Hamme');
       });
     });
   });
 
   describe('GET private regular resource', function () {
     describe('/persons/{key} from my community', function () {
-      it('should return Kevin Boon', function () {
-        return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
-                     'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 200);
-          assert.equal(response.body.firstname, 'Kevin');
-          assert.equal(response.body.lastname, 'Boon');
-        });
+      it('should return Kevin Boon', async function () {
+        const auth = makeAuthHeader('kevin@email.be', 'pwd')
+        const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })          
+        assert.equal(response.firstname, 'Kevin');
+        assert.equal(response.lastname, 'Boon');
       });
     });
 
     describe('/persons/{key} from different community', function () {
-      it('should be 403 Forbidden', function () {
-        return doGet(base + '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb',
-                     'kevin@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
-      });
+      it('should be 403 Forbidden', async function () {
+        try {
+          const auth = makeAuthHeader('sabine@email.be', 'pwd')
+          const response = await doGet('/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb', null, { headers: { authorization: auth } })
+        } catch (error) {
+          if (error instanceof api.SriClientError) {
+            assert.equal(error.status, 403);
+          } else {
+            assert.fail('Unexpected error ' + error.toString());
+          }
+        }
+      })
     });
 
     describe('two secure functions', function () {
-      it('should disallow read on Ingrid Ohno', function () {
-        return doGet(base + '/persons/da6dcc12-c46f-4626-a965-1a00536131b2',
-                     'sabine@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 403);
-        });
+      it('should disallow read on Ingrid Ohno', async function () {
+        try {
+          const auth = makeAuthHeader('sabine@email.be', 'pwd')
+          const response = await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2', null, { headers: { authorization: auth } })
+        } catch (error) {
+          if (error instanceof api.SriClientError) {
+            assert.equal(error.status, 403);
+          } else {
+            assert.fail('Unexpected error ' + error.toString());
+          }
+        }
       });
     });
 
     describe('with invalid authentication - non-existing user', function () {
-      it('should disallow read', function () {
-        return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
-                     'unknown@email.be', 'pwd').then(function (response) {
-          assert.equal(response.statusCode, 401);
-        });
+      it('should disallow read', async function () {
+        try {
+          const auth = makeAuthHeader('unknown@email.be', 'pwd')
+          const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })
+        } catch (error) {
+          if (error instanceof api.SriClientError) {
+            assert.equal(error.status, 401);
+          } else {
+            assert.fail('Unexpected error ' + error.toString());
+          }
+        }
       });
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
-      it('should disallow read', function () {
-        return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
-                     'sabine@email.be', 'INVALID').then(function (response) {
-          assert.equal(response.statusCode, 401);
-        });
+      it('should disallow read', async function () {
+        try {
+          const auth = makeAuthHeader('sabine@email.be', 'INVALID')
+          const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })
+        } catch (error) {
+          if (error instanceof api.SriClientError) {
+            assert.equal(error.status, 401);
+          } else {
+            assert.fail('Unexpected error ' + error.toString());
+          }
+        }
       });
     });
 
     describe('without authentication', function () {
-      it('should disallow read', function () {
-        return doGet(base + '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d').then(function (response) {
-          assert.equal(response.statusCode, 401);
-        });
+      it('should disallow read', async function () {
+        try {
+          const response = await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
+        } catch (error) {
+          if (error instanceof api.SriClientError) {
+            assert.equal(error.status, 401);
+          } else {
+            assert.fail('Unexpected error ' + error.toString());
+          }
+        }
       });
     });
   });

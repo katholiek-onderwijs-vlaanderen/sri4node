@@ -1,5 +1,5 @@
 /*
-Utility function for reeading the information schema
+Utility function for reading the information schema
 of the database. Creates a global cache, and assumes
 the information schema does not change at runtime.
 
@@ -12,28 +12,21 @@ if(type === 'text') {
   // do something.
 }
 */
+
 var unique = require('array-unique');
 var qo = require('./queryObject.js');
-var Q = require('q');
 var common = require('./common.js');
 //var cl = common.cl;
 var pgExec = common.pgExec;
 var cache = null;
 
-exports = module.exports = function (database, configuration) {
+exports = module.exports = async function (db, configuration) {
   'use strict';
-  var deferred = Q.defer();
   var q, tableNames;
   var i, type, table, tableName, row, typeCache, columnCache;
 
-  /*function debug(x) {
-    if (configuration.logdebug) {
-      cl(x);
-    }
-  }*/
-
   if (cache !== null) {
-    deferred.resolve(cache);
+    return cache;
   } else {
     q = qo.prepareSQL('information-schema');
     tableNames = [];
@@ -47,29 +40,24 @@ exports = module.exports = function (database, configuration) {
     tableNames = unique(tableNames);
     q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
       .array(tableNames).sql(')');
-    pgExec(database, q).then(function (results) {
-      cache = {};
-      for (i = 0; i < results.rows.length; i++) {
-        row = results.rows[i];
+    const rows = await pgExec(db, q, true)
+    cache = {};
+    for (i = 0; i < rows.length; i++) {
+      row = rows[i];
 
-        if (!cache['/' + row.table_name]) {
-          cache['/' + row.table_name] = {};
-        }
-        typeCache = cache['/' + row.table_name];
-
-        if (!typeCache[row.column_name]) {
-          typeCache[row.column_name] = {};
-        }
-        columnCache = typeCache[row.column_name];
-
-        // We may add extra fields like precision, etc.. in the future.
-        columnCache.type = row.data_type;
+      if (!cache['/' + row.table_name]) {
+        cache['/' + row.table_name] = {};
       }
-      deferred.resolve(cache);
-    }).fail(function (e) {
-      deferred.reject(e);
-    });
-  }
+      typeCache = cache['/' + row.table_name];
 
-  return deferred.promise;
+      if (!typeCache[row.column_name]) {
+        typeCache[row.column_name] = {};
+      }
+      columnCache = typeCache[row.column_name];
+
+      // We may add extra fields like precision, etc.. in the future.
+      columnCache.type = row.data_type;
+    }
+    return cache
+  }
 };

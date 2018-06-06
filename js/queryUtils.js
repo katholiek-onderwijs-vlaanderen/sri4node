@@ -1,95 +1,72 @@
 /* External query utilities. use in the 'query' section of your sri4node configuration */
-var Q = require('q');
-var utils = require('./common.js');
-var cl = utils.cl;
+const { cl, SriError, tableFromMapping } = require('./common.js');
 
 exports = module.exports = {
   filterHrefs: function (value, query, key, database, count, mapping) {
     'use strict';
-    var deferred = Q.defer();
     var permalinks, keys, i, key, reject;
-    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
 
-    try {
-      if (value) {
-        permalinks = value.split(',');
-        keys = [];
-        reject = false;
-        for (i = 0; i < permalinks.length; i++) {
-          key = permalinks[i].split('/')[permalinks[i].split('/').length - 1];
-          if (key.length === 36) {
+    if (value) {
+      const permalinks = value.split(',');
+      const keys = [];
+      permalinks.forEach( (permalink) => {
+          const key = permalink.split('/')[permalink.split('/').length - 1];
+          keys.push(key);
+          // use the schema to check on the format of the key because there can be resources that do not have a uuid as primarey key. Checking on length is weak anyway, do regex check on uuid, which you can get from the schema if you want to do it right.
+          /*if (key.length === 36) {
             keys.push(key);
           } else {
-            deferred.reject({
-              code: 'parameter.hrefs.invalid.value'
-            });
-            reject = true;
-            break;
-          }
-        }
-        if (!reject) {
-          query.sql(' and ' + table + '.key in (').array(keys).sql(') ');
-          deferred.resolve();
-        }
-      }
-    } catch (error) {
-      cl(error.stack);
-      deferred.reject({
-        code: 'internal.error',
-        description: error.toString()
-      });
-    }
+            throw new SriError({status: 400, errors: [{ code: 'parameter.hrefs.invalid.key.length',
+                                       msg: `Parameter 'href' has invalid key length for key [${key}].`,
+                                       parameter: "href",
+                                       value: key
+                                     }]})
+          }*/
+      })
 
-    return deferred.promise;
+      query.sql(' and ' + table + '.key in (').array(keys).sql(') ');
+    }
   },
 
-  // filterReferencedType('/persons','person')
+
   filterReferencedType: function (resourcetype, columnname) {
     'use strict';
     return function (value, query) {
-      var deferred = Q.defer();
-      var permalinks, keys, i, reject, key;
-
       if (value) {
-        permalinks = value.split(',');
-        keys = [];
-        reject = false;
-        for (i = 0; i < permalinks.length; i++) {
-          if (permalinks[i].indexOf(resourcetype + '/') === 0) {
-            key = permalinks[i].substr(resourcetype.length + 1);
-            if (key.length === 36) {
-              keys.push(key);
-            } else {
-              deferred.reject({
-                code: 'parameter.invalid.value'
-              });
-              reject = true;
-              break;
-            }
-          } else {
-            deferred.reject({
-              code: 'parameter.invalid.value'
-            });
-            reject = true;
-            break;
+        const permalinks = value.split(',');
+        const keys = permalinks.map( permalink => {
+          if (permalink.indexOf(resourcetype + '/') !== 0) {
+            throw new SriError({status: 400, errors: [{ code: 'parameter.referenced.type.invalid.value',
+                                       msg: `Parameter '${columnname}' should start with '${resourcetype + '/'}'.`,
+                                       parameter: columnname,
+                                       value: permalink
+                                     }]})
           }
-        }
-        if (!reject) {
-          query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
-          deferred.resolve();
-        }
-      }
+          const key = permalink.split('/')[permalink.split('/').length - 1];
+          // use the schema to check on the format of the key because there can be resources that do not have a uuid as primarey key. Checking on length is weak anyway, do regex check on uuid, which you can get from the schema if you want to do it right.
+          /*if (key.length !== 36) {
+            throw new SriError({status: 400, errors: [{ code: 'parameter.referenced.type.invalid.key.length',
+                                       msg: `Parameter '${columnname}' contains key with invalid length for key [${key}].`,
+                                       parameter: columnname,
+                                       value: permalink
+                                     }]})
+          }*/
+          return key
+        })
 
-      return deferred.promise;
+        query.sql(' and "' + columnname + '" in (').array(keys).sql(') ');
+      }
     };
   },
 
-  modifiedSince: function (value, select, key, database, count, mapping) {
+  modifiedSince: function (value, query, key, database, count, mapping) {
     'use strict';
-    var table = mapping.table ? mapping.table : mapping.type.split('/')[mapping.type.split('/').length - 1];
+    const table = tableFromMapping(mapping)
 
-    return select.sql(' AND ' + table + '."$$meta.modified" >= ').param(value);
+    query.sql(' AND ' + table + '."$$meta.modified" >= ').param(value);
 
+    return query
   },
 
   defaultFilter: require('./defaultFilter.js')

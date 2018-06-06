@@ -15,12 +15,15 @@ exports = module.exports = {
       name: name,
       text: '',
       params: [],
-      param: function (x) {
+      param: function (x, noQuotes = false) {
         // Convenience function for adding a parameter to the text, it
         // automatically adds $x to the SQL text, and adds the supplied value
         // to the 'value'-array.
         this.params.push(x);
         this.text = this.text + exports.parameterPattern;
+        if (noQuotes) {
+          this.text += ':value'
+        }
 
         return this;
       },
@@ -124,6 +127,39 @@ exports = module.exports = {
         }
 
         return this;
+      },
+      toParameterizedSql: function () {
+        function debug(x) {
+          if (logdebug) {
+            cl(x);
+          }
+        }
+
+        var text = this.text;
+        var values = this.params;
+        var paramCount = 1;
+        if (values && values.length > 0) {
+          for (var i = 0; i < values.length; i++) {
+            const index = text.indexOf(exports.parameterPattern);
+            if (index === -1) {
+              var msg = 'Parameter count in query does not add up. Too few parameters in the query string';
+              debug('** ' + msg);
+              throw new Error(msg)
+            } else {
+              const prefix = text.substring(0, index);
+              const postfix = text.substring(index + exports.parameterPattern.length, text.length);
+              text = prefix + '$' + paramCount + postfix;
+              paramCount++;
+            }
+          }
+          const index = text.indexOf(exports.parameterPattern);
+          if (index !== -1) {
+            var msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
+            debug('** ' + msg);
+            throw new Error(msg)
+          }
+        }
+        return { sql: text, values: values }
       }
     };
   }

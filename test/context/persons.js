@@ -1,6 +1,9 @@
-var Q = require('q');
+const pMap = require('p-map'); 
 var common = require('../../js/common.js');
 var cl = common.cl;
+const queryobject = require('../../js/queryObject.js');
+const prepare = queryobject.prepareSQL; 
+const utils = require('../utils.js')(null);
 
 exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
@@ -20,203 +23,105 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $q = roa.queryUtils;
   var $u = roa.utils;
 
-  var checkMe = function (database, elements, me) {
-    if (!me) {
-      throw new Error('Missing `me` object');
+  const checkMe = async function( tx, sriRequest, elements ) {
+    if (sriRequest.userObject === undefined) {
+      throw new sriRequest.SriError({status: 401, errors: [{code: 'unauthorized'}]})
     }
+  }
 
-    return true;
+  const failOnBadUser = async function( tx, sriRequest, elements ) {
+    if (sriRequest.userObject.email === 'daniella@email.be') {
+      throw new Error('BAD User')
+    }
   };
 
-  var failOnBadUser = function (database, elements, me) {
-
-    var deferred = Q.defer();
-
-    if (me.email === 'daniella@email.be') {
-      deferred.reject();
-    } else {
-      deferred.resolve();
+  const forbidUser = async function( tx, sriRequest, elements ) {
+    if (sriRequest.userObject.email === 'ingrid@email.be') {
+      throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
     }
-
-    return deferred.promise;
   };
 
-  var forbidUser = function (database, elements, me) {
-
-    var deferred = Q.defer();
-
-    if (me.email === 'ingrid@email.be') {
-      deferred.reject({
-        statusCode: 403
-      });
-    } else {
-      deferred.resolve();
-    }
-
-    return deferred.promise;
-  };
-
-  var checkElements = function (database, elements) {
+  const checkElements = async function( tx, sriRequest, elements ) {
     var element;
     if (!Array.isArray(elements)) {
       throw new Error('`elements` is not an array');
     }
+
     element = elements[0];
-    if (!element.hasOwnProperty('path') || !element.hasOwnProperty('body') || !isHrefAPermalink(element.path)) {
+    if ( !element.hasOwnProperty('permalink') || !isHrefAPermalink(element.permalink)
+          || !element.hasOwnProperty('incoming') || !element.hasOwnProperty('stored') ) {
       throw new Error('`elements` object in the array has wrong format');
     }
-
-    return true;
   };
 
-  var restrictReadPersons = function (req, resp, db, me) {
+
+  const restrictReadPersons = async function( tx, sriRequest, elements ) {
     // A secure function must take into account that a GET operation
     // can be either a GET for a regular resource, or a GET for a
     // list resource.
-    var url, key, myCommunityKey, query;
-
-    debug('** restrictReadPersons ');
-    var deferred = Q.defer();
-    if (req.method === 'GET') {
-      debug('** req.path = ' + req.path);
-      url = req.path;
+    await pMap( elements, async (e) => {
+      const url = e.permalink;
       if (url === '/persons') {
         // Should allways restrict to /me community.
-        debug('** req.query :');
-        debug(req.query);
-        if (req.query.communities) {
-          debug('** me :');
-          debug(me);
-          if (req.query.communities === me.community.href) {
+        if (sriRequest.query.communities) {
+          if (sriRequest.query.communities === sriRequest.userObject.community.href) {
             debug('** restrictReadPersons resolves.');
-            deferred.resolve();
           } else {
-            debug('** restrictReadPersons rejecting - can only request persons from your own community.');
-            deferred.reject();
+            cl('** restrictReadPersons rejecting - can only request persons from your own community.');
+            throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
           }
         } else {
           cl('** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
-          deferred.reject();
+          throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
         }
-      } else if (url === 'batch') {
-        // special case, testing as batch always allow
-        deferred.resolve();
       } else {
-        key = url.split('/')[2];
-        myCommunityKey = me.community.href.split('/')[2];
+        const key = url.split('/')[2];     
+        const myCommunityKey = sriRequest.userObject.community.href.split('/')[2];
         debug('community key = ' + myCommunityKey);
 
-        query = $u.prepareSQL('check-person-is-in-my-community');
+        const query = prepare('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
           .param(key).sql(' and community = ').param(myCommunityKey);
-        $u.executeSQL(db, query).then(function (result) {
-          if (parseInt(result.rows[0].count, 10) === 1) {
-            debug('** restrictReadPersons resolves.');
-            deferred.resolve();
-          } else {
-            debug('results.rows[0].count = ' + result.rows[0].count);
-            console.log('** security method restrictedReadPersons denies access.', key, myCommunityKey);
-            deferred.reject();
-          }
-        }).fail(function (error) {
-          debug('Unable to execute query for restrictedReadPersons :');
-          debug(error);
-          debug(error.stack);
-        });
+        const [ row ] = await common.pgExec(tx, query)
+        if (parseInt(row.count, 10) === 1) {
+          debug('** restrictReadPersons resolves.');
+        } else {
+          debug('row.count = ' + row.count);
+          debug('** security method restrictedReadPersons denies access.', key, myCommunityKey);
+          throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
+        }
+       
       } /* end handling regular resource request */
-    } else {
-      deferred.resolve();
-    }
 
-    return deferred.promise;
+    }, { concurrency: 1})
+  
   };
 
   function disallowOnePerson(forbiddenKey) {
-    return function (req) {
-      var deferred = Q.defer();
-      var key;
-
-      if (req.method === 'GET') {
-        key = req.path === 'batch' ? req.originalUrl.split('/').pop() : req.params.key;
-        if (key === forbiddenKey) {
-          cl('security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
-          deferred.reject();
-        } else {
-          deferred.resolve();
-        }
-      } else {
-        deferred.resolve();
-      }
-
-      return deferred.promise;
+    return async function (tx, sriRequest, elements) {
+      const key = sriRequest.params.key;
+      if (key === forbiddenKey) {
+        cl('security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
+        throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
+      } 
     };
   }
 
-  function simpleOutput(req, res, db) {
 
-    var query;
-
-    query = $u.prepareSQL('get-simple-person');
-    query.sql('select firstname, lastname from persons where key = ')
-      .param(req.params.key);
-    $u.executeSQL(db, query).then(function (result) {
-      db.done();
-      if (result.rows.length === 1) {
-        res.send({firstname: result.rows[0].firstname, lastname: result.rows[0].lastname});
-      } else {
-        res.status(409).end();
-      }
-    });
-
+  async function simpleOutput(tx, sriRequest, customMapping) {
+    const query =prepare('get-simple-person');
+    query.sql('select firstname, lastname from persons where key = ').param(sriRequest.params.key);
+    const rows = await common.pgExec(tx, query)
+    if (rows.length === 0) {
+      throw 'NOT FOUND'  // not an SriError to test getting error 500 in such a case
+    } else if (rows.length === 1) {
+      return { status: 200, body: {firstname: rows[0].firstname, lastname: rows[0].lastname} };
+    } else {
+      throw new sriRequest.SriError({status: 409, errors: [{code: 'key.not.unique'}]})
+    }
   }
 
-  function wrongHandler(req, res, db) {
 
-    var query;
-
-    query = $u.prepareSQL('get-simple-person');
-    query.sql('select firstname, lastname from person where key = ')
-      .param(req.params.key);
-    $u.executeSQL(db, query).then(function (result) {
-      db.done();
-      if (result.rows.length === 1) {
-        res.send({firstname: result.rows[0].firstname, lastname: result.rows[0].lastname});
-      } else {
-        res.status(409).end();
-      }
-    }).catch(function () {
-      res.status(500).end();
-    });
-
-  }
-
-  var multipleMiddlewareCheck = 17;
-  function customRouteMiddleware1(req, res, next) {
-    debug('customRouteMiddleware1 resets multipleMiddlewareCheck to 0 (was 17).');
-    multipleMiddlewareCheck = 0;
-    next();
-  }
-
-  function customRouteMiddleware2(req, res, next) {
-    debug('customRouteMiddleware2 increases from 0 -> 1, so the end result should be 1');
-    multipleMiddlewareCheck++;
-    next();
-  }
-
-  function multipleMiddlewareResultHandler(req, res) {
-    res.status(200).send('' + multipleMiddlewareCheck);
-  }
-
-  var singleMiddlewareCheck = 29;
-  function customRouteMiddleWare3(req, res, next) {
-    debug('customRouteMiddleWare3 sets singleMiddlewareCheck to 0.');
-    singleMiddlewareCheck = 0;
-    next();
-  }
-
-  function singleMiddlewareResultHandler(req, res) {
-    res.status(200).send('' + singleMiddlewareCheck);
-  }
 
   var ret = {
     type: '/persons',
@@ -227,47 +132,49 @@ exports = module.exports = function (roa, logverbose, extra) {
       street: {},
       streetnumber: {},
       streetbus: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       zipcode: {},
       city: {},
       phone: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       email: {
-        onread: $m.removeifnull
+        columnToField: [ $m.removeifnull ]
       },
       balance: {
-        oninsert: $m.value(0),
-        onupdate: $m.remove
+        fieldToColumn: [(key, row, isNewResource) => {
+          if (isNewResource) {
+            $m.value(0)(key, row)
+          } else {
+            $m.remove(key, row)
+          }
+        }]
       },
       mail4elas: {},
       community: {
         references: '/communities'
       }
     },
-    secure: [
-      restrictReadPersons,
-      // Ingrid Ohno
-      disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')
-    ],
-    customroutes: [
-      {route: '/persons/:key/simple', handler: simpleOutput},
-      {route: '/persons/:key/wrong-handler', handler: wrongHandler},
-      {
-        route: '/persons/:key/single-middleware',
-        method: 'GET',
-        middleware: customRouteMiddleWare3,
-        handler: singleMiddlewareResultHandler
+    customRoutes: [
+      { routePostfix: '/:key/simple'
+      , httpMethods: ['GET']
+      , handler:  simpleOutput
+      , beforeHandler: disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')  // Ingrid Ohno
       },
-      {
-        route: '/persons/:key/multiple-middleware',
-        method: 'GET',
-        middleware: [
-          customRouteMiddleware1,
-          customRouteMiddleware2
-        ],
-        handler: multipleMiddlewareResultHandler
+      { like: "/:key"
+      , routePostfix: "/simpleLike"
+      , httpMethods: ['GET']
+      , alterMapping: (mapping) => {
+                              mapping.transformResponse = [  
+                                  function (tx, sriRequest, result) {
+                                    const simple = { firstname: result.body.firstname
+                                                   , lastname: result.body.lastname }
+                                    result.body = simple                                    
+                                  }
+                              ],
+                              mapping.afterRead = [ checkMe ]
+                            }
       }
     ],
     schema: {
@@ -275,6 +182,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       title: 'An object representing a person taking part in the LETS system.',
       type: 'object',
       properties: {
+        key: $s.guid(''),
         firstname: $s.string('First name of the person.'),
         lastname: $s.string('Last name of the person.'),
         street: $s.string('Streetname of the address of residence.'),
@@ -290,31 +198,38 @@ exports = module.exports = function (roa, logverbose, extra) {
           type: 'string',
           description: 'Describes if, and how often this person wants messages to be emailed.',
           enum: ['never', 'daily', 'weekly', 'instant']
-        }
+        },
+        balance: $s.numeric('Balance of the person.'),
+        community: $s.permalink('/communities', 'Permalink to community.'),
       },
       required: ['firstname', 'lastname', 'street', 'streetnumber', 'zipcode', 'city', 'mail4elas']
     },
-    validate: [],
     query: {
       communities: $q.filterReferencedType('/communities', 'community'),
       defaultFilter: $q.defaultFilter
     },
-    afterread: [
+    afterRead: [
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExpanded', true),
       checkMe,
       failOnBadUser,
-      forbidUser
+      forbidUser,
+
+      restrictReadPersons,
+      disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')  // Ingrid Ohno
     ],
-    afterupdate: [
+    afterUpdate: [
       checkMe, checkElements, failOnBadUser, forbidUser
     ],
-    afterinsert: [checkMe, checkElements, failOnBadUser, forbidUser],
-    afterdelete: [
+    afterInsert: [checkMe, checkElements, failOnBadUser, forbidUser],
+    afterDelete: [
       checkMe, checkElements, failOnBadUser, forbidUser
-    ]
+    ],
+
+    transformRequest: utils.lookForBasicAuthUser
   };
 
   common.mergeObject(extra, ret);
   return ret;
 };
+
