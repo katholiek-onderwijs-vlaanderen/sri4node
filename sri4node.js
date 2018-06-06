@@ -412,12 +412,16 @@ exports = module.exports = {
 
         mapping.customRoutes.forEach( cr => {
             const customMapping = _.cloneDeep(mapping);
-            if (cr.transformRequest !== undefined) {
-              customMapping.transformRequest.push(cr.transformRequest)
-            }
-            if (cr.transformResponse !== undefined) {
-              customMapping.transformResponse.push(cr.transformResponse)
-            }
+            if (cr.alterMapping !== undefined) {
+              cr.alterMapping(customMapping)
+            } else {
+      			  if (cr.transformRequest !== undefined) {
+      		      customMapping.transformRequest.push(cr.transformRequest)
+      		    }
+      		    if (cr.transformResponse !== undefined) {
+      		      customMapping.transformResponse.push(cr.transformResponse)
+      		    }
+      	    }
 
             cr.httpMethods.forEach( method => {
               if (cr.like !== undefined) {
@@ -466,13 +470,13 @@ exports = module.exports = {
                           , async (phaseSyncer, tx, sriRequest, mapping) => {
                                 await phaseSyncer.phase()
                                 if (cr.beforeHandler !== undefined) {
-                                  await cr.beforeHandler(tx, sriRequest, mapping)
+                                  await cr.beforeHandler(tx, sriRequest, customMapping)
                                 }
                                 await phaseSyncer.phase()
-                                const result = await cr.handler(tx, sriRequest, mapping)
+                                const result = await cr.handler(tx, sriRequest, customMapping)
                                 await phaseSyncer.phase()
                                 if (cr.afterHandler !== undefined) {
-                                  await cr.afterHandler(tx, sriRequest, mapping, result)
+                                  await cr.afterHandler(tx, sriRequest, customMapping, result)
                                 }
                                 return result
                               }
