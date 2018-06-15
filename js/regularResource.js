@@ -2,7 +2,7 @@ const _ = require('lodash')
 const { Validator } = require('jsonschema')
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
-        executeOnFunctions, SriError, startTransaction, getCountResult, isEqualSriObject } = require('./common.js');
+        executeOnFunctions, SriError, getCountResult, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
 var queryobject = require('./queryObject.js');
@@ -208,7 +208,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     const updateRow = transformObjectToRow(obj, mapping, false)
 
     var update = prepare('update-' + table);
-    update.sql(`update "${table}" set "$$meta.modified" = current_timestamp `);
+    update.sql(`update "${table}" set "$$meta.modified" = date_trunc('milliseconds', current_timestamp)`);
     Object.keys(updateRow).forEach( key => {
       if (!key.startsWith('$$meta')) {
         update.sql(',\"' + key + '\"' + '=').param(updateRow[key]);

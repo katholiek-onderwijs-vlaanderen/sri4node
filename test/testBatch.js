@@ -265,6 +265,35 @@ exports = module.exports = function (base, logverbose) {
         })
     });    
 
+    it('error should result in cancellation of accompanying requests ', async function () {
+      const keyC1 = uuid.v4();
+      const bodyC1 = generateRandomCommunity(keyC1);
+      delete bodyC1.name;
+      const keyC2 = uuid.v4();
+      const bodyC2 = generateRandomCommunity(keyC2);
+
+      // create a batch array
+      const batch = [
+          { "href": '/communities/' + keyC1
+          , "verb": "PUT"
+          , "body": bodyC1
+          },
+          { "href": '/communities/' + keyC2
+          , "verb": "PUT"          
+          , "body": bodyC2
+          }
+      ]
+      await utils.testForStatusCode( 
+        async () => {
+          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+          const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+        }, 
+        (error) => {
+          assert.equal(error.status, 409);
+          assert.equal(error.body[1].status, 202);
+          assert.equal(error.body[1].body.errors[0].code, 'cancelled');
+        })
+    });    
 
     it('no matching route should result in error', async function () {
       const keyC1 = uuid.v4();

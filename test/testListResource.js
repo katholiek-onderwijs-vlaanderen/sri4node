@@ -1,5 +1,6 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
+var _ = require('lodash');
 var common = require('../js/common.js');
 var cl = common.cl;
 
@@ -104,7 +105,7 @@ exports = module.exports = function (base, logverbose) {
         // Must restrict to the community of the user logged in (restictReadPersons enforces this)
         const response = await doGet('/persons?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849',
                                       null, { headers: { authorization: auth } })
-        if (!response.$$meta.count) {
+        if (!response.results.length > 0) {
           assert.fail();
         }
       });
@@ -168,32 +169,54 @@ exports = module.exports = function (base, logverbose) {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes', null, { headers: { authorization: auth } })
       assert.equal(response.results.length, 5);
-      assert.equal(response.$$meta.next, '/alldatatypes?offset=5');
+      assert.equal(response.$$meta.next.startsWith('/alldatatypes?keyOffset'), true );
     });
 
     it('should limit resources', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes?limit=3', null, { headers: { authorization: auth } })
       assert.equal(response.results.length, 3);
-      assert.equal(response.$$meta.next, '/alldatatypes?limit=3&offset=3');
+      assert.equal(response.$$meta.next.startsWith('/alldatatypes?limit=3&keyOffset'), true );
     });
 
-    it('should offset resources', async function () {
+    it('should use key of last value in the resultlist as key offset', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
-      const response = await doGet('/alldatatypes?offset=3', null, { headers: { authorization: auth } })
-      assert.equal(response.results.length, 5);
-      assert.equal(response.$$meta.previous, '/alldatatypes');
-      assert.equal(response.results[0].$$expanded.id, 4);
+      const response = await doGet('/alldatatypes', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.next.endsWith(response.results[4].$$expanded.$$meta.created 
+                                                  + ',' + response.results[4].$$expanded.key), true );
     });
 
-    it('should limit & offset resources', async function () {
+    it('should return all resources without duplicates', async function () {
+      const hrefsFound = []
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
-      const response = await doGet('/alldatatypes?limit=3&offset=3', null, { headers: { authorization: auth } })
-      assert.equal(response.results.length, 3);
-      assert.equal(response.$$meta.next, '/alldatatypes?limit=3&offset=6');
-      assert.equal(response.$$meta.previous, '/alldatatypes?limit=3');
-      assert.equal(response.results.length, 3);
-      assert.equal(response.results[0].$$expanded.id, 4);
+      let count = 0
+      const traverse = async (url) => {
+        const response = await doGet(url, null, { headers: { authorization: auth } })
+        hrefsFound.push(...response.results.map( e => e.href ))
+        if (response.$$meta.next !== undefined ) {
+          await traverse(response.$$meta.next)
+        } else {
+          count = response.$$meta.count
+        }
+      }
+      await traverse('/alldatatypes?limit=2')
+      assert.equal(count, _.uniq(hrefsFound).length);
+    });
+
+    it('should work incombination with orderBy', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?orderBy=key&limit=10', null, { headers: { authorization: auth } })
+      const keys = response.results.map( r => r.$$expanded.key )
+
+      assert.equal(_.isEqual(keys, _.sortBy(keys)), true );
+    });
+
+    it('should work incombination with orderBy and descending', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?orderBy=id&descending=true&limit=40', null, { headers: { authorization: auth } })
+      const ids = response.results.map( r => parseInt(r.$$expanded.id) )
+
+      assert.equal(_.isEqual(_.reverse(ids), _.sortBy(ids)), true );
     });
 
     it('should forbid a limit over the maximum', async function () {
@@ -221,7 +244,7 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(response.results.length, 38);
     });
 
-    it('should forbid unlimited  resources with expand different to NONE', async function () {
+    it('should forbid unlimited resources with expand different to NONE', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       await utils.testForStatusCode( 
         async () => {
@@ -238,14 +261,50 @@ exports = module.exports = function (base, logverbose) {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes?textContains=a&limit=2', null, { headers: { authorization: auth } })
       assert.equal(response.results.length, 2);
-      assert.equal(response.$$meta.next, '/alldatatypes?textContains=a&limit=2&offset=2');
+      assert.equal(response.$$meta.next.startsWith('/alldatatypes?textContains=a&limit=2&keyOffset'), true );
+
     });
 
-    it('should propagate parameters in the previous page', async function () {
-      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
-      const response = await doGet('/alldatatypes?textContains=a&limit=2&offset=2', null, { headers: { authorization: auth } })
-      assert.equal(response.results.length, 1);
-      assert.equal(response.$$meta.previous, '/alldatatypes?textContains=a&limit=2');
-    });
   });
+
+  describe('Count ', function () {
+
+    it('should be present by default', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count!==undefined, true);
+    });
+
+    it('should be present when explicitely requested', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?$$includeCount=true', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count!==undefined, true);
+    });
+
+    it('should be omitted when explicitely requested', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?$$includeCount=false', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count===undefined, true);
+    });
+
+    it('should be omitted by default (resource with includeCount=false as default)', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/messages', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count===undefined, true);
+    });
+
+    it('should be present when explicitely requested (resource with includeCount=false as default)', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/messages?$$includeCount=true', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count!==undefined, true);
+    });
+
+    it('should be omitted when explicitely requested (resource with includeCount=false as default)', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/messages?$$includeCount=false', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.count===undefined, true);
+    });
+
+  });  
+
 };

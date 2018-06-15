@@ -17,9 +17,6 @@ describe('Sri4node testing', function () {
   });
 
 
-// 572 passing (6s)
-
-
   require('./testOrderBy.js')(base, logdebug);
   require('./testAfterRead.js')(base, logdebug);
   require('./testCTE.js')(base, logdebug);

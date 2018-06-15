@@ -126,11 +126,15 @@ exports = module.exports = function (base) {
       });
     });
 
+
     describe('After Delete', function () {
+
+      const key2 = uuid.v4();
+      const p2 = generateRandomPerson(key2, communityDendermonde);
 
       before(async function (done) {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-        await doPut('/persons/' + key, p,  { headers: { authorization: auth }})
+        await doPut('/persons/' + key2, p2,  { headers: { authorization: auth }})
         done();
       });
 
@@ -138,7 +142,7 @@ exports = module.exports = function (base) {
         await utils.testForStatusCode( 
           async () => {
             const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
-            await doDelete('/persons/' + key, { headers: { authorization: auth }, maxAttempts: 1 })
+            await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
           }, 
           (error) => {
             assert.equal(error.status, 500);
@@ -149,13 +153,52 @@ exports = module.exports = function (base) {
         await utils.testForStatusCode( 
           async () => {
             const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
-            await doDelete('/persons/' + key, { headers: { authorization: auth }, maxAttempts: 1 })
+            await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
           }, 
           (error) => {
             assert.equal(error.status, 403);
           })
       });
     });
+
+
+
+    describe('SQL error ', function () {
+
+      const key = uuid.v4();
+      const p = generateRandomPerson(key, communityDendermonde);
+      p.email = 'sabine@email.be';
+
+      it('should return 500 (server error) [regular request]', async function () {
+        await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/persons/' + key, p, { headers: { authorization: auth }, maxAttempts: 1  });
+          }, 
+          (error) => {
+            assert.equal(error.status, 500);
+          })
+      });
+
+      it('should return 500 (server error) [batch request]', async function () {
+        const batch = [
+            { "href": '/persons/' + key
+            , "verb": "PUT"
+            , "body": p
+            }]
+        
+        await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            await doPut('/batch', batch, { headers: { authorization: auth }, maxAttempts: 1 });
+          }, 
+          (error) => {
+            assert.equal(error.status, 500);
+          })
+      });
+
+    });
+
 
   });
 };

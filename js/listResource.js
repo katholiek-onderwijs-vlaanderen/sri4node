@@ -18,7 +18,7 @@ const MAX_LIMIT = 500;
 // apply extra parameters on request URL for a list-resource to a select.
 async function applyRequestParameters(mapping, query, urlparameters, tx, count) {
   'use strict';
-  const standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
+  const standardParameters = ['orderBy', 'descending', 'limit', 'keyOffset', 'expand', 'hrefs', 'modifiedSince', '$$includeCount'];
 
   if (mapping.query) {
     await pMap(
@@ -88,51 +88,72 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
 }
 
 
-const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, offset) => {
+const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset) => {
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
-  let orderBy = queryParams.orderBy;
+  const orderBy = queryParams.orderBy;
   const descending = queryParams.descending;
 
-  if (orderBy) {
-    valid = true;
-    orders = orderBy.split(',');
-    orderBy = '';
-    for (o = 0; o < orders.length; o++) {
-      order = orders[o];
+  let orderKeys = [ '$$meta.created', 'key' ];  //default
 
-      if (!mapping.map[order]) {
-        if (order === '$$meta.created' || order === '$$meta.modified') {
-          orders[o] = order;
-        } else {
-          valid = false;
-          break;
-        }
-      }
-
-      if (orderBy.length === 0) {
-        orderBy = orders[o];
-      } else {
-        orderBy = orderBy + ',' + orders[o];
-      }
-
+  if (orderBy !== undefined) {
+    orderKeys = orderBy.split(',');
+    if (orderKeys.some( k => (k !== '$$meta.created' && k !== '$$meta.modified' && !mapping.map[k]) )) {
+      throw new SriError({status: 400, errors: [
+          {
+            code: 'invalid.orderby.parameter',
+            message: `Can not order by [${orderBy}]. One or more unknown properties.`
+          }]})
     }
-    if (valid) {
-      query.sql(' order by "' + orders + '"');
-      if (descending && descending === 'true') {
-        query.sql(' desc ');
-      } else {
-        query.sql(' asc ');
-      }
-    } else {
-      cl('Can not order by [' + orderBy + ']. One or more unknown properties. Ignoring orderBy.');
-    }
-  } else {
-    query.sql(' order by "$$meta.created", "key"');
   }
 
-  // Paging parameters
+  // add paging to where clause
+
+  if (keyOffset) {
+    const keyValues  = keyOffset.split(',')
+    if (keyValues.length !== orderKeys.length) {
+      throw new SriError({status: 400, errors: [
+          {
+            code: 'invalid.keyoffset',
+            message: `Number of offset key values (${keyValues.length}) does not match number of order keys (${orderKeys.length}).`
+          }]})      
+    }
+
+    query.sql(' AND (')
+    const orderKeyOp = descending ? '<' : '>';
+    let equalConditions = []
+    orderKeys.forEach( (k, idx) => {
+      if (idx===0) {
+        query.sql(` "${k}" ${orderKeyOp} `).param(keyValues[idx]);
+      } else {
+        query.sql(' OR (')
+        orderKeys.slice(0, idx).forEach( (k2, idx2) => {
+          if (idx2 > 0) {
+            query.sql(' AND ')
+          }
+          query.sql(`"${k2}" = `).param(keyValues[idx2]);
+        });
+        query.sql(` AND "${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(' )')
+      }
+    })
+    query.sql(') ')
+
+  }
+
+
+  // add order parameter
+
+  query.sql(` order by ${orderKeys.map( k => `"${k}"` ).join(',')}`);
+  if (descending === 'true') {
+    query.sql(' desc ');
+  } else {
+    query.sql(' asc ');
+  }  
+
+
+  // add limit parameter
 
   const isGetAllExpandNone = (queryLimit === '*' && queryParams.expand !== undefined && queryParams.expand.toLowerCase() === 'none')
   if (!isGetAllExpandNone) {
@@ -148,14 +169,12 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     query.sql(' limit ').param(queryLimit);
   }
 
-  if (offset) {
-    query.sql(' offset ').param(offset);
-  }
+  return orderKeys;
 }
 
 
 //sriRequest
-const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, offset) => {  
+const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, orderKeys) => {  
   const results = [];
   const originalUrl = sriRequest.originalUrl
   const queryParams = sriRequest.query
@@ -194,37 +213,31 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, off
 
   const output = {
     $$meta: {
-      count: count,
       schema: mapping.type + '/schema',
       docs: mapping.type + '/docs'
     },
     results: results
   };
 
-  let newOffset = queryLimit * 1 + offset * 1;
-
-  if (newOffset < count) {
-    if (originalUrl.match(/offset/)) {
-      output.$$meta.next = originalUrl.replace(/offset=(\d+)/, 'offset=' + newOffset);
-    } else {
-      output.$$meta.next = originalUrl + (originalUrl.match(/\?/) ? '&' : '?') +
-        'offset=' + newOffset;
-    }
-
+  if (count!=null) {
+      output["$$meta"].count = count
   }
 
-  if (offset > 0) {
-    newOffset = offset - queryLimit;
-    if (originalUrl.match(/offset/)) {
-      output.$$meta.previous = originalUrl.replace(/offset=(\d+)/, newOffset > 0 ? 'offset=' + newOffset : '');
-      output.$$meta.previous = output.$$meta.previous.replace(/[\?&]$/, '');
+  const addOrReplaceParameter = (url, parameter, value) => {
+    if  (url.indexOf(parameter) > 0) {
+      return url.replace(new RegExp(`${parameter}[^&]*`), parameter + '=' + value)
     } else {
-      output.$$meta.previous = originalUrl;
-      if (newOffset > 0) {
-        output.$$meta.previous += (originalUrl.match(/\?/) ? '&' : '?') + 'offset=' + newOffset;
-      }
+      return url + ((url.indexOf('?') > 0) ? '&' : '?') + parameter + '=' + value;
     }
   }
+
+  if (results.length === parseInt(queryLimit)) {  
+    const keyOffset = orderKeys.map( k => _.get(results[queryLimit-1]['$$expanded'], k) )
+                               .map( o => (o instanceof Date) ? o.toISOString() : o.toString() )
+                               .join(',')
+    output.$$meta.next = addOrReplaceParameter(originalUrl, 'keyOffset', keyOffset)
+  }
+
   return output
 }
 
@@ -237,7 +250,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
   const queryLimit = queryParams.limit || defaultlimit;
-  const offset = queryParams.offset || 0;
+  const keyOffset = queryParams.keyOffset || '';
 
   await phaseSyncer.phase()
 
@@ -252,12 +265,28 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
   debug('GET list resource ' + type);
 
-  let count = 0
+  let count = null;
+  let rows;
+  let orderKeys;
   try {
-    const countquery = prepare();
-    await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
-    debug('* executing SELECT COUNT query on tx');
-    count = await getCountResult(tx, countquery) 
+    let includeCount = mapping.listResultDefaultIncludeCount;
+    if ( queryParams["$$includeCount"] !== undefined ) {
+      includeCount = ( queryParams["$$includeCount"] === 'true' )
+    } 
+    if ( includeCount ) {      
+      const countquery = prepare();
+      await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
+      debug('* executing SELECT COUNT query on tx');
+      count = await getCountResult(tx, countquery) 
+    }
+
+    const query = prepare();
+    await getSQLFromListResource(mapping, queryParams, false, tx, query);
+    orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset)
+    debug('* executing SELECT query on tx');
+    rows = await pgExec(tx, query);
+    
+    debug('pgExec select ... OK');
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
       throw new SriError({status: 409, errors: [{code: 'invalid.query.parameter'}]})
@@ -265,20 +294,13 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
       throw error
     }
   }
-  
-  const query = prepare();
-  await getSQLFromListResource(mapping, queryParams, false, tx, query);
-  applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, offset)
-  debug('* executing SELECT query on tx');
-  const rows = await pgExec(tx, query);
-  
-  debug('pgExec select ... OK');
+
 
   const containsDeleted = rows.some( r => r['$$meta.deleted'] === true )
 
   sriRequest.containsDeleted = { get: () => containsDeleted } 
 
-  const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, offset)
+  const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, orderKeys)
 
   await phaseSyncer.phase()
 

@@ -3,7 +3,7 @@ const pFinally = require('p-finally');
 const pEvent = require('p-event');
 const uuidv1 = require('uuid/v1');
 const EventEmitter = require('events');
-const { debug } = require('./common.js');
+const { debug, SriError } = require('./common.js');
 
 debug_log = (id, msg) => {
 	debug(`PS -${id}- ${msg}`)
@@ -21,7 +21,7 @@ PhaseSyncer = class {
 		debug_log(this.id, 'PhaseSyncer constructed.')
     }
 
-    phase() {
+    async phase() {
     	debug_log(this.id, `STEP ${this.phaseCntr}`); 
     	// Need to construct pEvent promise before sending stepDone, otherwise event 'ready'
     	// might be sent before event handler waiting for 'ready' is set up. 
@@ -31,8 +31,11 @@ PhaseSyncer = class {
     	}  	   	
   		this.phaseCntr += 1    	
 
-    	return promise
-  	}
+    	const status = await promise
+    	if (status === 'failed') {
+    		throw new SriError({status: 202, errors: [{code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.'}]})
+    	}
+  	}  
 }
 
 
@@ -43,15 +46,21 @@ exports = module.exports = (jobList, {concurrency = 1} = {}) => {
 							      .map( phaseSyncer => [ phaseSyncer.id, phaseSyncer ] ))
 	const jobs = new Set(jobMap.keys())
 
+	const nrJobs = jobList.length;
 	let queuedJobs;
 	let phasePendingJobs;
 
 
 	const startNewPhase = () => {
 		const jobList = [...jobs.values()]
-		jobList.slice(0, concurrency).forEach( id => jobMap.get(id).jobEmitter.emit('ready') )
-		queuedJobs = new Set(jobList.slice(concurrency))
-		phasePendingJobs = new Set(jobs)
+		if (jobList.length === nrJobs) {
+			jobList.slice(0, concurrency).forEach( id => jobMap.get(id).jobEmitter.emit('ready') )
+			queuedJobs = new Set(jobList.slice(concurrency))
+			phasePendingJobs = new Set(jobs)
+		} else {
+			// one or more jobs failed => cancel all others
+			jobList.forEach( id => jobMap.get(id).jobEmitter.emit('ready', 'failed') )
+		}
 	}
 
 	const startQueuedJob = () => {

@@ -28,7 +28,7 @@ exports = module.exports = function (base, logverbose) {
       it('to limit to a single key, should only return 1 row.', async function () {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
         const response = await doGet('/messages?cteOneGuid=true', null, { headers: { authorization: auth } })
-        assert.equal(response.$$meta.count, 1);
+        assert.equal(response.results.length, 1);
       });
     });
 
@@ -38,7 +38,7 @@ exports = module.exports = function (base, logverbose) {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
         const response = await doGet('/messages?hrefs=/messages/d70c98ca-9559-47db-ade6-e5da590b2435&cteOneGuid=true',
                                       null, { headers: { authorization: auth } })
-        assert.equal(response.$$meta.count, 1);
+        assert.equal(response.results.length, 1);
       });
     });
 
@@ -48,7 +48,7 @@ exports = module.exports = function (base, logverbose) {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
         const response = await doGet('/messages?cteOneGuid=true&cteOneGuid2=true',
                                       null, { headers: { authorization: auth } })
-        assert.equal(response.$$meta.count, 1);
+        assert.equal(response.results.length, 1);
       });
     });
 

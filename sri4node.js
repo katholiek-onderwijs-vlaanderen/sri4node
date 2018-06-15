@@ -169,8 +169,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 
       let result
       if (isBatchRequest) {
-        result = await func(tx, req)    
-        resolveTx()
+        result = await func(tx, req)
       } else {
 
         const sriRequest  = {
@@ -247,6 +246,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
         req.destroy()
       } else {
         if (err instanceof SriError) {
+          debug('Sending SriError to client.')
           resp.set(err.headers).status(err.status).send(err.body);
         } else {      
           console.log('____________________________ E R R O R ____________________________________________________') 
@@ -266,21 +266,26 @@ exports = module.exports = {
     'use strict';
 
     try {
+      config.resources.forEach( (resource) => {
+          // initialize undefined hooks in all resources with empty list
+          [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
+            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformResponse', 'customRoutes'  ]
+              .forEach((name) => { 
+                  if (resource[name] === undefined) { 
+                    resource[name] = [] 
+                  } else if (resource[name] === null) {
+                    console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
+                    resource[name] = []
+                  } else if (!Array.isArray(resource[name])) {
+                    resource[name] = [ resource[name] ]
+                  } 
+              })
 
-      // initialize undefined hooks in all resources with empty list
-      config.resources.forEach( (resource) => 
-        [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
-          'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformResponse', 'customRoutes'  ]
-            .forEach((name) => { 
-                if (resource[name] === undefined) { 
-                  resource[name] = [] 
-                } else if (resource[name] === null) {
-                  console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
-                  resource[name] = []
-                } else if (!Array.isArray(resource[name])) {
-                  resource[name] = [ resource[name] ]
-                } 
-            })
+          // for backwards compability set listResultDefaultIncludeCount default to true
+          if (resource.listResultDefaultIncludeCount === undefined) { 
+            resource.listResultDefaultIncludeCount = true
+          }
+        }
       )
       if (config.bodyParserLimit === undefined) {
         config.bodyParserLimit = '5mb'
@@ -361,6 +366,9 @@ exports = module.exports = {
         config.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
+            if (mapping.map['key'] === undefined) {
+              mapping.map['key'] = {} // add key if missing, needed for key offset paging
+            }
             checkRequiredFields(mapping, config.informationSchema);
 
             // append relation filters if auto-detected a relation resource

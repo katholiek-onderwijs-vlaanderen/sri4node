@@ -56,6 +56,8 @@ exports = module.exports = function (roa, logverbose, extra) {
   var ret = {
     type: '/messages',
     'public': false, // eslint-disable-line
+    listResultDefaultIncludeCount: false,
+    
     map: {
       person: {
         references: '/persons'

@@ -18,15 +18,15 @@ exports = module.exports = {
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
     const reqBody = req.body
 
-    debug('batchOperations')
-    debug(reqBody)
-
     if (!Array.isArray(reqBody)) {
       throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
 
     const handleBatch = async (batch, tx) => {
       if ( batch.every(element =>  Array.isArray(element)) ) {
+        debug('┌──────────────────────────────────────────────────────────────────────────────')
+        debug(`| Handling batch list`)
+        debug('└──────────────────────────────────────────────────────────────────────────────')
         return await pMap( batch
                          , async element => {
                               const {tx: tx1, resolveTx, rejectTx} = await startTransaction(tx)
