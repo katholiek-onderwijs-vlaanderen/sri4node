@@ -391,12 +391,11 @@ exports = module.exports = {
       });    
   },
 
-  createReadableStream: () => {
-    const s = new Readable({ objectMode: true })
+  createReadableStream: (objectMode = true) => {
+    const s = new Readable({ objectMode })
     s._read = function () {}
     return s
   },
-
 
   jsonArrayStream: (stream) => {
     var chunksSent = 0;
@@ -405,13 +404,7 @@ exports = module.exports = {
       if (chunk === '') {
         // keep-a-live
         this.push(chunk)
-      } else if (chunk === undefined) {
-
-      } else { 
-        const key = hash(chunk);
-          if (!set.has(key)) {
-            set.add(key);
-         
+      } else if (chunk !== undefined) {         
           if (chunksSent === 0) {
             this.push(new Buffer("["));
           }
@@ -421,7 +414,6 @@ exports = module.exports = {
           
           this.push(JSON.stringify(chunk));
           chunksSent++;
-        }
       }
       cb();
     }, function (cb) {

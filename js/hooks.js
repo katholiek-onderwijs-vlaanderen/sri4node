@@ -9,6 +9,7 @@ exports = module.exports = {
 
     if (functions && functions.length > 0) {
       try {
+        debug(`${functions.length} functions`);
         await pMap(functions, applyFun, {concurrency: 1})
         debug(`All ${type} functions resolved.`);
       } catch(err) {

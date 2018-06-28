@@ -1,4 +1,10 @@
 const pMap = require('p-map'); 
+const pEvent = require('p-event'); 
+const sleep = require('await-sleep');
+const fs = require('fs');
+const streamEqual = require('stream-equal');
+const util = require('util');
+
 var common = require('../../js/common.js');
 var cl = common.cl;
 const queryobject = require('../../js/queryObject.js');
@@ -175,7 +181,81 @@ exports = module.exports = function (roa, logverbose, extra) {
                               ],
                               mapping.afterRead = [ checkMe ]
                             }
-      }
+      },
+      { routePostfix: "/downStreamJSON"
+      , httpMethods: ['GET']
+      , streamingHandler: async (tx, sriRequest, stream) => {
+          stream.push({firstname: 'Rita', lastname: 'James'})
+          await sleep(2000);
+          stream.push({firstname: 'Regina', lastname: 'Sullivan'})
+        }
+      },
+      { routePostfix: "/downStreamBinary"
+      , httpMethods: ['GET']
+      , binaryStream: true
+      , beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
+          return  { status: 200
+                  , headers: [
+                      [ 'Content-Disposition', 'inline; filename=test.jpg' ],
+                      [ 'Content-Type', 'image/jpeg' ]
+                    ]
+                  }
+        }      
+      , streamingHandler: async (tx, sriRequest, stream) => {
+          var fstream = fs.createReadStream('test/files/test.jpg');
+          fstream.pipe(stream);
+
+          // wait until fstream is done
+          await pEvent(fstream, 'end')
+        }
+      },
+      { routePostfix: "/upStream"
+      , httpMethods: ['POST']
+      , busBoy: true
+      , beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
+              sriRequest.attachmentsRcvd = []
+              sriRequest.busBoy.on('file', async function(fieldname, file, filename, encoding, mimetype) {
+                console.log('File [' + fieldname + ']: filename: ' + filename + ', encoding: ' + encoding + ', mimetype: ' + mimetype);
+                if (filename === 'test.jpg') {
+                  if (mimetype !== 'image/jpeg') {
+                    throw 'Unexpected mimetype! got ' + mimetype
+                  }
+                  const fileRead = fs.createReadStream('test/files/test.jpg');
+                  const equalPromise = util.promisify(streamEqual)(file, fileRead);
+                  sriRequest.attachmentsRcvd.push({filename, equalPromise})
+                } else if (filename === 'test.pdf') {
+                  if (mimetype !== 'application/pdf') {
+                    throw 'Unexpected mimetype! got ' + mimetype
+                  }
+                  const fileRead = fs.createReadStream('test/files/test.pdf');
+                  const equalPromise = util.promisify(streamEqual)(file, fileRead);
+                  sriRequest.attachmentsRcvd.push({filename, equalPromise})
+                } else {
+                  throw 'Unexpected file received: ' + filename
+                }
+              });
+        }
+      , streamingHandler: async (tx, sriRequest, stream) => {
+          // wait until busboy is done
+          await pEvent(sriRequest.busBoy, 'finish')
+          console.log('busBoy is done')
+          if (sriRequest.attachmentsRcvd.length !== 2) {
+            throw 'Unexpected number attachments posted ' + sriRequest.attachmentsRcvd.length
+          }
+          if (sriRequest.attachmentsRcvd[0].filename !== 'test.jpg' || sriRequest.attachmentsRcvd[1].filename !== 'test.pdf') {
+            throw 'Attachment test.jpg or test.pdf is missing'
+          }
+          await pMap(sriRequest.attachmentsRcvd, async ({filename, equalPromise}) => {
+            const equal = await equalPromise
+            if (equal !== true) {
+              throw `Posted ${filename} does not match file on disk!`
+            }            
+          }, {concurrency: 1})
+
+          stream.push('OK')
+        }
+      },
+
     ],
     schema: {
       $schema: 'http://json-schema.org/schema#',

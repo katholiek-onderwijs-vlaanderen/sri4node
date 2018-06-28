@@ -2,6 +2,13 @@
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
+const request = require('request');
+const sleep = require('await-sleep');
+const pEvent = require('p-event');
+const JSONStream = require('JSONStream');
+const fs = require('fs');
+const streamEqual = require('stream-equal');
+const util = require('util');
 
 exports = module.exports = function (base, logdebug) {
   'use strict';
@@ -11,6 +18,8 @@ exports = module.exports = function (base, logdebug) {
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
   const doGet = api.get;
+  const doPut = api.put;
+  const doPost = api.post;
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -72,6 +81,83 @@ exports = module.exports = function (base, logdebug) {
           (error) => {
             assert.equal(error.status, 401);
           })
+    });
+
+    it('streaming is not allowed in batch', async function () {
+      // create a batch array
+      const batch = [
+          { "href": '/persons/downStreamJSON'
+          , "verb": "GET"
+          }
+      ]
+      await utils.testForStatusCode( 
+          async () => {
+            await doPut('/persons/batch', batch, authHdrObj);
+          }, 
+          (error) => {
+            assert.equal(error.status, 400);
+            assert.equal(error.body[0].body.errors[0].code, 'streaming.not.allowed.in.batch');
+          })
+    });
+
+    it('streamingHandler JSON stream should work', async function () {
+      this.timeout(4000);
+      const r = request.get(base + '/persons/downStreamJSON', authHdrObj)
+      const stream = r.pipe(JSONStream.parse('*'))      
+       
+      const collect = []
+
+      stream.on('data', function(data) {
+        // console.log('[JSON] received:', data);
+        collect.push(data)
+      });
+
+      const response = await pEvent(r, 'response')    
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.headers['content-type'], 'application/json; charset=utf-8');
+
+      await pEvent(r, 'end')
+      assert.equal(collect[0].firstname, 'Rita');
+      assert.equal(collect[0].lastname, 'James');
+      assert.equal(collect[1].firstname, 'Regina');
+      assert.equal(collect[1].lastname, 'Sullivan');
+    });
+
+    it('streamingHandler binary stream should work', async function () {
+      const crRead = request.get(base + '/persons/downStreamBinary', authHdrObj)
+      const fileRead = fs.createReadStream('test/files/test.jpg');
+
+      crRead.on('response', function(response) {
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.headers['content-type'], 'image/jpeg');
+        assert.equal(response.headers['content-disposition'], 'inline; filename=test.jpg');
+      });
+
+      const equal = await util.promisify(streamEqual)(crRead, fileRead);
+      assert.equal(equal, true);
+    });
+
+
+
+    it('streaming file upload (multipart form) with incorrect data should return error', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            await doPost('/persons/upStream', {}, authHdrObj);
+          }, 
+          (error) => {
+            assert.equal(error.status, 400);
+            assert.equal(error.body.errors[0].code, 'error.initialising.busboy');
+          })
+    });
+
+    it('streaming file upload (multipart form) should work', async function () {
+
+      const response = await util.promisify(request.post)(base + '/persons/upStream', {formData: {
+          image: fs.createReadStream('test/files/test.jpg'),
+          pdf: fs.createReadStream('test/files/test.pdf')
+        }});
+
+      assert.equal(response.statusCode, 200);
     });
 
   });

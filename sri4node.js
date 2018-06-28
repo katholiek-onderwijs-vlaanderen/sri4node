@@ -13,6 +13,7 @@ const pathfinderUI = require('pathfinder-ui')
 const _ = require('lodash')
 const pMap = require('p-map');
 const readAllStream = require('read-all-stream')
+const Busboy = require('busboy');
 
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, 
@@ -190,7 +191,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
                               , mapping.transformRequest
                               , f => f(req, sriRequest, tx))
 
-        const jobs = [ [func, [tx, sriRequest, mapping, streaming ? resp : null]] ];
+        const jobs = [ [func, [tx, sriRequest, mapping, streaming ? req : null, streaming ? resp : null]] ];
         [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
         if (result instanceof SriError) {
           throw result
@@ -235,7 +236,6 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
       }
     } catch (err) {
       //TODO: what with streaming errors
-
       debug('++ Exception catched. Rolling back database transaction. ++');
       await rejectTx()  
 
@@ -446,30 +446,53 @@ exports = module.exports = {
               } else if (cr.streamingHandler !== undefined) {
                 acc.push( [ mapping.type + cr.routePostfix
                           , method.toUpperCase()
-                          , async (phaseSyncer, tx, sriRequest, mapping, res) => {
-                                if ( sriRequest.isBatchPart && (sriRequest.query['_streaming'] === true)) {
-                                  throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
-                                }
-                                const jsonStream = createReadableStream()
-                                const keepAliveTimer = setInterval(() => { jsonStream.push('') }, 20000)                                
+                          , async (phaseSyncer, tx, sriRequest, mapping, req, res) => {
+                              if ( sriRequest.isBatchPart ) {
+                                throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
+                              }
+                              if (cr.busBoy) {
                                 try {
-                                  if (sriRequest.query['_streaming'] === 'true') {
-                                    sriRequest.resultStream = jsonStream
-                                    res.set('Content-Type', 'application/json; charset=utf-8')
-                                    jsonArrayStream(jsonStream).pipe(res)
-                                  }
-                                  await cr.streamingHandler(tx, sriRequest, jsonStream)
-                                  jsonStream.push(null)
-                                  clearInterval(keepAliveTimer)
-                                  if (!(sriRequest.query['_streaming'] === 'true')) {
-                                    const result = await readAllStream(jsonArrayStream(jsonStream), { encoding: null })
-                                    return { status: 200, body: result.toString('utf8') }                                  
-                                  }
-                                } catch(err) {
-                                  clearInterval(keepAliveTimer) 
-                                  throw err
+                                  const busBoy = new Busboy({ headers: sriRequest.headers });
+                                  sriRequest.busBoy = busBoy
+                                } catch (err) {
+                                    throw new SriError({status: 400, errors: [{code: 'error.initialising.busboy', msg: 'Error during initialisation of busboy: ' + err}]})                                  
                                 }
                               }
+
+                              if (cr.beforeStreamingHandler !== undefined) {
+                                const result = await cr.beforeStreamingHandler(tx, sriRequest, customMapping)
+                                if (result !== undefined) {
+                                  const {status, headers} = result
+                                  headers.forEach( ([k, v]) => res.set(k, v) )
+                                  res.status(status)                                  
+                                }
+                              }
+
+                              if (cr.busBoy) {
+                                req.pipe(sriRequest.busBoy);
+                              }
+
+                              if (cr.binaryStream) {
+                                const {PassThrough} = require('stream')
+                                const stream = new PassThrough()
+                                stream.pipe(res)
+                                sriRequest.resultStream = stream
+                                await cr.streamingHandler(tx, sriRequest, stream)
+                                stream.push(null)  // close stream
+                              } else {
+                                res.set('Content-Type', 'application/json; charset=utf-8')
+                                const stream = createReadableStream()
+                                jsonArrayStream(stream).pipe(res)
+                                const keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
+                                try {
+                                  sriRequest.resultStream = stream
+                                  await cr.streamingHandler(tx, sriRequest, stream)
+                                  stream.push(null)  // close stream
+                                } finally {
+                                  clearInterval(keepAliveTimer) 
+                                }
+                              }
+                            }
                           , customMapping
                           , true ] )
               } else {
