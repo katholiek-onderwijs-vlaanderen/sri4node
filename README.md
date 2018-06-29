@@ -585,9 +585,9 @@ The possbile scenario's:
     - `beforeHandler` (tx, sriRequest, customMapping) => {}
     - `afterHandler` (tx, sriRequest, customMapping, result) => {}
  - Streaming scenario. The output stream can be JSON or binary stream
-      , streamingHandler: async (tx, sriRequest, stream) => {}.  The streamingHandler is at the moment expected to return only after streaming is done. This will probably change, see tickets below.
+    - `streamingHandler` (tx, sriRequest, stream) => {}.  The streamingHandler is at the moment expected to return only after streaming is done. This will probably change, see tickets below.
     Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
-      , beforeStreamingHandler: async (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
+    - `beforeStreamingHandler` (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
     To enable binary streaming:
       - `binaryStream: true`
     When doing binary streaming it makes sense to use the beforeStreamingHandler to set some 'Content-*' headers specifying the type of content.
@@ -599,12 +599,12 @@ The possbile scenario's:
 Streaming custom requests cannot be used in batch, the others can be used in batch.
 
 For examples of all the custom scenarios, see the code in the sri4node tests: 
-https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
-https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
+ - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
+ - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
 
 This streaming custom routes interface will probably change in version 2.1. See tickets: 
-https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/159
-https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/160
+ - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/159
+ - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/160
 
 ## Limiting results
 
