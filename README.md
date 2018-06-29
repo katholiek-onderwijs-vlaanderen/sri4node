@@ -14,20 +14,17 @@ Installation is simple using npm :
     $ cd [your_project]
     $ npm install --save sri4node
 
-You will also want to install Express.js and node-postgres :
+You will also want to install Express.js :
 
     $ npm install --save express
-    $ npm install --save pg
 
-Express.js and node-postgress are *technically* not dependencies (as in npm dependencies) of sri4node.
-But you need to pass them in when configuring.
-This allows you to keep full control over the order of registering express middleware, and allows you to share and configure the node-postgres library.
+Express.js is *technically* not a dependency (as in npm dependencies) of sri4node. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
 
 # Changes in sri4node 2.0
 
 In the latest version, we decided to rewrite a few things in order to be able to fix long-known problems (including the fact that GETs inside BATCH operations was not properly supported).
 
-So if your new to sri4node, it's best to jump to [Usage](#Usage) for the general principles first and then come back to read about the changes in the latest version!
+So if your new to sri4node, it's best to jump to [Usage](#usage) for the general principles first and then come back to read about the changes in the latest version!
 
 ## 'request' parameter
 
@@ -44,12 +41,17 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * protocol: protocol of original request (same for all requests in batch) 
  * body: body of the request 
  * sriType: type of the matching entry in the sri4node resources config
+ * isBatchPart: boolean indicating whether the request being executed is part of a batch
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
 
 ## 'me'
 
 We also removed the [me](###identify) concept, allowing the implementer to add stuff to the sriRequest object as it sees fit. If that info is 'the current user', so be it, you can just as well build an API that doesn't need an identity to work.
+
+## 'validate'
+
+The possibility of appending '/validate' to a PUT request to see wether it would succeed is replaced by a more general 'dry run' mode. This mode is activated by adding `?dryRun=true` to the request parameters. This means that the request is executed and responsed as normal, but in the end the database transaction corresponding to the request is rolled back. 
 
 ## Plugins
 
@@ -96,7 +98,7 @@ All hooks are 'await'ed for (and the result is ignored). This makes that a hook 
 
 
 ```javascript
-transformRequest(expressRequest, sriRequest)
+transformRequest(expressRequest, sriRequest, tx)
 ```
 
 This function is called at the very start of each http request (i.e. for batch only once). Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe add the user's identity if it can be deducted from the headers).
@@ -105,12 +107,11 @@ This function is called at the very start of each http request (i.e. for batch o
 
 These functions replace [validate](###validate) and [secure](###secure). They are called before any changes to a record on the database are performed. Since you get both the incoming version of the resource and the one currently stored in the DB here, you could do some validation here (for example if a certain property can not be altered once the resource has been created).
 
- * `beforeupdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )` 
- * `beforeinsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
- * `beforedelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+ * `beforeRead( tx, sriRequest )` 
+ * `beforeUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )` 
+ * `beforeInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+ * `beforeDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
-
-There is no **beforeread**, because we think there is nothing useful you can do on a GET before you've actually fetched the item from the database.
 
 The tx is a tranaction/connection object from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
 
@@ -152,10 +153,10 @@ The existing [afterread](#afterread), [afterupdate/afterinsert](###afterupdate/a
 
 `stored` should still be the one *before* the operation was executed.
 
- * `afterread( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
- * `afterupdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
- * `afterinsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
- * `afterdelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+ * `afterRead( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+ * `afterUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
+ * `afterInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+ * `afterDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
 ### fieldToColumn and columnToField(popertyName, value) 
 
@@ -177,8 +178,20 @@ This will be called just before sending out the response to the client, and it a
 This can be used if you want to generate custom output that is not necessarily sri-compliant on some route. It should not be necessary for a normal sri-compliant API (but you never know).
 
 ```javascript
-transformResponse( tx, sriRequest, responseBody )
+transformResponse( tx, sriRequest, sriResult )
 ```
+
+The sriResult object has at least following properties:
+ * status
+ * body
+And optionally:
+ * headers
+
+### Performance enhancements
+
+A count query is a heavy query in Postgres in case of a huge table. Therefore the count in the list result is made optional. By adding `listResultDefaultIncludeCount: false` to the configuration of a resource the count will be omitted by default. This setting can be overriden in a linst query by appending `?$$includeCount=[boolean]` to the query parameters.
+
+Other performance enhancement is to use key offsets for the next links instead of count offsets (prev links are skipped due to not being usefull in a scenario with key offsets). Count offset is becoming more and more time consuming when the count increases (as postgres needs to construct all the results before the requested set to get the starting point) while for key offset an index can be used to determine the starting point. 
 
 ## Other changes and bug fixes
 
@@ -197,7 +210,6 @@ Then we'll create some convenient aliasses for the utility functions bundled wit
 
     var express = require('express');
     var app = express();
-    var pg = require('pg');
     var sri4node = require('sri4node');
     var $u = sri4node.utils;
     var $m = sri4node.mapUtils;
@@ -208,8 +220,7 @@ Finally we configure handlers for 1 example resource.
 This example shows a resource for storing content as `html` with meta-data like `authors`, `themes` and `editor`.
 The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
 
-    var promise = sri4node.configure(app,pg,
-        {
+    const sriConfig = {
             // Log and time HTTP requests ?
             logrequests : true,
             // Log SQL ?
@@ -220,9 +231,6 @@ The declaration of the editor is a reference to a second resource (/person), whi
             logmiddleware: true,
             // The URL of the postgres database
             defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            authenticate: $u.basicAuthentication(myAuthenticator),
-            identify : functionToConstructSecurityContext,
-            // All URLs force SSL and allow cross origin access.
             forceSecureSockets: true,
             description: 'A description about the collection of resources',
             resources : [
@@ -237,19 +245,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                     // Multiple function that check access control
                     // They receive a database object and the security context
                     // as determined by the 'identify' function above.
-                    secure : [
-                        checkAccessOnResource,
-                        checkSomeMoreRules
-                    ],
-                    // Enable cache (default false)
-                    cache: {
-                      ttl: 60, // in seconds, the time the objects live (0 means forever)
-                      type: 'local' // will store in an in-memory local cache
-                    },
-                    // custom routes can be defined. See #custom-routes
-                    customroutes: [
-                      {route: '/content/:key/:attachment', handler: getAttachment}
-                    ],
+
                     // Standard JSON Schema definition.
                     // It uses utility functions, for compactness.
                     schema: {
@@ -263,11 +259,7 @@ The declaration of the editor is a reference to a second resource (/person), whi
                         },
                         required: ["authors","themes","html"]
                     },
-                    // Functions that validate the incoming resource
-                    // when a PUT operation is executed.
-                    validate: [
-                        validateAuthorVersusThemes
-                    ],
+
                     // Supported URL parameters are configured
                     // for list resources. $q is an alias for
                     // sri4node.queryUtils.
@@ -310,50 +302,67 @@ The declaration of the editor is a reference to a second resource (/person), whi
                         // Can also be referenced as /x/y/.. if another resources is defined like this
                         editor: {references : '/persons'}
                     },
+
                     // After read, update, insert or delete
                     // you can perform extra actions.
-                    afterread: [
-                        addAdditionalInfoToOutputJSON
+                    beforeInsert: [ validateAuthorVersusThemes ]
+                    beforeUpdate: [ validateAuthorVersusThemes ]
+
+                    afterRead: [ checkAccessOnResource, checkSomeMoreRules, addAdditionalInfoToOutputJSON ],
+                    afterUpdate: [ checkAccessOnResource, checkSomeMoreRules ],
+                    afterInsert: [ checkAccessOnResource, checkSomeMoreRules ],
+                    afterDelete: [ checkAccessOnResource, checkSomeMoreRules, cleanupFunction ]
+
+                    // custom routes can be defined. See #custom-routes
+                    customroutes: [
+                      { routePostfix: '/:key/:attachment'
+                      , httpMethods: ['GET']
+                      , handler:  getAttachment
+                      },
                     ],
-                    afterupdate: [],
-                    afterinsert: [],
-                    afterdelete: [
-                        cleanupFunction
-                    ]
                 }
             ]
         });
 
-Configure returns a [Q promise][kriskowal-q].
+Many properties of the sri4node config object have defaults and can be omitted. 
+Next step is to pass the sri4node config object to the async sri4node configure function:
+
+    await sri4node.configure(app, sriConfig);
+
 Now we can start Express.js to start serving up our SRI REST interface :
 
-    promise.then(function () {
-      app.listen(5000, function() {
-        console.log("Node app is running at localhost:" + app.get('port'))
-      });
+    app.set('port', (process.env.PORT || 5000));
+    app.listen(app.get('port'), function() {
+        console.log('Node app is running at localhost:'' + app.get('port'))
     });
+
 
 ## Reserved and required fields (mandatory)
 
-There are 3 columns that every resource table must have (it's mandatory).
+There are 4 columns that every resource table must have (it's mandatory).
 
 Those are:
 
 * "$$meta.deleted" boolean not null default false,
 * "$$meta.modified" timestamp with time zone not null default current_timestamp,
-* "$$meta.created" timestamp with time zone not null default current_timestamp
+* "$$meta.created" timestamp with time zone not null default current_timestamp,
+* "$$meta.version" number which is increased on each change of the resource
+
+The application will fail to register a resource that lacks these fields (and show a message to the user)
 
 For performance reasons it's highly suggested that an index is created for each column:
 
 * CREATE INDEX table_created ON *table* ("$$meta.created");
 * CREATE INDEX table_modified ON *table* ("$$meta.modified");
 * CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
+* CREATE INDEX table_verion ON *table* ("$$meta.version");
 
 The following index is for the default order by:
 
 * CREATE INDEX table_created_key ON *table* ("$$meta.created", "key");
 
-The application will fail to register a resource that lacks these fields (and show a message to the user)
+It is also highly suggested to have indices on fields which can be used to filter the resources in a list resource request. Both a plain index as a LOWER() index are required as the default equality check is a case insensitive check.
+
 
 ## Processing Pipeline
 
@@ -377,49 +386,53 @@ This will include related *regular* resources.
 
 When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
 
-1. Check if you have permission by executing all registered `secure` functions in the configuration.
-If any of these functions rejects its promise, the client will receive 403 Forbidden.
-2. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name).
+1. Execute `transformRequest` functions.
+2. Execute `beforeRead` functions.
+3. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name).
 All standard postgreSQL datatypes are converted automatically to JSON.
-Values can be transformed by an *onread* function (if configured).
+Values can be transformed by an `columnToField` function (if configured).
 By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
 As they are mapped with `{ references: '/type' }`.
-3. Add a `$$meta` section to the response document.
-4. Execute any `afterread` functions to allow you to manipulate the result JSON.
+4. Add a `$$meta` section to the response document.
+5. Execute `afterread` functions to allow you to manipulate the result JSON.
+6. Execute `transformResponse` functions to allow you to manipulate the request result.
 
 When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
 
-1. Check if you have permission by executing all registered `secure` functions.
-If any of these functions rejects its promise, the client will receive 403 Forbidden.
+1. Execute `transformRequest` functions.
 2. Perform schema validation on the incoming resource.
 If the schema is violated, the client will receive a 409 Conflict.
-3. Execute `validate` functions.
-If any of of the `validate` functions rejects its promise, the client receives a 409 Conflict.
+3. Execute `beforeInsert` or `beforeUpdate` functions.
 4. Convert the JSON document into a simple key-value object.
 Keys map 1:1 with database columns.
-All incoming values are passed through the `onwrite`/`oninsert` function for conversion (if configured).
+All incoming values are passed through the `fieldToColumn` function for conversion (if configured).
 By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
-6. Execute `afterupdate` or `afterinsert` functions.
+6. Execute `afterUpdate` or `afterInsert` functions.
+7. Execute `transformResponse` functions to allow you to manipulate the request result.
 
 When deleting a *regular* resource :
 
-1. Check if you have permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects its promise, the client will receive 403 Forbidden.
-2. Delete the row from the database.
-3. Execute any `afterdelete` functions.
+1. Execute `transformRequest` functions.
+2. Execute `beforeDelete` functions.
+3. Delete the row from the database.
+4. Execute `afterDelete` functions.
+5. Execute `transformResponse` functions to allow you to manipulate the request result.
+
 
 When reading a *list* resource :
 
-1. Check if you have read permission by executing all registered `secure` functions in the mapping.
-If any of these functions rejects its promise, the client will receive 403 Forbidden.
-2. Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
-3. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
+1. Execute `transformRequest` functions.
+2. Execute `beforeRead` functions.
+3. If count is requested: Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
+4. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `defaultFilter` function. It is this default function that will be called if no other query function was registered.
-4. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`).
+5. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`).
 See the [SRI specification][sri-specs-list-resources] for more details.
-5. Build a list resource with a `$$meta` section + a `results` section.
-6. Execute any `afterread` functions to allow you to manipulate the result JSON.
+6. Build a list resource with a `$$meta` section + a `results` section.
+7. Execute `afterRead` functions to allow you to manipulate the result JSON.
+8. Execute `transformResponse` functions to allow you to manipulate the request result.
+
 
 That's it ! :-).
 
@@ -432,17 +445,17 @@ middleware.
 
 Below is a description of the different types of functions that you can use in the configuration of sri4node.
 It describes the inputs and outputs of the different functions.
-Most of these function return a [Q promise][kriskowal-q].
-Some of the function are called with a database context, allowing you to execute SQL inside your function.
+These functions are assumed to be asynchronuous are will be 'awaited'.
+Some of the function are called with a database transaction context, allowing you to execute SQL inside your function within the current transaction.
 Such a database object can be used together with `sri4node.utils.prepareSQL()` and `sri4node.utils.executeSQL()`.
 Transaction demarcation is handled by sri4node, on a per-request-basis.
 That implies that `/batch` operations are all handled in a single transaction.
 For more details on batch operations see the [SRI specification][sri-specs-batch].
 
-### onread
+### columnToField
 
 Database columns are mapped 1:1 to keys in the output JSON object.
-The `onread` function receives these arguments :
+The `columnToField` function receives these arguments :
 
 - `key` is the key the function was registered on.
 - `element` is the the result of the query that was executed.
@@ -455,13 +468,14 @@ always remove a certain key, rename a key, etc..
 A selection of predefined functions is available in `sri4node.mapUtils` (usually assigned to `$m`).
 See below for details.
 
-### oninsert / onupdate
+### fieldToColumn
 
 JSON properties are mapped 1:1 to columns in the postgres table.
 The `onupdate` and `oninsert` functions recieves these parameters :
 
 - `key` is the key they were registered on.
 - `element` is the JSON object being PUT.
+- `isNewResource` is a boolean indicating wether a resource is created or updated.
 
 All functions are executed in order of listing in the `map` section of the configuration.
 All are allowed to manipulate the element, before it is inserted/updated in the table.
@@ -469,38 +483,7 @@ No return value is expected, the functions manipulate the element in-place.
 A selection of predefined functions is available in `sri4node.mapUtils` (usually assign to `$m`).
 See below for details.
 
-### secure
-
-A `secure` function receives these parameters :
-
-- `request` is the Express.js [request][express-request] object for this operation.
-- `response` is the Express.js [response][express-response] object for this operation.
-- `database` is a database object (see above) that you can use for querying the database.
-- `me` is the security context of the user performing the current HTTP operation. This is the result of the `identify` function.
-- `batch` an array of the operations requested. Each element has attributes `href` and `verb`.
-
-The function must return a [Q promise][kriskowal-q].
-It should `resolve()` the promise if the function allows the HTTP operation.
-It should `reject()` the promise if the function disallows the HTTP operation.
-In the later case the client will receive a 403 Forbidden as response to his operation.
-
-### validate
-
-Validation functions are executed before update/insert.
-All validation functions are executed for every PUT operation.
-
-A `validate` function receives these arguments :
-
-- `body` is the full JSON document being PUT.
-- `database` is a database object (see above) that you can use for querying the database.
-
-The function must return a [Q promise][kriskowal-q].
-It should `reject()` the returned promise if the validation fails, with one or more objects that correspond to the SRI definition of an [error][sri-errors].
-The implementation can return an array, or a single object.
-If any of the `validate` functions reject their promise, the client receives 409 Conflict.
-In the response body the client will then find all responses generated by all rejecting `validate` functions combined.
-
-### query
+### query 
 
 All queries are URLs.
 Any allowed URL parameter is interpreted by these functions.
@@ -510,13 +493,13 @@ The functions receive these parameters :
 - `value` is the value of the request parameter (string).
 - `select` is a query object (as returned by `sri4node.prepareSQL()`) for adding SQL to the `WHERE` clause. See [below](#preparesql) for more details.
 - `parameter` is the name of the URL parameter.
-- `database` is a database object that you can use to execute extra SQL statements.
+- `tx` is a database transaction object that you can use to execute extra SQL statements.
 - `count` is a boolean telling you if you are currently decorating the `SELECT COUNT` query, or the final `SELECT` query. Useful for making sure some statements are not executed twice (when using the database object)
 - `mapping` is the mapping in the configuration of sri4node.
 
 All the configured `query` functions should extend the SQL statement with an `AND` clause.
 
-The function must return a [Q promise][kriskowal-q].
+The functions are assumed to be asynchronuous and are 'awaited'.
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
 If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
 It should reject with one or an array of error objects that correspond to the [SRI definition][sri-errors].
@@ -524,119 +507,53 @@ Mind you that *path* does not makes sense for errors on URL parameters, so it is
 
 If a query parameter is supplied that is not supported, the client also receives a 404 Not Found and a listing of supported query parameters.
 
-### handlelistqueryresult
-
-An optional function to override the default code for building the JSON result based on the database query result.
-
-This function receives these parameters :
-
-- `req` the express.js request object.
-- `result` is an object containing the query result.
-
-The function must return a [Q promise][kriskowal-q] JSON output object.
-
-### afterread
+### afterRead
 
 Hook for post-processing a GET operation (both regular and list resources).
 It applies to both regular resources, and list resources (with at least `expand=results`).
 The function receives these parameters :
 
-- `database` is a database object, allowing you to execute extra SQL statements.
-- `elements` is an array of one or more resources that you can manipulate.
-- `me` the return of the identify function
-- `route` the url route that originated the response
-- `headersFn` A function of the form (field [, value]): Sets the response’s HTTP header field to value. To set multiple fields at once, pass an object as the parameter.
+- `tx` is a database transaction object, allowing you to execute extra SQL statements.
+- `sriRequest` is an object containing information about the request.
+- `elements` is an array of one or more objects: 
+    - `permalink` is the permalink of the resource
+    - `incoming` is the received version of the resoured (null in case of afterRead)
+    - `stored` is the stored version of the resource
 
-The function must return a [Q promise][kriskowal-q].
+The functions are assumed to be asynchronuous and are 'awaited'.
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response by default. It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
-When rejecting, an object can be provided to produce a different output. The object must have the following properties:
-- `statusCode` is the http status code to be returned in the response.
-- `body` is the body of the http response
-Mind you that *path* does not makes sense for errors in afterread methods, so you should omit it.
 
-### afterupdate / afterinsert
+### afterUpdate / afterInsert
 
 Hooks for post-processing a PUT operation can be registered to perform desired things,
 like clear a cache, do further processing, update other tables, etc..
 The function receives these parameters :
 
-- `database` is a database object, allowing you to execute extra SQL statements.
-- `elements` is an array of one or more objects. Each object contains two attributes:
-  - `path` is the route of the request
-  - `body` is the JSON element (as it was PUT, so without mapping/processing) that was just updated / created.
-- `me` the return of the identify function
+- `tx` is a database transaction object, allowing you to execute extra SQL statements.
+- `sriRequest` is an object containing information about the request.
+- `elements` is an array of one or more objects: 
+    - `permalink` is the permalink of the resource
+    - `incoming` is the received version of the resoured 
+    - `stored` is the stored version of the resource (null in case of afterInsert)
 
-The function must return a [Q promise][kriskowal-q].
-In case the returned promise is rejected, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
-The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
-If any of the functions rejects its promise the client receives 409 Conflict by default, an a combination of all error objects in the response body.
-When rejecting, an object can be provided to produce a different output. The object must have the following properties:
-- `statusCode` is the http status code to be returned in the response.
-- `body` is the body of the http response
+The functions are assumed to be asynchronuous and are 'awaited'.
+In case an error is thrown, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
 
-### afterdelete
+
+### afterDelete
 
 Hook for post-processing when a record is deleted.
 The function receives these parameters :
 
-- `database` is a database object, allowing you to execute extra SQL statements.
-- `elements` is an array of one or more objects. Each object contains two attributes:
-  - `path` is the route of the request
-  - `body` is the permalink of the object that was deleted.
-- `me` the return of the identify function
+- `tx` is a database transaction object, allowing you to execute extra SQL statements.
+- `sriRequest` is an object containing information about the request.
+- `elements` is an array of one or more objects: 
+    - `permalink` is the permalink of the resource
+    - `incoming` is the received version of the resoured (null in case of afterDelete)
+    - `stored` is the stored version of the resource
 
-The function must return a [Q promise][kriskowal-q].
-In case the returned promise is rejected, the database transaction (including the DELETE of the resource) is rolled back.
-The function should `reject()` its promise with an object that correspond to the SRI definition of an [error][sri-errors].
-If any of the functions rejects its promise the client receives 409 Conflict by default, an a combination of all error objects in the response body.
-When rejecting, an object can be provided to produce a different output. The object must have the following properties:
-- `statusCode` is the http status code to be returned in the response.
-- `body` is the body of the http response
+The functions are assumed to be asynchronuous and are 'awaited'.
 
-### authenticate
-
-This function handles authentication of the current user.
-This function receives these parameters :
-
-- `req` the express.js request object.
-- `res` the express.js response object.
-- `next` a function that can be called to delegate response handling to the next handler in the chain.
-
-### checkAuthentication
-
-If this function is configured it takes precedence over #authenticate for read (GET) operations. This must be
-accompanied by the #postAuthenticationFailed function.
-
-The difference with authenticate is that this function tries to authenticate the user but continues regardless of
-whether there's a valid user or not. If there's a valid user it puts it in the req object for subsequent checks.
-
-- `req` the express.js request object.
-- `res` the express.js response object.
-- `next` a function that can be called to delegate response handling to the next handler in the chain.
-
-### postAuthenticationFailed
-
-This function is called if the read (GET) operation didn't succeed because of permission issues.
-
-If there's a valid user, then the user is not authorized. If there's no user, then it's not authenticated.
-
-The error can be used to send a specific error.
-
-- `req` the express.js request object.
-- `res` the express.js response object.
-- `user` a function that can be called to delegate response handling to the next handler in the chain.
-- `error` a function that can be called to delegate response handling to the next handler in the chain.
-
-### identify
-
-This function determines the /me resource. The same information is also passed into `query` functions as an argument.
-It receives these parameter :
-
-- `req` the express.js request object, allowing you to analyze any headers on the request.
-- `database` a database obejct, allowing you to perform queries.
-
-The function must return a [Q promise][kriskowal-q], with the `me` object.
-This will be returned in the body of a request to /me, and it will also be passed into your `secure` functions.
 
 ## resource specific configuration variables
 
@@ -648,51 +565,46 @@ Can be used to restrict the methods which are allowed on a resource. If not spec
 
 Can be used to override the tablename in case it does not match the resource name.
 
-## Caching
-
-By default resources are not cached. By defining a `cache` section we can store results in a cache not to hit the database.
-The key of the cache is the requested url.
-
-There are currently two supported types of caches: local and redis.
-
-- `local` stores the output in a local in-memory cache.
-- `redis` connects to a Redis store and stores objects there. This allows for horizontal scalability since multiple application
-instances can share the cache.
-
-### Examples
-
-cache: {
-  ttl: 0,
-  type: 'local'
-}
-
-Will store objects in a local cache without an expiration time. The object will live in the cache until replaced by a new version
-
-cache: {
-  ttl: 60, // store objects for 60 seconds. After 60 seconds the objects are purged.
-  type: 'redis',
-  redis: 'redis://user@host.com:9000'
-}
-
-If type is redis the URL to a Redis server must be provided.
 
 ### Custom Routes
 
-Allows you to set extra routes besides the defaults GET, PUT, DELETE for the resource.
-Each element of the customroutes array contains:
+There are three different custom scenario's possible. Two parameters are needed in all scenario's:
 
-  - `route` uri to be added [required].
-  - `method` the route method, possible values GET, PUT. Default GET.
-  - `handler` function called when the route is accessed [required].
-  - `middleware` optional Express.js middleware function or *array of* such functions to be called before the handler.
-  - `description` a description of the custom route.
+ - `routePostfix`: is appended to the route of the resource where the custom route is defined, example '/:key/simple'
+ - `httpMethods`: array with http verbs the custom route matches
 
-A handler function receives this arguments:
+Optionally `alterMapping` can be used to create an altered mapping version for the custom route based on the normal resource mapping. For example, in the custom mapping transformResponse can be defined to alter the response specificly for the custom route.
+ - `alterMapping`: function (mapping) => {}
 
-  - `req` the express.js request object.
-  - `res` the express.js response object.
-  - `database` is a database object (see above) that you can use for querying the database.
-  - `me` the return of the identify function
+The possbile scenario's:
+  - A 'like' scenario: this scenario acts similar as an existing resource, only with a different custom mapping created with an `alterMapping` function. Parameters:
+    - `like`: defines the path of regular resource to used example: "/:key". 
+ - Plain custom handler: a handler generates all the custom output. Parameters:
+    - `handler`: function dealing with the request: (tx, sriRequest, customMapping) => {}. Expected return is an object containing status, body and optionally headers.
+    Optionally a before- and afterHandler can be defined:
+    - `beforeHandler` (tx, sriRequest, customMapping) => {}
+    - `afterHandler` (tx, sriRequest, customMapping, result) => {}
+ - Streaming scenario. The output stream can be JSON or binary stream
+      , streamingHandler: async (tx, sriRequest, stream) => {}.  The streamingHandler is at the moment expected to return only after streaming is done. This will probably change, see tickets below.
+    Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
+      , beforeStreamingHandler: async (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
+    To enable binary streaming:
+      - `binaryStream: true`
+    When doing binary streaming it makes sense to use the beforeStreamingHandler to set some 'Content-*' headers specifying the type of content.
+
+    In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy: 
+     - `busBoy`: true
+    Currently the busBoy event handlers need to be handled in the beforeStreamingHandler. This will probably change, see tickets below.
+
+Streaming custom requests cannot be used in batch, the others can be used in batch.
+
+For examples of all the custom scenarios, see the code in the sri4node tests: 
+https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
+https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
+
+This streaming custom routes interface will probably change in version 2.1. See tickets: 
+https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/159
+https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/160
 
 ## Limiting results
 
@@ -715,28 +627,6 @@ reading the source for one of these functions should contain no surprises.
 ### General Utilities
 The utilities are found in `sri4node.utils`.
 
-#### getConnection(pg, configuration)
-Used for obtaining a new connection to the database. **It must be properly closed after done using it**.
-Failure to do so will create connection leaks in the pool.
-Arguments:
-
-- `pg`: a postgres object (https://www.npmjs.com/package/pg)
-- `config`: a configuration object with the attributes: ```{defaultdatabaseurl: databaseUrl, logsql: verbose}```
-
-Example usage:
-
-```
-var db;
-getConnection(pg, config)
-.then(function (database) {
-  db = database;
-
-  // do something with the database
-})
-.finally(function () {
-  db.done();
-});
-```
 
 #### prepareSQL()
 Used for preparing SQL. Supply a `name` to keep the query in the database as a prepared statement.
@@ -787,18 +677,6 @@ Arguments:
 - `query` a query obtain via `prepareSQL`
 
 This returns a promise that it's fulfilled when the `query` object contains the constructed SQL.
-
-#### basicAuthentication(authenticator)
-Used for protecting a resource with BASIC authentication.
-It accepts a single parameter, that is in turn a function that is responsible for checking username/password.
-The function `authenticator`, receives these parameters :
-
-- `database` is a database connection, that may be used to perform queries.
-- `username` the username, that sent on the HTTP `Authentication` header.
-- `password` the password, that was sent on the HTTP `Authentication` header.
-
-The `authenticator` function should return a [Q promise][kriskowal-q] that is resolved with a boolean `true` or `false` to indicate that username and password match, or do not match.
-It should reject the promise in any other case.
 
 ### Mapping Utilities
 Provides various utilities for mapping between postgres and JSON.
