@@ -588,12 +588,13 @@ The possbile scenario's:
     - `streamingHandler` (tx, sriRequest, stream) => {}.  The streamingHandler is at the moment expected to return only after streaming is done. This will probably change, see tickets below.
     Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
     - `beforeStreamingHandler` (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
+    
     To enable binary streaming:
-      - `binaryStream: true`
+    - `binaryStream: true`
     When doing binary streaming it makes sense to use the beforeStreamingHandler to set some 'Content-*' headers specifying the type of content.
 
     In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy: 
-     - `busBoy`: true
+    - `busBoy`: true
     Currently the busBoy event handlers need to be handled in the beforeStreamingHandler. This will probably change, see tickets below.
 
 Streaming custom requests cannot be used in batch, the others can be used in batch.
