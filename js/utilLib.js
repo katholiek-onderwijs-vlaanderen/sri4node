@@ -23,7 +23,7 @@ exports = module.exports = {
       const typeToMapping = typeToConfig(resources);
       const mapping = typeToMapping[type];
 
-      if (elements && elements.length && elements.length > 0) {
+      if (elements && elements.length && elements.length > 0 && sriRequest.query.expand != 'NONE') {
         const tablename = type.split('/')[type.split('/').length - 1];
         const query = prepare();
         const elementKeys = [];

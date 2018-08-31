@@ -284,9 +284,10 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     await getSQLFromListResource(mapping, queryParams, false, tx, query);
     orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset)
     debug('* executing SELECT query on tx');
+    const start = new Date();
     rows = await pgExec(tx, query);
     
-    debug('pgExec select ... OK');
+    debug('pgExec select ... OK, exectime='+(new Date() - start)+' ms.');
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
       throw new SriError({status: 409, errors: [{code: 'invalid.query.parameter'}]})
