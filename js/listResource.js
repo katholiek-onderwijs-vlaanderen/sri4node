@@ -123,18 +123,19 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     query.sql(' AND (')
     const orderKeyOp = descending ? '<' : '>';
     let equalConditions = []
+    let tableName = mapping.type.split('/')[mapping.type.split('/').length - 1]
     orderKeys.forEach( (k, idx) => {
       if (idx===0) {
-        query.sql(` "${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(` "${tableName}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
       } else {
         query.sql(' OR (')
         orderKeys.slice(0, idx).forEach( (k2, idx2) => {
           if (idx2 > 0) {
             query.sql(' AND ')
           }
-          query.sql(`"${k2}" = `).param(keyValues[idx2]);
+          query.sql(`"${tableName}"."${k2}" = `).param(keyValues[idx2]);
         });
-        query.sql(` AND "${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(` AND "${tableName}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
         query.sql(' )')
       }
     })

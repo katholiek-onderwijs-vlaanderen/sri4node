@@ -39,7 +39,9 @@ exports = module.exports = {
         query.sql('select *, \"' + column + '\" as fkey from ' +
           tablename + ' where \"' + column + '\" in (').array(elementKeys)
           .sql(') and \"$$meta.deleted\" = false');
+        const start = new Date();
         const rows = await pgExec(tx, query)
+        console.log('pgExec select ... OK, addreferencingstime='+(new Date() - start)+' ms.');
         await pMap(rows, async (row) => {
           const element = elementKeysToElement[row.fkey];
           const target = {href: type + '/' + row.key};
