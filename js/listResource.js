@@ -123,19 +123,19 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     query.sql(' AND (')
     const orderKeyOp = descending ? '<' : '>';
     let equalConditions = []
-    let tableName = mapping.type.split('/')[mapping.type.split('/').length - 1]
+    const table = tableFromMapping(mapping);
     orderKeys.forEach( (k, idx) => {
       if (idx===0) {
-        query.sql(` "${tableName}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
       } else {
         query.sql(' OR (')
         orderKeys.slice(0, idx).forEach( (k2, idx2) => {
           if (idx2 > 0) {
             query.sql(' AND ')
           }
-          query.sql(`"${tableName}"."${k2}" = `).param(keyValues[idx2]);
+          query.sql(`"${table}"."${k2}" = `).param(keyValues[idx2]);
         });
-        query.sql(` AND "${tableName}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(` AND "${table}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
         query.sql(' )')
       }
     })
@@ -233,7 +233,8 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   }
 
   if (results.length === parseInt(queryLimit)) {  
-    const keyOffset = orderKeys.map( k => _.get(results[queryLimit-1]['$$expanded'], k) )
+    let lastElement = queryParams.expand && queryParams.expand.toLowerCase() === 'none' ? rows[queryLimit-1] : results[queryLimit-1]['$$expanded'];
+    const keyOffset = orderKeys.map( k => _.get(lastElement, k) )
                                .map( o => (o instanceof Date) ? o.toISOString() : o.toString() )
                                .join(',')
     output.$$meta.next = addOrReplaceParameter(originalUrl, 'keyOffset', keyOffset)
