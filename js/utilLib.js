@@ -22,8 +22,9 @@ exports = module.exports = {
       const resources = global.sri4node_configuration.resources
       const typeToMapping = typeToConfig(resources);
       const mapping = typeToMapping[type];
+      const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : undefined;
 
-      if (elements && elements.length && elements.length > 0 && sriRequest.query.expand != 'NONE') {
+      if (elements && elements.length && elements.length > 0 && expand != 'none') {
         const tablename = type.split('/')[type.split('/').length - 1];
         const query = prepare();
         const elementKeys = [];
