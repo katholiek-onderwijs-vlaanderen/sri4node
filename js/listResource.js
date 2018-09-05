@@ -232,7 +232,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
     }
   }
 
-  if (results.length === parseInt(queryLimit)) {  
+  if (results.length === parseInt(queryLimit) && results.length > 0) {  
     let lastElement = queryParams.expand && queryParams.expand.toLowerCase() === 'none' ? rows[queryLimit-1] : results[queryLimit-1]['$$expanded'];
     const keyOffset = orderKeys.map( k => _.get(lastElement, k) )
                                .map( o => (o instanceof Date) ? o.toISOString() : o.toString() )
