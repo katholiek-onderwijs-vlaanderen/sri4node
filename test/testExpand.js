@@ -27,7 +27,7 @@ exports = module.exports = function (base, logverbose) {
   describe('Expansion', function () {
     // Test expand=none
     describe(' with "none" on list resources', function () {
-      it('should succeed with $$expanded in results array.', async function () {
+      it('should succeed without $$expanded in results array.', async function () {
         const response = await doGet('/messages?expand=none', null, authHdrObj)
         if (response.results[0].$$expanded) {
           assert.fail('Expansion was performed !');
@@ -40,6 +40,16 @@ exports = module.exports = function (base, logverbose) {
         }
       });
     });
+
+    describe(' with "none" on list resources with \'addReferencingResources\' configured', function () {
+      it('should succeed without $$expanded in results array.', async function () {
+        const response = await doGet('/persons?expand=none&communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849', null, authHdrObj)
+        if (response.results[0].$$expanded) {
+          assert.fail('Expansion was performed !');
+        }
+      });
+    });
+    
 
     // Test expand=full on list resources (all elements href expanded)
     describe(' with "full" on list resources', function () {

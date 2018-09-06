@@ -47,9 +47,7 @@ exports = module.exports = {
           const element = elementKeysToElement[row.fkey];
           const target = {href: type + '/' + row.key};
 
-          if (expand) {
-            target.$$expanded = await transformRowToObject(row, mapping)
-          }
+          target.$$expanded = await transformRowToObject(row, mapping)
           element[targetkey].push(target);
         });
       }  

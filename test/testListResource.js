@@ -163,6 +163,7 @@ exports = module.exports = function (base, logverbose) {
     });
   });
 
+
   describe('Paging', function () {
 
     it('should limit resources by default', async function () {
@@ -262,8 +263,12 @@ exports = module.exports = function (base, logverbose) {
       const response = await doGet('/alldatatypes?textContains=a&limit=2', null, { headers: { authorization: auth } })
       assert.equal(response.results.length, 2);
       assert.equal(response.$$meta.next.startsWith('/alldatatypes?textContains=a&limit=2&keyOffset'), true );
-
     });
+
+    it('should be able to deal with limit=0 and no results', async function () {
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      const response = await doGet('/persons?firstname=unexisting&limit=0', null, { headers: { authorization: auth } })
+    });  
 
   });
 
