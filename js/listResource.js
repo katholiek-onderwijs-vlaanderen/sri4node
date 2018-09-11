@@ -279,7 +279,9 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
       const countquery = prepare();
       await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
       debug('* executing SELECT COUNT query on tx');
+      const startc = new Date();
       count = await getCountResult(tx, countquery) 
+      debug('pgExec count ... OK, exectime='+(new Date() - startc)+' ms.');
     }
 
     const query = prepare();

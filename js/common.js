@@ -214,10 +214,14 @@ exports = module.exports = {
     } else {
       dbUrl = configuration.defaultdatabaseurl;
       pgp.pg.defaults.ssl = false
-    }
+    }    
     cl('Using database connection string : [' + dbUrl + ']');
 
-    return pgp(dbUrl);
+    let cn = {connectionString: dbUrl};
+    if (configuration.maxConnections) {
+      cn.max = configuration.maxConnections; // default is 10
+    }
+    return pgp(cn);
   },
 
 
