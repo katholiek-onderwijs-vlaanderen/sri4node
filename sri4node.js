@@ -165,7 +165,7 @@ process.on("unhandledRejection", function (err) { console.log(err); throw err; }
 
 const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
   return async function (req, resp, next) {
-    debug('+ Create new transaction, db.pool: ' + db.$pool.idleCount + ' / ' + db.$pool.waitingCount + ' / ' + db.$pool.totalCount)
+    cl('+ Create new transaction, db.pool: ' + db.$pool.idleCount + ' / ' + db.$pool.waitingCount + ' / ' + db.$pool.totalCount)
     const {tx, resolveTx, rejectTx} = await startTransaction(db)    
     try {
 
