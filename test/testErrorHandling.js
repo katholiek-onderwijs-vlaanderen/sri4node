@@ -162,42 +162,42 @@ exports = module.exports = function (base) {
     });
 
 
+    // TODO: find another way to trigger an SQL error as duplicates generate now a 409 conflict 
+    // describe('SQL error ', function () {
 
-    describe('SQL error ', function () {
+    //   const key = uuid.v4();
+    //   const p = generateRandomPerson(key, communityDendermonde);
+    //   p.email = 'sabine@email.be';
 
-      const key = uuid.v4();
-      const p = generateRandomPerson(key, communityDendermonde);
-      p.email = 'sabine@email.be';
+    //   it('should return 500 (server error) [regular request]', async function () {
+    //     await utils.testForStatusCode( 
+    //       async () => {
+    //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    //         await doPut('/persons/' + key, p, { headers: { authorization: auth }, maxAttempts: 1  });
+    //       }, 
+    //       (error) => {
+    //         assert.equal(error.status, 500);
+    //       })
+    //   });
 
-      it('should return 500 (server error) [regular request]', async function () {
-        await utils.testForStatusCode( 
-          async () => {
-            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-            await doPut('/persons/' + key, p, { headers: { authorization: auth }, maxAttempts: 1  });
-          }, 
-          (error) => {
-            assert.equal(error.status, 500);
-          })
-      });
-
-      it('should return 500 (server error) [batch request]', async function () {
-        const batch = [
-            { "href": '/persons/' + key
-            , "verb": "PUT"
-            , "body": p
-            }]
+    //   it('should return 500 (server error) [batch request]', async function () {
+    //     const batch = [
+    //         { "href": '/persons/' + key
+    //         , "verb": "PUT"
+    //         , "body": p
+    //         }]
         
-        await utils.testForStatusCode( 
-          async () => {
-            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-            await doPut('/batch', batch, { headers: { authorization: auth }, maxAttempts: 1 });
-          }, 
-          (error) => {
-            assert.equal(error.status, 500);
-          })
-      });
+    //     await utils.testForStatusCode( 
+    //       async () => {
+    //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    //         await doPut('/batch', batch, { headers: { authorization: auth }, maxAttempts: 1 });
+    //       }, 
+    //       (error) => {
+    //         assert.equal(error.status, 500);
+    //       })
+    //   });
 
-    });
+    // });
 
 
   });

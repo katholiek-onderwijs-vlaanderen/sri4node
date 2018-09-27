@@ -124,25 +124,36 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     const orderKeyOp = descending ? '<' : '>';
     let equalConditions = []
     const table = tableFromMapping(mapping);
+    const tableInformation = global.sri4node_configuration.informationSchema['/' + table]; 
+
+    const addQueryClause = (table, k, orderKeyOp, value) => {
+      if (tableInformation[k].type === 'timestamp with time zone') {
+        // strip microseconds as we only use milliseconds in sri4node
+        query.sql(` date_trunc('milliseconds', "${table}"."${k}") ${orderKeyOp} `).param(value);
+      } else {
+        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(value);      
+      }
+    }
+
     orderKeys.forEach( (k, idx) => {
       if (idx===0) {
-        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        addQueryClause(table, k, orderKeyOp, keyValues[idx]);
       } else {
         query.sql(' OR (')
         orderKeys.slice(0, idx).forEach( (k2, idx2) => {
           if (idx2 > 0) {
             query.sql(' AND ')
           }
-          query.sql(`"${table}"."${k2}" = `).param(keyValues[idx2]);
+          addQueryClause(table, k2, '=', keyValues[idx2]);
         });
-        query.sql(` AND "${table}"."${k}" ${orderKeyOp} `).param(keyValues[idx]);
+        query.sql(' AND ')
+        addQueryClause(table, k, orderKeyOp, keyValues[idx]);
         query.sql(' )')
       }
     })
     query.sql(') ')
 
   }
-
 
   // add order parameter
 

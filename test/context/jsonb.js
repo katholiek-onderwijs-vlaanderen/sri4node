@@ -14,13 +14,15 @@ exports = module.exports = function (extra) {
       type: 'object',
       properties: {
         key: $s.guid(''),
-        details: { "type": "object" }
+        details: { "type": "object" },
+        foo: $s.permalink('/foo', 'json permalink test')
       },
-      required: ['key', 'details']
+      required: ['key', 'details', 'foo']
     },    
     map: {
       key: {},
-      details: {}
+      details: {},
+      foo: {}
     }
   };
 

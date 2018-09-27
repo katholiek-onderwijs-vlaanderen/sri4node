@@ -171,6 +171,19 @@ exports = module.exports = function (base, logverbose) {
       const response = await doGet('/communities?$$meta.deleted=false&email=' + key + '@email.com', null,  { headers: { authorization: auth } })
       assert.equal(response.results.length, 0);
     });
+
+
+    // // does not work out-of-the-box with logical delete ==> TODO?
+    // it('deleting resource resulting in foreign key error should return 409 - Conflict', async function () {
+    //   await utils.testForStatusCode( 
+    //     async () => {
+    //       const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    //       await doDelete(communityDendermonde, { headers: { authorization: auth } })
+    //     }, 
+    //     (error) => {
+    //       assert.equal(error.status, 409);
+    //     })
+    // });    
   });
 
 
@@ -396,6 +409,21 @@ exports = module.exports = function (base, logverbose) {
     });
   });
 
+  describe('PUT resulting in foreign key error', function () {
+    it('should return 409 conflict', async function () {
+      await utils.testForStatusCode( 
+          async () => {
+            const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+            const keyp = uuid.v4();
+            const p = generateRandomPerson(keyp, '/communities/00000000-0000-0000-0000-000000000000');
+            await doPut('/persons/' + keyp, p, { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);            
+            assert.equal(error.body.errors[0].code, 'db.constraint.violation');
+          })
+    });
+  });
 
 
   describe('PUT must distinguish between create (201) and update (200)', function () {

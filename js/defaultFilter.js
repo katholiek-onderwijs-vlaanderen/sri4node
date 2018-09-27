@@ -341,19 +341,19 @@ function filterJson(select, filter, value, mapping) {
     }
     else if (filter.operator === 'In' && not && sensitive) {
 
-      values = value.split(',');
+      const values = value.split(',');
       select.sql(' AND (' + jsonKey + '::text NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
 
     }
     else if (filter.operator === 'In' && !not && sensitive) {
 
-      values = value.split(',');
+      const values = value.split(',');
       select.sql(' AND ' + jsonKey + '::text IN (').array(values).sql(')');
 
     }
     else if (filter.operator === 'In' && not && !sensitive) {
 
-      values = value.split(',').map(function(v) {
+      const values = value.split(',').map(function(v) {
         return v.toLowerCase();
       });
       select.sql(' AND (LOWER(' + jsonKey + '::text) NOT IN (').array(values).sql(') OR ' + filter.key + '::text IS NULL)');
@@ -361,7 +361,7 @@ function filterJson(select, filter, value, mapping) {
     }
     else if (filter.operator === 'In' && !not && !sensitive) {
 
-      values = value.split(',').map(function(v) {
+      const values = value.split(',').map(function(v) {
         return v.toLowerCase();
       });
       select.sql(' AND LOWER(' + jsonKey + '::text) IN (').array(values).sql(')');

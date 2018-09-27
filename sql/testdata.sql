@@ -42,9 +42,9 @@ INSERT INTO "selfreferential" VALUES ('55ac49a0-34c8-4c33-9c8b-acfcb1578a91','le
 INSERT INTO "selfreferential" VALUES ('ab142ea6-7e79-4f93-82d3-8866b0c8d46b','level3','55ac49a0-34c8-4c33-9c8b-acfcb1578a91');
 
 -- A table that contains a JSONB column, for testing JSONB column support
-insert into jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
-insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}');
-insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}');
+insert into jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}');
+insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849"}');
+insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}', '{"href": "/foo/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}');
 
 -- Data for the generic Filters
 insert into alldatatypes (key, id, text) values ('fd7e38e1-26c3-425e-9443-8a80722dfb16', 1, 'Value');
@@ -106,3 +106,21 @@ INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-5684
 INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-7412-4996-ae5b-ec33c903ee4d', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON');
 INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-3699-4996-ae5b-ec33c903ee4d', 'da6dcc12-c46f-4626-a965-1a00536131b2', '9abe4102-6a29-4978-991e-2a30655030e6', 'DAUGHTER');
 INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-8526-4996-ae5b-ec33c903ee4d', '692fa054-33ec-4a28-87eb-53df64e3d09d', '9abe4102-6a29-4978-991e-2a30655030e6', 'NICE');
+
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (41002, 'Aalst', 41002);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (44001, 'Aalter', 44001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (24001, 'Aarschot', 24001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (11001, 'Aartselaar', 11001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (23105, 'Affligem', 23105);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (52074, 'Aiseau-Presles', 52074);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (73001, 'Alken', 73001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (38002, 'Alveringem', 38002);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (61003, 'Amay', 61003);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (63001, 'Amel', 63001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (92003, 'Andenne', 92003);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (21001, 'Anderlecht', 21001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (56001, 'Anderlues', 56001);
+INSERT INTO "cities" (key, "name", "nisCode") VALUES (91005, 'Anhée', 91005);
+
+
+UPDATE "cities" SET "$$meta.modified"='2015-11-01', "$$meta.created"='2018-09-20 13:22:32.7814';

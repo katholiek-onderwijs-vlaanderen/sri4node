@@ -453,6 +453,34 @@ exports = module.exports = function (base) {
 
       });
 
+      describe('Permalink fields', function () {
+
+        it('should find all the resources with an in match', async function () {
+          var q = '/jsonb?foo.hrefIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
+          const response = await doGet(q, null, authHdrObj)
+          assert.equal(response.results.length , 2);
+        });
+
+        it('should find all the resources with a case sensitive in match', async function () {
+          var q = '/jsonb?foo.hrefCaseSensitiveIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
+          const response = await doGet(q, null, authHdrObj)
+          assert.equal(response.results.length , 2);
+        });
+
+        it('should find no resources with a not in match', async function () {
+          var q = '/jsonb?foo.hrefNotIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
+          const response = await doGet(q, null, authHdrObj)
+          assert.equal(response.results.length , 2); // jsonb put test case adds one new 
+        });
+        
+        it('should find no resources with a case sensitive not in match', async function () {
+          var q = '/jsonb?foo.hrefCaseSensitiveNotIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
+          const response = await doGet(q, null, authHdrObj)
+          assert.equal(response.results.length , 2); // jsonb put test case adds one new 
+        });
+
+      });        
+
     });
   });
 

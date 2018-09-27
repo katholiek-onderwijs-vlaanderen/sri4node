@@ -43,7 +43,8 @@ exports = module.exports = function (base, logverbose) {
               deliveryOption: '/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a'
             }
           ]
-        }
+        },
+        foo: { href: '/foo/00000000-0000-0000-0000-000000000000' }        
       };
 
       const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')

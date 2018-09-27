@@ -90,6 +90,7 @@ CREATE TABLE "selfreferential" (
 CREATE TABLE "jsonb" (
     "key" uuid unique,
     "details" jsonb,
+    "foo" jsonb,
     "$$meta.deleted" boolean default false,
     "$$meta.modified" timestamp with time zone not null default current_timestamp,
     "$$meta.created" timestamp with time zone not null default current_timestamp
@@ -158,6 +159,15 @@ CREATE TABLE "personrelations" (
   type text,
   startdate timestamp with time zone,
   enddate timestamp with time zone,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "cities" (
+  "key" int4 unique,
+  "name" text,
+  "nisCode" numeric,
   "$$meta.deleted" boolean default false,
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp

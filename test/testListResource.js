@@ -204,6 +204,23 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(count, _.uniq(hrefsFound).length);
     });
 
+    it('should also return all resources with created timestamp in microseconds', async function () {
+      const hrefsFound = []
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      let count = 0
+      const traverse = async (url) => {
+        const response = await doGet(url, null, { headers: { authorization: auth } })
+        hrefsFound.push(...response.results.map( e => e.href ))
+        if (response.$$meta.next !== undefined ) {
+          await traverse(response.$$meta.next)
+        } else {
+          count = response.$$meta.count
+        }
+      }
+      await traverse('/cities?limit=2')
+      assert.equal(count, _.uniq(hrefsFound).length);
+    });
+
     it('should work incombination with orderBy', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes?orderBy=key&limit=10', null, { headers: { authorization: auth } })

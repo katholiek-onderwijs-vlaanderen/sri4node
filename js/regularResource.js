@@ -239,7 +239,19 @@ async function createOrUpdate(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
   debug('* sri4node PUT processing invoked.');
-  return await executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
+  try {
+    return await executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
+  } catch (err) {
+    // intercept db constraint violation errors and return 409 error
+    if ( err.constraint !== undefined ) {
+      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+      console.log(err)
+      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+      throw new SriError({status: 409, errors: [{code: 'db.constraint.violation', msg: err.detail}]})
+    } else {
+      throw err
+    }
+  }
 }
 
 async function deleteResource(phaseSyncer, tx, sriRequest, mapping) {

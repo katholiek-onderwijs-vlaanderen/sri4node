@@ -4,13 +4,15 @@ var context = require('./context.js');
 var port = 5000;
 var logsql, logrequests, logdebug, logmiddleware;
 logsql = logrequests = logdebug = logmiddleware = false;
-//logdebug=true
-//logsql = true
+// logdebug=true
+// logsql = true
 
 var base = 'http://localhost:' + port;
 
+
 describe('Sri4node testing', function () {
   'use strict';
+  this.timeout(0);
   before(async function (done) {
     await context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware)
     done()

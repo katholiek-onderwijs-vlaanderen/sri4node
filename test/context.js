@@ -80,7 +80,8 @@ exports = module.exports = {
         require('./context/products.js')(roa, commonResourceConfig),
         require('./context/packages.js')(roa, commonResourceConfig),
         require('./context/relations.js')(roa, commonResourceConfig),
-        require('./context/personrelations.js')(roa, commonResourceConfig)
+        require('./context/personrelations.js')(roa, commonResourceConfig),
+        require('./context/cities.js')(roa, commonResourceConfig)
       ],
 
       // temporarily global batch for samenscholing
