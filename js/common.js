@@ -450,9 +450,9 @@ exports = module.exports = {
                     }
                     return e
                   }),
-        status: status,
-        document: document
+        status: status
       },
+      this.document = document
       this.headers = headers
     }
   }
