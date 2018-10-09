@@ -452,7 +452,6 @@ exports = module.exports = {
                   }),
         status: status
       },
-      this.document = document
       this.headers = headers
     }
   }
