@@ -35,7 +35,7 @@ const pgp = require('pg-promise')(pgpInitOptions);
 
 // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
 //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
-// In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
+// In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we
 // override the pg handler for type 'timestamp without time zone' with one that appends a 'Z' before conversion
 // to a JS Date object to indicate UTC.
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
@@ -60,7 +60,7 @@ exports = module.exports = {
       throw 'urlToTypeAndKey requires a string argument instead of ' + urlToParse
     }
     const parsedUrl = url.parse(urlToParse);
-    const pathName = parsedUrl.pathname.replace(/\/$/, '') 
+    const pathName = parsedUrl.pathname.replace(/\/$/, '')
     const parts = pathName.split('/')
     const type = _.initial(parts).join('/')
     const key = _.last(parts)
@@ -95,7 +95,7 @@ exports = module.exports = {
   },
 
   sqlColumnNames: function (mapping, summary=false) {
-    const columnNames = summary 
+    const columnNames = summary
                           ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
 
@@ -129,30 +129,30 @@ exports = module.exports = {
         if (key.startsWith('$$meta.')) {
           element['$$meta'][key.split('$$meta.')[1]] = row[key]
         } else {
-          element[key] = row[key];          
+          element[key] = row[key];
         }
-      } 
+      }
 
       if (map[key]['columnToField']) {
         map[key]['columnToField'].forEach( f => f(key, element) );
-      }         
+      }
     })
 
-    Object.assign(element.$$meta, _.pickBy({ 
+    Object.assign(element.$$meta, _.pickBy({
         // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
         deleted: row['$$meta.deleted'],
         created: row['$$meta.created'],
         modified: row['$$meta.modified'],
       }))
-    element.$$meta.permalink = resourceMapping.type + '/' + row.key;     
-    element.$$meta.version = row['$$meta.version'];  
+    element.$$meta.permalink = resourceMapping.type + '/' + row.key;
+    element.$$meta.version = row['$$meta.version'];
 
     // exports.debug('Transformed incoming row according to configuration');
     return element
   },
 
- 
-  transformObjectToRow: function (obj, resourceMapping, isNewResource) {  
+
+  transformObjectToRow: function (obj, resourceMapping, isNewResource) {
     const map = resourceMapping.map
     const row = {}
     Object.keys(map).forEach( key => {
@@ -177,20 +177,20 @@ exports = module.exports = {
           // explicitly set missing properties to null (https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/118)
           row[key] = null
         }
-      } 
+      }
 
       if (map[key]['fieldToColumn']) {
         map[key]['fieldToColumn'].forEach( f => f(key, row, isNewResource) );
-      } 
+      }
 
       const fieldTypeDb = global.sri4node_configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
-      const fieldTypeObject = resourceMapping.schema.properties[key] 
+      const fieldTypeObject = resourceMapping.schema.properties[key]
                                   ? resourceMapping.schema.properties[key].type
                                   : null
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
-        // for this type combination we need to explicitly stringify the JSON, 
+        // for this type combination we need to explicitly stringify the JSON,
         // otherwise insert will attempt to store a postgres array which fails for jsonb
-        row[key] = JSON.stringify(row[key])        
+        row[key] = JSON.stringify(row[key])
       }
 
     })
@@ -245,13 +245,13 @@ exports = module.exports = {
   },
 
   startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
-    // exports.debug('++ Starting database transaction.');  
+    // exports.debug('++ Starting database transaction.');
 
-    const emitter = new EventEmitter()  
+    const emitter = new EventEmitter()
 
     const txWrapper = async (emitter) => {
       try {
-        
+
 
         await db.tx( {mode},  async tx => {
           emitter.emit('txEvent', tx)
@@ -267,7 +267,7 @@ exports = module.exports = {
           emitter.emit('txDone', err)
         } else {
           emitter.emit('txDone')
-        }      
+        }
       }
     }
     txWrapper(emitter)
@@ -299,10 +299,10 @@ exports = module.exports = {
       BEGIN
         -- 1. add column '$$meta.version' if not yet present
         IF NOT EXISTS (
-          SELECT column_name 
-          FROM information_schema.columns 
+          SELECT column_name
+          FROM information_schema.columns
           WHERE table_name = '${tableName}'
-            AND column_name = '$$meta.version'     
+            AND column_name = '$$meta.version'
             ${( env.postgresSchema !== undefined
               ? `AND table_schema = '${env.postgresSchema}'`
               : '' )}
@@ -337,7 +337,7 @@ exports = module.exports = {
   },
 
   getCountResult: async (tx, countquery) => {
-    const [{count}] = await exports.pgExec(tx, countquery) 
+    const [{count}] = await exports.pgExec(tx, countquery)
     return parseInt(count, 10);
   },
 
@@ -346,13 +346,13 @@ exports = module.exports = {
   },
 
   isEqualSriObject: (obj1, obj2, mapping) => {
-  
+
     const compareAttr = (key, a1, a2) => {
       if (mapping.schema.properties[key].format === 'date-time') {
           return ( (new Date(a1)).getTime() === (new Date(a2)).getTime() )
-        } else {  
+        } else {
           return (a1 === a2)
-        } 
+        }
     }
 
     return Object.keys(mapping.map).every( key => {
@@ -361,7 +361,7 @@ exports = module.exports = {
         return true
       } else if ( (obj1[key] !== undefined) && (obj2[key] !== undefined) ) {
         return compareAttr(key, obj1[key], obj2[key])
-      } 
+      }
     })
   },
 
@@ -381,14 +381,14 @@ exports = module.exports = {
           const err = res.reason
           if (err instanceof exports.SriError) {
             return err
-          } else {      
-            console.log('____________________________ E R R O R ____________________________________________________') 
+          } else {
+            console.log('____________________________ E R R O R ____________________________________________________')
             console.log(err)
-            console.log('___________________________________________________________________________________________') 
+            console.log('___________________________________________________________________________________________')
             return new exports.SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
         }
-      });    
+      });
   },
 
   createReadableStream: () => {
@@ -407,18 +407,18 @@ exports = module.exports = {
         this.push(chunk)
       } else if (chunk === undefined) {
 
-      } else { 
+      } else {
         const key = hash(chunk);
           if (!set.has(key)) {
             set.add(key);
-         
+
           if (chunksSent === 0) {
             this.push(new Buffer("["));
           }
           if (chunksSent > 0) {
             this.push(new Buffer(","));
           }
-          
+
           this.push(JSON.stringify(chunk));
           chunksSent++;
         }
@@ -441,7 +441,7 @@ exports = module.exports = {
   },
 
   SriError: class {
-    constructor({status = 500, errors = [], headers = {}}) {
+    constructor({status = 500, errors = [], headers = {}, document}) {
       this.status = status,
       this.body = {
         errors: errors.map( e => {
@@ -450,7 +450,8 @@ exports = module.exports = {
                     }
                     return e
                   }),
-        status: status
+        status: status,
+        document: document
       },
       this.headers = headers
     }
