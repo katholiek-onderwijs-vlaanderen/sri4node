@@ -183,7 +183,7 @@ exports = module.exports = function (base, logverbose) {
     it('should use key of last value in the resultlist as key offset', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes', null, { headers: { authorization: auth } })
-      assert.equal(response.$$meta.next.endsWith(response.results[4].$$expanded.$$meta.created 
+      assert.equal(response.$$meta.next.endsWith(encodeURIComponent(response.results[4].$$expanded.$$meta.created)
                                                   + ',' + response.results[4].$$expanded.key), true );
     });
 
