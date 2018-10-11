@@ -166,6 +166,12 @@ exports = module.exports = function (base, logverbose) {
 
   describe('Paging', function () {
 
+    it('should offset resources', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?offset=3', null, { headers: { authorization: auth } })
+      assert.equal(response.results[0].$$expanded.id, 4);
+    });
+
     it('should limit resources by default', async function () {
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
       const response = await doGet('/alldatatypes', null, { headers: { authorization: auth } })

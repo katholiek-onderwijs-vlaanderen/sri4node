@@ -18,7 +18,7 @@ const MAX_LIMIT = 500;
 // apply extra parameters on request URL for a list-resource to a select.
 async function applyRequestParameters(mapping, query, urlparameters, tx, count) {
   'use strict';
-  const standardParameters = ['orderBy', 'descending', 'limit', 'keyOffset', 'expand', 'hrefs', 'modifiedSince', '$$includeCount'];
+  const standardParameters = ['orderBy', 'descending', 'limit', 'keyOffset', 'expand', 'hrefs', 'modifiedSince', '$$includeCount', 'offset'];
 
   if (mapping.query) {
     await pMap(
@@ -88,7 +88,7 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
 }
 
 
-const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset) => {
+const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset) => {
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
@@ -181,6 +181,19 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     query.sql(' limit ').param(queryLimit);
   }
 
+  if (offset) {
+    if (keyOffset) {
+      throw new SriError({status: 409, errors: [
+          {
+            code: 'offset.and.keyoffset.incompatible',
+            type: 'ERROR',
+            message: 'The parameters "offset" and "keyOffset" cannot be used together'
+          }]})
+    } else {
+      query.sql(' offset ').param(offset);  
+    }
+  }
+
   return orderKeys;
 }
 
@@ -264,6 +277,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
   const queryLimit = queryParams.limit || defaultlimit;
   const keyOffset = queryParams.keyOffset || '';
+  const offset = queryParams.offset;
 
   await phaseSyncer.phase()
 
@@ -297,7 +311,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
     const query = prepare();
     await getSQLFromListResource(mapping, queryParams, false, tx, query);
-    orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset)
+    orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset)
     debug('* executing SELECT query on tx');
     const start = new Date();
     rows = await pgExec(tx, query);
