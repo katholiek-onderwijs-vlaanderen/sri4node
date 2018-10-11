@@ -129,7 +129,11 @@ exports = module.exports = function (base, logverbose) {
           }]
       ]
       const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+      assert.equal(r[0].href, '/communities/' + key);
+      assert.equal(r[0].verb, 'PUT');
+      assert.equal(r[1].href, '/communities/' + key);
+      assert.equal(r[1].verb, 'DELETE');
     });
 
     it('with error should be completely rollbacked', async function () {

@@ -111,7 +111,12 @@ exports = module.exports = {
                                                   , f => f(tx, sriRequest, res))
                           }
                        } )
-        return results
+        return results.map( (res, idx) => {
+                            const [ _phaseSyncer, _tx, sriRequest, _mapping ] = batchJobs[idx][1]
+                            res.href = sriRequest.originalUrl
+                            res.verb = sriRequest.httpMethod
+                            return res
+                          })
       } else {
         throw new SriError({status: 400, errors: [{code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.'}]})          
       }
