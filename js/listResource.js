@@ -292,7 +292,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
       debug('* executing SELECT COUNT query on tx');
       const startc = new Date();
       count = await getCountResult(tx, countquery) 
-      cl('pgExec count ... OK, exectime='+(new Date() - startc)+' ms.');
+      // cl('pgExec count ... OK, exectime='+(new Date() - startc)+' ms.');
     }
 
     const query = prepare();
@@ -302,7 +302,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     const start = new Date();
     rows = await pgExec(tx, query);
     
-    cl('pgExec select ... OK, exectime='+(new Date() - start)+' ms.');
+    // cl('pgExec select ... OK, exectime='+(new Date() - start)+' ms.');
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
       throw new SriError({status: 409, errors: [{code: 'invalid.query.parameter'}]})
