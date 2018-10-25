@@ -226,5 +226,16 @@ exports = module.exports = function (base, logverbose) {
       });
     });
 
+    describe(' on missing non-mandatory property', function () {
+      it(' should result in null value.', async function () {
+        const response = await doGet('/store/products?expand=results.package2', null, authHdrObj)
+        if (response.results[0].$$expanded.package2 === null) {
+          assert.fail('Expansion was performed !');
+        }        
+        assert.equal(response.results[3].$$expanded.package2, null)
+      });
+    });
+    
+
   });
 };

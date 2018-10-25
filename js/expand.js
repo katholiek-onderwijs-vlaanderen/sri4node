@@ -92,8 +92,10 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
 
         // put expanded elements in place
         elements.forEach( (elem) => {
-          permalinkToExpand = elem[expand].href;
-          elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
+          if (elem[expand] !== null) {
+            permalinkToExpand = elem[expand].href;
+            elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
+          } 
         })
               
         if (recurse) {
