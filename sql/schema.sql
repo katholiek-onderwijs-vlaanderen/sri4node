@@ -136,6 +136,7 @@ CREATE TABLE "products" (
   "category" text,
   "package" uuid REFERENCES "packages" (key),
   "package2" uuid REFERENCES "packages" (key),
+  "package3" uuid REFERENCES "packages" (key),  
   "$$meta.deleted" boolean default false,
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp

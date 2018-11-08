@@ -91,10 +91,10 @@ INSERT INTO "packages" VALUES ('1edb2754-5684-4996-ae5b-ec33c903ee4d', 'Export')
 INSERT INTO "packages" VALUES ('2edb2754-1598-4996-ae5b-ec33c903ee4d', 'Internal');
 
 -- Data for products
-INSERT INTO "products" VALUES ('1edb2754-5684-1234-ae5b-ec33c903ee4d', 'Shirt', 'Cloth', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
-INSERT INTO "products" VALUES ('1edb2754-5684-4567-ae5b-ec33c903ee4d', 'Hat', 'Cloth', '2edb2754-1598-4996-ae5b-ec33c903ee4d', '2edb2754-1598-4996-ae5b-ec33c903ee4d');
-INSERT INTO "products" VALUES ('1edb2754-5684-7896-ae5b-ec33c903ee4d', 'Meat', 'Food', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
-INSERT INTO "products" VALUES ('1edb2754-5684-6547-ae5b-ec33c903ee4d', 'Rice', 'Food', '2edb2754-1598-4996-ae5b-ec33c903ee4d', NULL);
+INSERT INTO "products" VALUES ('1edb2754-5684-1234-ae5b-ec33c903ee4d', 'Shirt', 'Cloth', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-4567-ae5b-ec33c903ee4d', 'Hat', 'Cloth', '2edb2754-1598-4996-ae5b-ec33c903ee4d', '2edb2754-1598-4996-ae5b-ec33c903ee4d', '2edb2754-1598-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-7896-ae5b-ec33c903ee4d', 'Meat', 'Food', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d', '1edb2754-5684-4996-ae5b-ec33c903ee4d');
+INSERT INTO "products" VALUES ('1edb2754-5684-6547-ae5b-ec33c903ee4d', 'Rice', 'Food', '2edb2754-1598-4996-ae5b-ec33c903ee4d', NULL, NULL);
 
 
 INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-5684-4996-ae5b-ec33c903ee4d', 'ad9ff799-7727-4193-a34a-09f3819c3479', 'd70c98ca-9559-47db-ade6-e5da590b2435', 'IS_RELATED');

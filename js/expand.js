@@ -41,7 +41,7 @@ const checkRecurse = (expandpath) => {
 // async function executeSingleExpansion(db, elements, mapping, resources, expandpath, me, reqUrl) {
 
 async function executeSingleExpansion(db, sriRequest, elements, mapping, resources, expandpath) {
-  console.log(expandpath)
+  // console.log(expandpath)
   if (elements && elements.length > 0) {
     const { expand, recurse, recursepath } = checkRecurse(expandpath)
     if (!mapping.map[expand]) {
@@ -62,7 +62,6 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
           }, [])
 
       if (keysToExpand.length > 0) {
-
         const targetType = mapping.map[expand].references;
         const typeToMapping = typeToConfig(resources);
         const targetMapping = typeToMapping[targetType];
@@ -92,7 +91,7 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
 
         // put expanded elements in place
         elements.forEach( (elem) => {
-          if (elem[expand] !== null) {
+          if (elem[expand] !== undefined && elem[expand] !== null) {
             permalinkToExpand = elem[expand].href;
             elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
           } 

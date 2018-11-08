@@ -227,13 +227,24 @@ exports = module.exports = function (base, logverbose) {
     });
 
     describe(' on missing non-mandatory property', function () {
-      it(' should result in null value.', async function () {
-        const response = await doGet('/store/products?expand=results.package2', null, authHdrObj)
+      it(' should result in null value for null value.', async function () {
+        const response = await doGet('/store/products?expand=results.package2', null, authHdrObj)      
         if (response.results[0].$$expanded.package2 === null) {
           assert.fail('Expansion was performed !');
         }        
-        assert.equal(response.results[3].$$expanded.package2, null)
+        if (response.results[3].$$expanded.package2 !== null) {
+          assert.fail('Should be null !');
+        }
       });
+      it(' should result in null value for undefined.', async function () {
+        const response = await doGet('/store/products?expand=results.package3', null, authHdrObj)
+        if (response.results[0].$$expanded.package3 === null) {
+          assert.fail('Expansion was performed !');
+        }
+        if (response.results[3].$$expanded.package3 !== undefined) {
+          assert.fail('Should be undefined !');
+        }
+      });      
     });
     
 
