@@ -193,6 +193,20 @@ exports = module.exports = function (base, logverbose) {
                                                   + ',' + response.results[4].$$expanded.key), true );
     });
 
+    it('should use key of last value in the resultlist as key offset (descending)', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?descending=true', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.next.endsWith(encodeURIComponent(response.results[4].$$expanded.$$meta.created)
+                                                  + ',' + response.results[4].$$expanded.key), true );
+    });
+
+    it('should use key of last value in the resultlist as key offset (ascending)', async function () {
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      const response = await doGet('/alldatatypes?descending=false', null, { headers: { authorization: auth } })
+      assert.equal(response.$$meta.next.endsWith(encodeURIComponent(response.results[4].$$expanded.$$meta.created)
+                                                  + ',' + response.results[4].$$expanded.key), true );
+    });
+
     it('should return all resources without duplicates', async function () {
       const hrefsFound = []
       const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
@@ -209,6 +223,40 @@ exports = module.exports = function (base, logverbose) {
       await traverse('/alldatatypes?limit=2')
       assert.equal(count, _.uniq(hrefsFound).length);
     });
+
+    it('should return all resources without duplicates (descending)', async function () {
+      const hrefsFound = []
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      let count = 0
+      const traverse = async (url) => {
+        const response = await doGet(url, null, { headers: { authorization: auth } })
+        hrefsFound.push(...response.results.map( e => e.href ))
+        if (response.$$meta.next !== undefined ) {
+          await traverse(response.$$meta.next)
+        } else {
+          count = response.$$meta.count
+        }
+      }
+      await traverse('/alldatatypes?limit=3&descending=true')
+      assert.equal(count, _.uniq(hrefsFound).length);
+    });
+
+    it('should return all resources without duplicates (ascending)', async function () {
+      const hrefsFound = []
+      const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
+      let count = 0
+      const traverse = async (url) => {
+        const response = await doGet(url, null, { headers: { authorization: auth } })
+        hrefsFound.push(...response.results.map( e => e.href ))
+        if (response.$$meta.next !== undefined ) {
+          await traverse(response.$$meta.next)
+        } else {
+          count = response.$$meta.count
+        }
+      }
+      await traverse('/alldatatypes?limit=3&descending=false')
+      assert.equal(count, _.uniq(hrefsFound).length);
+    });    
 
     it('should also return all resources with created timestamp in microseconds', async function () {
       const hrefsFound = []

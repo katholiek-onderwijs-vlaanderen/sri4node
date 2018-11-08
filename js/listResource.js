@@ -121,7 +121,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     }
 
     query.sql(' AND (')
-    const orderKeyOp = descending ? '<' : '>';
+    const orderKeyOp = (descending === 'true') ? '<' : '>';
     let equalConditions = []
     const table = tableFromMapping(mapping);
     const tableInformation = global.sri4node_configuration.informationSchema['/' + table]; 
@@ -156,17 +156,9 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
   }
 
   // add order parameter
-
-  query.sql(` order by ${orderKeys.map( k => `"${k}"` ).join(',')}`);
-  if (descending === 'true') {
-    query.sql(' desc ');
-  } else {
-    query.sql(' asc ');
-  }  
-
+  query.sql(` order by ${orderKeys.map( k => `"${k}" ${(descending === 'true') ? 'desc' : 'asc'}` ).join(',')}`);
 
   // add limit parameter
-
   const isGetAllExpandNone = (queryLimit === '*' && queryParams.expand !== undefined && queryParams.expand.toLowerCase() === 'none')
   if (!isGetAllExpandNone) {
     if (queryLimit > maxlimit || queryLimit === '*' ) {
