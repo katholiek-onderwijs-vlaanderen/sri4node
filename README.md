@@ -81,6 +81,8 @@ throw new sriRequest.SriError( { status = 500, errors = [], headers = {} } )
 
 When you throw an SriError somewhere in your hook code, the current request handling is terminated (of course the db transaction is also cancelled) and the request is answered according to the SriError object. So statuscode and headers of the response are set according to the values of the fields in the SirError object and the body of the response will be a JSON object contain the status (status code) and errors (errors provided in the SirError object, with 'type' field of each error set to 'ERROR' if not specified). All parameters of the SriError constructor have default values, so each parameter can be omitted.
 
+If your code ever needs to catch SriError object (for example to do some logging), you should rethrow the original SriError at the end of the catch. At some places in sri4node the type of the error object is checked and treated different in case the type is SriError. So in case something else is throw or returned at the end of a catch, sri4node might behave unexpected. 
+
 An example of the usage of setting extra http headers is setting the Location headers in case of redirect when not logged.
 
 ## Hooks
