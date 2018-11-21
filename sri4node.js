@@ -469,29 +469,34 @@ exports = module.exports = {
                                 }
                               }
 
+                              let keepAliveTimer = null;
+                              let streamingHandlerPromise;
+                              let stream;
+                              if (cr.binaryStream) {
+                                const {PassThrough} = require('stream')
+                                stream = new PassThrough()
+                                stream.pipe(res)
+                                sriRequest.resultStream = stream
+                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
+                              } else {
+                                res.set('Content-Type', 'application/json; charset=utf-8')
+                                stream = createReadableStream()
+                                jsonArrayStream(stream).pipe(res)
+                                sriRequest.resultStream = stream
+                                keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
+                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
+                              }
+
+                              // Wait till busboy handler are in place (can be done in beforeStreamingHandler 
+                              // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
                               if (cr.busBoy) {
                                 req.pipe(sriRequest.busBoy);
                               }
 
-                              if (cr.binaryStream) {
-                                const {PassThrough} = require('stream')
-                                const stream = new PassThrough()
-                                stream.pipe(res)
-                                sriRequest.resultStream = stream
-                                await cr.streamingHandler(tx, sriRequest, stream)
-                                stream.push(null)  // close stream
-                              } else {
-                                res.set('Content-Type', 'application/json; charset=utf-8')
-                                const stream = createReadableStream()
-                                jsonArrayStream(stream).pipe(res)
-                                const keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
-                                try {
-                                  sriRequest.resultStream = stream
-                                  await cr.streamingHandler(tx, sriRequest, stream)
-                                  stream.push(null)  // close stream
-                                } finally {
-                                  clearInterval(keepAliveTimer) 
-                                }
+                              await streamingHandlerPromise;
+                              stream.push(null);
+                              if (keepAliveTimer !== null) {
+                                clearInterval(keepAliveTimer) 
                               }
                             }
                           , customMapping

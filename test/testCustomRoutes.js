@@ -158,6 +158,7 @@ exports = module.exports = function (base, logdebug) {
         }});
 
       assert.equal(response.statusCode, 200);
+      assert.equal(response.body, '["OK"]');
     });
 
   });

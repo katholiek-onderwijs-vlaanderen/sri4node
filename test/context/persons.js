@@ -213,32 +213,34 @@ exports = module.exports = function (roa, logverbose, extra) {
       , httpMethods: ['POST']
       , busBoy: true
       , beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
-              sriRequest.attachmentsRcvd = []
-              sriRequest.busBoy.on('file', async function(fieldname, file, filename, encoding, mimetype) {
-                console.log('File [' + fieldname + ']: filename: ' + filename + ', encoding: ' + encoding + ', mimetype: ' + mimetype);
-                if (filename === 'test.jpg') {
-                  if (mimetype !== 'image/jpeg') {
-                    throw 'Unexpected mimetype! got ' + mimetype
-                  }
-                  const fileRead = fs.createReadStream('test/files/test.jpg');
-                  const equalPromise = util.promisify(streamEqual)(file, fileRead);
-                  sriRequest.attachmentsRcvd.push({filename, equalPromise})
-                } else if (filename === 'test.pdf') {
-                  if (mimetype !== 'application/pdf') {
-                    throw 'Unexpected mimetype! got ' + mimetype
-                  }
-                  const fileRead = fs.createReadStream('test/files/test.pdf');
-                  const equalPromise = util.promisify(streamEqual)(file, fileRead);
-                  sriRequest.attachmentsRcvd.push({filename, equalPromise})
-                } else {
-                  throw 'Unexpected file received: ' + filename
-                }
-              });
+        // set header + http return code
         }
       , streamingHandler: async (tx, sriRequest, stream) => {
+          sriRequest.attachmentsRcvd = []
+          sriRequest.busBoy.on('file', async function(fieldname, file, filename, encoding, mimetype) {
+            console.log('File [' + fieldname + ']: filename: ' + filename + ', encoding: ' + encoding + ', mimetype: ' + mimetype);
+            if (filename === 'test.jpg') {
+              if (mimetype !== 'image/jpeg') {
+                throw 'Unexpected mimetype! got ' + mimetype
+              }
+              const fileRead = fs.createReadStream('test/files/test.jpg');
+              const equalPromise = util.promisify(streamEqual)(file, fileRead);
+              sriRequest.attachmentsRcvd.push({filename, equalPromise})
+            } else if (filename === 'test.pdf') {
+              if (mimetype !== 'application/pdf') {
+                throw 'Unexpected mimetype! got ' + mimetype
+              }
+              const fileRead = fs.createReadStream('test/files/test.pdf');
+              const equalPromise = util.promisify(streamEqual)(file, fileRead);
+              sriRequest.attachmentsRcvd.push({filename, equalPromise})
+            } else {
+              throw 'Unexpected file received: ' + filename
+            }
+          });
           // wait until busboy is done
           await pEvent(sriRequest.busBoy, 'finish')
           console.log('busBoy is done')
+
           if (sriRequest.attachmentsRcvd.length !== 2) {
             throw 'Unexpected number attachments posted ' + sriRequest.attachmentsRcvd.length
           }
@@ -253,7 +255,7 @@ exports = module.exports = function (roa, logverbose, extra) {
           }, {concurrency: 1})
 
           stream.push('OK')
-        }
+        }        
       },
 
     ],
