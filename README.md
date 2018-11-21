@@ -587,7 +587,7 @@ The possbile scenario's:
     - `beforeHandler` (tx, sriRequest, customMapping) => {}
     - `afterHandler` (tx, sriRequest, customMapping, result) => {}
  - Streaming scenario. The output stream can be JSON or binary stream
-    - `streamingHandler` (tx, sriRequest, stream) => {}.  The streamingHandler is at the moment expected to return only after streaming is done. This will probably change, see tickets below.
+    - `streamingHandler` (tx, sriRequest, stream) => {}.  The streamingHandler should only return after streaming is done.
     Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
     - `beforeStreamingHandler` (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
     
@@ -597,17 +597,13 @@ The possbile scenario's:
 
     In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy: 
     - `busBoy`: true
-    Currently the busBoy event handlers need to be handled in the beforeStreamingHandler. This will probably change, see tickets below.
+    The busBoy event handlers can be set in the beforeStreamingHandler or the streamingHandler. 
 
 Streaming custom requests cannot be used in batch, the others can be used in batch.
 
 For examples of all the custom scenarios, see the code in the sri4node tests: 
  - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
  - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
-
-This streaming custom routes interface will probably change in version 2.1. See tickets: 
- - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/159
- - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/160
 
 ## Limiting results
 
