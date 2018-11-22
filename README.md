@@ -598,6 +598,7 @@ The possbile scenario's:
     In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy: 
     - `busBoy`: true
     The busBoy event handlers can be set in the beforeStreamingHandler or the streamingHandler. 
+    - `busBoyConfig`: optional config object to be passed to busBoy (headers will be set by sri4node).
 
 Streaming custom requests cannot be used in batch, the others can be used in batch.
 
