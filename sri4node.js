@@ -453,7 +453,12 @@ exports = module.exports = {
                               }
                               if (cr.busBoy) {
                                 try {
-                                  const busBoy = new Busboy({ headers: sriRequest.headers });
+                                  let busBoyConfig = {}
+                                  if (cr.busBoyConfig) {
+                                    busBoyConfig = _.cloneDeep(cr.busBoyConfig)
+                                  }
+                                  busBoyConfig.headers = sriRequest.headers;
+                                  const busBoy = new Busboy(busBoyConfig);
                                   sriRequest.busBoy = busBoy
                                 } catch (err) {
                                     throw new SriError({status: 400, errors: [{code: 'error.initialising.busboy', msg: 'Error during initialisation of busboy: ' + err}]})                                  
