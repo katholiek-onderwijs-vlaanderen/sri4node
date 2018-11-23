@@ -180,6 +180,30 @@ This can be used if you want to generate custom output that is not necessarily s
 transformResponse( tx, sriRequest, responseBody )
 ```
 
+## Deferred constraints
+
+At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the the transaction before comitting the constraints are set back to IMMEDIATE (which result in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail  for that person).
+
+**But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgress documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
+> Currently, only UNIQUE, PRIMARY KEY, REFERENCES (foreign key), and EXCLUDE constraints are affected by this setting. NOT NULL and CHECK constraints are always checked immediately when a row is inserted or modified (not at the end of the statement). Uniqueness and exclusion constraints that have not been declared DEFERRABLE are also checked immediately.
+ 
+An example from samenscholing where foreign keys are defined DEFERRABLE:
+
+```
+CREATE TABLE organisationalunits_relations (
+    key UUID,
+    type text NOT NULL,
+    "from" UUID NOT NULL references organisationalunits DEFERRABLE INITIALLY IMMEDIATE,
+    "to" UUID NOT NULL references organisationalunits DEFERRABLE INITIALLY IMMEDIATE,
+    "startDate" date NOT NULL,
+    "endDate" date,
+    "$$meta.created" timestamp with time zone DEFAULT now() NOT NULL,
+    "$$meta.modified" timestamp with time zone DEFAULT now() NOT NULL,
+    "$$meta.deleted" boolean DEFAULT false NOT NULL,
+    PRIMARY KEY (key)
+ );
+```
+
 ## Other changes and bug fixes
 
  * [Deleted resource could not be retrieved as regalar resource with '$$meta.deleted=true'](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/128)
