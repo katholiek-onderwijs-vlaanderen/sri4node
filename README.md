@@ -195,6 +195,75 @@ A count query is a heavy query in Postgres in case of a huge table. Therefore th
 
 Other performance enhancement is to use key offsets for the next links instead of count offsets (prev links are skipped due to not being usefull in a scenario with key offsets). Count offset is becoming more and more time consuming when the count increases (as postgres needs to construct all the results before the requested set to get the starting point) while for key offset an index can be used to determine the starting point. 
 
+## Batch execution order
+
+In a batch all operations in an inner list are executed in 'parallel' (in practice with a concurrency limit) but are 'phaseSynced' at three points:
+- at the start of 'before' hooks
+- at the start of database operations
+- at the start of 'after' hooks
+
+With 'phaseSynced' is meant that **all** operations need to be at the sync point before the operations continue (again in 'parallel'), so you can be sure that at the moment a validation rule in an after hook is evaluated all database operations of the inner batch list have been executed.
+ 
+If a batch contains multiple lists, these lists are handled **in order** list by list (with the inner lists executed in 'phaseSynced parallel' as described above).
+ 
+So how you construct your batch determines which operations go 'phaseSynced' parallel and which go in order.
+ 
+A batch like the one below will be able to retrieve a newly created resource:
+```
+[
+	[ {
+	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+	    "verb": "PUT",
+	    "body": {
+	      "key": "e4f09527-a973-4510-a67c-783d388f7265",
+	      "type": "SCHOOLENTITY",
+	      "names": [
+		{
+		  "type": "OFFICIAL",
+		  "value": "Official 1",
+		  "startDate": "2017-01-01"
+		},
+		{
+		  "type": "SHORT",
+		  "value": "Short 1",
+		  "startDate": "2017-01-01"
+		}
+	      ],
+	      "description": "Some description...",
+	      "startDate": "2017-01-01"
+	    }
+	  } ],
+	[ {
+	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+	    "verb": "GET"
+	  } ]
+]
+```
+
+## Deferred constraints
+
+At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the the transaction before comitting the constraints are set back to IMMEDIATE (which result in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail  for that person).
+
+**But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgress documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
+> Currently, only UNIQUE, PRIMARY KEY, REFERENCES (foreign key), and EXCLUDE constraints are affected by this setting. NOT NULL and CHECK constraints are always checked immediately when a row is inserted or modified (not at the end of the statement). Uniqueness and exclusion constraints that have not been declared DEFERRABLE are also checked immediately.
+ 
+An example from samenscholing where foreign keys are defined DEFERRABLE:
+
+```
+CREATE TABLE organisationalunits_relations (
+    key UUID,
+    type text NOT NULL,
+    "from" UUID NOT NULL references organisationalunits DEFERRABLE INITIALLY IMMEDIATE,
+    "to" UUID NOT NULL references organisationalunits DEFERRABLE INITIALLY IMMEDIATE,
+    "startDate" date NOT NULL,
+    "endDate" date,
+    "$$meta.created" timestamp with time zone DEFAULT now() NOT NULL,
+    "$$meta.modified" timestamp with time zone DEFAULT now() NOT NULL,
+    "$$meta.deleted" boolean DEFAULT false NOT NULL,
+    PRIMARY KEY (key)
+ );
+```
+
 ## Other changes and bug fixes
 
  * [Deleted resource could not be retrieved as regalar resource with '$$meta.deleted=true'](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/128)
