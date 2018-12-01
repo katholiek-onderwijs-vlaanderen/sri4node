@@ -312,6 +312,9 @@ exports = module.exports = {
       global.sri4node_configuration = config // share configuration with other modules
 
       const db = await pgConnect(config)
+      if (config.plugins !== undefined) {
+        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
+      }
 
 
       await pMap(
@@ -323,11 +326,6 @@ exports = module.exports = {
         }, { concurrency: 1 })
 
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
-
-
-      if (config.plugins !== undefined) {
-        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
-      }
 
       const emt = installEMT()
 
