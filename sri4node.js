@@ -70,15 +70,15 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
   'use strict';
   var deferred = Q.defer();
 
-  var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince'];
+  var standardParameters = ['orderBy', 'descending', 'limit', 'offset', 'expand', 'hrefs', 'modifiedSince', 'pr3v10us_'];
 
   var key, ret;
 
   var promises = [];
   var reject = false;
   if (mapping.query) {
-    for (key in urlparameters) {
-      if (urlparameters.hasOwnProperty(key)) {
+    Object.keys(urlparameters).forEach( function(key) {
+
         if (standardParameters.indexOf(key) === -1) {
           if (mapping.query[key] || mapping.query.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
@@ -99,15 +99,14 @@ function applyRequestParameters(mapping, urlparameters, select, database, count)
                 errors: [{code: 'invalid.query.parameter', parameter: key}]
               }
             });
-            break;
+            //break;
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
           promises.push(exports.queryUtils.filterHrefs(urlparameters.hrefs, select, key, database, count, mapping));
         } else if (key === 'modifiedSince') {
           promises.push(exports.queryUtils.modifiedSince(urlparameters.modifiedSince, select, key, database, count, mapping));
         }
-      }
-    }
+    });
   }
 
   if (!reject) {
@@ -902,24 +901,29 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
       var newOffset = queryLimit * 1 + offset * 1;
 
       if (newOffset < count) {
+        var originalUrl = req.originalUrl.replace(/(\??)(&?)pr3v10us_=true/, '');
         if (req.originalUrl.match(/offset/)) {
-          output.$$meta.next = req.originalUrl.replace(/offset=(\d+)/, 'offset=' + newOffset);
+          output.$$meta.next = originalUrl.replace(/offset=(\d+)/, 'offset=' + newOffset);
         } else {
-          output.$$meta.next = req.originalUrl + (req.originalUrl.match(/\?/) ? '&' : '?') +
+          output.$$meta.next = originalUrl + (originalUrl.match(/\?/) ? '&' : '?') +
             'offset=' + newOffset;
         }
-
       }
 
       if (offset > 0) {
         newOffset = offset - queryLimit;
         if (req.originalUrl.match(/offset/)) {
           output.$$meta.previous = req.originalUrl.replace(/offset=(\d+)/, newOffset > 0 ? 'offset=' + newOffset : '');
+          output.$$meta.previous = output.$$meta.previous.replace(/(&?)pr3v10us_=true/, '');
           output.$$meta.previous = output.$$meta.previous.replace(/[\?&]$/, '');
+          
+          if (!output.$$meta.previous.match(/pr3v10us_/)) {
+            output.$$meta.previous += (output.$$meta.previous.match(/\?/) ? '&' : '?') + 'pr3v10us_=true';
+          }
         } else {
           output.$$meta.previous = req.originalUrl;
           if (newOffset > 0) {
-            output.$$meta.previous += (req.originalUrl.match(/\?/) ? '&' : '?') + 'offset=' + newOffset;
+            output.$$meta.previous += (req.originalUrl.match(/\?/) ? '&' : '?') + 'offset=' + newOffset + '&pr3v10us_=true';
           }
         }
       }

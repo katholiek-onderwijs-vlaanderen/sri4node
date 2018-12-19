@@ -67,7 +67,7 @@ exports = module.exports = {
           referencedType = mapping.map[key].references;
           if (row[key] !== null) {
             element[key] = {
-              href: typeToMapping[referencedType].type + '/' + row[key]
+              href: referencedType + '/' + row[key]
             };
           } else {
             element[key] = null;
