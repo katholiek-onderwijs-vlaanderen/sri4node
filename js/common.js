@@ -209,12 +209,15 @@ exports = module.exports = {
     var databaseUrl = env.databaseUrl;
     var dbUrl, searchPathPara;
     if (databaseUrl && databaseUrl.indexOf('ssl=false') === -1) {
-      dbUrl = databaseUrl;
       pgp.pg.defaults.ssl = true
     } else {
-      dbUrl = configuration.defaultdatabaseurl;
       pgp.pg.defaults.ssl = false
     }    
+    if (databaseUrl) {
+      dbUrl = databaseUrl;
+    } else {
+      dbUrl = configuration.defaultdatabaseurl;
+    }      
     cl('Using database connection string : [' + dbUrl + ']');
 
     let cn = {connectionString: dbUrl};
@@ -350,23 +353,22 @@ exports = module.exports = {
   },
 
   isEqualSriObject: (obj1, obj2, mapping) => {
-  
-    const compareAttr = (key, a1, a2) => {
-      if (mapping.schema.properties[key].format === 'date-time') {
-          return ( (new Date(a1)).getTime() === (new Date(a2)).getTime() )
-        } else {  
-          return (a1 === a2)
-        } 
+    const relevantProperties = Object.keys(mapping.schema.properties)
+
+    function customizer(val, key, obj) {
+      if (mapping.schema.properties[key] && mapping.schema.properties[key].format === 'date-time') {
+        return (new Date(val)).getTime();
+      }
     }
 
-    return Object.keys(mapping.map).every( key => {
-      if ( ((obj1[key] === undefined) || (obj1[key] === null))
-        && ((obj2[key] === undefined) || (obj2[key] === null)) ) {
-        return true
-      } else if ( (obj1[key] !== undefined) && (obj2[key] !== undefined) ) {
-        return compareAttr(key, obj1[key], obj2[key])
-      } 
-    })
+    const o1 =_.cloneDeepWith(_.pickBy(obj1, (val, key) => {
+      return (val!==null && val!=undefined && relevantProperties.includes(key))
+    }), customizer)
+    const o2 =_.cloneDeepWith(_.pickBy(obj2, (val, key) => {
+      return (val!==null && val!=undefined && relevantProperties.includes(key))
+    }), customizer)
+
+    return _.isEqualWith(o1, o2);
   },
 
   stringifyError: (e) => {

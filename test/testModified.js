@@ -1,5 +1,6 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
+const _ = require('lodash');
 
 exports = module.exports = function (base) {
   'use strict';
@@ -63,6 +64,87 @@ exports = module.exports = function (base) {
       const response2 = await doGet('/alldatatypes?modifiedSince=' + currentModified, null, authHdrObj)
       assert(response2.results.length > 0);
     });
+
+
+    it('it should NOT have the field modified with a timestamp after the previous one after the resource is updated with the same version',
+    async function () {
+      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
+      assert.equal(response.id, 38);
+      const currentModified = new Date(response.$$meta.modified).getTime();
+
+      const copyResponse = _.cloneDeep(response);
+      await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj)
+
+      const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
+      assert.equal(response2.id, 38);
+      const newModified = new Date(response2.$$meta.modified).getTime();
+      assert.equal(newModified, currentModified);
+    });
+
+    it('it should NOT have the field version incremented by one after the resource is updated with the same version',
+    async function () {
+      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
+      assert.equal(response.id, 38);
+      const currentVersion = response.$$meta.version
+
+      const copyResponse = _.cloneDeep(response);
+      await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj)
+
+      const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)    
+      assert.equal(response2.id, 38);
+      const newVersion = response2.$$meta.version
+      assert.equal(newVersion, currentVersion);
+    });
+
+    it('$$meta does not need to be considered when deciding wether the resource is updated with the same version or not',
+    async function () {
+      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
+      assert.equal(response.id, 38);
+      const currentModified = new Date(response.$$meta.modified).getTime();
+
+      const copyResponse = _.cloneDeep(response);
+      delete copyResponse['$$meta'];
+      await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj)
+
+      const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)   
+      assert.equal(response2.id, 38);
+      const newModified = new Date(response2.$$meta.modified).getTime();
+      assert.equal(newModified, currentModified);
+    });
+
+    it('additional properties not in the schema does not need to be considered when deciding wether the resource is updated with the same version or not',
+    async function () {
+      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
+      assert.equal(response.id, 38);
+      const currentModified = new Date(response.$$meta.modified).getTime();
+
+      const copyResponse = _.cloneDeep(response);
+      copyResponse['blah'] = 'foobar';
+      await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj)
+
+      const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)   
+      assert.equal(response2.id, 38);
+      const newModified = new Date(response2.$$meta.modified).getTime();
+      assert.equal(newModified, currentModified);
+    });
+
+    it('modification date should not be updated when same resource with nested objects is put',
+    async function () {
+      const response = await doGet('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', null, authHdrObj)
+      const currentModified = new Date(response.$$meta.modified).getTime();
+
+      const copyResponse = _.cloneDeep(response);            
+      await doPut('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', copyResponse, authHdrObj)
+
+      const response2 = await doGet('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', null, authHdrObj)   
+      const newModified = new Date(response2.$$meta.modified).getTime();
+      assert.equal(newModified, currentModified);
+    });
+
+
+
+
+
 
   });
 
