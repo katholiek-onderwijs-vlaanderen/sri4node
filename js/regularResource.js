@@ -75,6 +75,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
   const element = result.object
 
+  element['$$meta'].type = mapping.metaType;
+
   debug('* executing expansion');
   await expand.executeExpansion(tx, sriRequest, [element], mapping);
 

@@ -12,6 +12,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/transactions',
+    metaType: 'transaction',
     'public': false, // eslint-disable-line
     map: {
       key: {},

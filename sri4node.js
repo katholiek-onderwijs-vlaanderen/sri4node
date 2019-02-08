@@ -310,6 +310,13 @@ exports = module.exports = {
         }
       })
 
+      config.resources.forEach( (mapping) => {
+          if (mapping.metaType === undefined) {
+            console.error(`WARNING: metaType missing for resource ${mapping.type}`)
+            mapping.metaType = 'not specified'
+          }
+      });
+
       config.utils = exports.utils
 
       global.sri4node_configuration = config // share configuration with other modules

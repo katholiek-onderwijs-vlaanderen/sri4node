@@ -77,7 +77,11 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
         const rows = await pgExec(db, query)
         debug('** expansion query done');
 
-        const expandedElements = rows.map( row => transformRowToObject(row, targetMapping) )
+        const expandedElements = rows.map( row => {
+            const element = transformRowToObject(row, targetMapping) 
+            element['$$meta'].type = mapping.metaType;
+            return element;
+          })
         const expandedElementsDict = _.fromPairs(expandedElements.map( obj => ([ obj.$$meta.permalink, obj ])))
 
         debug('** executing afterRead functions on expanded resources');

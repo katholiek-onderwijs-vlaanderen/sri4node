@@ -210,6 +210,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
         queryParams.expand.toLowerCase() === 'summary' || 
         queryParams.expand.indexOf('results') === 0)) {
       element.$$expanded = transformRowToObject(currentrow, mapping)
+      element.$$expanded['$$meta'].type = mapping.metaType;
     } else if (queryParams.expand && queryParams.expand.toLowerCase() === 'none') {
       // Intentionally left blank.
     } else if (queryParams.expand) {
