@@ -499,7 +499,14 @@ exports = module.exports = {
                               }
 
                               await streamingHandlerPromise;
+                              // push null to stream to signal we are done
                               stream.push(null);
+
+                              // wait until stream is ended
+                              const streamEndEmitter = new EventEmitter()
+                              stream.on('end', () => streamEndEmitter.emit('done'));
+                              await pEvent(streamEndEmitter, 'done')
+
                               if (keepAliveTimer !== null) {
                                 clearInterval(keepAliveTimer) 
                               }
