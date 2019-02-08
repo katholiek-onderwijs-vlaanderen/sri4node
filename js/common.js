@@ -221,7 +221,7 @@ exports = module.exports = {
     cl('Using database connection string : [' + dbUrl + ']');
 
     let cn = {connectionString: dbUrl};
-    if (configuration.maxConnections) {
+    if (configuration !== undefined && configuration.maxConnections) {
       cn.max = configuration.maxConnections; // default is 10
     }
     return pgp(cn);
