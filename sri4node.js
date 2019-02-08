@@ -14,6 +14,9 @@ const _ = require('lodash')
 const pMap = require('p-map');
 const readAllStream = require('read-all-stream')
 const Busboy = require('busboy');
+const EventEmitter = require('events');
+const pEvent = require('p-event');
+
 
 const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, 
@@ -329,38 +332,41 @@ exports = module.exports = {
         await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
       }
 
+
+      var router = express.Router()
+
       const emt = installEMT()
 
       if (global.sri4node_configuration.forceSecureSockets) {
         // All URLs force SSL and allow cross origin access.
-        app.use(forceSecureSockets);
+        router.use(forceSecureSockets);
       }
 
-      app.use(emt.instrument(compression()))
-      app.use(emt.instrument(logRequests))
-      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true})));
+      router.use(emt.instrument(compression()))
+      router.use(emt.instrument(logRequests))
+      router.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true})));
 
-      app.use('/pathfinder', function(req, res, next){
+      router.use('/pathfinder', function(req, res, next){
         pathfinderUI(app)
         next()
       }, pathfinderUI.router)
 
 
       //to parse html pages
-      app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
+      router.use('/docs/static', express.static(__dirname + '/js/docs/static'));
       app.engine('.jade', require('jade').__express);
       app.set('view engine', 'jade');
       app.set('views', __dirname + '/js/docs');
 
-      app.put('/log', middlewareErrorWrapper(function (req, resp) {
+      router.put('/log', middlewareErrorWrapper(function (req, resp) {
         const err = req.body;
         cl('Client side error :');
         err.stack.split('\n').forEach( (line) => cl(line) )
         resp.end();
       }));
 
-      app.get('/docs', middlewareErrorWrapper(getDocs));
-      app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
+      router.get('/docs', middlewareErrorWrapper(getDocs));
+      router.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
 
       await pMap(
@@ -389,22 +395,22 @@ exports = module.exports = {
             }
 
             // register schema for external usage. public.
-            app.get(mapping.type + '/schema', middlewareErrorWrapper(getSchema));
+            router.get(mapping.type + '/schema', middlewareErrorWrapper(getSchema));
             
             //register docs for this type
-            app.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
-            app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));                    
+            router.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
+            router.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));                    
           }
 
           // batch route
-          app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
-          app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
+          router.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
+          router.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
         }, {concurrency: 1})
 
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
-        app.put('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
-        app.post('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+        router.put('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
+        router.post('/batch', expressWrapper(db, batch.batchOperation, null, false, true));
       }
 
       // map with urls which can be called within a batch 
@@ -548,7 +554,7 @@ exports = module.exports = {
       batchHandlerMap.forEach( ([path, verb, func, mapping, streaming]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        app[verb.toLowerCase()]( path, 
+        router[verb.toLowerCase()]( path, 
                                  emt.instrument(expressWrapper(db, func, mapping, streaming, false), 'func') )
       })
 
@@ -557,13 +563,9 @@ exports = module.exports = {
         return { route: new route(path), verb, func, mapping }
       })
 
+      router.get('/', (req, res) => res.redirect('/resources'))
 
-      // does not seem to work anymore?
-      // app.get('/', lsRoutes(app), function (req, res) {
-      //   res.json(200, req.routes)
-      // })
-      app.get('/', (req, res) => res.redirect('/resources'))
-
+      app.use(config.routePrefix !== undefined ? config.routePrefix : '/', router)  
 
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
     } catch (err) {

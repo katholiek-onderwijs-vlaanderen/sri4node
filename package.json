@@ -5,7 +5,7 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "mocha",
+    "test": "POSTGRES_SCHEMA=\"sri4node\" mocha",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"

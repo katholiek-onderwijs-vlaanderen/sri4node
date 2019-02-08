@@ -322,7 +322,7 @@ exports = module.exports = {
                         WHERE proname = 'vsko_resource_version_inc_function'
                         ${( env.postgresSchema !== undefined
                           ? `AND nspname = '${env.postgresSchema}'`
-                          : '' )}
+                          : `AND nspname = ''` )}
                       ) THEN
           CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
