@@ -628,6 +628,10 @@ The functions are assumed to be asynchronuous and are 'awaited'.
 
 ## resource specific configuration variables
 
+### metaType
+
+Each resource needs to have a meta type specified. This meta type will be set in the meta section of each returned resource as `$$meta.type`. For example, a resource like '/sam/persons' can have a metaType like 'PERSON'.
+
 ### methods
 
 Can be used to restrict the methods which are allowed on a resource. If not specified the default is [ 'GET','PUT','POST','DELETE' ]
