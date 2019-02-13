@@ -434,8 +434,8 @@ exports = module.exports = {
 
 
   getPersonFromSriRequest: (sriRequest) => {
-    // A userObject of null happens when the use is (not yet) logged in, in security context this matches which '*' (anyone)
-    return (sriRequest.userObject ? '/persons/' + sriRequest.userObject.uuid : '*')
+    // A userObject of null happens when the use is (not yet) logged in
+    return (sriRequest.userObject ? '/persons/' + sriRequest.userObject.uuid : 'NONE')
   },
 
   SriError: class {
