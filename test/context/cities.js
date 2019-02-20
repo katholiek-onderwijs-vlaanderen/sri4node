@@ -10,7 +10,8 @@ exports = module.exports = function (roa, extra) {
     'public': false, // eslint-disable-line
     map: {
       key: {},
-      name: {}
+      name: {},
+      nisCode: {}
     },
     schema: {
       $schema: 'http://json-schema.org/schema#',

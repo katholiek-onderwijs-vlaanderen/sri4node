@@ -80,6 +80,17 @@ exports = module.exports = function (base, logverbose) {
     };
   }
 
+ function generateRandomCity() {
+    const key = Math.floor(10000 + Math.random(0)*90000)
+    return {
+      key: key,
+      nisCode: key,
+      name: "RandomCity"
+    };
+  }
+
+
+
   function generateTransaction(key, permalinkFrom, permalinkTo, amount) {
     return {
       key: key,
@@ -382,6 +393,37 @@ exports = module.exports = function (base, logverbose) {
       const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
       const r = await doPut('/batch', batch, { headers: { authorization: auth } });
     });    
+
+    it('batch: combination of several identical updates and one real', async function () {
+      const body1 = generateRandomCity();
+      const body2 = generateRandomCity();
+      const body3 = generateRandomCity();      
+      // create a batch array
+      const batch = [
+          { "href": '/cities/' + body1.key
+          , "verb": "PUT"
+          , "body": body1
+          },
+          { "href": '/cities/' + body2.key
+          , "verb": "PUT"
+          , "body": body2
+          },
+          { "href": '/cities/' + body3.key
+          , "verb": "PUT"
+          , "body": body3
+          }
+      ]
+      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+      await doPut('/cities/batch', batch, { headers: { authorization: auth } });
+
+      batch[0].body.name = 'Foobar'
+
+      const r = await doPut('/cities/batch', batch, { headers: { authorization: auth } });
+      console.log(r)
+      assert.equal(r[0].status, 200);
+      assert.equal(r[1].status, 200);
+      assert.equal(r[2].status, 200);
+    });
 
 
 

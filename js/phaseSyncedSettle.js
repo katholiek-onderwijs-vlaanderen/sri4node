@@ -17,7 +17,17 @@ PhaseSyncer = class {
      	this.phaseCntr = 0
 		this.jobEmitter = new EventEmitter()
 		args.unshift(this)
-		this.jobPromise = pFinally( fun(...args), () => { this.ctrlEmitter.emit('jobDone', this.id) } )
+		const jobWrapperFun = async () => {
+			try {
+				const res = await fun(...args)
+				this.ctrlEmitter.emit('jobDone', this.id)				
+				return res
+			} catch (err) {
+				this.ctrlEmitter.emit('jobFailed', this.id)	
+				throw err;
+			}
+		}
+		this.jobPromise = jobWrapperFun()
 		debug_log(this.id, 'PhaseSyncer constructed.')
     }
 
@@ -39,28 +49,26 @@ PhaseSyncer = class {
 }
 
 
-exports = module.exports = (jobList, {concurrency = 1} = {}) => {
+const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)]
+
+exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
 
 	const ctrlEmitter = new EventEmitter()
 	const jobMap = new Map(jobList.map( ([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter) )
 							      .map( phaseSyncer => [ phaseSyncer.id, phaseSyncer ] ))
-	const jobs = new Set(jobMap.keys())
+	const pendingJobs = new Set(jobMap.keys())
 
-	const nrJobs = jobList.length;
 	let queuedJobs;
 	let phasePendingJobs;
 
 
 	const startNewPhase = () => {
-		const jobList = [...jobs.values()]
-		if (jobList.length === nrJobs) {
-			jobList.slice(0, concurrency).forEach( id => jobMap.get(id).jobEmitter.emit('ready') )
-			queuedJobs = new Set(jobList.slice(concurrency))
-			phasePendingJobs = new Set(jobs)
-		} else {
-			// one or more jobs failed => cancel all others
-			jobList.forEach( id => jobMap.get(id).jobEmitter.emit('ready', 'failed') )
-		}
+		const pendingJobList = [...pendingJobs.values()];
+		const [ jobsToWake, jobsToQueue ] = splitListAt(pendingJobList, maxNrConcurrentJobs);
+
+		jobsToWake.forEach( id => jobMap.get(id).jobEmitter.emit('ready') );
+		queuedJobs = new Set(jobsToQueue);
+		phasePendingJobs = new Set(pendingJobs)
 	}
 
 	const startQueuedJob = () => {
@@ -70,8 +78,6 @@ exports = module.exports = (jobList, {concurrency = 1} = {}) => {
 			queuedJobs.delete(id)
 		}
 	}
-
-
 
 	ctrlEmitter.on('stepDone', listener = function (id, stepnr) {
 		debug_log(id,`*step ${stepnr}* done.`)
@@ -89,7 +95,7 @@ exports = module.exports = (jobList, {concurrency = 1} = {}) => {
 	ctrlEmitter.on('jobDone', listener = function (id) {
 		debug_log(id, `*JOB* done.`)
 
-		jobs.delete(id)
+		pendingJobs.delete(id)
 		queuedJobs.delete(id)
 		phasePendingJobs.delete(id)
 
@@ -98,6 +104,18 @@ exports = module.exports = (jobList, {concurrency = 1} = {}) => {
 		} else {
 			startQueuedJob()
 		}
+	});
+
+	ctrlEmitter.on('jobFailed', listener = function (id) {
+		debug_log(id, `*JOB* failed.`)
+
+		pendingJobs.delete(id)
+		queuedJobs.delete(id)
+		phasePendingJobs.delete(id)
+
+		// failure of one job in batch leads to failure of the complete batch
+		//  --> notify the other jobs of the failure
+		pendingJobs.forEach( id => jobMap.get(id).jobEmitter.emit('ready', 'failed') )
 	});
 
 

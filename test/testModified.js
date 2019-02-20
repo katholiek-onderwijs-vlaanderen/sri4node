@@ -1,6 +1,7 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
 const _ = require('lodash');
+const uuid = require('node-uuid');
 
 exports = module.exports = function (base) {
   'use strict';
@@ -141,7 +142,39 @@ exports = module.exports = function (base) {
       assert.equal(newModified, currentModified);
     });
 
+    // TODO: make this also works
+    // problem is that adminpassword is absent on one side of the isEqualSriObject comparison
+    it('PUT of objects with properties not shown in GET should also be idempotent',
+    async function () {
 
+      function generateRandomCommunity(key) {
+        return {
+          key: key,
+          name: 'LETS ' + key,
+          street: 'Leuvensesteenweg',
+          streetnumber: '34',
+          zipcode: '1040',
+          city: 'Brussel',
+          phone: '0492882277',
+          email: key + '@email.com',
+          adminpassword: 'secret',
+          currencyname: 'pluimen'
+        };
+      }
+
+      const key = uuid.v4();
+      const body = generateRandomCommunity(key);
+
+      await doPut('/communities/' + key, body, authHdrObj)
+
+      body.streetnumber = '55'
+
+      await doPut('/communities/' + key, body, authHdrObj)
+
+      const r = await doGet('/communities/' + key, null, authHdrObj)      
+
+      assert.equal(r['$$meta'].version, 0)
+    });
 
 
 
