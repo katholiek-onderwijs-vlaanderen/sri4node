@@ -174,7 +174,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
 
       let result
       if (isBatchRequest) {
-        result = await func(tx, req)
+        result = await func(tx, req, db)
       } else {
 
         const sriRequest  = {
@@ -188,7 +188,8 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
           body: req.body,
           sriType: mapping.type,
           isBatchPart: false,
-          SriError: SriError
+          SriError: SriError,
+          db: db
         }
 
         await hooks.applyHooks('transform request'

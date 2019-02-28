@@ -12,7 +12,7 @@ const phaseSyncedSettle = require('./phaseSyncedSettle.js')
 
 exports = module.exports = {
 
-  batchOperation: async (tx, req) => {
+  batchOperation: async (tx, req, db) => {
     'use strict';
 
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
@@ -89,7 +89,8 @@ exports = module.exports = {
             body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
             sriType: handler.mapping.type,
             isBatchPart: true,
-            SriError: SriError
+            SriError: SriError,
+            db: db
           }
           
           await hooks.applyHooks('transform request'
