@@ -916,7 +916,7 @@ function getListResource(executeExpansion, defaultlimit, maxlimit) {
           output.$$meta.previous = req.originalUrl.replace(/offset=(\d+)/, newOffset > 0 ? 'offset=' + newOffset : '');
           output.$$meta.previous = output.$$meta.previous.replace(/(&?)pr3v10us_=true/, '');
           output.$$meta.previous = output.$$meta.previous.replace(/[\?&]$/, '');
-          
+
           if (!output.$$meta.previous.match(/pr3v10us_/)) {
             output.$$meta.previous += (output.$$meta.previous.match(/\?/) ? '&' : '?') + 'pr3v10us_=true';
           }
@@ -1413,7 +1413,7 @@ exports = module.exports = {
     }
 
     app.use(bodyParser.json({limit: '1mb', extended: true}));
- 
+
 
     //to parse html pages
     app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
@@ -1683,6 +1683,9 @@ exports = module.exports = {
                     if (mapping.map[key] && mapping.map[key].references) {
                       referencedType = mapping.map[key].references;
                       target.$$expanded[key] = {href: typeToMapping[referencedType].type + '/' + row[key]};
+                    } else if(mapping.map[key].onread){
+                      mapping.map[key].onread(key, row);
+                      target.$$expanded[key] = row[key]
                     } else {
                       target.$$expanded[key] = row[key];
                     }
