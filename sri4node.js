@@ -515,14 +515,20 @@ exports = module.exports = {
                                 req.pipe(sriRequest.busBoy);
                               }
 
+                              ///streamIsDone will be true in the case where the streamingHandlerPromise pipes data and already has ended the stream.
+                              let streamIsDone = false;
+                              const streamEndEmitter = new EventEmitter()
+                              stream.on('end', () => {streamIsDone = true;  streamEndEmitter.emit('done');});
+
                               await streamingHandlerPromise;
+                              
                               // push null to stream to signal we are done
                               stream.push(null);
-
-                              // wait until stream is ended
-                              const streamEndEmitter = new EventEmitter()
-                              stream.on('end', () => streamEndEmitter.emit('done'));
-                              await pEvent(streamEndEmitter, 'done')
+                                
+                              if (streamIsDone){
+                                // wait until stream is ended
+                                await pEvent(streamEndEmitter, 'done')
+                              }
 
                               if (keepAliveTimer !== null) {
                                 clearInterval(keepAliveTimer) 
