@@ -494,15 +494,20 @@ exports = module.exports = {
                               let keepAliveTimer = null;
                               let streamingHandlerPromise;
                               let stream;
+                              const streamEndEmitter = new EventEmitter()
+                              const streamDonePromise = pEvent(streamEndEmitter, 'done')
+
                               if (cr.binaryStream) {
                                 const {PassThrough} = require('stream')
                                 stream = new PassThrough()
+                                stream.on('end', () => streamEndEmitter.emit('done'));
                                 stream.pipe(res)
                                 sriRequest.resultStream = stream
                                 streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
                               } else {
                                 res.set('Content-Type', 'application/json; charset=utf-8')
                                 stream = createReadableStream()
+                                stream.on('end', () => streamEndEmitter.emit('done'));
                                 jsonArrayStream(stream).pipe(res)
                                 sriRequest.resultStream = stream
                                 keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
@@ -515,20 +520,12 @@ exports = module.exports = {
                                 req.pipe(sriRequest.busBoy);
                               }
 
-                              ///streamIsDone will be true in the case where the streamingHandlerPromise pipes data and already has ended the stream.
-                              let streamIsDone = false;
-                              const streamEndEmitter = new EventEmitter()
-                              stream.on('end', () => {streamIsDone = true;  streamEndEmitter.emit('done');});
-
                               await streamingHandlerPromise;
-                              
                               // push null to stream to signal we are done
                               stream.push(null);
-                                
-                              if (streamIsDone){
-                                // wait until stream is ended
-                                await pEvent(streamEndEmitter, 'done')
-                              }
+
+                              // wait until stream is ended                              
+                              await streamDonePromise;
 
                               if (keepAliveTimer !== null) {
                                 clearInterval(keepAliveTimer) 
