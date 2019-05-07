@@ -130,8 +130,8 @@ exports = module.exports = {
       },
       toParameterizedSql: function () {
         function debug(x) {
-          if (logdebug) {
-            cl(x);
+          if (global.sri4node_configuration.logdebug) {
+            console.log(x);
           }
         }
 

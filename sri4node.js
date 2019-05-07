@@ -29,6 +29,8 @@ const listResource = require('./js/listResource.js')
 const regularResource = require('./js/regularResource.js')
 const batch = require('./js/batch.js')
 const utilLib = require('./js/utilLib.js')
+const schemaUtils = require('./js/schemaUtils.js');
+
 
 function error(x) {
   'use strict';
@@ -308,6 +310,16 @@ exports = module.exports = {
               mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key)
             }
           })
+
+          //TODO: what with custom stuff ?
+          //  e.g content-api with attachments / security/query
+          //TODO: implement a better way to determine key type!!
+          if (mapping.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
+            mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})$`);
+          } else {
+            throw new Error(`Key type of resource ${mapping.type} unknown!`);
+          }
+          mapping.listResourceRegex = new RegExp(`^${mapping.type}(?:[?#]\\S*)?$`);
         }
       })
 
@@ -432,6 +444,8 @@ exports = module.exports = {
           , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate, mapping, false]
           , [ mapping.type + '/:key', 'DELETE', regularResource.deleteResource, mapping, false]
           , [ mapping.type, 'GET', listResource.getListResource, mapping, false]
+          // a check operation to determine wether lists A is part of list B
+          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, mapping, false]
           ]
 
 // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
@@ -564,7 +578,7 @@ exports = module.exports = {
       }, [])
 
 
-      // register indivual routes in express
+      // register individual routes in express
       batchHandlerMap.forEach( ([path, verb, func, mapping, streaming]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.

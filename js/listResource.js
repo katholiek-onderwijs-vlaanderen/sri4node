@@ -1,5 +1,7 @@
 const _ = require('lodash');
 const pMap = require('p-map'); 
+const pFilter = require('p-filter'); 
+const url = require('url');
 
 const hooks = require('./hooks.js')
 const expand = require('./expand.js');
@@ -353,7 +355,96 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   return {status: 200, body: output}
 }
 
+
+
+///================
+
+
+const matchUrl = (url, mapping) =>  {
+  if (url.match(mapping.listResourceRegex) !== null) {
+    return { type: 'list'}
+  }
+  const matchResult = url.match(mapping.singleResourceRegex);
+  if (matchResult !== null) {
+    const key = matchResult[1]
+    return { type: 'single', key: key}
+  }  
+  throw new SriError({status: 400, errors: [{code: 'unknown.resource.type', url: url}]})
+}
+
+
+// Check if a given raw url A is a subset of the given raw urls in list B
+
+// POST /[resource]/isPartOf
+// { 
+//  "a": { "href": [urlA] }
+//  "b": { "hrefs": [ [urlB1], [urlB2], [urlB3] ] }
+// }
+// ==> [ [urlB2] ]  (all raw urls from list B for which url A is a subset)
+
+async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
+
+  if ( sriRequest.body.a === undefined || sriRequest.body.a.href === undefined
+       || sriRequest.body.b === undefined || sriRequest.body.b.hrefs === undefined ) {
+    throw new SriError({status: 400, errors: [{code: 'a.href.and.b.hrefs.needs.to.specified'}]})
+  }
+  if (Array.isArray(sriRequest.body.a.href)) {
+    throw new SriError({status: 400, errors: [{code: 'a.href.must.be.single.value'}]})
+  }
+  if (!Array.isArray(sriRequest.body.b.hrefs)) {
+    throw new SriError({status: 400, errors: [{code: 'b.hrefs.must.be.array'}]})
+  }
+
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
+
+  const urlA = sriRequest.body.a.href
+  const typeA = matchUrl(urlA, mapping)
+
+  const resultList = await pFilter(sriRequest.body.b.hrefs, async urlB => {
+    const typeB = matchUrl(urlB, mapping);
+    if (typeB.type === 'single') {
+      if (typeA.type === 'single') {
+        return (typeA.key === typeB.key);
+      } else {
+        return false;
+      }
+    } else {
+      const { query:paramsB } = url.parse(urlB, true);
+      const queryB = prepare();
+      await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
+      const sqlB = queryB.text;
+      const valuesB = queryB.params;
+
+      const query = prepare();
+      if (typeA.type === 'single') {
+        query.sql(`SELECT EXISTS ( SELECT key from (${sqlB}) WHERE key=${typeA.key} ) `);
+        query.params.push(...valuesB);
+      } else {
+        const { query:paramsA } = url.parse(urlA, true);
+        const queryA = prepare();
+        await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
+        const sqlA = queryA.text;
+        const valuesA = queryA.params;  
+
+        query.sql(`SELECT NOT EXISTS ( SELECT key from (${sqlA}) as a WHERE NOT EXISTS (SELECT 1 FROM (${sqlB}) as b WHERE a.key = b.key)) as result;`)
+        query.params.push(...valuesA);
+        query.params.push(...valuesB);
+      }
+      const [{r}] = await pgExec(tx, query);
+      return r;
+    }
+  });
+  return { status: 200, body: resultList }    
+}
+
+
+//=================
+
+
 exports = module.exports = {
   getListResource: getListResource,
-  getSQLFromListResource: getSQLFromListResource
+  getSQLFromListResource: getSQLFromListResource,
+  isPartOf: isPartOf
 }
