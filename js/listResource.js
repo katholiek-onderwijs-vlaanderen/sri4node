@@ -423,7 +423,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
 
       const query = prepare();
       if (typeA.type === 'single') {
-        query.sql(`SELECT EXISTS ( SELECT key from (${sqlB}) WHERE key=${typeA.key} ) `);
+        query.sql(`SELECT EXISTS ( SELECT key from (${sqlB}) as temp WHERE key='${typeA.key}' )  as result;`);
         query.params.push(...valuesB);
       } else {
         const { query:paramsA } = url.parse(urlA, true);
@@ -440,8 +440,8 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
         query.params.push(...valuesA);
         query.params.push(...valuesB);
       }
-      const [{r}] = await pgExec(tx, query);
-      return r;
+      const [{result}] = await pgExec(tx, query);
+      return result;
     }
   });
   return { status: 200, body: resultList }    
