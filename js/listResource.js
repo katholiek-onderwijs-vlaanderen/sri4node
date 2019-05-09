@@ -413,7 +413,11 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
     } else {
       const { query:paramsB } = url.parse(urlB, true);
       const queryB = prepare();
-      await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
+      try {
+        await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
+      } catch (err) {
+        throw new SriError({status: 400, errors: [{code: 'resource.b.raised.error', url: urlB, err: err}]})
+      }
       const sqlB = queryB.text;
       const valuesB = queryB.params;
 
@@ -424,7 +428,11 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
       } else {
         const { query:paramsA } = url.parse(urlA, true);
         const queryA = prepare();
-        await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
+        try {
+          await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
+        } catch (err) {
+          throw new SriError({status: 400, errors: [{code: 'resource.a.raised.error', url: urlA, err: err}]})
+        }
         const sqlA = queryA.text;
         const valuesA = queryA.params;  
 
