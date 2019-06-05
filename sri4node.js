@@ -314,9 +314,17 @@ exports = module.exports = {
           //TODO: what with custom stuff ?
           //  e.g content-api with attachments / security/query
           //TODO: implement a better way to determine key type!!
+          if (mapping.schema === undefined) {
+            throw new Error(`Schema definition is missing for '${mapping.type}' !`);
+          }
+          if (mapping.schema.properties.key === undefined) {
+            throw new Error(`Key is not defined in the schema of '${mapping.type}' !`);
+          }
           if (mapping.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
             mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})$`);
-          } else {
+          } else if (mapping.schema.properties.key.type === schemaUtils.numeric('foo').type) {
+            mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9]+)$`);
+          }  else {
             throw new Error(`Key type of resource ${mapping.type} unknown!`);
           }
           mapping.listResourceRegex = new RegExp(`^${mapping.type}(?:[?#]\\S*)?$`);
@@ -390,6 +398,28 @@ exports = module.exports = {
       app.get('/docs', middlewareErrorWrapper(getDocs));
       app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
+      app.post('/setlogdebug', function (req, resp, next) {
+        if (req.query.enabled === 'true') {
+          global.sri4node_configuration.logdebug = true
+          debug('Enabled logdebug via /setlogdebug')
+          resp.send('Enabled logdebug.')
+        } else {
+          debug('Disabled logdebug via /setlogdebug')
+          global.sri4node_configuration.logdebug = false
+          resp.send('Disabled logdebug.')
+        }
+      });
+      app.post('/setlogsql', function (req, resp, next) {
+        if (req.query.enabled === 'true') {
+          global.sri4node_configuration.logsql = true
+          debug('Enabled logdebug via /setlogsql')
+          resp.send('Enabled logsql.')
+        } else {
+          debug('Disabled logdebug via /setlogsql')
+          global.sri4node_configuration.logsql = false
+          resp.send('Disabled logsql.')
+        }
+      });
 
       await pMap(
         config.resources,
@@ -421,7 +451,7 @@ exports = module.exports = {
             
             //register docs for this type
             app.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
-            app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));                    
+            app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
           }
 
           // batch route
