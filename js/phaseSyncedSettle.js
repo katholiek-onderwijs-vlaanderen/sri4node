@@ -10,20 +10,25 @@ debug_log = (id, msg) => {
 };
 
 
-PhaseSyncer = class {
+PhaseSyncer = class { 
     constructor(fun, args, ctrlEmitter) {
     	this.ctrlEmitter = ctrlEmitter,
      	this.id = uuidv1()
      	this.phaseCntr = 0
 		this.jobEmitter = new EventEmitter()
+		this.sriRequest = args[1];
 		args.unshift(this)
+
+
 		const jobWrapperFun = async () => {
 			try {
 				const res = await fun(...args)
 				this.ctrlEmitter.emit('jobDone', this.id)				
+				this.sriRequest.ended = true;
 				return res
 			} catch (err) {
 				this.ctrlEmitter.emit('jobFailed', this.id)	
+				this.sriRequest.ended = true;
 				throw err;
 			}
 		}
@@ -50,7 +55,6 @@ PhaseSyncer = class {
 
 
 const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)]
-
 exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
 
 	const ctrlEmitter = new EventEmitter()
