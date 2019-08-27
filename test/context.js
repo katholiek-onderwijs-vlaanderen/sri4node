@@ -74,14 +74,14 @@ exports = module.exports = {
         require('./context/communities.js')(roa, logdebug, commonResourceConfig),
         require('./context/transactions.js')(roa, commonResourceConfig),
         require('./context/table.js')(roa, commonResourceConfig),
-        require('./context/selfreferential.js')(commonResourceConfig),
         require('./context/jsonb.js')(commonResourceConfig),
         require('./context/alldatatypes.js')(roa, commonResourceConfig),
         require('./context/products.js')(roa, commonResourceConfig),
         require('./context/packages.js')(roa, commonResourceConfig),
         require('./context/relations.js')(roa, commonResourceConfig),
         require('./context/personrelations.js')(roa, commonResourceConfig),
-        require('./context/cities.js')(roa, commonResourceConfig)
+        require('./context/cities.js')(roa, commonResourceConfig),
+        require('./context/selfreferential.js')(commonResourceConfig),
       ],
 
       // temporarily global batch for samenscholing

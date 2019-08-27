@@ -1,13 +1,14 @@
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
+const jiff = require('jiff');
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
         executeOnFunctions, SriError, getCountResult, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
-var queryobject = require('./queryObject.js');
+const queryobject = require('./queryObject.js');
 const prepare = queryobject.prepareSQL;
-
+const schemaUtils = require('./schemaUtils');
 
 
 async function queryByKey(tx, mapping, key, wantsDeleted) {
@@ -92,11 +93,9 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   return { status: 200, body: element }
 }
 
-
 function getSchemaValidationErrors(json, schema) {
   'use strict';
-  var v = new Validator();
-  var result = v.validate(json, schema);
+  var result = (new Validator()).validate(json, schema);
 
   const ret = {}
   var i, current, err;
@@ -125,11 +124,56 @@ function getSchemaValidationErrors(json, schema) {
   }
 }
 
+/**
+ * Will fetch the previous version from DB, patch it, then continue as if it were a regular PUT
+ *
+ * @param {*} phaseSyncer
+ * @param {*} tx
+ * @param {*} sriRequest
+ * @param {*} mapping
+ * @param {*} previousQueriedByKey
+ */
+async function executePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
+  'use strict';
+  const key = sriRequest.params.key;
+  const patch = sriRequest.body;
 
+  debug('PATCH processing starting. Request object :');
+  debug(patch);
+  debug('Key received on URL : ' + key);
 
+  const result = await queryByKey(tx, mapping, key, false)
+  if (result.code != 'found') {
+    // it wouldn't make sense to PATCH a deleted resource I guess?
+    throw new SriError({status: 410, errors: [{code: 'resource.gone', msg: 'Resource is gone' }]})
+  }
 
+  // overwrite the body with the patched previous record
+  try {
+    // RFC6902 (with 'op' and 'path'), RFC7396 (just a sparse object) NOT currently supported
+    sriRequest.body = jiff.patch(patch, result.object);
+    debug(`Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
+  } catch(e) {
+    throw new SriError({status: 409, errors: [{code: 'patch.invalid', msg: 'The patch could not be applied.' }]});
+  }
+
+  // from now on behave like a PUT of the patched object
+  return executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, result);
+}
+
+/**
+ *
+ * @param {*} phaseSyncer
+ * @param {*} tx
+ * @param {*} sriRequest
+ * @param {*} mapping
+ * @param {*} previousQueriedByKey if we've already queried the database for the object with te key
+ * (result of queryByKey(tx, mapping, key, true)) then we can give to this function so it shouldn't
+ * run the same query again. Useful for implementing a PATCH which will simply behave as if it were
+ * a PUT after patching.
+ */
 /* eslint-disable */
-async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
+async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey) {
   'use strict';
   const key = sriRequest.params.key;
   const obj = sriRequest.body
@@ -152,18 +196,35 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
 
   debug('Validating schema.');
   if (mapping.schema) {
-    const validationErrors  = getSchemaValidationErrors(obj, mapping.schema);
+    if (!mapping.schemaWithoutAdditionalProperties) {
+      mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
+    }
+    const validationErrors = getSchemaValidationErrors(obj, mapping.schema);
     if (validationErrors !== null) {
       const errors = { validationErrors }
       throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
     } else {
       debug('Schema validation passed.');
     }
+    // const validationErrors = getSchemaValidationErrors(obj, mapping.schemaWithoutAdditionalProperties);
+    // if (validationErrors !== null) {
+    //   const validationErrors2 = getSchemaValidationErrors(obj, mapping.schema);
+    //   if (validationErrors2 !== null) {
+    //     const errors = { validationErrors2 }
+    //     throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
+    //   }
+    //   else {
+    //     debug('Schema validation passed, but object contains some additional properties...');
+    //     // TODO: handle idempotence of updates when there are edditional properties (that won't be stored) in the object being PUT
+    //   }
+    // } else {
+    //   debug('Schema validation passed.');
+    // }
   }
 
   const permalink = mapping.type + '/' + key
 
-  const result = await queryByKey(tx, mapping, key, true)
+  const result = previousQueriedByKey || await queryByKey(tx, mapping, key, true)
   if (result.code != 'found') {
     // insert new element
     await hooks.applyHooks('before insert'
@@ -237,7 +298,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
 /* eslint-enable */
 
 
-async function createOrUpdate(phaseSyncer, tx, sriRequest, mapping) {
+async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
   debug('* sri4node PUT processing invoked.');
@@ -256,7 +317,26 @@ async function createOrUpdate(phaseSyncer, tx, sriRequest, mapping) {
   }
 }
 
-async function deleteResource(phaseSyncer, tx, sriRequest, mapping) {
+async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+  'use strict';
+  await phaseSyncer.phase()
+  debug('* sri4node PATCH processing invoked.');
+  try {
+    return await executePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
+  } catch (err) {
+    // intercept db constraint violation errors and return 409 error
+    if ( err.constraint !== undefined ) {
+      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+      console.log(err)
+      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+      throw new SriError({status: 409, errors: [{code: 'db.constraint.violation', msg: err.detail}]})
+    } else {
+      throw err
+    }
+  }
+}
+
+async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
 
@@ -299,7 +379,8 @@ async function deleteResource(phaseSyncer, tx, sriRequest, mapping) {
 
 
 exports = module.exports = {
-  getRegularResource: getRegularResource,
-  createOrUpdate: createOrUpdate,
-  deleteResource: deleteResource,
+  getRegularResource,
+  createOrUpdateRegularResource,
+  patchRegularResource,
+  deleteRegularResource,
 }

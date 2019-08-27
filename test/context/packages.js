@@ -7,6 +7,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/store/packages',
+    metaType: 'SRI4NODE_STORE_PACKAGE',
     'public': false, // eslint-disable-line
     map: {
       key: {},

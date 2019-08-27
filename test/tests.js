@@ -9,13 +9,51 @@ logsql = logrequests = logdebug = logmiddleware = false;
 
 var base = 'http://localhost:' + port;
 
+const { spawn } = require('child_process');
+
+
+function asyncSpawn(command, args) {
+  return new Promise((resolve, reject) => {
+    const childProcess = spawn(command, args);
+
+    let output = '';
+    let errors = '';
+
+    childProcess.stdout.on('data', (data) => {
+      output = output + data + '\n';
+    });
+
+    childProcess.stderr.on('data', (data) => {
+      // console.log(`stderr: ${data}`);
+      errors = errors + data + '\n';
+    });
+
+    childProcess.on('close', (code) => {
+      // console.log(`child process ${command} exited with code ${code}`);
+      if (code === 0) {
+        resolve(output)
+      }
+      else {
+        reject(errors)
+      }
+    });
+  })
+}
 
 describe('Sri4node testing', function () {
   'use strict';
   this.timeout(0);
-  before(async function (done) {
-    await context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware)
-    done()
+  before(async function () {
+    // init testing DB
+    try {
+      await asyncSpawn(`${__dirname}/../createdb.sh`);
+    }
+    catch (e) {
+      console.log(`Problem while trying to initialize the testing DB: ${e}`)
+      throw new Error(`Problem while trying to initialize the testing DB: ${e}`)
+    }
+
+    return context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware)
   });
 
 
@@ -25,13 +63,12 @@ describe('Sri4node testing', function () {
   require('./testListResource.js')(base, logdebug);
   require('./testPublicResources.js')(base, logdebug);
   require('./testRegularResource.js')(base, logdebug);
-  require('./testPutAndDelete.js')(base, logdebug);
+  require('./testPutAndPatch.js')(base, logdebug);
+  require('./testDelete.js')(base, logdebug);
   require('./testJSONB.js')(base, logdebug);
-  require('./testInformationSchema.js')(logdebug);
 
   require('./testQueryUtils.js')(base, logdebug);
   require('./testModified.js')(base, logdebug);
-  require('./testDocs.js')(base, logdebug);
   require('./testResourceType.js')(base, logdebug);
 
   require('./testExpand.js')(base, logdebug);
@@ -55,5 +92,8 @@ describe('Sri4node testing', function () {
   require('./relationsFilter/testRelationsFilterToTypes.js')(base, logdebug);
   require('./relationsFilter/testRelationsFilterNoType.js')(base, logdebug);
 
+
+  require('./testDocs.js')(base, logdebug);
+  require('./testInformationSchema.js')(logdebug);
 
 });

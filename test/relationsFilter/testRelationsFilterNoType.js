@@ -8,7 +8,7 @@ exports = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
+  const doGet = function() { return api.getRaw(...arguments) };
 
   const utils =  require('../utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -20,7 +20,7 @@ exports = module.exports = function (base) {
     describe('Persons resource referenced has no type property', function () {
 
       it('should fail with error message', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/personrelations?toTypes=ADULT', null, authHdrObj)
           }, 

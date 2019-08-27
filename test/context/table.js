@@ -7,6 +7,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/table',
+    metaType: 'SRI4NODE_TABLE',
     'public': true, // eslint-disable-line
     map: {
       select: {},
@@ -17,6 +18,7 @@ exports = module.exports = function (roa, extra) {
       title: 'A table with protected keywords, to check escaping of sri4node',
       type: 'object',
       properties: {
+        key: $s.guid('GUID for this table.'),
         select: $s.string(''),
         from: $s.string('')
       },

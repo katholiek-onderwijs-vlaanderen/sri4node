@@ -11,7 +11,7 @@ exports = module.exports = function (base, logverbose) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
+  const doGet = function() { return api.getRaw(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -94,7 +94,7 @@ exports = module.exports = function (base, logverbose) {
       });
 
       it('should fail due to secure function on expanded resource', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/messages/7f5f646c-8f0b-4ce6-97ce-8549b8b78234?expand=person', null, authHdrObj)
           }, 
@@ -108,7 +108,7 @@ exports = module.exports = function (base, logverbose) {
       });
 
       it('should fail since the expanded chained resource is restricted', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community', null, authHdrObjKevin)
           }, 
@@ -134,7 +134,7 @@ exports = module.exports = function (base, logverbose) {
       });
 
       it('should fail due to secure function on expanded resource', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/messages?expand=results.person', null, authHdrObj)
           }, 
@@ -148,7 +148,7 @@ exports = module.exports = function (base, logverbose) {
       });
 
       it('should fail since the expanded chained resource is restricted', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/messages?titleContains=Vervoer&expand=results.person.community', null, authHdrObjKevin)
           }, 
@@ -161,7 +161,7 @@ exports = module.exports = function (base, logverbose) {
     // Test expand=invalid send 404 Not Found.
     describe('with invalid', function () {
       it('should say \'not found\'.', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid', null, authHdrObj)
           }, 

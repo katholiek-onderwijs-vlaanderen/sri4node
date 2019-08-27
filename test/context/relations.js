@@ -8,6 +8,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/relations',
+    metaType: 'SRI4NODE_RELATIONS',
     'public': false, // eslint-disable-line
     map: {
       key: {},

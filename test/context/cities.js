@@ -7,6 +7,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/cities',
+    metaType: 'SRI4NODE_CITY',
     'public': false, // eslint-disable-line
     map: {
       key: {},

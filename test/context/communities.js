@@ -92,6 +92,7 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   var ret = {
     type: '/communities',
+    metaType: 'SRI4NODE_COMMUNITY',
     'public': false, // eslint-disable-line
     cache: {
       ttl: 0,
@@ -102,6 +103,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       title: 'A local group in the LETS system.',
       type: 'object',
       properties: {
+        key: $s.guid('Key of this group.'),
         name: $s.string('Name of this group. Normally named \'LETS [locale]\'.'),
         street: $s.string('Street of the organisational seat address.'),
         streetnumber: $s.string('Street number of the organisational seat address.'),
@@ -116,7 +118,7 @@ exports = module.exports = function (roa, logverbose, extra) {
         currencyname: $s.string('Name of the local currency for the group.')
       },
       required: ['name', 'street', 'streetnumber', 'zipcode',
-                 'city', 'phone', 'email', 'adminpassword', 'currencyname']
+                 'city', 'phone', 'email', 'currencyname']
     },
     map: {
       name: {},
@@ -128,6 +130,8 @@ exports = module.exports = function (roa, logverbose, extra) {
       zipcode: {},
       city: {},
       // Only allow create/update to set adminpassword, never show on output.
+      // I made adminpassword NOT REQUIRED, but then with every PUT it would disappear if it weren't there
+      // So with these kind of resources (where output differs from input) only PATCH really makes sense
       adminpassword: {
         columnToField: [ $m.remove ]
       },

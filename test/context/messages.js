@@ -55,6 +55,7 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   var ret = {
     type: '/messages',
+    metaType: 'SRI4NODE_MESSAGE',
     'public': false, // eslint-disable-line
     listResultDefaultIncludeCount: false,
     
@@ -85,6 +86,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       title: 'A messages posted to the LETS members.',
       type: 'object',
       properties: {
+        key: $s.guid('GUID for this message.'),
         person: $s.permalink('/persons', 'A permalink to the person that placed the message.'),
         type: {
           type: 'string',

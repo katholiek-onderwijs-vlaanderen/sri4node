@@ -17,9 +17,9 @@ exports = module.exports = function (base, logdebug) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
-  const doPut = api.put;
-  const doPost = api.post;
+  const doGet = function() { return api.getRaw(...arguments) };
+  const doPut = function() { return api.put(...arguments) };
+  const doPost = function() { return api.post(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -41,7 +41,7 @@ exports = module.exports = function (base, logdebug) {
     });
 
     it('should forbid the custom route because of a secure function', async function () {
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
           async () => {
             await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simple', null,  authHdrObjIngrid)
           }, 
@@ -51,7 +51,7 @@ exports = module.exports = function (base, logdebug) {
     });
 
     it('should return a server error for a problematic custom handler', async function () {
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('kevin@email.be', 'pwd')
             await doGet('/persons/00000000-0000-0000-0000-000000000000/simple', null,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -74,7 +74,7 @@ exports = module.exports = function (base, logdebug) {
     });
 
     it('no auth should be forbidden for the custom \'like\' route', async function () {
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
           async () => {
             await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simpleLike', null,  {})
           }, 
@@ -90,7 +90,7 @@ exports = module.exports = function (base, logdebug) {
           , "verb": "GET"
           }
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
           async () => {
             await doPut('/persons/batch', batch, authHdrObj);
           }, 
@@ -140,7 +140,7 @@ exports = module.exports = function (base, logdebug) {
 
 
     it('streaming file upload (multipart form) with incorrect data should return error', async function () {
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
           async () => {
             await doPost('/persons/upStream', {}, authHdrObj);
           }, 

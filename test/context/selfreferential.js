@@ -1,7 +1,7 @@
-var roa = require('../../sri4node.js');
-var $u = roa.utils;
+const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../sri4node.js');
 var common = require('../../js/common.js');
 var cl = common.cl;
+
 
 async function allParentsOf(value, select) {
   'use strict';
@@ -20,7 +20,8 @@ exports = module.exports = function (extra) {
   'use strict';
   var ret = {
     type: '/selfreferential',
-        'public': true, // eslint-disable-line
+    metaType: 'SRI4NODE_SELFREFERENTIAL',
+    'public': true, // eslint-disable-line
     map: {
       key: {},
       name: {},
@@ -28,9 +29,19 @@ exports = module.exports = function (extra) {
         references: '/selfreferential'
       }
     },
+    schema: {
+      $schema: 'http://json-schema.org/schema#',
+      title: 'An object that contains references to resources of the same type.',
+      type: 'object',
+      properties: {
+        key: $s.guid('GUID for this selfreferential.'),
+        name: $s.string('The name of the selfreferential.'),
+        parent: $s.permalink('/selfreferential', 'A link to the parent.'),
+      }
+    },
     query: {
       allParentsOf: allParentsOf
-    }
+    },
   };
 
   common.mergeObject(extra, ret);

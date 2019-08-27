@@ -29,7 +29,8 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/alldatatypes',
-    'public': false, // eslint-disable-line
+    metaType: 'SRI4NODE_ALLDATATYPES',
+    public: false, // eslint-disable-line
     cache: {
       ttl: 60,
       type: 'local'
@@ -39,6 +40,7 @@ exports = module.exports = function (roa, extra) {
       title: 'A set of resources for the generic filters',
       type: 'object',
       properties: {
+        key: $s.guid('GUID for this alldatatype.'),
         id: $s.numeric('Identificator'),
         text: $s.string('A text field.'),
         textvarchar: $s.string('A text field.'),

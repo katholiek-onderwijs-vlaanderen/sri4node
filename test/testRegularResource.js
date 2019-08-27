@@ -2,7 +2,7 @@
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
+const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
 
 const makeAuthHeader = (user, pw) => 
   'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
@@ -11,10 +11,21 @@ exports = module.exports = function (base, logverbose) {
   'use strict';
 
   const sriClientConfig = {
-    baseUrl: base
+    baseUrl: base,
   }
-  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
+  const sriClientConfigLoggedIn = {
+    ...sriClientConfig,
+    username: 'sabine@email.be',
+    password: 'pwd',
+  }
+  const api = sriclientFactory(sriClientConfig)
+  const doGet = function() { return api.getRaw(...arguments) };
+
+  const apiLoggedIn = sriclientFactory(sriClientConfigLoggedIn)
+  const doLoggedInGet = function() { return apiLoggedIn.getRaw(...arguments) };
+
+  const utils =  require('./utils.js')(api);
+
 
 
   function debug(x) {
@@ -36,6 +47,7 @@ exports = module.exports = function (base, logverbose) {
       it('should return LETS Hamme', async function () {
         const auth = makeAuthHeader('sabine@email.be', 'pwd')
         const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
+        // const response = await doLoggedInGetGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d' /*, null, { headers: { authorization: auth } }*/)
         assert.equal(response.name, 'LETS Hamme');
       });
     });
@@ -69,75 +81,59 @@ exports = module.exports = function (base, logverbose) {
 
     describe('/persons/{key} from different community', function () {
       it('should be 403 Forbidden', async function () {
-        try {
-          const auth = makeAuthHeader('sabine@email.be', 'pwd')
-          const response = await doGet('/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb', null, { headers: { authorization: auth } })
-        } catch (error) {
-          if (error instanceof api.SriClientError) {
+        utils.testForStatusCode(
+          () => doLoggedInGet('/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'),
+          (error) => {
             assert.equal(error.status, 403);
-          } else {
-            assert.fail('Unexpected error ' + error.toString());
-          }
-        }
+          })
       })
     });
 
     describe('two secure functions', function () {
       it('should disallow read on Ingrid Ohno', async function () {
-        try {
-          const auth = makeAuthHeader('sabine@email.be', 'pwd')
-          const response = await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2', null, { headers: { authorization: auth } })
-        } catch (error) {
-          if (error instanceof api.SriClientError) {
+        utils.testForStatusCode(
+          () => doLoggedInGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2'),
+          (error) => {
             assert.equal(error.status, 403);
-          } else {
-            assert.fail('Unexpected error ' + error.toString());
-          }
-        }
+          })
       });
     });
 
     describe('with invalid authentication - non-existing user', function () {
       it('should disallow read', async function () {
-        try {
-          const auth = makeAuthHeader('unknown@email.be', 'pwd')
-          const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })
-        } catch (error) {
-          if (error instanceof api.SriClientError) {
+        const auth = makeAuthHeader('unknown@email.be', 'pwd')
+
+        utils.testForStatusCode(
+          () => doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } }),
+          (error) => {
             assert.equal(error.status, 401);
-          } else {
-            assert.fail('Unexpected error ' + error.toString());
-          }
-        }
+          })
       });
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
       it('should disallow read', async function () {
-        try {
-          const auth = makeAuthHeader('sabine@email.be', 'INVALID')
-          const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })
-        } catch (error) {
-          if (error instanceof api.SriClientError) {
+
+        const auth = makeAuthHeader('sabine@email.be', 'INVALID')
+
+        utils.testForStatusCode(
+          () => doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } }),
+          (error) => {
             assert.equal(error.status, 401);
-          } else {
-            assert.fail('Unexpected error ' + error.toString());
-          }
-        }
+          })
+
       });
     });
 
     describe('without authentication', function () {
       it('should disallow read', async function () {
-        try {
-          const response = await doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2')
-        } catch (error) {
-          if (error instanceof api.SriClientError) {
+
+        utils.testForStatusCode(
+          () => doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2'),
+          (error) => {
             assert.equal(error.status, 401);
-          } else {
-            assert.fail('Unexpected error ' + error.toString());
-          }
-        }
+          })
+
       });
     });
   });

@@ -6,6 +6,24 @@ var cl = common.cl;
 var sriclient = require('@kathondvla/sri-client/node-sri-client');
 var uuid = require('node-uuid');
 
+
+
+/**
+ * BATCH should work like this (and now it works the other way around):
+ *
+ * [ {}, {} ] SHOULD EXECUTE ALL OPERATIONS SEQUENTIALLY and is a shorthand for [ [ {}, {} ] ] !
+ * [ [ {}, {} ] ] SHOULD ALSO EXECUTE ALL OPERATIONS SEQUENTIALLY !
+ * [ [ {}, {} ], [ {}, {} ] ] SHOULD EXECUTE ALL OPERATIONS WITHIN THE CHILD ARRAY SEQUENTIALLY, but the multiple sequences can be applied in parallel
+ *
+ * SO IN SHORT: 1 batch is a list of SERIES that can be executed in parallel.
+ *   If there's only 1 list, there is NO PARALLELIZATION !!!
+ *
+ * Because I don't see the use-case in 'do all this in parallel, wait until it's all done, then do some more in parallel'
+ *
+ * AT THE VERY LEAST: if it stays 'THE OLD WAY' [ {}, {} ] should become equivalent to [ [ {} ], [ {} ] ]
+ *   to make sure a simple single-array batch is executed IN SEQUENCE as everybody would expect !!!
+ *
+ */
 exports = module.exports = function (base, logverbose) {
   'use strict';
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
@@ -15,13 +33,19 @@ exports = module.exports = function (base, logverbose) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
-  const doPut = api.put;
-  const doPost = api.post;
-  const doDelete = api.delete;
+  const doGet = function() { return api.getRaw(...arguments) };
+  const doPut = function() { return api.put(...arguments) };
+  const doPatch = function() { return api.patch(...arguments) };
+  const doPost = function() { return api.post(...arguments) };
+  const doDelete = function() { return api.delete(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+
+  const sriClientOptionsAuthSabine = {
+    headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') }
+  }
+
 
   function debug(x) {
     if (logverbose) {
@@ -108,25 +132,30 @@ exports = module.exports = function (base, logverbose) {
 
   describe('BATCH', function () {
 
-    it('create person and immediately delete', async function () {
+    it('create community and immediately delete', async function () {
       const key = uuid.v4();
       const body = generateRandomCommunity(key);
+      const communityHref = '/communities/' + key;
       // create a batch array
       const batch = [
-          { "href": '/communities/' + key
+          { "href": communityHref
           , "verb": "PUT"
           , "body": body
           },
-          { "href": '/communities/' + key
+          { "href": communityHref
           , "verb": "DELETE" 
           }
       ]
 
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+      await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
+
+      // RESOURCE SHOULD BE GONE, but the way it's implemented now could be unpredictable (parallel)
+      const c = await doGet(communityHref, null, sriClientOptionsAuthSabine);
+      // assert.equal(c.key, key);
+      // assert.equal(c.streetnumber, newStreetNumber);
     });
 
-    it('create person and immediately delete with batchlist', async function () {
+    it('create community and immediately delete with batchlist', async function () {
       const key = uuid.v4();
       const body = generateRandomCommunity(key);
       // create a batch array
@@ -139,13 +168,112 @@ exports = module.exports = function (base, logverbose) {
           , "verb": "DELETE" 
           }]
       ]
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
       assert.equal(r[0].href, '/communities/' + key);
       assert.equal(r[0].verb, 'PUT');
       assert.equal(r[1].href, '/communities/' + key);
       assert.equal(r[1].verb, 'DELETE');
     });
+
+    it('single PATCH on existing person', async function () {
+      const key = uuid.v4();
+      const personHref = '/persons/' + key;
+      const body = generateRandomPerson(key, communityDendermonde, 'John', 'Doe');
+      const newStreetNumber = '999';
+
+      await doPut(personHref, body, sriClientOptionsAuthSabine);
+
+      // create a batch array
+      const batch = [
+          { "href": personHref
+          , "verb": "PATCH"
+          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
+          },
+      ]
+
+      const r = await doPut('/persons/batch', batch, sriClientOptionsAuthSabine);
+      r.forEach(x => assert.equal(x.status, 200));
+
+      const c = await doGet(personHref, null, sriClientOptionsAuthSabine);
+      assert.equal(c.key, key);
+      assert.equal(c.streetnumber, newStreetNumber);
+    });
+
+    it('2 consecutive PATCHes on existing person', async function () {
+      const key = uuid.v4();
+      const personHref = '/persons/' + key;
+      const body = generateRandomPerson(key, communityDendermonde, 'John', 'Doe');
+      const newStreetNumber = '999';
+      const newStreetBus = 'b';
+
+      await doPut(personHref, body, sriClientOptionsAuthSabine);
+
+      // create a batch array
+      const batch = [
+        [
+          { "href": personHref
+          , "verb": "PATCH"
+          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
+          },
+        ], [
+          { "href": personHref
+          , "verb": "PATCH"
+          , "body": [ { op: 'add', path: '/streetbus', value: newStreetBus } ]
+          },
+        ]
+      ]
+
+      const r = await doPut('/persons/batch', batch, sriClientOptionsAuthSabine);
+      r.forEach(x => x.status
+        ? assert.equal(x.status, 200)
+        : x.forEach(x => assert.equal(x.status, 200))
+      );
+
+      const c = await doGet(personHref, null, sriClientOptionsAuthSabine);
+      assert.equal(c.key, key);
+      assert.equal(c.streetnumber, newStreetNumber, 'seems like the second patch operation on streetbus undid the previous patch on streetnumber');
+      assert.equal(c.streetbus, newStreetBus);
+    });
+
+    it('create person and immediately PATCH in same batch', async function () {
+      const key = uuid.v4();
+      const personHref = '/persons/' + key;
+      const body = generateRandomPerson(key, communityDendermonde, 'Don', 'Quichotte');
+      const newStreetNumber = '999';
+      const newStreetBus = 'b';
+
+      // create a batch array
+      const batch = [
+        [
+          { "href": personHref
+          , "verb": "PUT"
+          , "body": body
+          },
+        ], [
+          { "href": personHref
+          , "verb": "PATCH"
+          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
+          },
+        ], [
+          { "href": personHref
+          , "verb": "PATCH"
+          , "body": [ { op: 'add', path: '/streetbus', value: newStreetBus } ]
+          },
+        ]
+      ]
+
+      const r = await doPut('/persons/batch', batch, sriClientOptionsAuthSabine);
+      r.forEach(x => x.status
+        ? assert.equal(true, x.status === 200 || x.status === 201)
+        : x.forEach(x => assert.equal(true, x.status === 200 || x.status === 201))
+      );
+
+      const c = await doGet(personHref, null, sriClientOptionsAuthSabine);
+      assert.equal(c.key, key);
+      assert.equal(c.streetnumber, newStreetNumber);
+      assert.equal(c.streetbus, newStreetBus);
+    });
+
 
     it('with error should be completely rollbacked', async function () {
       const keyC1 = uuid.v4();
@@ -165,19 +293,17 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+          await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           // expected to fail because property 'name' is missing
             assert.equal(error.status, 409);
         })
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          await doGet('/communities/' + keyC1, null, { headers: { authorization: auth } });
+          await doGet('/communities/' + keyC1, null, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           // expected to fail because this resource should have been rollbacked
@@ -204,19 +330,17 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }]
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+          await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           // expected to fail: bodyC2 is missing required name
             assert.equal(error.status, 409);
         })
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          await doGet('/communities/' + keyC1, null, { headers: { authorization: auth } });
+          await doGet('/communities/' + keyC1, null, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           // expected to fail: should not be created but rollbacked
@@ -242,10 +366,9 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }]
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+          const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           assert.equal(error.status, 400);
@@ -269,10 +392,9 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }]
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+          const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           assert.equal(error.status, 400);
@@ -298,10 +420,9 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          const r = await doPut('/communities/batch', batch, { headers: { authorization: auth } });
+          const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           assert.equal(error.status, 409);
@@ -326,10 +447,9 @@ exports = module.exports = function (base, logverbose) {
           , "body": bodyC2
           }]
       ]
-      await utils.testForStatusCode( 
+      await utils.testForStatusCode(
         async () => {
-          const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-          const r = await doPut('/batch', batch, { headers: { authorization: auth } });
+          const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
         }, 
         (error) => {
           assert.equal(error.status, 404);
@@ -356,8 +476,7 @@ exports = module.exports = function (base, logverbose) {
           }]
       ]
 
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      const r = await doPut('/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
     });    
 
     it('\'big\' batch', async function () {
@@ -373,8 +492,7 @@ exports = module.exports = function (base, logverbose) {
                  }
         })
 
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      const r = await doPut('/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
     });    
 
     it('\'big\' batch with sub-batches', async function () {
@@ -390,8 +508,7 @@ exports = module.exports = function (base, logverbose) {
                  }]
         })
 
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      const r = await doPut('/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
     });    
 
     it('batch: combination of several identical updates and one real', async function () {
@@ -413,12 +530,11 @@ exports = module.exports = function (base, logverbose) {
           , "body": body3
           }
       ]
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      await doPut('/cities/batch', batch, { headers: { authorization: auth } });
+      await doPut('/cities/batch', batch,   sriClientOptionsAuthSabine);
 
       batch[0].body.name = 'Foobar'
 
-      const r = await doPut('/cities/batch', batch, { headers: { authorization: auth } });
+      const r = await doPut('/cities/batch', batch,   sriClientOptionsAuthSabine);
       console.log(r)
       assert.equal(r[0].status, 200);
       assert.equal(r[1].status, 200);
