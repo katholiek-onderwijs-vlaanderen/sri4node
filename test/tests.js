@@ -43,6 +43,8 @@ function asyncSpawn(command, args) {
 describe('Sri4node testing', function () {
   'use strict';
   this.timeout(0);
+  let server = null;
+
   before(async function () {
     // init testing DB
     try {
@@ -53,9 +55,17 @@ describe('Sri4node testing', function () {
       throw new Error(`Problem while trying to initialize the testing DB: ${e}`)
     }
 
-    return context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware)
+    server = await context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware);
   });
 
+  after(async () => {
+    // uncomment this keep server running for manual inspection
+    // await new Promise(function(resolve, reject){});
+
+    console.log('Stopping express server.')
+    await server.close();
+    console.log('Done.')
+  });
 
   require('./testOrderBy.js')(base, logdebug);
   require('./testAfterRead.js')(base, logdebug);

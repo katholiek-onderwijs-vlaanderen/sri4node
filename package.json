@@ -5,13 +5,13 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "POSTGRES_SCHEMA=\"sri4node\" mocha",
+    "test": "POSTGRES_SCHEMA=\"sri4node\" mocha --exit",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
   },
   "dependencies": {
-    "@kathondvla/sri-client": "https://github.com/katholiek-onderwijs-vlaanderen/sri-client.git",
+    "@kathondvla/sri-client": "https://github.com/katholiek-onderwijs-vlaanderen/sri-client.git#9ff446080a0756c6948b63085bdeb423cd665e91",
     "array-unique": "0.2.1",
     "body-parser": "^1.9.0",
     "busboy": "0.2.14",

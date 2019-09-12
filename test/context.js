@@ -30,9 +30,9 @@ exports = module.exports = {
 
     try {
       const port = app.get('port');
-      app.listen(port, function () {
-        cl('Node app is running at localhost:' + app.get('port'));
-      });
+      const server = await app.listen(port);
+      cl('Node app is running at localhost:' + app.get('port'));
+      return server;
     } catch (error) {
       cl('Node app failed to initialize: ' + error);
       process.exit(1);
