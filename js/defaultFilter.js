@@ -45,12 +45,12 @@ function filterString(select, filter, value, mapping) {
 
   if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text < ').param(value);
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text COLLATE "C") < ').param(value);
 
   }
   else if (filter.operator === 'Greater' && !not && sensitive || filter.operator === 'Less' && not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text > ').param(value);
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text COLLATE "C") > ').param(value);
 
   }
   else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
@@ -66,13 +66,13 @@ function filterString(select, filter, value, mapping) {
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text <= ').param(value);
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text COLLATE "C") <= ').param(value);
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && sensitive ||
     (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text >= ').param(value);
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text COLLATE "C") >= ').param(value);
 
   }
   else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive ||
