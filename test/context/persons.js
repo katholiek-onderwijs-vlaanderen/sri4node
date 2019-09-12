@@ -131,6 +131,7 @@ exports = module.exports = function (roa, logverbose, extra) {
 
   var ret = {
     type: '/persons',
+    metaType: 'SRI4NODE_PERSON',
     'public': false, // eslint-disable-line
     map: {
       firstname: {},

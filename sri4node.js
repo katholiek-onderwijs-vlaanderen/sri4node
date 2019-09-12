@@ -317,6 +317,10 @@ exports = module.exports = {
           if (mapping.schema === undefined) {
             throw new Error(`Schema definition is missing for '${mapping.type}' !`);
           }
+          // TODO: use json-schema to validate if it is valid json schema
+          if (mapping.schema.properties === undefined) {
+            throw new Error(`Schema definition invalid for '${mapping.type}' !`);
+          }
           if (mapping.schema.properties.key === undefined) {
             throw new Error(`Key is not defined in the schema of '${mapping.type}' !`);
           }
@@ -384,8 +388,8 @@ exports = module.exports = {
 
       //to parse html pages
       app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
-      app.engine('.jade', require('jade').__express);
-      app.set('view engine', 'jade');
+      app.engine('.pug', require('pug').__express);
+      app.set('view engine', 'pug');
       app.set('views', __dirname + '/js/docs');
 
       app.put('/log', middlewareErrorWrapper(function (req, resp) {
@@ -471,8 +475,9 @@ exports = module.exports = {
 
         const crudRoutes = 
           [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping, false]
-          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdate, mapping, false]
-          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteResource, mapping, false]
+          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, mapping, false]
+          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, mapping, false]
+          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, mapping, false]
           , [ mapping.type, 'GET', listResource.getListResource, mapping, false]
           // a check operation to determine wether lists A is part of list B
           , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, mapping, false]

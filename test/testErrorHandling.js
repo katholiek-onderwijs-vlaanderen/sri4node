@@ -9,9 +9,9 @@ exports = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
-  const doPut = api.put;
-  const doDelete = api.delete;
+  const doGet = function() { return api.getRaw(...arguments) };
+  const doPut = function() { return api.put(...arguments) };
+  const doDelete = function() { return api.delete(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -46,7 +46,7 @@ exports = module.exports = function (base) {
 
     describe('After Read', function () {
       it('should return 500 (server error) when rejecting without an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
             await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -57,7 +57,7 @@ exports = module.exports = function (base) {
       });
 
       it('should return 403 (forbidden) when rejecting with an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
             await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null,  { headers: { authorization: auth } })
@@ -72,7 +72,7 @@ exports = module.exports = function (base) {
     describe('After Insert', function () {
 
       it('should return 500 (server error) when rejecting without an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
             await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -83,7 +83,7 @@ exports = module.exports = function (base) {
       });
 
       it('should return 403 (forbidden) when rejecting with an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
             await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -97,14 +97,13 @@ exports = module.exports = function (base) {
 
     describe('After Update', function () {
 
-      before(async function (done) {
+      before(async function () {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
         await doPut('/persons/' + key, p,  { headers: { authorization: auth }})
-        done();
       });
 
       it('should return 500 (server error) when rejecting without an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
             await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -115,7 +114,7 @@ exports = module.exports = function (base) {
       });
 
       it('should return 403 (forbidden) when rejecting with an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
             await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
@@ -132,14 +131,13 @@ exports = module.exports = function (base) {
       const key2 = uuid.v4();
       const p2 = generateRandomPerson(key2, communityDendermonde);
 
-      before(async function (done) {
+      before(async function () {
         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
         await doPut('/persons/' + key2, p2,  { headers: { authorization: auth }})
-        done();
       });
 
       it('should return 500 (server error) when rejecting without an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
             await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
@@ -150,7 +148,7 @@ exports = module.exports = function (base) {
       });
 
       it('should return 403 (forbidden) when rejecting with an error object', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
             await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
@@ -170,7 +168,7 @@ exports = module.exports = function (base) {
     //   p.email = 'sabine@email.be';
 
     //   it('should return 500 (server error) [regular request]', async function () {
-    //     await utils.testForStatusCode( 
+    //     await utils.testForStatusCode(
     //       async () => {
     //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
     //         await doPut('/persons/' + key, p, { headers: { authorization: auth }, maxAttempts: 1  });
@@ -187,7 +185,7 @@ exports = module.exports = function (base) {
     //         , "body": p
     //         }]
         
-    //     await utils.testForStatusCode( 
+    //     await utils.testForStatusCode(
     //       async () => {
     //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
     //         await doPut('/batch', batch, { headers: { authorization: auth }, maxAttempts: 1 });

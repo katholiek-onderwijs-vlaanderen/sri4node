@@ -7,6 +7,7 @@ exports = module.exports = function (extra) {
   'use strict';
   var ret = {
     type: '/jsonb',
+    metaType: 'SRI4NODE_JSONB',
     'public': true, // eslint-disable-line
     schema: {
       $schema: 'http://json-schema.org/schema#',

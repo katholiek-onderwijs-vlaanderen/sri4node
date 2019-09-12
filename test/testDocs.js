@@ -12,7 +12,7 @@ exports = module.exports = function (base) {
       baseUrl: base
     }
     const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-    const doGet = api.get;
+    const doGet = function() { return api.getRaw(...arguments) };
 
     it('should return general API documentation', async function () {
       await doGet('/docs')

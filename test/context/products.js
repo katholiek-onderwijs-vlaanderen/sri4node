@@ -8,6 +8,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/store/products',
+    metaType: 'SRI4NODE_STORE_PRODUCT',
     'public': false, // eslint-disable-line
     map: {
       key: {},

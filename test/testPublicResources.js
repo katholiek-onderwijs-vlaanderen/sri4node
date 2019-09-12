@@ -9,7 +9,7 @@ exports = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
+  const doGet = function() { return api.getRaw(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -58,7 +58,7 @@ exports = module.exports = function (base) {
 
       describe('without authentication', function () {
         it('should return 401', async function () {
-          await utils.testForStatusCode( 
+          await utils.testForStatusCode(
             async () => {
               await doGet('/alldatatypes')
             }, 
@@ -80,7 +80,7 @@ exports = module.exports = function (base) {
     describe('Regular resource', function () {
       describe('without authentication', function () {
         it('should return 401', async function () {
-          await utils.testForStatusCode( 
+          await utils.testForStatusCode(
             async () => {
               await doGet('/alldatatypes/de3d49e0-70df-4cf1-ad1e-6e8645049977')
             }, 

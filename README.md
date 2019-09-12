@@ -53,6 +53,10 @@ We also removed the [me](###identify) concept, allowing the implementer to add s
 
 The possibility of appending '/validate' to a PUT request to see wether it would succeed is replaced by a more general 'dry run' mode. This mode is activated by adding `?dryRun=true` to the request parameters. This means that the request is executed and responsed as normal, but in the end the database transaction corresponding to the request is rolled back. 
 
+## PATCH support
+
+A valid patch is in [RFC6902 format][https://tools.ietf.org/html/rfc6902].
+
 ## Plugins
 
 You have one array of plugins, that will be smart enough to add themselves to the express app.
@@ -440,7 +444,7 @@ It is also highly suggested to have indices on fields which can be used to filte
 sri4node has a very simple processing pipeline for mapping SRI resources onto a database.
 We explain the possible HTTP operations below :
 * reading regular resources (GET)
-* updating/creating regular resources (PUT)
+* updating/creating regular resources (PUT/PATCH)
 * deleting regular resources (DELETE)
 * reading *list* resources (queries) (GET)
 
@@ -634,7 +638,7 @@ Each resource needs to have a meta type specified. This meta type will be set in
 
 ### methods
 
-Can be used to restrict the methods which are allowed on a resource. If not specified the default is [ 'GET','PUT','POST','DELETE' ]
+Can be used to restrict the methods which are allowed on a resource. If not specified the default is [ 'GET','PUT','PATCH','POST','DELETE' ]
 
 ### table
 

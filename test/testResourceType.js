@@ -1,10 +1,6 @@
 var assert = require('assert');
 var uuid = require('node-uuid');
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
-var doGet = sriclient.get;
-var doPut = sriclient.put;
-var doPost = sriclient.post;
-var doDelete = sriclient.delete;
+const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
 
 exports = module.exports = function (base) {
   'use strict';
@@ -12,10 +8,10 @@ exports = module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base
   }
-  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
-  const doPut = api.put;
-  const doDelete = api.delete;
+  const api = sriclientFactory(sriClientConfig)
+  const doGet = function() { return api.getRaw(...arguments) };
+  const doPut = function() { return api.put(...arguments) };
+  const doDelete = function() { return api.delete(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -99,11 +95,10 @@ exports = module.exports = function (base) {
 
       var key = uuid.v4();
 
-      before(async function (done) {
+      before(async function () {
         var pack = {key: key,
                     name: 'ToDelete-' + key};
-        await doPut('/store/packages/' + key, pack, authHdrObj)
-        done();
+        return doPut('/store/packages/' + key, pack, authHdrObj)
       });
 
       it('should succeed with correct status.', async function () {
@@ -111,7 +106,7 @@ exports = module.exports = function (base) {
       });
 
       it('retrieving a deleted resource should return 410 - Gone', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/store/packages/' + key, null,  authHdrObj)
           }, 

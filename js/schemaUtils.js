@@ -8,10 +8,10 @@ exports = module.exports = {
       type: 'object',
       properties: {
         href: {
-                type: 'string',
-                pattern: '^\/' + name + '\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
-                description: description
-              }
+          type: 'string',
+          pattern: '^\/' + name + '\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+          description: description
+        }
       },
       required: ['href']
     };
@@ -33,21 +33,21 @@ exports = module.exports = {
     return ret;
   },
 
-  numeric: function(description, min, max) {
-      'use strict';
-      const ret = {
-          type: 'numeric',
-          multipleOf: '1.0',
-          description: description,
-      };
-      if (min || min==0) {
-          ret.minimum = min;
-      }
-      if (max) {
-          ret.maximum = max;
-      }
+  numeric: function (description, min, max) {
+    'use strict';
+    const ret = {
+      type: 'numeric',
+      multipleOf: '1.0',
+      description: description
+    };
+    if (min || min == 0) {
+      ret.minimum = min;
+    }
+    if (max) {
+      ret.maximum = max;
+    }
 
-      return ret;
+    return ret;
   },
 
   email: function (description) {
@@ -125,5 +125,24 @@ exports = module.exports = {
       description: description
     };
     return ret;
+  },
+
+  patchSchemaToDisallowAdditionalProperties: function patchSchemaToDisallowAdditionalProperties(schema) {
+    'use strict';
+    const patchedSchema = { ...schema };
+    if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
+      patchedSchema.additionalProperties = false;
+      patchedSchema.properties = {}
+      Object.entries(schema.properties)
+          .forEach(e => patchedSchema.properties[e[0]] = patchSchemaToDisallowAdditionalProperties(e[1]))
+
+      /* from NodeJS 12 and up could be something like
+      patchedSchema.properties = Object.fromEntries(
+        Object.entries(patchedSchema.properties)
+          .map(e => [e[0], patchSchemaToDisallowAdditionalProperties(e[1])])
+      );
+      */
+    }
+    return patchedSchema;
   }
 };

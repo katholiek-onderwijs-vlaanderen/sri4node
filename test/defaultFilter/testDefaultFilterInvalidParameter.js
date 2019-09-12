@@ -11,7 +11,7 @@ exports = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
+  const doGet = function() { return api.getRaw(...arguments) };
 
   const utils =  require('../utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
@@ -23,7 +23,7 @@ exports = module.exports = function (base) {
     describe('Invalid parameter (non existent)', function () {
 
       it('should return 404 - not found', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/alldatatypes?wrongParameter=multiple', null, authHdrObj)
           }, 
@@ -36,7 +36,7 @@ exports = module.exports = function (base) {
       });
 
       it('should return the list of possible parameters', async function () {
-        await utils.testForStatusCode( 
+        await utils.testForStatusCode(
           async () => {
             await doGet('/alldatatypes?wrongParameter=multiple', null, authHdrObj)
           }, 
@@ -46,12 +46,14 @@ exports = module.exports = function (base) {
             assert.equal(error.body.errors[0].parameter, 'wrongParameter');
             assert.equal(error.body.errors[0].type, 'ERROR');            
 
-            const possibleParameters = Object.keys(alldatatypes.schema.properties).concat(
-                  [ 'key'
-                  , '$$meta.deleted'
-                  , '$$meta.modified'
-                  , '$$meta.created'
-                  , '$$meta.version' ])
+            const possibleParameters = [...new Set([
+                      ...Object.keys(alldatatypes.schema.properties),
+                      'key',
+                      '$$meta.deleted',
+                      '$$meta.modified',
+                      '$$meta.created',
+                      '$$meta.version',
+                    ])]
 
             assert.deepEqual( _.orderBy(error.body.errors[0].possibleParameters),
                               _.orderBy(possibleParameters) );

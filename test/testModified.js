@@ -10,10 +10,10 @@ exports = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = api.get;
-  const doPut = api.put;
+  const doGet = function() { return api.getRaw(...arguments) };
+  const doPut = function() { return api.put(...arguments) };
 
-  const utils =  require('./utils.js')(api);
+  const utils = require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
 
@@ -142,39 +142,40 @@ exports = module.exports = function (base) {
       assert.equal(newModified, currentModified);
     });
 
-    // TODO: make this also works
+    // TODO: make this also work
     // problem is that adminpassword is absent on one side of the isEqualSriObject comparison
     it('PUT of objects with properties not shown in GET should also be idempotent',
-    async function () {
+      async function () {
 
-      function generateRandomCommunity(key) {
-        return {
-          key: key,
-          name: 'LETS ' + key,
-          street: 'Leuvensesteenweg',
-          streetnumber: '34',
-          zipcode: '1040',
-          city: 'Brussel',
-          phone: '0492882277',
-          email: key + '@email.com',
-          adminpassword: 'secret',
-          currencyname: 'pluimen'
-        };
-      }
+        function generateRandomCommunity(key) {
+          return {
+            key: key,
+            name: 'LETS ' + key,
+            street: 'Leuvensesteenweg',
+            streetnumber: '34',
+            zipcode: '1040',
+            city: 'Brussel',
+            phone: '0492882277',
+            email: key + '@email.com',
+            adminpassword: 'secret',
+            currencyname: 'pluimen'
+          };
+        }
 
-      const key = uuid.v4();
-      const body = generateRandomCommunity(key);
+        const key = uuid.v4();
+        const body = generateRandomCommunity(key);
 
-      await doPut('/communities/' + key, body, authHdrObj)
+        await doPut('/communities/' + key, body, authHdrObj)
 
-      body.streetnumber = '55'
+        body.humptydumpty = '55'
 
-      await doPut('/communities/' + key, body, authHdrObj)
+        await doPut('/communities/' + key, body, authHdrObj)
 
-      const r = await doGet('/communities/' + key, null, authHdrObj)      
+        const r = await doGet('/communities/' + key, null, authHdrObj)
 
-      assert.equal(r['$$meta'].version, 0)
-    });
+        assert.notEqual(r.humptydumpty, body.humptydumpty)
+        assert.equal(r['$$meta'].version, 0)
+      });
 
 
 

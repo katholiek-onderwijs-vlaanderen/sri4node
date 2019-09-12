@@ -12,7 +12,7 @@ exports = module.exports = function (roa, extra) {
 
   var ret = {
     type: '/transactions',
-    metaType: 'transaction',
+    metaType: 'SRI4NODE_TRANSACTION',
     'public': false, // eslint-disable-line
     map: {
       key: {},
