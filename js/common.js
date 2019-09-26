@@ -283,7 +283,13 @@ exports = module.exports = {
     const tx = await pEvent(emitter, 'txEvent')
     await tx.none('SET CONSTRAINTS ALL DEFERRED;');
 
+    const timeoutObj = setTimeout(() => {
+        emitter.emit('terminate', 'timedOut');
+        exports.debug('Terminating pg transaction.');
+      }, 35000);
+
     const terminateTx = (how) => async () => {
+        clearTimeout(timeoutObj);
         if (how !== 'reject') {
           await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
         }
