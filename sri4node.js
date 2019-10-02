@@ -632,6 +632,7 @@ exports = module.exports = {
     } catch (err) {
       console.log('___________________________ SRI4NODE INITIALIZATION ERROR _____________________________')
       console.log(err)
+      process.exit(1)
     }
   }, // configure
 
