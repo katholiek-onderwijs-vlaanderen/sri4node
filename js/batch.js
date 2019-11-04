@@ -22,7 +22,9 @@ exports = module.exports = {
       throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
 
-    const handleBatch = async (batch, tx) => {
+    const context = {};
+
+    const handleBatch = async (batch, tx) => {  
       if ( batch.every(element =>  Array.isArray(element)) ) {
         debug('┌──────────────────────────────────────────────────────────────────────────────')
         debug(`| Handling batch list`)
@@ -90,13 +92,13 @@ exports = module.exports = {
             sriType: handler.mapping.type,
             isBatchPart: true,
             SriError: SriError,
-            db: db
+            db: db,
+            context: context
           }
           
           await hooks.applyHooks('transform request'
                                 , handler.mapping.transformRequest
                                 , f => f(req, sriRequest, tx))
-
 
           return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})

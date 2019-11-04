@@ -16,10 +16,14 @@ const readAllStream = require('read-all-stream')
 const Busboy = require('busboy');
 const EventEmitter = require('events');
 const pEvent = require('p-event');
+const httpContext = require('express-http-context');
+const shortid = require('shortid');
+const {default: PQueue} = require('p-queue');
+const TTLQueue = require('ttl-queue');
 
 
-const { cl, debug, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, 
+const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
+        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
         typeToMapping, createReadableStream, jsonArrayStream } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
@@ -30,13 +34,6 @@ const regularResource = require('./js/regularResource.js')
 const batch = require('./js/batch.js')
 const utilLib = require('./js/utilLib.js')
 const schemaUtils = require('./js/schemaUtils.js');
-
-
-function error(x) {
-  'use strict';
-  cl(x);
-}
-
 
 
 // Force https in production.
@@ -157,9 +154,11 @@ const middlewareErrorWrapper = (fun) => {
       try {
         await fun(req, resp)
       } catch (err) {
-        console.log('____________________________ E R R O R ____________________________________________________') 
-        console.log(err)
-        console.log('___________________________________________________________________________________________') 
+        error('____________________________ E R R O R (middlewareErrorWrapper) ___________________________') 
+        error(err)
+        error('STACK:')
+        error(err.stack)        
+        error('___________________________________________________________________________________________') 
         resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
       }
     }
@@ -168,103 +167,136 @@ const middlewareErrorWrapper = (fun) => {
 
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
-const expressWrapper = (db, func, mapping, streaming, isBatchRequest) => {
-  return async function (req, resp, next) {
-    //cl('+ Create new transaction, db.pool: ' + db.$pool.idleCount + ' / ' + db.$pool.waitingCount + ' / ' + db.$pool.totalCount)
-    const {tx, resolveTx, rejectTx} = await startTransaction(db)    
-    try {
 
-      let result
-      if (isBatchRequest) {
-        result = await func(tx, req, db)
-      } else {
 
-        const sriRequest  = {
-          path: req.path,
-          originalUrl: req.originalUrl,
-          query: req.query,
-          params: req.params,
-          httpMethod: req.method,
-          headers: req.headers,
-          protocol: req.protocol,
-          body: req.body,
-          sriType: mapping.type,
-          isBatchPart: false,
-          SriError: SriError,
-          db: db
-        }
 
-        await hooks.applyHooks('transform request'
-                              , mapping.transformRequest
-                              , f => f(req, sriRequest, tx))
+const handleRequest = async (req, resp, db, func, mapping, streaming, isBatchRequest, readOnly) => {
+  debug('handleRequest starts processing ' + req.originalUrl);
+  let t, endTask, resolveTx, rejectTx;
+  if (readOnly === true) {
+    ({t, endTask} = await startTask(db))
+  } else {
+    ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+  }
+  try {
+    const reqId = httpContext.get('reqId')
+    if (reqId!==undefined) {
+      resp.set('vsko-req-id', reqId);
+    }
 
-        const jobs = [ [func, [tx, sriRequest, mapping, streaming ? req : null, streaming ? resp : null]] ];
-        [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
-        if (result instanceof SriError) {
-          throw result
-        }
-        if (! resp.headersSent) {
-          await hooks.applyHooks('transform response'
-                                , mapping.transformResponse
-                                , f => f(db, sriRequest, result))          
-        }
+    let result;
+    if (isBatchRequest) {
+      result = await func(t, req, db)
+    } else {
+    
+      const sriRequest  = {
+        path: req.path,
+        originalUrl: req.originalUrl,
+        query: req.query,
+        params: req.params,
+        httpMethod: req.method,
+        headers: req.headers,
+        protocol: req.protocol,
+        body: req.body,
+        sriType: mapping.type,
+        isBatchPart: false,
+        SriError: SriError,
+        db: db,
+        context: {}
       }
 
-      if (resp.headersSent) {
-          if (req.query.dryRun === 'true') {
-            debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-            await rejectTx()   
-          } else {
-            debug('++ Processing went OK. Committing database transaction.');  
-            await resolveTx()   
-          }
+      await hooks.applyHooks('transform request'
+                            , mapping.transformRequest
+                            , f => f(req, sriRequest, t))
+      
+      const jobs = [ [func, [t, sriRequest, mapping, streaming ? req : null, streaming ? resp : null]] ];
+      [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
+      if (result instanceof SriError) {
+        throw result
+      }
+      if (! resp.headersSent) {
+        await hooks.applyHooks('transform response'
+                              , mapping.transformResponse
+                              , f => f(db, sriRequest, result))          
+      }
+    };
+
+    const terminateDb = async (error) => {
+      if (readOnly===true) {
+        debug('++ Processing went OK. Closing database transaction. ++');
+        await endTask()     
       } else {
-        if (result.status < 300) {
-          if (req.query.dryRun === 'true') {
-            debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-            await rejectTx()   
-          } else {
-            debug('++ Processing went OK. Committing database transaction.');  
-            await resolveTx()   
-          }
-        } else {
+        if (error) {
           if (req.query.dryRun === 'true') {
             debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
           } else {
             debug('++ Error during processing. Rolling back database transaction.');
           }
-          await rejectTx()          
+          await rejectTx()     
+        } else {
+          if (req.query.dryRun === 'true') {
+            debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+            await rejectTx()   
+          } else {
+            debug('++ Processing went OK. Committing database transaction.');  
+            await resolveTx()   
+          }
         }
-
-        if (result.headers) {
-          resp.set(result.headers)
-        }
-        resp.status(result.status).send(result.body)
       }
-    } catch (err) {
-      //TODO: what with streaming errors
+    }
+
+    if (resp.headersSent) {
+      await terminateDb(false);
+    } else {
+      if (result.status < 300) {
+        await terminateDb(false);
+      } else {
+        await terminateDb(true);  
+      }
+
+      if (result.headers) {
+        resp.set(result.headers)
+      }
+      resp.status(result.status).send(result.body)
+    }
+  } catch (err) {
+    //TODO: what with streaming errors
+    if (readOnly===true) {
+      debug('++ Exception catched. Closing database transaction. ++');
+      console.log(endTask)
+      await endTask();
+    } else {
       debug('++ Exception catched. Rolling back database transaction. ++');
       await rejectTx()  
+    }
 
-      if (resp.headersSent) {
-        console.log('NEED TO DESTROY STREAMING REQ')
-        // TODO: HTTP trailer
-        // next(err)
-        req.destroy()
-      } else {
-        if (err instanceof SriError) {
-          debug('Sending SriError to client.')
-          resp.set(err.headers).status(err.status).send(err.body);
-        } else {      
-          console.log('____________________________ E R R O R ____________________________________________________') 
-          console.log(err)
-          console.log('___________________________________________________________________________________________') 
-          resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-        }        
-      }
-    }    
-  }
+    if (resp.headersSent) {
+      error('NEED TO DESTROY STREAMING REQ')
+      // TODO: HTTP trailer
+      // next(err)
+      req.destroy()
+    } else {
+      if (err instanceof SriError) {
+        debug('Sending SriError to client.')
+        const reqId = httpContext.get('reqId')
+        if (reqId!==undefined) {
+          err.body.vskoReqId = reqId;
+          err.headers['vsko-req-id'] = reqId;
+        }
+        resp.set(err.headers).status(err.status).send(err.body);
+      } else {      
+        error('____________________________ E R R O R (handleRequest)____________________________________') 
+        error(err)
+        error('STACK:')
+        error(err.stack)
+        error('___________________________________________________________________________________________') 
+        resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+      }        
+    }
+  }    
 }
+
+
 
 
 /* express.js application, configuration for roa4node */
@@ -337,7 +369,7 @@ exports = module.exports = {
 
       config.resources.forEach( (mapping) => {
           if (mapping.metaType === undefined) {
-            console.error(`WARNING: metaType missing for resource ${mapping.type}`)
+            error(`WARNING: metaType missing for resource ${mapping.type}`)
             mapping.metaType = 'not specified'
           }
       });
@@ -377,7 +409,6 @@ exports = module.exports = {
       }
 
       app.use(emt.instrument(compression()))
-      app.use(emt.instrument(logRequests))
       app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true})));
 
       app.use('/pathfinder', function(req, res, next){
@@ -425,6 +456,79 @@ exports = module.exports = {
         }
       });
 
+      app.use(httpContext.middleware);
+      // Run the context for each request. Assign a unique identifier to each request
+      app.use(function(req, res, next) {
+          httpContext.ns.bindEmitter(req);
+          httpContext.ns.bindEmitter(res);
+          httpContext.set('reqId',shortid.generate());
+          next();
+      });
+
+      app.use(emt.instrument(logRequests))
+
+
+      let queue = null;
+      if (config.overloadProtection !== undefined) {
+        if (config.overloadProtection.maxQTime === undefined ||
+            config.overloadProtection.maxQLen === undefined ||
+            config.overloadProtection.concurrency === undefined) {
+          error('The overloadProtection config object requires the fields maxQTime, maxQLen and concurrency.')
+          throw 'overloadProtection.mandatoryField.missing';
+        }
+        class QueueClass {
+          constructor() {
+            this._q = new TTLQueue({
+                        ttl: config.overloadProtection.maxQTime
+                      , max: config.overloadProtection.maxQLen
+                    });
+            this._q.on('timeout', (item) => {
+              item.call(null, true);
+            });
+          }
+          enqueue(run, options) {
+            const itemId = this._q.push(run);
+
+            if (itemId === false) {
+              // the item could not be queued
+              run.call(null, true);
+            } 
+          }
+          dequeue() {    
+            let item = this._q.get();
+            debug('DEQUEUED item');
+            return item;
+          }
+          get size() {
+            return this._q.length;
+          }
+        }
+
+        queue = new PQueue({concurrency: config.overloadProtection.concurrency, queueClass: QueueClass});
+      }
+
+
+      const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
+        return async function (req, resp, next) {
+            if (queue !== null) {
+              queue.add( async function(refused) {
+                if (refused === true) {
+                  if (config.overloadProtection.retryAfter !== undefined) {
+                    resp.set('Retry-After', config.overloadProtection.retryAfter);
+                  }
+                  resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+                } else {
+                  await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+                }
+              });
+            } else {
+              await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+            }
+        }
+      }
+
+
+
       await pMap(
         config.resources,
         async (mapping) => {
@@ -459,28 +563,28 @@ exports = module.exports = {
           }
 
           // batch route
-          app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
-          app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true));
+          app.put(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true, false));
+          app.post(mapping.type + '/batch', expressWrapper(db, batch.batchOperation, mapping, false, true, false));
         }, {concurrency: 1})
 
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
-        app.put(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true));
-        app.post(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true));
+        app.put(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true, false));
+        app.post(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true, false));
       }
 
       // map with urls which can be called within a batch 
       const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
 
         const crudRoutes = 
-          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping, false]
-          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, mapping, false]
-          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, mapping, false]
-          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, mapping, false]
-          , [ mapping.type, 'GET', listResource.getListResource, mapping, false]
+          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping, false, true]
+          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, mapping, false, false]
+          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, mapping, false, false]
+          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, mapping, false, false]
+          , [ mapping.type, 'GET', listResource.getListResource, mapping, false, true]
           // a check operation to determine wether lists A is part of list B
-          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, mapping, false]
+          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, mapping, false, true]
           ]
 
 // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
@@ -581,7 +685,8 @@ exports = module.exports = {
                               }
                             }
                           , customMapping
-                          , true ] )
+                          , true
+                          , cr.readOnly ] )
               } else {
                 acc.push( [ mapping.type + cr.routePostfix
                           , method.toUpperCase()
@@ -593,13 +698,16 @@ exports = module.exports = {
                                 await phaseSyncer.phase()
                                 const result = await cr.handler(tx, sriRequest, customMapping)
                                 await phaseSyncer.phase()
+                                debug('phase done')
                                 if (cr.afterHandler !== undefined) {
                                   await cr.afterHandler(tx, sriRequest, customMapping, result)
                                 }
+                                debug('returning result')
                                 return result
                               }
                           , customMapping
-                          , false ] )
+                          , false
+                          , cr.readOnly ] )
 
               }              
             })
@@ -614,11 +722,11 @@ exports = module.exports = {
 
 
       // register individual routes in express
-      batchHandlerMap.forEach( ([path, verb, func, mapping, streaming]) => {
+      batchHandlerMap.forEach( ([path, verb, func, mapping, streaming, readOnly]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(expressWrapper(db, func, mapping, streaming, false), 'func') )
+                                 emt.instrument(expressWrapper(db, func, mapping, streaming, false, readOnly), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch

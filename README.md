@@ -42,6 +42,8 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * body: body of the request 
  * sriType: type of the matching entry in the sri4node resources config
  * isBatchPart: boolean indicating whether the request being executed is part of a batch
+ * db: the global sri4node pg-promise database object. **WARNING:* When using this db object directly to do database operations, each operation requests its own database connection from connection pool. When handling several http requests in parralel, each trying to get extra database connections, this can cause dead-locks! Normally the provided database task/transaction object should be used!
+ * context: an object which can be used for storing information shared between requests of the same batch (by default an empty object)
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
 
@@ -119,7 +121,7 @@ These functions replace [validate](###validate) and [secure](###secure). They ar
  * `beforeDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
 
-The tx is a tranaction/connection object from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
+The tx is a task or transaction object (a task in case of read-only context [GET], a transaction in case of possible write context [PUT,POST,DELETE]) from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
 
 The last parameter will always be an array (but it will most of the time only contain one element, but in the case of lists it could have many element). This makes it easy to implement this function once with an `array.forEach( x => ... )` and allows you to make optimizations (if possible) for list queries.
 
@@ -267,6 +269,33 @@ CREATE TABLE organisationalunits_relations (
     PRIMARY KEY (key)
  );
 ```
+
+## Request Tracking
+
+To be able to keep track of requests in the server logging and at the client, sri4node generates a short id for each request (reqId - not guaranteed to be uniq). This ID is used in all the sri4node logging (and also in the logging of sri4node application when they use `debug` and `error` from sri4node `common`), sri4node error responses and is passed to the client in the `vsko-req-id` header.
+
+
+## Overload protection
+
+Sri4node contains a protection mechanism for in case of overload. Instead of trying to handle all requests in case of overload and ending with requests receiving a response only after several seconds (or worest case even timing out), some requests are refused with an HTTP 503 (with optional a 'Retry-After' header).
+
+To enable this mechanism, an `overloadProtection` object needs to be configured in the sri4node configuration with following fields:
+
+* concurrency: mandatory field - the maximum number of requests being processed at the same time (after reaching this treshold, requests are being queued)
+* maxQTime: mandatory field - the maximum number of millisecods requests are allowed to be in the queue (in a lot of cases it makes no sense to keep requests queued for long time); requests being timed out in the queue will get a 503 response
+* maxQLen: mandatory field - the maximum number of request allowed in the queue (after reaching this treshold, requests will get a 503 response)
+* retryAfter: optional field - if present, a 'Retry-After' header is sent whith the 503 responses
+
+For example: 
+```
+    overloadProtection: {
+        concurrency: 7,
+        maxQTime: 100,
+        maxQLen: 8,
+        retryAfter: 1000
+    },
+```
+
 
 ## Other changes and bug fixes
 
@@ -568,7 +597,7 @@ The functions receive these parameters :
 - `value` is the value of the request parameter (string).
 - `select` is a query object (as returned by `sri4node.prepareSQL()`) for adding SQL to the `WHERE` clause. See [below](#preparesql) for more details.
 - `parameter` is the name of the URL parameter.
-- `tx` is a database transaction object that you can use to execute extra SQL statements.
+- `tx` is a database task object that you can use to execute extra SQL statements.
 - `count` is a boolean telling you if you are currently decorating the `SELECT COUNT` query, or the final `SELECT` query. Useful for making sure some statements are not executed twice (when using the database object)
 - `mapping` is the mapping in the configuration of sri4node.
 
@@ -588,7 +617,7 @@ Hook for post-processing a GET operation (both regular and list resources).
 It applies to both regular resources, and list resources (with at least `expand=results`).
 The function receives these parameters :
 
-- `tx` is a database transaction object, allowing you to execute extra SQL statements.
+- `tx` is a database task object, allowing you to execute extra SQL statements.
 - `sriRequest` is an object containing information about the request.
 - `elements` is an array of one or more objects: 
     - `permalink` is the permalink of the resource
@@ -654,6 +683,8 @@ There are three different custom scenario's possible. Two parameters are needed 
 
 Optionally `alterMapping` can be used to create an altered mapping version for the custom route based on the normal resource mapping. For example, in the custom mapping transformResponse can be defined to alter the response specificly for the custom route.
  - `alterMapping`: function (mapping) => {}
+
+Optionally `readOnly` can be set to `true` to get a task pg-promise object instead of a transaction object in the custom route handler.
 
 The possbile scenario's:
   - A 'like' scenario: this scenario acts similar as an existing resource, only with a different custom mapping created with an `alterMapping` function. Parameters:

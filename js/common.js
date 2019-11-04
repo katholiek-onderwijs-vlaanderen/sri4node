@@ -14,6 +14,7 @@ const { Readable } = require('stream')
 
 const through2 = require("through2")
 const hash = require('farmhash').hash64
+const httpContext = require('express-http-context');
 
 
 const pgpInitOptions = {
@@ -50,9 +51,15 @@ exports = module.exports = {
 
   debug: (x) => {
     'use strict';
-    if (global.sri4node_configuration.logdebug) {
-      exports.cl(x);
+    if (global.sri4node_configuration===undefined || global.sri4node_configuration.logdebug) {
+      const reqId = httpContext.get('reqId');
+      console.log(reqId ? `[reqId:${reqId}] ${x}` : x);
     }
+  },
+
+  error: (x) => {
+    const reqId = httpContext.get('reqId');
+    console.error(reqId ? `[reqId:${reqId}] ${x}` : x);
   },
 
 
@@ -253,16 +260,15 @@ exports = module.exports = {
   },
 
   startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
-    // exports.debug('++ Starting database transaction.');  
+    exports.debug('++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
 
     const txWrapper = async (emitter) => {
       try {
-        
-
         await db.tx( {mode},  async tx => {
           emitter.emit('txEvent', tx)
+          exports.debug('db transaction started.');  
           const how = await pEvent(emitter, 'terminate')
           if (how === 'reject') {
             throw 'txRejected'
@@ -283,13 +289,7 @@ exports = module.exports = {
     const tx = await pEvent(emitter, 'txEvent')
     await tx.none('SET CONSTRAINTS ALL DEFERRED;');
 
-    const timeoutObj = setTimeout(() => {
-        emitter.emit('terminate', 'timedOut');
-        exports.debug('Terminating pg transaction.');
-      }, 35000);
-
     const terminateTx = (how) => async () => {
-        clearTimeout(timeoutObj);
         if (how !== 'reject') {
           await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
         }
@@ -303,6 +303,39 @@ exports = module.exports = {
     return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
   },
 
+
+  startTask: async (db) => {
+    exports.debug('++ Starting database task.');  
+
+    const emitter = new EventEmitter()  
+
+    const taskWrapper = async (emitter) => {
+      try {
+        await db.task( async t => {
+          exports.debug('db task started.');  
+          emitter.emit('tEvent', t)
+          await pEvent(emitter, 'terminate')
+        })
+        emitter.emit('tDone')
+      } catch(err) {
+        emitter.emit('tDone', err)
+      }
+    }
+    taskWrapper(emitter)
+
+    const t = await pEvent(emitter, 'tEvent')
+
+
+    const endTask = async () => {
+        emitter.emit('terminate')
+        const res = await pEvent(emitter, 'tDone')
+        if (res !== undefined) {
+          throw res
+        }
+    }
+
+    return ({ t, endTask: endTask })
+  },
 
   installVersionIncTriggerOnTable: async function(db, tableName) {
 
@@ -395,9 +428,11 @@ exports = module.exports = {
           if (err instanceof exports.SriError) {
             return err
           } else {      
-            console.log('____________________________ E R R O R ____________________________________________________') 
-            console.log(err)
-            console.log('___________________________________________________________________________________________') 
+            exports.error('____________________________ E R R O R (settleResultsToSriResults)_________________________') 
+            exports.error(err)
+            exports.error('STACK:')
+            exports.error(err.stack)            
+            exports.error('___________________________________________________________________________________________') 
             return new exports.SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
         }

@@ -16,6 +16,7 @@
     "body-parser": "^1.9.0",
     "busboy": "0.2.14",
     "compression": "^1.5.2",
+    "express-http-context": "^1.2.3",
     "express-middleware-timer": "^0.2.2",
     "farmhash": "2.1.0",
     "global-configuration": "^0.3.1",
@@ -30,6 +31,7 @@
     "p-filter": "^2.1.0",
     "p-finally": "1.0.0",
     "p-map": "1.2.0",
+    "p-queue": "https://github.com/katholiek-onderwijs-vlaanderen/p-queue.git",
     "p-settle": "2.0.0",
     "path-to-regexp": "^2.0.0",
     "pathfinder-ui": "1.0.3",
@@ -40,7 +42,10 @@
     "q": "^1.0.1",
     "read-all-stream": "^3.1.0",
     "route-parser": "0.0.5",
+    "short-hash": "^1.0.0",
+    "shortid": "^2.2.15",
     "through2": "^2.0.3",
+    "ttl-queue": "^1.0.1",
     "uuid": "3.2.1"
   },
   "devDependencies": {
@@ -51,7 +56,7 @@
     "express": "4.17.1",
     "maintenance": "git+https://github.com/likeastore/maintenance.git",
     "mocha": "~6.2.0",
-    "node-uuid": "~1.4.3",
+    "node-uuid": "^1.4.8",
     "nodemon": "1.19.1",
     "stream-equal": "1.1.1"
   },
