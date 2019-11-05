@@ -31,7 +31,7 @@
     "p-filter": "^2.1.0",
     "p-finally": "1.0.0",
     "p-map": "1.2.0",
-    "p-queue": "https://github.com/katholiek-onderwijs-vlaanderen/p-queue.git",
+    "p-queue": "https://github.com/katholiek-onderwijs-vlaanderen/p-queue.git#v6.2.1",
     "p-settle": "2.0.0",
     "path-to-regexp": "^2.0.0",
     "pathfinder-ui": "1.0.3",
