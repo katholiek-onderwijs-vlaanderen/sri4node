@@ -18,8 +18,7 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
-const {default: PQueue} = require('p-queue');
-const TTLQueue = require('ttl-queue');
+const Bottleneck = require("bottleneck/es5");
 
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
@@ -376,6 +375,10 @@ exports = module.exports = {
 
       config.utils = exports.utils
 
+      if (config.batchConcurrency === undefined) {
+        config.batchConcurrency = 4;
+      }
+
       global.sri4node_configuration = config // share configuration with other modules
 
       let db;
@@ -384,7 +387,6 @@ exports = module.exports = {
       } else {
         db = await pgConnect(config)
       }
-
 
       await pMap(
         config.resources,
@@ -467,60 +469,72 @@ exports = module.exports = {
 
       app.use(emt.instrument(logRequests))
 
-
-      let queue = null;
+      let limiter = null;
       if (config.overloadProtection !== undefined) {
-        if (config.overloadProtection.maxQTime === undefined ||
-            config.overloadProtection.maxQLen === undefined ||
-            config.overloadProtection.concurrency === undefined) {
-          error('The overloadProtection config object requires the fields maxQTime, maxQLen and concurrency.')
-          throw 'overloadProtection.mandatoryField.missing';
-        }
-        class QueueClass {
-          constructor() {
-            this._q = new TTLQueue({
-                        ttl: config.overloadProtection.maxQTime
-                      , max: config.overloadProtection.maxQLen
-                    });
-            this._q.on('timeout', (item) => {
-              item.call(null, true);
-            });
-          }
-          enqueue(run, options) {
-            const itemId = this._q.push(run);
-
-            if (itemId === false) {
-              // the item could not be queued
-              run.call(null, true);
-            } 
-          }
-          dequeue() {    
-            let item = this._q.get();
-            debug('DEQUEUED item');
-            return item;
-          }
-          get size() {
-            return this._q.length;
-          }
-        }
-
-        queue = new PQueue({concurrency: config.overloadProtection.concurrency, queueClass: QueueClass});
+        limiter = new Bottleneck(config.overloadProtection);
+        limiter.on("error", function (error) {
+          console.error('Limiter generated error. Check your configuration!');
+          console.error(error);
+          process.exit(1);
+        });
       }
 
 
       const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
         return async function (req, resp, next) {
-            if (queue !== null) {
-              queue.add( async function(refused) {
-                if (refused === true) {
+            if (limiter !== null) {
+              let weight;
+              if (isBatchRequest === true) {
+                const reqBody = req.body
+                if (!Array.isArray(reqBody)) {
+                  throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
+                }
+                const batchLen = reqBody.length;
+                if (batchLen > config.batchConcurrency) {
+                    weight = config.batchConcurrency;
+                } else {
+                    weight = batchLen;
+                }
+              } else {
+                weight = 1;
+              }
+
+              try {
+                await limiter.schedule( {weight: weight}, 
+                                        () => handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly) );
+              } catch(err) {
+                if (err instanceof Bottleneck.BottleneckError) {
                   if (config.overloadProtection.retryAfter !== undefined) {
                     resp.set('Retry-After', config.overloadProtection.retryAfter);
                   }
                   resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
                 } else {
-                  await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+                  error('____________________________ E R R O R (limiter.schedule)____________________________________') 
+                  error(err)
+                  error('STACK:')
+                  error(err.stack)
+                  error('___________________________________________________________________________________________') 
+                  resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);                  
                 }
-              });
+              }
+                     // .catch(function(error) {
+                     //    console.log('+++ CATCHED ERROR +++')
+                     //    if (config.overloadProtection.retryAfter !== undefined) {
+                     //      resp.set('Retry-After', config.overloadProtection.retryAfter);
+                     //    }
+                     //    resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+                     // });  
+
+              // queue.add( async function(refused) {
+              //   if (refused === true) {
+              //     if (config.overloadProtection.retryAfter !== undefined) {
+              //       resp.set('Retry-After', config.overloadProtection.retryAfter);
+              //     }
+              //     resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+              //   } else {
+              //     await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+              //   }
+              // });
             } else {
               await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
             }
@@ -738,8 +752,8 @@ exports = module.exports = {
 
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
     } catch (err) {
-      console.log('___________________________ SRI4NODE INITIALIZATION ERROR _____________________________')
-      console.log(err)
+      console.error('___________________________ SRI4NODE INITIALIZATION ERROR _____________________________')
+      console.error(err)
       process.exit(1)
     }
   }, // configure
