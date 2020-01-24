@@ -7,10 +7,15 @@ exports = module.exports = (config) => {
 				const remainingCap = Math.max((config.maxPipelines - usedPipelines), 1);
 				const nrServed = Math.min(nr, remainingCap);
 				usedPipelines += nrServed;
-				console.log(`usedPipelines: ${usedPipelines}/${config.maxPipelines}`);
+				console.log(`startPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 				return nrServed;
 			} 			
 		},
-		endPipeline: (nr = 1) => { if (config!==undefined) { usedPipelines -= nr } }
+		endPipeline: (nr = 1) => { 
+			if (config!==undefined) { 
+				usedPipelines -= nr 
+				console.log(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
+			} 
+		}
 	}
 };
