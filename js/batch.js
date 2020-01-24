@@ -37,7 +37,7 @@ exports = module.exports = {
     }
 
     const batchConcurrency = global.overloadProtection.startPipeline(
-                                Math.min(maxSubListLen(reqBody), config.batchConcurrency));
+                                Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
 
     const context = {};
 
