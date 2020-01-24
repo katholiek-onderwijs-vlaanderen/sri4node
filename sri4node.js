@@ -187,7 +187,7 @@ const handleRequest = async (req, resp, db, func, mapping, streaming, isBatchReq
     if (isBatchRequest) {
       result = await func(t, req, db)
     } else {
-    
+      global.overloadProtection.startPipeline();
       const sriRequest  = {
         path: req.path,
         originalUrl: req.originalUrl,
@@ -262,7 +262,7 @@ const handleRequest = async (req, resp, db, func, mapping, streaming, isBatchReq
     //TODO: what with streaming errors
     if (readOnly===true) {
       debug('++ Exception catched. Closing database transaction. ++');
-      console.log(endTask)
+      debug(endTask)
       await endTask();
     } else {
       debug('++ Exception catched. Rolling back database transaction. ++');
@@ -292,7 +292,9 @@ const handleRequest = async (req, resp, db, func, mapping, streaming, isBatchReq
         resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
       }        
     }
-  }    
+  } finally {
+    global.overloadProtection.endPipeline();
+  }   
 }
 
 
@@ -469,79 +471,23 @@ exports = module.exports = {
 
       app.use(emt.instrument(logRequests))
 
-      let limiter = null;
-      if (config.overloadProtection !== undefined) {
-        limiter = new Bottleneck(config.overloadProtection);
-        limiter.on("error", function (error) {
-          console.error('Limiter generated error. Check your configuration!');
-          console.error(error);
-          process.exit(1);
-        });
-      }
-
+      global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
+      app.use(async function(req, res, next) {
+        if (global.overloadProtection.canAccept()) {
+          next();
+        } else {
+          if (config.overloadProtection.retryAfter !== undefined) {
+            resp.set('Retry-After', config.overloadProtection.retryAfter);
+          }
+          res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+        }
+      });   
 
       const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
-        return async function (req, resp, next) {
-            if (limiter !== null) {
-              let weight;
-              if (isBatchRequest === true) {
-                const reqBody = req.body
-                if (!Array.isArray(reqBody)) {
-                  throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
-                }
-                const batchLen = reqBody.length;
-                if (batchLen > config.batchConcurrency) {
-                    weight = config.batchConcurrency;
-                } else {
-                    weight = batchLen;
-                }
-              } else {
-                weight = 1;
-              }
-
-              try {
-                await limiter.schedule( {weight: weight}, 
-                                        () => handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly) );
-              } catch(err) {
-                if (err instanceof Bottleneck.BottleneckError) {
-                  if (config.overloadProtection.retryAfter !== undefined) {
-                    resp.set('Retry-After', config.overloadProtection.retryAfter);
-                  }
-                  resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-                } else {
-                  error('____________________________ E R R O R (limiter.schedule)____________________________________') 
-                  error(err)
-                  error('STACK:')
-                  error(err.stack)
-                  error('___________________________________________________________________________________________') 
-                  resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);                  
-                }
-              }
-                     // .catch(function(error) {
-                     //    console.log('+++ CATCHED ERROR +++')
-                     //    if (config.overloadProtection.retryAfter !== undefined) {
-                     //      resp.set('Retry-After', config.overloadProtection.retryAfter);
-                     //    }
-                     //    resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-                     // });  
-
-              // queue.add( async function(refused) {
-              //   if (refused === true) {
-              //     if (config.overloadProtection.retryAfter !== undefined) {
-              //       resp.set('Retry-After', config.overloadProtection.retryAfter);
-              //     }
-              //     resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-              //   } else {
-              //     await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
-              //   }
-              // });
-            } else {
-              await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
-            }
-        }
+          return async function (req, resp, next) {
+            await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+          }
       }
-
-
 
       await pMap(
         config.resources,

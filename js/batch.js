@@ -10,6 +10,20 @@ const hooks = require('./hooks.js')
 const phaseSyncedSettle = require('./phaseSyncedSettle.js')
 
 
+const maxSubListLen = (a) => 
+  // this code works as long as a batch array contain either all objects or all (sub)arrays
+  // (which is required by batchOpertation, otherwise a 'batch.invalid.type.mix' error is sent)
+  a.reduce((max, e, idx, arr) => {
+    if (Array.isArray(e)) {
+      console.log(`array: ${e}`)
+      return Math.max(maxSubListLen(e), max);
+    } else {
+      console.log('NOT array')
+      return Math.max(arr.length, max);
+    }
+  }, 0);
+
+
 exports = module.exports = {
 
   batchOperation: async (tx, req, db) => {
@@ -21,6 +35,9 @@ exports = module.exports = {
     if (!Array.isArray(reqBody)) {
       throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
     }
+
+    const batchConcurrency = global.overloadProtection.startPipeline(
+                                Math.min(maxSubListLen(reqBody), config.batchConcurrency));
 
     const context = {};
 
@@ -103,7 +120,7 @@ exports = module.exports = {
           return [ func, [tx, sriRequest, handler.mapping] ]
         }, {concurrency: 1})
 
-        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: 4} ))
+        const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: batchConcurrency} ))
 
         await pEachSeries( results
                      , async (res, idx) => {
@@ -134,6 +151,8 @@ exports = module.exports = {
     const status = batchResults.some( e => (e.status === 403) ) 
                         ? 403 
                         : Math.max(200, ...batchResults.map( e => e.status ))                      
+
+    global.overloadProtection.stopPipeline(batchConcurrency);
 
     return { status: status, body: batchResults }    
   }
