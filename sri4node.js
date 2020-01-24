@@ -18,7 +18,6 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
-const Bottleneck = require("bottleneck/es5");
 
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
