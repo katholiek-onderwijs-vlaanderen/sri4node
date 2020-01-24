@@ -292,7 +292,9 @@ const handleRequest = async (req, resp, db, func, mapping, streaming, isBatchReq
       }        
     }
   } finally {
-    global.overloadProtection.endPipeline();
+    if (!isBatchRequest) {
+      global.overloadProtection.endPipeline();
+    }
   }   
 }
 
