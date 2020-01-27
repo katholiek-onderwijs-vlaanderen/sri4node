@@ -490,7 +490,8 @@ exports = module.exports = {
 
             // if it already took too long just too reach this point, we are overloaded
             // drop request and signal overload protection
-            if ( (Date.now() - req.startTime) > 500 ) { 
+            const busy = (Date.now() - req.startTime);
+            if ( busy > 500 ) { 
               debug('*** DROPPING REQ DUE TO DELAY ***')
               if (config.overloadProtection.retryAfter !== undefined) {
                 resp.set('Retry-After', config.overloadProtection.retryAfter);
@@ -498,6 +499,7 @@ exports = module.exports = {
               res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
               global.overloadProtection.addExtraDrops();
             } else {
+              debug(`*** busy: ${busy} ***`)
               await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
             }
           }
