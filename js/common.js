@@ -42,7 +42,7 @@ const pgp = require('pg-promise')(pgpInitOptions);
 // to a JS Date object to indicate UTC.
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
 
-pg.defaults.poolSize = 15;
+pgp.pg.defaults.poolSize = 15;
 
 exports = module.exports = {
   cl: function (x) {
