@@ -43,6 +43,7 @@ const pgp = require('pg-promise')(pgpInitOptions);
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
 
 pgp.pg.defaults.poolSize = 15;
+pgp.pg.defaults.idleTimeoutMillis = 1000;
 
 exports = module.exports = {
   cl: function (x) {
