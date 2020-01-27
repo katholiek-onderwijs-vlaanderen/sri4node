@@ -1,7 +1,19 @@
 exports = module.exports = (config) => {
 	let usedPipelines = 0;
+	let extraDrop = 0
 	return {
-		canAccept: () => (config===undefined) ? true : (usedPipelines < config.maxPipelines),
+		canAccept: () => {
+			if (config!==undefined) {
+				if (extraDrop === 0) {
+					return (usedPipelines < config.maxPipelines);
+				} else {
+					extraDrop -= 1;
+					return false;
+				}
+			} else {
+				return true;
+			}
+		},
 		startPipeline: (nr = 1) => { 
 			if (config!==undefined) { 
 				const remainingCap = Math.max((config.maxPipelines - usedPipelines), 1);
@@ -16,6 +28,9 @@ exports = module.exports = (config) => {
 				usedPipelines -= nr 
 				console.log(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 			} 
+		},
+		addExtraDrops: () => {
+			extraDrop += 2;
 		}
 	}
 };

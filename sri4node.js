@@ -51,9 +51,9 @@ const logRequests = (req, res, next) => {
   if (global.sri4node_configuration.logrequests) {
     debug(req.method + ' ' + req.path + ' starting.'
               + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
-    const start = Date.now();
+    req.startTime = Date.now();
     res.on('finish', function () {
-      const duration = Date.now() - start;
+      const duration = Date.now() - req.startTime;
       debug(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
                 + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
     });
@@ -487,7 +487,19 @@ exports = module.exports = {
 
       const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
           return async function (req, resp, next) {
-            await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+
+            // if it already took too long just too reach this point, we are overloaded
+            // drop request and signal overload protection
+            if ( (Date.now() - req.startTime) > 500 ) { 
+              debug('*** DROPPING REQ DUE TO DELAY ***')
+              if (config.overloadProtection.retryAfter !== undefined) {
+                resp.set('Retry-After', config.overloadProtection.retryAfter);
+              }
+              res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+              global.overloadProtection.addExtraDrops();
+            } else {
+              await handleRequest(req, resp, db, func, mapping, streaming, isBatchRequest, readOnly)
+            }
           }
       }
 
