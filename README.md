@@ -275,6 +275,49 @@ CREATE TABLE organisationalunits_relations (
 To be able to keep track of requests in the server logging and at the client, sri4node generates a short id for each request (reqId - not guaranteed to be uniq). This ID is used in all the sri4node logging (and also in the logging of sri4node application when they use `debug` and `error` from sri4node `common`), sri4node error responses and is passed to the client in the `vsko-req-id` header.
 
 
+## Internal requests
+
+Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
+* href: mandatory field
+* verb: mandatory field
+* dbT: mandatory field - database transaction of the current request
+* parentSriRequest: mandatory field - the sriRequest of the current request
+* headers: optional field 
+* body: optional field
+in case streaming following fields are also required:
+* inStream: stream to read from 
+* outStream: stream to write to 
+* setHeader: function called to set headers before streaming
+* setStatus: function called to set the status before streaming
+* streamStarted: function which should return true in case streaming is started
+
+The result will be either an object with fields status and body or an error (most likely an SriError).
+
+Remark: sri4node  task/transaction !  so if you 
+
+An example: 
+```
+    const internalReq = {
+        href: '/deploys/f5b002fc-9622-4a16-8021-b71189966e48',
+        verb: 'GET',
+        dbT: tx,
+        parentSriRequest: sriRequest,
+    }
+
+    const resp = await global.sri4node_internal_interface(internalReq);
+```
+
+### transformInternalRequest
+
+An extra hook is defined to be able to copy data set by transformRequest (like use data) from the original (parent) request to the new internal request.
+
+```javascript
+transformInternalRequest(tx, sriRequest, parentSriRequest)
+```
+
+This function is called at creation of each sriRequest created via the 'internal' interface.
+
+
 ## Overload protection
 
 Sri4node contains a protection mechanism for in case of overload. Instead of trying to handle all requests in case of overload and ending with requests receiving a response only after several seconds (or worest case even timing out), some requests are refused with an HTTP 503 (with optional a 'Retry-After' header).

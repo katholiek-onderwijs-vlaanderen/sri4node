@@ -15,25 +15,47 @@ const maxSubListLen = (a) =>
   // (which is required by batchOpertation, otherwise a 'batch.invalid.type.mix' error is sent)
   a.reduce((max, e, idx, arr) => {
     if (Array.isArray(e)) {
-      console.log(`array: ${e}`)
       return Math.max(maxSubListLen(e), max);
     } else {
-      console.log('NOT array')
       return Math.max(arr.length, max);
     }
   }, 0);
 
 
+
+
 exports = module.exports = {
 
-  batchOperation: async (tx, req, db) => {
+  matchHref: (href, verb) => {
+    const parsedUrl = url.parse(href, true);
+    const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
+
+    const applicableHandlers = global.sri4node_configuration.batchHandlerMap.filter( ({ route, verb: routeVerb }) => {
+      return (route.match(path) && verb === routeVerb)
+    })
+    if (applicableHandlers.length > 1) {
+      cl(`WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`)
+    }
+    const handler =  _.first(applicableHandlers)
+
+    if (!handler || !handler.func) {
+      throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${verb} on ${path}.`}]})
+    }
+    // const func  = handler.func
+    const routeParams = handler.route.match(path);
+    const queryParams = parsedUrl.query;
+    return { handler, path, routeParams, queryParams }
+  },
+
+  batchOperation: async (sriRequest) => {
     'use strict';
 
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
-    const reqBody = req.body
+    const reqBody = sriRequest.body
 
     if (!Array.isArray(reqBody)) {
-      throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.'}]})  
+      throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.', 
+                                                 body: reqBody}]})  
     }
 
     const batchConcurrency = global.overloadProtection.startPipeline(
@@ -69,72 +91,55 @@ exports = module.exports = {
           debug(`| Executing /batch section ${element.verb} - ${element.href} `)
           debug('└──────────────────────────────────────────────────────────────────────────────')
 
-          const batchBase = req.path.split('/batch')[0]
-          const parsedUrl = url.parse(element.href, true);
-          const pathName = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
+          const batchBase = sriRequest.path.split('/batch')[0]
+
+          const match = module.exports.matchHref(element.href, element.verb)
+
+          if (match.handler.isBatch === 'true') {
+            throw new SriError({status: 400, errors: [{code: 'batch.not.allowed.in.batch', msg: 'Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON.'}]}) 
+          }
 
           // only allow batch operations within the same resource (will be extended later with 'boundaries')
-          if (!pathName.startsWith(batchBase)) {
+          if (!match.path.startsWith(batchBase)) {
             throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
           }
           
-          if (parsedUrl.query.dryRun === 'true') {
+          if (match.queryParams.dryRun === 'true') {
             throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
           }
 
-          const applicableHandlers = global.sri4node_configuration.batchHandlerMap.filter( ({ route, verb }) => {
-            return (route.match(pathName) && element.verb === verb)
-          })
-          if (applicableHandlers.length > 1) {
-            cl(`WARNING: multiple handler functions match for batch request ${pathName}. Only first will be used. Check configuration.`)
-          }
-          const handler =  _.first(applicableHandlers)
 
-          if (!handler || !handler.func) {
-            throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${element.verb} on ${pathName}.`}]})
-          }
-
-          const func  = handler.func
-          const routeParams = handler.route.match(pathName)
-
-          const sriRequest  = {
-            path: pathName,
+          const innerSriRequest  = {
+            ...sriRequest,
+            path: match.path,
             originalUrl: element.href,
-            query: parsedUrl.query,
-            params: routeParams,
+            query: match.queryParams,
+            params: match.routeParams,
             httpMethod: element.verb,
-            headers: req.headers,
-            protocol: req.protocol,
             body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
-            sriType: handler.mapping.type,
+            sriType: match.handler.mapping.type,
             isBatchPart: true,
-            SriError: SriError,
-            db: db,
             context: context
           }
-          
-          await hooks.applyHooks('transform request'
-                                , handler.mapping.transformRequest
-                                , f => f(req, sriRequest, tx))
 
-          return [ func, [tx, sriRequest, handler.mapping] ]
+          return [ match.handler.func, [tx, innerSriRequest, match.handler.mapping] ]
         }, {concurrency: 1})
 
         const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: batchConcurrency} ))
 
         await pEachSeries( results
                      , async (res, idx) => {
-                          const [ _phaseSyncer, _tx, sriRequest, mapping ] = batchJobs[idx][1]
+                          const [ _phaseSyncer, _tx, innerSriRequest, mapping ] = batchJobs[idx][1]
                           if (! (res instanceof SriError)) {
                             await hooks.applyHooks('transform response'
                                                   , mapping.transformResponse
-                                                  , f => f(tx, sriRequest, res))
+                                                  , f => f(tx, innerSriRequest, res))
                           }
                        } )
         return results.map( (res, idx) => {
-                            const [ _phaseSyncer, _tx, sriRequest, _mapping ] = batchJobs[idx][1]
-                            res.href = sriRequest.originalUrl
-                            res.verb = sriRequest.httpMethod
+                            const [ _phaseSyncer, _tx, innerSriRequest, _mapping ] = batchJobs[idx][1]
+                            res.href = innerSriRequest.originalUrl
+                            res.verb = innerSriRequest.httpMethod
                             return res
                           })
       } else {
@@ -142,7 +147,7 @@ exports = module.exports = {
       }
     }
 
-    const batchResults = _.flatten(await handleBatch(reqBody, tx))
+    const batchResults = _.flatten(await handleBatch(reqBody, sriRequest.dbT))
     
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
