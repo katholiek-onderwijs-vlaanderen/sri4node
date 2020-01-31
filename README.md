@@ -278,13 +278,16 @@ To be able to keep track of requests in the server logging and at the client, sr
 ## Internal requests
 
 Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
+
 * href: mandatory field
 * verb: mandatory field
 * dbT: mandatory field - database transaction of the current request
 * parentSriRequest: mandatory field - the sriRequest of the current request
 * headers: optional field 
 * body: optional field
-in case streaming following fields are also required:
+
+In case of a streaming request, following fields are also required:
+
 * inStream: stream to read from 
 * outStream: stream to write to 
 * setHeader: function called to set headers before streaming
