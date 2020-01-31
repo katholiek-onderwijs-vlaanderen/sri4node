@@ -296,7 +296,7 @@ In case of a streaming request, following fields are also required:
 
 The result will be either an object with fields status and body or an error (most likely an SriError).
 
-Remark: sri4node  task/transaction !  so if you 
+**Remark**: sri4node makes a distinction between a database task (consider this as a connection, no commit/rollback) and a transaction. For GETs a task database object is provided, while requests which potentially may modify the database receive a transaction object. With internal requests this has the consequence that in case your initial sri4node requests is a read-only operation (GET), you get database task for your internal request to operate on. If the internal request then writes via this task, the changes will not be rollbacked in case the request is not succesfully ended.
 
 An example: 
 ```
