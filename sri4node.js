@@ -20,10 +20,13 @@ const httpContext = require('express-http-context');
 const shortid = require('shortid');
 // const toobusy = require('toobusy-js');
 const toobusy = require('node-toobusy');
-  
+
+toobusy.onLag(function(currentLag) {
+  console.log("Event loop lag detected! Latency: " + currentLag + "ms");
+});
 // Set check interval to a faster value. This will catch more latency spikes
 // but may cause the check to be too sensitive.
-toobusy.interval(250);
+// toobusy.interval(250);
  
 
 
@@ -463,10 +466,6 @@ exports = module.exports = {
           res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         }
       });   
-
-      toobusy.onLag(function(currentLag) {
-        debug("Event loop lag detected! Latency: " + currentLag + "ms");
-      });
 
       const emt = installEMT()
 
