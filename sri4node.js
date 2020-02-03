@@ -452,7 +452,7 @@ exports = module.exports = {
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        if (global.overloadProtection.canAccept()) {
+        if ( global.overloadProtection.canAccept() && ! toobusy() ) {
           next();
         } else {
           debug(`DROPPED REQ`);
@@ -465,7 +465,6 @@ exports = module.exports = {
 
       toobusy.onLag(function(currentLag) {
         debug("Event loop lag detected! Latency: " + currentLag + "ms");
-        config.overloadProtection.addExtraDrops(10); 
       });
 
       const emt = installEMT()
