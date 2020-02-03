@@ -18,7 +18,8 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
-const toobusy = require('toobusy-js');
+// const toobusy = require('toobusy-js');
+const toobusy = require('node-toobusy');
   
 // Set check interval to a faster value. This will catch more latency spikes
 // but may cause the check to be too sensitive.
