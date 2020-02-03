@@ -26,6 +26,7 @@
     "lodash": "4.17.15",
     "needle": "0.10.x",
     "node-cache": "^3.0.0",
+    "node-toobusy": "^0.6.3",
     "p-each-series": "^1.0.0",
     "p-event": "1.3.0",
     "p-filter": "^2.1.0",
