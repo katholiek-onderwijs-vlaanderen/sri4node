@@ -447,19 +447,26 @@ exports = module.exports = {
         await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
       }
 
+      
+
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        if (global.overloadProtection.canAccept() && (toobusy.maxLag() < 70) ) {
+        if (global.overloadProtection.canAccept()) {
           next();
         } else {
-          debug(`DROPPED REQ - ${toobusy.maxLag()}`);
+          debug(`DROPPED REQ`);
           if (config.overloadProtection.retryAfter !== undefined) {
             resp.set('Retry-After', config.overloadProtection.retryAfter);
           }
           res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         }
       });   
+
+      toobusy.onLag(function(currentLag) {
+        debug("Event loop lag detected! Latency: " + currentLag + "ms");
+        config.overloadProtection.addExtraDrops(10); 
+      });
 
       const emt = installEMT()
 
