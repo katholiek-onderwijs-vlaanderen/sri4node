@@ -453,6 +453,7 @@ exports = module.exports = {
         if (global.overloadProtection.canAccept() && (toobusy.maxLag() < 70) ) {
           next();
         } else {
+          debug(`DROPPED REQ - ${toobusy.maxLag()}`);
           if (config.overloadProtection.retryAfter !== undefined) {
             resp.set('Retry-After', config.overloadProtection.retryAfter);
           }
