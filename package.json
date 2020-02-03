@@ -45,6 +45,7 @@
     "short-hash": "^1.0.0",
     "shortid": "^2.2.15",
     "through2": "^2.0.3",
+    "toobusy-js": "^0.5.1",
     "ttl-queue": "^1.0.1",
     "uuid": "3.2.1"
   },

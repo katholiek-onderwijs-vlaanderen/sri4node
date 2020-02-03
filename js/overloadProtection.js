@@ -29,8 +29,8 @@ exports = module.exports = (config) => {
 				console.log(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 			} 
 		},
-		addExtraDrops: () => {
-			extraDrop += 2;
+		addExtraDrops: (nr = 1) => {
+			extraDrop += nr;
 		}
 	}
 };

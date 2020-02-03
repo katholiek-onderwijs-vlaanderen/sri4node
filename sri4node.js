@@ -18,6 +18,12 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
+const toobusy = require('toobusy-js');
+  
+// Set check interval to a faster value. This will catch more latency spikes
+// but may cause the check to be too sensitive.
+toobusy.interval(250);
+ 
 
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
@@ -444,7 +450,7 @@ exports = module.exports = {
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        if (global.overloadProtection.canAccept()) {
+        if (global.overloadProtection.canAccept() && (toobusy.maxLag() < 70) ) {
           next();
         } else {
           if (config.overloadProtection.retryAfter !== undefined) {
