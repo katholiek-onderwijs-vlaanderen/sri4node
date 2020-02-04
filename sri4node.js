@@ -213,7 +213,9 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
       res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
       global.overloadProtection.addExtraDrops();
     } else {
-      global.overloadProtection.startPipeline();
+      if (!isBatchRequest) {
+        global.overloadProtection.startPipeline();
+      }
     
       debug(`*** busy: ${busy} ***`)
       debug('expressWrapper starts processing ' + req.originalUrl);

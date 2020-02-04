@@ -4,6 +4,7 @@ exports = module.exports = (config) => {
 	return {
 		canAccept: () => {
 			if (config!==undefined) {
+				console.log(`canAccept ${extraDrop} - ${usedPipelines} - ${config.maxPipelines}`)
 				if (extraDrop === 0) {
 					return (usedPipelines < config.maxPipelines);
 				} else {
