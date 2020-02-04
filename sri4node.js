@@ -18,6 +18,7 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
+const stream = require('stream');
 // const toobusy = require('toobusy-js');
 const toobusy = require('node-toobusy');
 
