@@ -30,7 +30,9 @@ exports = module.exports = (config) => {
 			} 
 		},
 		addExtraDrops: (nr = 1) => {
-			extraDrop += nr;
+			if (config!==undefined) { 
+				extraDrop += nr;
+			}
 		}
 	}
 };
