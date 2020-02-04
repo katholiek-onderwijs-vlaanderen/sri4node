@@ -22,11 +22,16 @@ const stream = require('stream');
 // const toobusy = require('toobusy-js');
 const toobusy = require('node-toobusy');
 
+toobusy.interval(250);
+toobusy.maxLag(25);
+
 toobusy.onLag(function(currentLag) {
   console.log("Event loop lag detected! Latency: " + currentLag + "ms");
 });
 // Set check interval to a faster value. This will catch more latency spikes
 // but may cause the check to be too sensitive.
+
+
 // toobusy.interval(250);
  
 
