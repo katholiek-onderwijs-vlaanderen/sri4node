@@ -207,30 +207,30 @@ const handleRequest = async (sriRequest, func, mapping) => {
 
 const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
   return async function (req, resp, next) {
-    // if it already took too long just too reach this point, we are overloaded
-    // drop request and signal overload protection
-    const busy = (Date.now() - req.startTime);
-    if ( busy > 500 ) { 
-      debug('*** DROPPING REQ DUE TO DELAY ***')
-      if (config.overloadProtection.retryAfter !== undefined) {
-        resp.set('Retry-After', config.overloadProtection.retryAfter);
-      }
-      res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-      global.overloadProtection.addExtraDrops();
+    if (!isBatchRequest) {
+      global.overloadProtection.startPipeline();
+    }
+  
+    debug('expressWrapper starts processing ' + req.originalUrl);
+    let t, endTask, resolveTx, rejectTx;
+    if (readOnly === true) {
+      ({t, endTask} = await startTask(db))
     } else {
-      if (!isBatchRequest) {
-        global.overloadProtection.startPipeline();
-      }
-    
-      debug(`*** busy: ${busy} ***`)
-      debug('expressWrapper starts processing ' + req.originalUrl);
-      let t, endTask, resolveTx, rejectTx;
-      if (readOnly === true) {
-        ({t, endTask} = await startTask(db))
+      ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+    }
+
+    try {
+      // if it already took too long just too reach this point, we are overloaded
+      // drop request and signal overload protection
+      const busy = (Date.now() - req.startTime);
+      if ( busy > 500 ) { 
+        debug('*** DROPPING REQ DUE TO DELAY ***')
+        if (config.overloadProtection.retryAfter !== undefined) {
+          resp.set('Retry-After', config.overloadProtection.retryAfter);
+        }
+        res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+        global.overloadProtection.addExtraDrops(2);   
       } else {
-        ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
-      }
-      try {
         const reqId = httpContext.get('reqId')
         if (reqId!==undefined) {
           resp.set('vsko-req-id', reqId);
@@ -309,46 +309,46 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
           }
           resp.status(result.status).send(result.body)
         }
-      } catch (err) {
-        //TODO: what with streaming errors
-        if (readOnly===true) {
-          debug('++ Exception catched. Closing database transaction. ++');
-          debug(endTask)
-          await endTask();
-        } else {
-          debug('++ Exception catched. Rolling back database transaction. ++');
-          await rejectTx()  
-        }
+      }
+    } catch (err) {
+      //TODO: what with streaming errors
+      if (readOnly===true) {
+        debug('++ Exception catched. Closing database transaction. ++');
+        debug(endTask)
+        await endTask();
+      } else {
+        debug('++ Exception catched. Rolling back database transaction. ++');
+        await rejectTx()  
+      }
 
-        if (resp.headersSent) {
-          error('NEED TO DESTROY STREAMING REQ')
-          // TODO: HTTP trailer
-          // next(err)
-          req.destroy()
-        } else {
-          if (err instanceof SriError) {
-            debug('Sending SriError to client.')
-            const reqId = httpContext.get('reqId')
-            if (reqId!==undefined) {
-              err.body.vskoReqId = reqId;
-              err.headers['vsko-req-id'] = reqId;
-            }
-            resp.set(err.headers).status(err.status).send(err.body);
-          } else {      
-            error('____________________________ E R R O R (expressWrapper)____________________________________') 
-            error(err)
-            error('STACK:')
-            error(err.stack)
-            error('___________________________________________________________________________________________') 
-            resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-          }        
-        }
-      } finally {
-        if (!isBatchRequest) {
-          global.overloadProtection.endPipeline();
-        }
-      } 
-    }
+      if (resp.headersSent) {
+        error('NEED TO DESTROY STREAMING REQ')
+        // TODO: HTTP trailer
+        // next(err)
+        req.destroy()
+      } else {
+        if (err instanceof SriError) {
+          debug('Sending SriError to client.')
+          const reqId = httpContext.get('reqId')
+          if (reqId!==undefined) {
+            err.body.vskoReqId = reqId;
+            err.headers['vsko-req-id'] = reqId;
+          }
+          resp.set(err.headers).status(err.status).send(err.body);
+        } else {      
+          error('____________________________ E R R O R (expressWrapper)____________________________________') 
+          error(err)
+          error('STACK:')
+          error(err.stack)
+          error('___________________________________________________________________________________________') 
+          resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+        }        
+      }
+    } finally {
+      if (!isBatchRequest) {
+        global.overloadProtection.endPipeline();
+      }
+    } 
   }
 }
 
