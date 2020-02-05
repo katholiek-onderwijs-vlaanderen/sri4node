@@ -223,10 +223,11 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
       // if it already took too long just too reach this point, we are overloaded
       // drop request and signal overload protection
       const busy = (Date.now() - req.startTime);
-      if ( busy > 500 ) { 
-        debug('*** DROPPING REQ DUE TO DELAY ***')
-        if (config.overloadProtection.retryAfter !== undefined) {
-          resp.set('Retry-After', config.overloadProtection.retryAfter);
+      if ( global.overloadProtection !== undefined
+           && busy > (global.overloadProtection.maxStartTxTime !== undefined ? global.overloadProtection.maxStartTxTime : 500) ) {
+        debug(`*** DROPPING REQ DUE TO DELAY (${busy}) ***`)
+        if (global.overloadProtection.retryAfter !== undefined) {
+          resp.set('Retry-After', global.overloadProtection.retryAfter);
         }
         res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         global.overloadProtection.addExtraDrops(2);   
