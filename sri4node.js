@@ -229,7 +229,7 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
         if (global.overloadProtection.retryAfter !== undefined) {
           resp.set('Retry-After', global.overloadProtection.retryAfter);
         }
-        res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+        resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         global.overloadProtection.addExtraDrops(2);   
       } else {
         const reqId = httpContext.get('reqId')
