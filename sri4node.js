@@ -464,7 +464,8 @@ exports = module.exports = {
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        if ( global.overloadProtection.canAccept() && ! toobusy() ) {
+        // if ( global.overloadProtection.canAccept() && ! toobusy() ) {
+        if ( global.overloadProtection.canAccept() ) {
           next();
         } else {
           debug(`DROPPED REQ`);
