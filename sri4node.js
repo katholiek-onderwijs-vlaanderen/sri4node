@@ -207,9 +207,9 @@ const handleRequest = async (sriRequest, func, mapping) => {
 
 const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
   return async function (req, resp, next) {
-    if (!isBatchRequest) {
+    // if (!isBatchRequest) {
       global.overloadProtection.startPipeline();
-    }
+    // }
   
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t, endTask, resolveTx, rejectTx;
@@ -346,9 +346,9 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
         }        
       }
     } finally {
-      if (!isBatchRequest) {
+      // if (!isBatchRequest) {
         global.overloadProtection.endPipeline();
-      }
+      // }
     } 
   }
 }
