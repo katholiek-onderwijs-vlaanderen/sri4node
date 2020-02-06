@@ -37,7 +37,7 @@
     "path-to-regexp": "^2.0.0",
     "pathfinder-ui": "1.0.3",
     "pg-monitor": "^1.0.0",
-    "pg-promise": "^6.10.2",
+    "pg-promise": "10.4.2",
     "pug": "^2.0.4",
     "pycollections": "^0.9.0",
     "q": "^1.0.1",
