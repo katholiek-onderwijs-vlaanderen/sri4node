@@ -210,6 +210,9 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     // if (!isBatchRequest) {
       global.overloadProtection.startPipeline();
     // }
+
+    // override readOnly for testing
+    readOnly = true;
   
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t, endTask, resolveTx, rejectTx;
@@ -471,7 +474,7 @@ exports = module.exports = {
         } else {
           debug(`DROPPED REQ`);
           if (config.overloadProtection.retryAfter !== undefined) {
-            resp.set('Retry-After', config.overloadProtection.retryAfter);
+            res.set('Retry-After', config.overloadProtection.retryAfter);
           }
           res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         }
