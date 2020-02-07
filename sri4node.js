@@ -213,11 +213,11 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
   
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t, endTask, resolveTx, rejectTx;
-    if (readOnly === true) {
+    // if (readOnly === true) {
       ({t, endTask} = await startTask(db))
-    } else {
-      ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
-    }
+    // } else {
+    //   ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+    // }
 
     try {
       // if it already took too long just too reach this point, we are overloaded
@@ -273,27 +273,27 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
         const result = await handleRequest(sriRequest, func, mapping);
 
         const terminateDb = async (error) => {
-          if (readOnly===true) {
+          // if (readOnly===true) {
             debug('++ Processing went OK. Closing database transaction. ++');
             await endTask()     
-          } else {
-            if (error) {
-              if (req.query.dryRun === 'true') {
-                debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
-              } else {
-                debug('++ Error during processing. Rolling back database transaction.');
-              }
-              await rejectTx()     
-            } else {
-              if (req.query.dryRun === 'true') {
-                debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-                await rejectTx()   
-              } else {
-                debug('++ Processing went OK. Committing database transaction.');  
-                await resolveTx()   
-              }
-            }
-          }
+          // } else {
+          //   if (error) {
+          //     if (req.query.dryRun === 'true') {
+          //       debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
+          //     } else {
+          //       debug('++ Error during processing. Rolling back database transaction.');
+          //     }
+          //     await rejectTx()     
+          //   } else {
+          //     if (req.query.dryRun === 'true') {
+          //       debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+          //       await rejectTx()   
+          //     } else {
+          //       debug('++ Processing went OK. Committing database transaction.');  
+          //       await resolveTx()   
+          //     }
+          //   }
+          // }
         }
 
         if (resp.headersSent) {
