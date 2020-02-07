@@ -286,9 +286,11 @@ exports = module.exports = {
         }      
       }
     }
-    txWrapper(emitter)
+    const txPromise = await pEvent(emitter, 'txEvent'); // first create pEvent, to avoid race condition
 
-    const tx = await pEvent(emitter, 'txEvent')
+    txWrapper(emitter);
+
+    const tx = await txPromise;
     await tx.none('SET CONSTRAINTS ALL DEFERRED;');
 
     const terminateTx = (how) => async () => {
@@ -323,9 +325,10 @@ exports = module.exports = {
         emitter.emit('tDone', err)
       }
     }
+    const tPromise = pEvent(emitter, 'tEvent'); // first create pEvent, to avoid race condition
     taskWrapper(emitter)
 
-    const t = await pEvent(emitter, 'tEvent')
+    const t = await tPromise;
 
 
     const endTask = async () => {
