@@ -329,11 +329,12 @@ exports = module.exports = {
     taskWrapper(emitter)
 
     const t = await tPromise;
-
+    exports.debug('Got db t object.');  
 
     const endTask = async () => {
         emitter.emit('terminate')
         const res = await pEvent(emitter, 'tDone')
+        exports.debug('db task done.');  
         if (res !== undefined) {
           throw res
         }
