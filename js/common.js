@@ -325,10 +325,17 @@ exports = module.exports = {
         emitter.emit('tDone', err)
       }
     }
-    const tPromise = pEvent(emitter, 'tEvent'); // first create pEvent, to avoid race condition
-    taskWrapper(emitter)
 
-    const t = await tPromise;
+    // use Promise construction instead of code below to avoid race condition
+    // const tPromise = pEvent(emitter, 'tEvent');
+    // const t = await tPromise;
+
+    const t = await new Promise(function(resolve, reject) {
+      emitter.on('tEvent', (t) => {
+        resolve(t);
+      });
+      taskWrapper(emitter);
+    });
     exports.debug('Got db t object.');  
 
     const endTask = async () => {
