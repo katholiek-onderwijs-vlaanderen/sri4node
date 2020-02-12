@@ -353,7 +353,7 @@ exports = module.exports = {
     } catch (err) {
       exports.debug('CATCHED ERROR: ');  
       exports.debug(JSON.stringify(err));  
-      throw new SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
+      throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
   },
 
