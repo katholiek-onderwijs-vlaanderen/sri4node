@@ -314,9 +314,11 @@ exports = module.exports = {
     const emitter = new EventEmitter()  
 
     const taskWrapper = async (emitter) => {
+      // This wrapper run async without being awaited. This has some consequences:
+      //   * errors are not passed the usual way, but via the 'tDone' event
+      //   * exports.debug() does not log the correct reqId
       try {
         await db.task( async t => {
-          exports.debug('db task started.');  
           emitter.emit('tEvent', t)
           await pEvent(emitter, 'terminate')
         })
@@ -326,28 +328,33 @@ exports = module.exports = {
       }
     }
 
-    // use Promise construction instead of code below to avoid race condition
-    // const tPromise = pEvent(emitter, 'tEvent');
-    // const t = await tPromise;
-
-    const t = await new Promise(function(resolve, reject) {
-      emitter.on('tEvent', (t) => {
-        resolve(t);
+    try {
+      const t = await new Promise(function(resolve, reject) {
+        emitter.on('tEvent', (t) => {
+          resolve(t);
+        });
+        emitter.on('tDone', (err) => {
+          reject(err);
+        });
+        taskWrapper(emitter);
       });
-      taskWrapper(emitter);
-    });
-    exports.debug('Got db t object.');  
+      exports.debug('Got db t object.');  
 
-    const endTask = async () => {
-        emitter.emit('terminate')
-        const res = await pEvent(emitter, 'tDone')
-        exports.debug('db task done.');  
-        if (res !== undefined) {
-          throw res
-        }
+      const endTask = async () => {
+          emitter.emit('terminate')
+          const res = await pEvent(emitter, 'tDone')
+          exports.debug('db task done.');  
+          if (res !== undefined) {
+            throw res
+          }
+      }
+
+      return ({ t, endTask: endTask })
+    } catch (err) {
+      exports.debug('CATCHED ERROR: ');  
+      exports.debug(JSON.stringify(err));  
+      throw new SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
-
-    return ({ t, endTask: endTask })
   },
 
   installVersionIncTriggerOnTable: async function(db, tableName) {
