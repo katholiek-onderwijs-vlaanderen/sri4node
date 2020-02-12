@@ -212,14 +212,15 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     // }
   
     debug('expressWrapper starts processing ' + req.originalUrl);
-    let t, endTask, resolveTx, rejectTx;
+    let t=null, endTask, resolveTx, rejectTx;
+    try {    
     // if (readOnly === true) {
       ({t, endTask} = await startTask(db))
     // } else {
     //   ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
     // }
 
-    try {
+
       // if it already took too long just too reach this point, we are overloaded
       // drop request and signal overload protection
       const busy = (Date.now() - req.startTime);
@@ -313,13 +314,15 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
       }
     } catch (err) {
       //TODO: what with streaming errors
-      if (readOnly===true) {
-        debug('++ Exception catched. Closing database transaction. ++');
-        debug(endTask)
-        await endTask();
-      } else {
-        debug('++ Exception catched. Rolling back database transaction. ++');
-        await rejectTx()  
+      if (t!=null) { // t will be null in case of error during startTask/startTransaction
+        if (readOnly===true) {
+          debug('++ Exception catched. Closing database transaction. ++');
+          debug(endTask)
+          await endTask();
+        } else {
+          debug('++ Exception catched. Rolling back database transaction. ++');
+          await rejectTx()  
+        }
       }
 
       if (resp.headersSent) {
