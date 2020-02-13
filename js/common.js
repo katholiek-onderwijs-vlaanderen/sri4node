@@ -267,10 +267,12 @@ exports = module.exports = {
     const emitter = new EventEmitter()  
 
     const txWrapper = async (emitter) => {
+      // This wrapper run async without being awaited. This has some consequences:
+      //   * errors are not passed the usual way, but via the 'tDone' event
+      //   * exports.debug() does not log the correct reqId      
       try {
         await db.tx( {mode},  async tx => {
           emitter.emit('txEvent', tx)
-          exports.debug('db transaction started.');  
           const how = await pEvent(emitter, 'terminate')
           if (how === 'reject') {
             throw 'txRejected'
@@ -286,25 +288,38 @@ exports = module.exports = {
         }      
       }
     }
-    const txPromise = await pEvent(emitter, 'txEvent'); // first create pEvent, to avoid race condition
 
-    txWrapper(emitter);
+    try {
+      const tx = await new Promise(function(resolve, reject) {
+        emitter.on('txEvent', (tx) => {
+          resolve(tx);
+        });
+        emitter.on('txDone', (err) => {
+          reject(err);
+        });
+        taskWrapper(emitter);
+      });
+      exports.debug('Got db tx object.');
 
-    const tx = await txPromise;
-    await tx.none('SET CONSTRAINTS ALL DEFERRED;');
+      await tx.none('SET CONSTRAINTS ALL DEFERRED;');
 
-    const terminateTx = (how) => async () => {
-        if (how !== 'reject') {
-          await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
-        }
-        emitter.emit('terminate', how)
-        const res = await pEvent(emitter, 'txDone')
-        if (res !== undefined) {
-          throw res
-        }
-    }
+      const terminateTx = (how) => async () => {
+          if (how !== 'reject') {
+            await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
+          }
+          emitter.emit('terminate', how)
+          const res = await pEvent(emitter, 'txDone')
+          if (res !== undefined) {
+            throw res
+          }
+      }
 
-    return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
+      return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
+    } catch (err) {
+      exports.debug('CATCHED ERROR: ');  
+      exports.debug(JSON.stringify(err));  
+      throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
+    }      
   },
 
 
