@@ -295,6 +295,9 @@ exports = module.exports = {
           resolve(tx);
         });
         emitter.on('txDone', (err) => {
+          console.log('GOT ERROR:')
+          console.log(err)
+          console.log(JSON.stringify(err));
           reject(err);
         });
         taskWrapper(emitter);
