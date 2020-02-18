@@ -281,6 +281,9 @@ exports = module.exports = {
         emitter.emit('txDone')
       } catch(err) {
         // 'txRejected' as err is expected behaviour in case rejectTx is called
+          console.log('GOT2 ERROR:')
+          console.log(err)
+          console.log(JSON.stringify(err));        
         if (err!='txRejected') {
           emitter.emit('txDone', err)
         } else {
