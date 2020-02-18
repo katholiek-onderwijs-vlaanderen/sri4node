@@ -539,7 +539,11 @@ exports = module.exports = {
       app.use(function(req, res, next) {
           httpContext.ns.bindEmitter(req);
           httpContext.ns.bindEmitter(res);
-          httpContext.set('reqId',shortid.generate());
+          let reqId = shortid.generate();
+          if (config.id!==undefined) {
+              reqId = `${config.id}#${reqId}`;
+          }
+          httpContext.set('reqId', reqId);
           next();
       });
 
