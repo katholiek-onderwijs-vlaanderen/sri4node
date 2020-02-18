@@ -1,10 +1,12 @@
+const { debug } = require('./common.js');
+
 exports = module.exports = (config) => {
 	let usedPipelines = 0;
 	let extraDrop = 0
 	return {
 		canAccept: () => {
 			if (config!==undefined) {
-				console.log(`canAccept ${extraDrop} - ${usedPipelines} - ${config.maxPipelines}`)
+				debug(`canAccept ${extraDrop} - ${usedPipelines} - ${config.maxPipelines}`)
 				if (extraDrop === 0) {
 					return (usedPipelines < config.maxPipelines);
 				} else {
@@ -20,14 +22,14 @@ exports = module.exports = (config) => {
 				const remainingCap = Math.max((config.maxPipelines - usedPipelines), 1);
 				const nrServed = Math.min(nr, remainingCap);
 				usedPipelines += nrServed;
-				console.log(`startPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
+				debug(`startPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 				return nrServed;
 			} 			
 		},
 		endPipeline: (nr = 1) => { 
 			if (config!==undefined) { 
 				usedPipelines -= nr 
-				console.log(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
+				debug(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 			} 
 		},
 		addExtraDrops: (nr = 1) => {
