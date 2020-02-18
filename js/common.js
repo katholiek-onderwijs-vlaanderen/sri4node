@@ -295,13 +295,19 @@ exports = module.exports = {
     try {
       const tx = await new Promise(function(resolve, reject) {
         emitter.on('txEvent', (tx) => {
+          exports.debug('GOT txEVENT')
           resolve(tx);
         });
         emitter.on('txDone', (err) => {
-          console.log('GOT ERROR:')
-          console.log(err)
-          console.log(JSON.stringify(err));
-          reject(err);
+          if (err!==undefined) {
+            console.log('GOT ERROR:')
+            console.log(err)
+            console.log(JSON.stringify(err));
+            reject(err);
+          } else {
+            exports.debug('GOT undefined ERROR')
+            // ignore undefined error ; but should not occur?
+          }
         });
         txWrapper(emitter);
       });
