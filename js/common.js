@@ -303,7 +303,7 @@ exports = module.exports = {
           console.log(JSON.stringify(err));
           reject(err);
         });
-        taskWrapper(emitter);
+        txWrapper(emitter);
       });
       exports.debug('Got db tx object.');
 
