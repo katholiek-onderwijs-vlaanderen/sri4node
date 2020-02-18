@@ -294,7 +294,7 @@ exports = module.exports = {
 
     try {
       const tx = await new Promise(function(resolve, reject) {
-        const resolved = false
+        let resolved = false
         emitter.on('txEvent', (tx) => {
           resolve(tx);
           resolved = true;
