@@ -158,8 +158,8 @@ exports = module.exports = {
                           : Math.max(200, ...batchResults.map( e => e.status ))                      
 
       return { status: status, body: batchResults }    
+    } finally {
+      global.overloadProtection.endPipeline(batchConcurrency);
     }
-  } finally {
-    global.overloadProtection.endPipeline(batchConcurrency);
   }
 }
