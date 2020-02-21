@@ -19,7 +19,6 @@ const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
 const stream = require('stream');
-// const toobusy = require('toobusy-js');
 const toobusy = require('node-toobusy');
 
 toobusy.interval(250);
@@ -31,8 +30,6 @@ toobusy.onLag(function(currentLag) {
 // Set check interval to a faster value. This will catch more latency spikes
 // but may cause the check to be too sensitive.
 
-
-// toobusy.interval(250);
  
 
 
@@ -214,24 +211,24 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx;
     try {    
-      if (readOnly === true) {
+      // if (readOnly === true) {
         ({t, endTask} = await startTask(db))
-      } else {
-        ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
-      }
+      // } else {
+      //   ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+      // }
 
-      // if it already took too long just too reach this point, we are overloaded
-      // drop request and signal overload protection
-      const busy = (Date.now() - req.startTime);
-      if ( global.overloadProtection !== undefined
-           && busy > (global.overloadProtection.maxStartTxTime !== undefined ? global.overloadProtection.maxStartTxTime : 500) ) {
-        debug(`*** DROPPING REQ DUE TO DELAY (${busy}) ***`)
-        if (global.overloadProtection.retryAfter !== undefined) {
-          resp.set('Retry-After', global.overloadProtection.retryAfter);
-        }
-        resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-        global.overloadProtection.addExtraDrops(2);   
-      } else {
+      // // if it already took too long just too reach this point, we are overloaded
+      // // drop request and signal overload protection
+      // const busy = (Date.now() - req.startTime);
+      // if ( global.overloadProtection !== undefined
+      //      && busy > (global.overloadProtection.maxStartTxTime !== undefined ? global.overloadProtection.maxStartTxTime : 500) ) {
+      //   debug(`*** DROPPING REQ DUE TO DELAY (${busy}) ***`)
+      //   if (global.overloadProtection.retryAfter !== undefined) {
+      //     resp.set('Retry-After', global.overloadProtection.retryAfter);
+      //   }
+      //   resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+      //   global.overloadProtection.addExtraDrops(2);   
+      // } else {
         const reqId = httpContext.get('reqId')
         if (reqId!==undefined) {
           resp.set('vsko-req-id', reqId);
@@ -273,27 +270,27 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
         const result = await handleRequest(sriRequest, func, mapping);
 
         const terminateDb = async (error) => {
-          if (readOnly===true) {
-            debug('++ Processing went OK. Closing database transaction. ++');
+          // if (readOnly===true) {
+            debug('++ Processing went OK. Closing database task. ++');
             await endTask()     
-          } else {
-            if (error) {
-              if (req.query.dryRun === 'true') {
-                debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
-              } else {
-                debug('++ Error during processing. Rolling back database transaction.');
-              }
-              await rejectTx()     
-            } else {
-              if (req.query.dryRun === 'true') {
-                debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-                await rejectTx()   
-              } else {
-                debug('++ Processing went OK. Committing database transaction.');  
-                await resolveTx()   
-              }
-            }
-          }
+          // } else {
+          //   if (error) {
+          //     if (req.query.dryRun === 'true') {
+          //       debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
+          //     } else {
+          //       debug('++ Error during processing. Rolling back database transaction.');
+          //     }
+          //     await rejectTx()     
+          //   } else {
+          //     if (req.query.dryRun === 'true') {
+          //       debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+          //       await rejectTx()   
+          //     } else {
+          //       debug('++ Processing went OK. Committing database transaction.');  
+          //       await resolveTx()   
+          //     }
+          //   }
+          // }
         }
 
         if (resp.headersSent) {
@@ -310,18 +307,18 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
           }
           resp.status(result.status).send(result.body)
         }
-      }
+      // }
     } catch (err) {
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
-        if (readOnly===true) {
+        // if (readOnly===true) {
           debug('++ Exception catched. Closing database transaction. ++');
           debug(endTask)
           await endTask();
-        } else {
-          debug('++ Exception catched. Rolling back database transaction. ++');
-          await rejectTx()  
-        }
+        // } else {
+        //   debug('++ Exception catched. Rolling back database transaction. ++');
+        //   await rejectTx()  
+        // }
       }
 
       if (resp.headersSent) {
@@ -467,7 +464,6 @@ exports = module.exports = {
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        // if ( global.overloadProtection.canAccept() && ! toobusy() ) {
         if ( global.overloadProtection.canAccept() ) {
           next();
         } else {
@@ -636,7 +632,7 @@ exports = module.exports = {
                   console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`)
                 } else {
                   const [path, verb, handler, _mapping, streaming] = likeMatches[0]
-                  acc.push([ crudPath + cr.routePostfix, verb, handler, customMapping, streaming ])                  
+                  acc.push([ crudPath + cr.routePostfix, verb, handler, customMapping, streaming, likeMatches.readOnly, false ])                  
                 }
               } else if (cr.streamingHandler !== undefined) {
                 acc.push( [ mapping.type + cr.routePostfix
@@ -751,7 +747,7 @@ exports = module.exports = {
       batchHandlerMap.forEach( ([path, verb, func, mapping, streaming, readOnly, isBatch]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        debug(`registering route ${path}`)
+        debug(`registering route ${path} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
                                  emt.instrument(expressWrapper(db, func, mapping, streaming, isBatch, readOnly), 'func') )
       })
