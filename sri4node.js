@@ -211,11 +211,11 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx;
     try {    
-      // if (readOnly === true) {
+      if (readOnly === true) {
         ({t, endTask} = await startTask(db))
-      // } else {
-      //   ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
-      // }
+      } else {
+        ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+      }
 
       // // if it already took too long just too reach this point, we are overloaded
       // // drop request and signal overload protection
@@ -270,27 +270,27 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
         const result = await handleRequest(sriRequest, func, mapping);
 
         const terminateDb = async (error) => {
-          // if (readOnly===true) {
+          if (readOnly===true) {
             debug('++ Processing went OK. Closing database task. ++');
             await endTask()     
-          // } else {
-          //   if (error) {
-          //     if (req.query.dryRun === 'true') {
-          //       debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
-          //     } else {
-          //       debug('++ Error during processing. Rolling back database transaction.');
-          //     }
-          //     await rejectTx()     
-          //   } else {
-          //     if (req.query.dryRun === 'true') {
-          //       debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
-          //       await rejectTx()   
-          //     } else {
-          //       debug('++ Processing went OK. Committing database transaction.');  
-          //       await resolveTx()   
-          //     }
-          //   }
-          // }
+          } else {
+            if (error) {
+              if (req.query.dryRun === 'true') {
+                debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
+              } else {
+                debug('++ Error during processing. Rolling back database transaction.');
+              }
+              await rejectTx()     
+            } else {
+              if (req.query.dryRun === 'true') {
+                debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+                await rejectTx()   
+              } else {
+                debug('++ Processing went OK. Committing database transaction.');  
+                await resolveTx()   
+              }
+            }
+          }
         }
 
         if (resp.headersSent) {
@@ -311,14 +311,14 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     } catch (err) {
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
-        // if (readOnly===true) {
+        if (readOnly===true) {
           debug('++ Exception catched. Closing database transaction. ++');
           debug(endTask)
           await endTask();
-        // } else {
-        //   debug('++ Exception catched. Rolling back database transaction. ++');
-        //   await rejectTx()  
-        // }
+        } else {
+          debug('++ Exception catched. Rolling back database transaction. ++');
+          await rejectTx()  
+        }
       }
 
       if (resp.headersSent) {
