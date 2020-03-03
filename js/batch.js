@@ -26,6 +26,46 @@ const maxSubListLen = (a) =>
 
 exports = module.exports = {
 
+  matchBatch: (req) => {
+
+    // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
+    const reqBody = req.body
+    const batchBase = req.path.split('/batch')[0]
+
+    if (!Array.isArray(reqBody)) {
+      throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.', 
+                                                 body: reqBody}]})  
+    }
+
+    const handleBatch = async (batch) => {  
+        if ( batch.every(element =>  Array.isArray(element)) ) {
+          batch.forEach(handleBatch);
+        } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
+          batch.forEach(element => {
+            const match = module.exports.matchHref(element.href, element.verb)
+
+            if (match.handler.isBatch === 'true') {
+              throw new SriError({status: 400, errors: [{code: 'batch.not.allowed.in.batch', msg: 'Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON.'}]}) 
+            }
+
+            // only allow batch operations within the same resource (will be extended later with 'boundaries')
+            if (!match.path.startsWith(batchBase)) {
+              throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
+            }
+            
+            if (match.queryParams.dryRun === 'true') {
+              throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
+            }
+            element.match = match;            
+          })
+        } else {
+          throw new SriError({status: 400, errors: [{code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.'}]})          
+        }
+    }
+
+    handleBatch(reqBody);
+  },
+
   matchHref: (href, verb) => {
     const parsedUrl = url.parse(href, true);
     const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
@@ -49,15 +89,7 @@ exports = module.exports = {
 
   batchOperation: async (sriRequest) => {
     'use strict';
-
-    // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
     const reqBody = sriRequest.body
-
-    if (!Array.isArray(reqBody)) {
-      throw new SriError({status: 400, errors: [{code: 'batch.body.invalid', msg: 'Batch body should be JSON array.', 
-                                                 body: reqBody}]})  
-    }
-
     const batchConcurrency = global.overloadProtection.startPipeline(
                                 Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
     try {
@@ -91,23 +123,7 @@ exports = module.exports = {
             debug(`| Executing /batch section ${element.verb} - ${element.href} `)
             debug('└──────────────────────────────────────────────────────────────────────────────')
 
-            const batchBase = sriRequest.path.split('/batch')[0]
-
-            const match = module.exports.matchHref(element.href, element.verb)
-
-            if (match.handler.isBatch === 'true') {
-              throw new SriError({status: 400, errors: [{code: 'batch.not.allowed.in.batch', msg: 'Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON.'}]}) 
-            }
-
-            // only allow batch operations within the same resource (will be extended later with 'boundaries')
-            if (!match.path.startsWith(batchBase)) {
-              throw new SriError({status: 400, errors: [{code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.'}]}) 
-            }
-            
-            if (match.queryParams.dryRun === 'true') {
-              throw new SriError({status: 400, errors: [{code: 'dry.run.not.allowed.in.batch', msg: 'The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request.'}]}) 
-            }
-
+            const match = element.match;
 
             const innerSriRequest  = {
               ...sriRequest,

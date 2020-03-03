@@ -204,6 +204,20 @@ const handleRequest = async (sriRequest, func, mapping) => {
 
 const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
   return async function (req, resp, next) {
+    if (isBatchRequest) {
+      // evaluate batch body now to know wether the batch is completetly read-only
+      // and do early error detecion
+      batch.matchBatch(req);
+      const mapReadOnly = (a) => {
+        if ( Array.isArray(a) ) {
+          return a.map(mapReadOnly);
+        } else {
+          return a.match.handler.readOnly;
+        }        
+      }
+      readOnly = _.flatten(req.body.map(mapReadOnly)).every(e => e);
+    }
+
     // if (!isBatchRequest) {
       global.overloadProtection.startPipeline();
     // }
