@@ -685,11 +685,12 @@ exports = module.exports = {
                               const streamDonePromise = pEvent(streamEndEmitter, 'done')
 
                               if (cr.binaryStream) {
-                                const {PassThrough} = require('stream')
-                                stream = new PassThrough()
-                                stream.on('end', () => streamEndEmitter.emit('done'));
-                                stream.pipe(sriRequest.outStream);
-                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
+                                // const {PassThrough} = require('stream')
+                                // stream = new PassThrough()
+                                // stream.on('end', () => streamEndEmitter.emit('done'));
+                                // stream.pipe(sriRequest.outStream);
+                                sriRequest.outStream.on('end', () => streamEndEmitter.emit('done'));
+                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, sriRequest.outStream)
                               } else {
                                 sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
                                 stream = createReadableStream()
