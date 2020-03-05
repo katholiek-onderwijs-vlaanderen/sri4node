@@ -271,8 +271,8 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
           var outStream = new stream.PassThrough();
           sriRequest.inStream = req.pipe(inStream);
           sriRequest.outStream = outStream.pipe(resp);
-          sriRequest.setHeader = resp.set;
-          sriRequest.setStatus = resp.status; 
+          sriRequest.setHeader = ((k, v) => resp.set(k, v));
+          sriRequest.setStatus = ((s) => resp.status(s));
           sriRequest.streamStarted = (() => resp.headersSent);
         }
 
