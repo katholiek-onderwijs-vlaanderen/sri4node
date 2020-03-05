@@ -327,7 +327,6 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly===true) {
           debug('++ Exception catched. Closing database transaction. ++');
-          debug(endTask)
           await endTask();
         } else {
           debug('++ Exception catched. Rolling back database transaction. ++');
