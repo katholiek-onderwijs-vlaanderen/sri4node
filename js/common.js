@@ -18,16 +18,7 @@ const httpContext = require('express-http-context');
 
 
 const pgpInitOptions = {
-    // explicitly set search_path to env parameter for each fresh connection
-    // needed to get heroku shared databases with schemas working
-    connect: (client, dc, isFresh) => {
-        // console.log(`CONNECT (fresh: ${isFresh}`)
-        const cp = client.connectionParameters;
-        if (isFresh && env.postgresSchema) {
-          client.query(`SET search_path TO ${env.postgresSchema},public;`)
-        }
-    },
-
+    schema: process.env.POSTGRES_SCHEMA,
 };
 
     // const monitor = require('pg-monitor');
