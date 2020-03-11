@@ -445,7 +445,7 @@ exports = module.exports = {
         dbR = config.dbR;
         dbW = config.dbW;
       } else {
-        db = await pgConnect(config);
+        const db = await pgConnect(config);
         dbR = db;
         dbW = db;
       }
