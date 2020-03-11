@@ -202,7 +202,7 @@ const handleRequest = async (sriRequest, func, mapping) => {
 
 
 
-const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) => {
+const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly) => {
   return async function (req, resp, next) {
     if (isBatchRequest) {
       // evaluate batch body now to know wether the batch is completetly read-only
@@ -226,23 +226,10 @@ const expressWrapper = (db, func, mapping, streaming, isBatchRequest, readOnly) 
     let t=null, endTask, resolveTx, rejectTx;
     try {    
       if (readOnly === true) {
-        ({t, endTask} = await startTask(db))
+        ({t, endTask} = await startTask(dbR))
       } else {
-        ({tx:t, resolveTx, rejectTx} = await startTransaction(db))
+        ({tx:t, resolveTx, rejectTx} = await startTransaction(dbW))
       }
-
-      // // if it already took too long just too reach this point, we are overloaded
-      // // drop request and signal overload protection
-      // const busy = (Date.now() - req.startTime);
-      // if ( global.overloadProtection !== undefined
-      //      && busy > (global.overloadProtection.maxStartTxTime !== undefined ? global.overloadProtection.maxStartTxTime : 500) ) {
-      //   debug(`*** DROPPING REQ DUE TO DELAY (${busy}) ***`)
-      //   if (global.overloadProtection.retryAfter !== undefined) {
-      //     resp.set('Retry-After', global.overloadProtection.retryAfter);
-      //   }
-      //   resp.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
-      //   global.overloadProtection.addExtraDrops(2);   
-      // } else {
         const reqId = httpContext.get('reqId')
         if (reqId!==undefined) {
           resp.set('vsko-req-id', reqId);
@@ -450,26 +437,32 @@ exports = module.exports = {
 
       global.sri4node_configuration = config // share configuration with other modules
 
-      let db;
+      let dbR, dbW;
       if (config.db !== undefined) {
-        db = config.db;
+        dbR = config.db;
+        dbW = config.db;
+      } else if (config.dbR !== undefined && config.dbW !== undefined) {
+        dbR = config.dbR;
+        dbW = config.dbW;
       } else {
-        db = await pgConnect(config)
+        db = await pgConnect(config);
+        dbR = db;
+        dbW = db;
       }
 
       await pMap(
         config.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
-            await installVersionIncTriggerOnTable(db, tableFromMapping(mapping))
+            await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping))
           }
         }, { concurrency: 1 })
 
-      global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(db, config)
+      global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(dbR, config)
 
 
       if (config.plugins !== undefined) {
-        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, db), {concurrency: 1}  )
+        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, dbW), {concurrency: 1}  )
       }
 
       
@@ -597,8 +590,8 @@ exports = module.exports = {
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
-        app.put(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true, false));
-        app.post(globalBatchPath, expressWrapper(db, batch.batchOperation, null, false, true, false));
+        app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
+        app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
       }
 
       // map with urls which can be called within a batch 
@@ -760,7 +753,7 @@ exports = module.exports = {
         // has no direct added value in case of single request.
         debug(`registering route ${path} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(expressWrapper(db, func, mapping, streaming, isBatch, readOnly), 'func') )
+                                 emt.instrument(expressWrapper(dbR, dbW, func, mapping, streaming, isBatch, readOnly), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch

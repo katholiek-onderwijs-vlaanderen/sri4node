@@ -42,7 +42,7 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * body: body of the request 
  * sriType: type of the matching entry in the sri4node resources config
  * isBatchPart: boolean indicating whether the request being executed is part of a batch
- * db: the global sri4node pg-promise database object. **WARNING:* When using this db object directly to do database operations, each operation requests its own database connection from connection pool. When handling several http requests in parralel, each trying to get extra database connections, this can cause dead-locks! Normally the provided database task/transaction object should be used!
+ * dbT: database task (if the request is read-only) or transaction object (if the request is not read-only), which can be used to access the database.
  * context: an object which can be used for storing information shared between requests of the same batch (by default an empty object)
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
@@ -475,6 +475,14 @@ The declaration of the editor is a reference to a second resource (/person), whi
         });
 
 Many properties of the sri4node config object have defaults and can be omitted. 
+
+There are three ways to configure the database which sri4node uses (in order of priority):
+* Specify an already initiated database object in the sri4node configuration. This way has two variants: 
+    * db: the global sri4node pg-promise database object used for all database work.
+    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW).
+* Specifying the database connection string in the DATABASE_URL environment variable.
+* Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration.
+
 Next step is to pass the sri4node config object to the async sri4node configure function:
 
     await sri4node.configure(app, sriConfig);
