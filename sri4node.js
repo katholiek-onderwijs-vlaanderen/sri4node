@@ -805,7 +805,9 @@ exports = module.exports = {
                             , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest))   
 
         const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
-        return result;
+        // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
+        // in string format instead of Date objects
+        return  JSON.parse( JSON.stringify(result) );
       }
 
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
