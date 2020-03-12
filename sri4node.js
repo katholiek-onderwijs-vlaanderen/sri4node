@@ -250,7 +250,9 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           readOnly: readOnly,   
           SriError: SriError,
           dbT: t,
-          context: {}
+          context: {},
+          logDebug: debug,
+          logError: error
         }
         if (streaming) {
           // use passthrough streams to avoid passing req and resp in sriRequest
@@ -790,7 +792,9 @@ exports = module.exports = {
           protocol: '_internal_',
           isBatchPart: false,
 
-          parentSriRequest: internalReq.parentSriRequest
+          parentSriRequest: internalReq.parentSriRequest,
+          logDebug: debug,
+          logError: error
         }
 
         await hooks.applyHooks('transform internal sriRequest'
