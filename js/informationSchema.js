@@ -39,7 +39,7 @@ exports = module.exports = async function (db, configuration) {
     }
     tableNames = unique(tableNames);
     q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
-      .array(tableNames).sql(')');
+      .array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
     const rows = await pgExec(db, q, true)
     cache = {};
     for (i = 0; i < rows.length; i++) {
