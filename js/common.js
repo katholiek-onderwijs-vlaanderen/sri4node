@@ -210,7 +210,11 @@ exports = module.exports = {
     var databaseUrl = env.databaseUrl;
     var dbUrl, searchPathPara;
     if (databaseUrl && databaseUrl.indexOf('ssl=false') === -1) {
-      pgp.pg.defaults.ssl = true
+      pgp.pg.defaults.ssl = { rejectUnauthorized: false } 
+      // recent pg 8 deprecates implicit disabling of certificate verification 
+      //   and heroku does not provide for their  CA files or certificate for your Heroku Postgres server
+      //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
+      //   ==> need for explicit disabling of rejectUnauthorized
     } else {
       pgp.pg.defaults.ssl = false
     }    
