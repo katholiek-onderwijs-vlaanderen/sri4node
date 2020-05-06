@@ -701,10 +701,12 @@ exports = module.exports = {
                                 sriRequest.inStream.pipe(sriRequest.busBoy);
                               }
 
-                              await streamingHandlerPromise;
-
-                              if (keepAliveTimer !== null) {
-                                clearInterval(keepAliveTimer) 
+                              try {
+                                await streamingHandlerPromise;
+                              } finally {
+                                if (keepAliveTimer !== null) {
+                                  clearInterval(keepAliveTimer) 
+                                }
                               }
 
                               stream.end();
