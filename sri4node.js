@@ -684,9 +684,12 @@ exports = module.exports = {
                                 streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
                               } else {
                                 sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
-                                stream = createReadableStream()
+                                stream = JSONStream.stringify();
+
+                                // stream = createReadableStream()
                                 stream.on('end', () => streamEndEmitter.emit('done'));
-                                jsonArrayStream(stream).pipe(sriRequest.outStream)
+                                // jsonArrayStream(stream).pipe(sriRequest.outStream)
+                                stream.pipe(sriRequest.outStream)
                                 keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
                                 streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
                               }
@@ -699,7 +702,8 @@ exports = module.exports = {
 
                               await streamingHandlerPromise;
                               // push null to stream to signal we are done
-                              stream.push(null);
+                              // stream.push(null);
+                              stream.end();
 
                               // wait until stream is ended                              
                               await streamDonePromise;
