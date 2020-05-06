@@ -470,7 +470,7 @@ exports = module.exports = {
             return err
           } else {      
             exports.error('____________________________ E R R O R (settleResultsToSriResults)_________________________') 
-            exports.error(stringifyError(err))
+            exports.error(exports.stringifyError(err))
             exports.error('STACK:')
             exports.error(err.stack)            
             exports.error('___________________________________________________________________________________________') 
