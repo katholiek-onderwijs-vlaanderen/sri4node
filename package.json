@@ -48,10 +48,10 @@
     "through2": "^2.0.3",
     "toobusy-js": "^0.5.1",
     "ttl-queue": "^1.0.1",
-    "uuid": "3.2.1"
+    "uuid": "3.2.1",
+    "JSONStream": "^1.3.3"
   },
   "devDependencies": {
-    "JSONStream": "^1.3.3",
     "await-sleep": "0.0.1",
     "describe": "^1.2.0",
     "eslint": "4.19.1",
