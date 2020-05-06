@@ -486,34 +486,36 @@ exports = module.exports = {
     return s
   },
 
-  jsonArrayStream: (stream) => {
-    var chunksSent = 0;
-    const set = new Set()
-    return stream.pipe(through2({ objectMode: true }, function (chunk, enc, cb) {
-      if (chunk === '') {
-        // keep-a-live
-        this.push(chunk)
-      } else if (chunk !== undefined) {         
-          if (chunksSent === 0) {
-            this.push(new Buffer("["));
-          }
-          if (chunksSent > 0) {
-            this.push(new Buffer(","));
-          }
+// jsonArrayStream() seems to be broken after node upgrade. It is obsolete anyway, as there are 
+// libraries for this => JSONStream.stringify(). See beveiliging_nodejs code change on 6/5/2020.
+  // jsonArrayStream: (stream) => {
+  //   var chunksSent = 0;
+  //   const set = new Set()
+  //   return stream.pipe(through2({ objectMode: true }, function (chunk, enc, cb) {
+  //     if (chunk === '') {
+  //       // keep-a-live
+  //       this.push(chunk)
+  //     } else if (chunk !== undefined) {         
+  //         if (chunksSent === 0) {
+  //           this.push(new Buffer("["));
+  //         }
+  //         if (chunksSent > 0) {
+  //           this.push(new Buffer(","));
+  //         }
           
-          this.push(JSON.stringify(chunk));
-          chunksSent++;
-      }
-      cb();
-    }, function (cb) {
-      if (chunksSent > 0) {
-        this.push(new Buffer("]"));
-      } else {
-        this.push(new Buffer("[]")); //means nothing sent
-      }
-      cb();
-    }))
-  },
+  //         this.push(JSON.stringify(chunk));
+  //         chunksSent++;
+  //     }
+  //     cb();
+  //   }, function (cb) {
+  //     if (chunksSent > 0) {
+  //       this.push(new Buffer("]"));
+  //     } else {
+  //       this.push(new Buffer("[]")); //means nothing sent
+  //     }
+  //     cb();
+  //   }))
+  // },
 
 
   getPersonFromSriRequest: (sriRequest) => {
