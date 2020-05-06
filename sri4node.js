@@ -702,16 +702,14 @@ exports = module.exports = {
                               }
 
                               await streamingHandlerPromise;
-                              // push null to stream to signal we are done
-                              // stream.push(null);
-                              stream.end();
-
-                              // wait until stream is ended                              
-                              await streamDonePromise;
 
                               if (keepAliveTimer !== null) {
                                 clearInterval(keepAliveTimer) 
                               }
+
+                              stream.end();
+                              // wait until stream is ended
+                              await streamDonePromise;
                             }
                           , customMapping
                           , true
