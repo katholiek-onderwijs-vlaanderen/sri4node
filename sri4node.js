@@ -257,8 +257,8 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
         }
         if (streaming) {
           // use passthrough streams to avoid passing req and resp in sriRequest
-          var inStream = new stream.PassThrough();
-          var outStream = new stream.PassThrough();
+          var inStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
+          var outStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
           sriRequest.inStream = req.pipe(inStream);
           sriRequest.outStream = outStream.pipe(resp);
           sriRequest.setHeader = ((k, v) => resp.set(k, v));
@@ -681,19 +681,16 @@ exports = module.exports = {
 
                               if (cr.binaryStream) {
                                 stream = sriRequest.outStream;
-                                stream.on('end', () => streamEndEmitter.emit('done'));
-                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
+
                               } else {
                                 sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
                                 stream = JSONStream.stringify();
-
-                                // stream = createReadableStream()
-                                stream.on('end', () => streamEndEmitter.emit('done'));
-                                // jsonArrayStream(stream).pipe(sriRequest.outStream)
                                 stream.pipe(sriRequest.outStream)
                                 keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
-                                streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
                               }
+
+                              stream.on('close', () => streamEndEmitter.emit('done'));
+                              streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
 
                               // Wait till busboy handler are in place (can be done in beforeStreamingHandler 
                               // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
@@ -710,6 +707,7 @@ exports = module.exports = {
                               }
 
                               stream.end();
+
                               // wait until stream is ended
                               await streamDonePromise;
                             }
@@ -758,7 +756,7 @@ exports = module.exports = {
       batchHandlerMap.forEach( ([path, verb, func, mapping, streaming, readOnly, isBatch]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        debug(`registering route ${path} - ${readOnly}`)
+        debug(`registering route ${path} - ${verb} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
                                  emt.instrument(expressWrapper(dbR, dbW, func, mapping, streaming, isBatch, readOnly), 'func') )
       })
