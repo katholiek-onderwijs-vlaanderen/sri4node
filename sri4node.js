@@ -192,7 +192,7 @@ const handleRequest = async (sriRequest, func, mapping) => {
       throw result
     }
 
-    if (sriRequest.streamStarted !== undefined && ! sriRequest.streamStarted()) {
+    if (sriRequest.streamStarted === undefined || ! sriRequest.streamStarted()) {
       await hooks.applyHooks('transform response'
                             , mapping.transformResponse
                             , f => f(t, sriRequest, result))          
