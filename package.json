@@ -18,7 +18,7 @@
     "compression": "^1.5.2",
     "express-http-context": "^1.2.3",
     "express-middleware-timer": "^0.2.2",
-    "farmhash": "^3.0.0",
+    "farmhash": "3.0.0",
     "global-configuration": "^0.3.1",
     "ioredis": "4.14.0",
     "jiff": "0.7.3",
