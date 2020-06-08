@@ -180,11 +180,11 @@ const middlewareErrorWrapper = (fun) => {
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
 
-const handleRequest = async (sriRequest, func, mapping) => {
+const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) => {
   const t = sriRequest.dbT;
   let result;
   if (sriRequest.isBatchRequest) {
-    result = await func(sriRequest);
+    result = await func(sriRequest, transformHookWrapper);
   } else {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
     [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
@@ -245,7 +245,6 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           headers: req.headers,
           protocol: req.protocol,
           body: req.body,
-          sriType: mapping.type,
           isBatchPart: false,
           isBatchRequest: isBatchRequest,
           readOnly: readOnly,   
@@ -266,12 +265,19 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           sriRequest.streamStarted = (() => resp.headersSent);
         }
 
-        await hooks.applyHooks('transform request'
-                              , mapping.transformRequest
-                              , f => f(req, sriRequest, t))
+        transformHookWrapper = async (mapping) => {
+            await hooks.applyHooks('transform request'
+                                  , mapping.transformRequest
+                                  , f => f(req, sriRequest, t)) 
+        }
 
+        // As long as we have a global batch (for which we can't determine mapping), we cannot
+        // do the mapping.transformRequest hook for batch here => pass a wrapper.
+        if (!isBatchRequest) {
+          await transformHookWrapper(mapping.transformRequest);
+        }
 
-        const result = await handleRequest(sriRequest, func, mapping);
+        const result = await handleRequest(sriRequest, func, mapping, transformHookWrapper);
 
         const terminateDb = async (error) => {
           if (readOnly===true) {
@@ -775,7 +781,6 @@ exports = module.exports = {
           path: match.path,          
           query: match.queryParams,
           params: match.routeParams,
-          sriType: match.handler.mapping.type,
           isBatchRequest: match.handler.isBatch,
           readOnly: match.handler.readOnly,   
 
@@ -804,7 +809,7 @@ exports = module.exports = {
                             , match.handler.mapping.transformInternalRequest
                             , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest))   
 
-        const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
+        const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping, null);
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
         // in string format instead of Date objects
         return  JSON.parse( JSON.stringify(result) );

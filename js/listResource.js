@@ -266,7 +266,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
 async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   const queryParams = sriRequest.query
-  const type = sriRequest.sriType
+  const type = mapping.type
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;

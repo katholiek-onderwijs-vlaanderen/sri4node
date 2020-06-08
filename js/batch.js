@@ -87,7 +87,7 @@ exports = module.exports = {
     return { handler, path, routeParams, queryParams }
   },
 
-  batchOperation: async (sriRequest) => {
+  batchOperation: async (sriRequest, transformHookWrapper) => {
     'use strict';
     const reqBody = sriRequest.body
     const batchConcurrency = global.overloadProtection.startPipeline(
@@ -118,12 +118,15 @@ exports = module.exports = {
             if (!element.verb) {
               throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]}) 
             }
-
             debug('┌──────────────────────────────────────────────────────────────────────────────')
             debug(`| Executing /batch section ${element.verb} - ${element.href} `)
             debug('└──────────────────────────────────────────────────────────────────────────────')
 
             const match = element.match;
+
+            // As long as we have a global batch (for which we can't determine mapping at the
+            // expressWrapper), we need to execute the wrapped transformRequest hooks here.
+            await transformHookWrapper(match.handler.mapping);
 
             const innerSriRequest  = {
               ...sriRequest,
@@ -133,7 +136,6 @@ exports = module.exports = {
               params: match.routeParams,
               httpMethod: element.verb,
               body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
-              sriType: match.handler.mapping.type,
               isBatchPart: true,
               context: context
             }
