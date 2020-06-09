@@ -131,7 +131,8 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     const addQueryClause = (table, k, orderKeyOp, value) => {
       if (tableInformation[k].type === 'timestamp with time zone') {
         // strip microseconds as we only use milliseconds in sri4node
-        query.sql(` date_trunc('milliseconds', "${table}"."${k}") ${orderKeyOp} `).param(value);
+        // add 0.5 millisecond to get 'round' instead of 'trunc', needed to get similar behavior as toISOString()
+        query.sql(` date_trunc('milliseconds', "${table}"."${k}" + interval '0.5 millisecond') ${orderKeyOp} `).param(value);
       } else {
         query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(value);      
       }
