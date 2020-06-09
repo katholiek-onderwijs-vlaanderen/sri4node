@@ -136,6 +136,7 @@ exports = module.exports = {
               params: match.routeParams,
               httpMethod: element.verb,
               body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
+              sriType: match.handler.mapping.type,
               isBatchPart: true,
               context: context
             }

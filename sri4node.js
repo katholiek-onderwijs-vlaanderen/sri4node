@@ -274,7 +274,8 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
         // As long as we have a global batch (for which we can't determine mapping), we cannot
         // do the mapping.transformRequest hook for batch here => pass a wrapper.
         if (!isBatchRequest) {
-          await transformHookWrapper(mapping.transformRequest);
+          sriRequest.sriType = mapping.type; // the batch code will set sriType for batch elements 
+          await transformHookWrapper(mapping);
         }
 
         const result = await handleRequest(sriRequest, func, mapping, transformHookWrapper);
@@ -468,7 +469,6 @@ exports = module.exports = {
         }, { concurrency: 1 })
 
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(dbR, config)
-
 
       if (config.plugins !== undefined) {
         await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, dbW), {concurrency: 1}  )
@@ -781,6 +781,7 @@ exports = module.exports = {
           path: match.path,          
           query: match.queryParams,
           params: match.routeParams,
+          sriType: match.handler.mapping.type,
           isBatchRequest: match.handler.isBatch,
           readOnly: match.handler.readOnly,   
 
