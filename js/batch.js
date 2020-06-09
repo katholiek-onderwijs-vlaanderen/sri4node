@@ -27,7 +27,6 @@ const maxSubListLen = (a) =>
 exports = module.exports = {
 
   matchBatch: (req) => {
-
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
     const reqBody = req.body
     const batchBase = req.path.split('/batch')[0]
@@ -37,7 +36,7 @@ exports = module.exports = {
                                                  body: reqBody}]})  
     }
 
-    const handleBatch = async (batch) => {  
+    const handleBatch = (batch) => {
         if ( batch.every(element =>  Array.isArray(element)) ) {
           batch.forEach(handleBatch);
         } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
@@ -67,6 +66,10 @@ exports = module.exports = {
   },
 
   matchHref: (href, verb) => {
+    if (!verb) {
+      console.log(`No VERB stated for ${href}.`)
+      throw new SriError({status: 400, errors: [{code: 'no.verb', msg: `No VERB stated for ${href}.`}]})
+    }
     const parsedUrl = url.parse(href, true);
     const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
 

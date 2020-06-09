@@ -205,27 +205,27 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 
 const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly) => {
   return async function (req, resp, next) {
-    if (isBatchRequest) {
-      // evaluate batch body now to know wether the batch is completetly read-only
-      // and do early error detecion
-      batch.matchBatch(req);
-      const mapReadOnly = (a) => {
-        if ( Array.isArray(a) ) {
-          return a.map(mapReadOnly);
-        } else {
-          return a.match.handler.readOnly;
-        }        
-      }
-      readOnly = _.flatten(req.body.map(mapReadOnly)).every(e => e);
-    }
-
-    // if (!isBatchRequest) {
-      global.overloadProtection.startPipeline();
-    // }
-  
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx;
-    try {    
+    try {
+      if (isBatchRequest) {
+        // evaluate batch body now to know wether the batch is completetly read-only
+        // and do early error detecion
+        batch.matchBatch(req);
+        const mapReadOnly = (a) => {
+          if ( Array.isArray(a) ) {
+            return a.map(mapReadOnly);
+          } else {
+            return a.match.handler.readOnly;
+          }
+        }
+        readOnly = _.flatten(req.body.map(mapReadOnly)).every(e => e);
+      }
+
+      // if (!isBatchRequest) {
+        global.overloadProtection.startPipeline();
+      // }
+    
       if (readOnly === true) {
         ({t, endTask} = await startTask(dbR))
       } else {
