@@ -143,17 +143,20 @@ exports = module.exports = function (base, logverbose) {
       });
     });
 
-    describe('that use the database object', function () {
-      it('should return correct results (no side-effects)', async function () {
-        const response1 = await doGet('/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true')
-        // It should return none, we added NOT IN SELECT key FROM temptable
-        // Where temptable was first filled to select all keys
-        assert.equal(response1.$$meta.count, 0);
-        // And do it again to check that it works more than once.
-        const response2 = await doGet('/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true')
-        assert.equal(response2.$$meta.count, 0);
-      });
-    });
+    // test does not work anymore and is not relevant anymore as a list query get a db task 
+    // (instead of db transaction) which cannot be used to write to the database
+  //   describe('that use the database object', function () {
+  //     it('should return correct results (no side-effects)', async function () {
+  //       const response1 = await doGet('/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true')
+  //       // It should return none, we added NOT IN SELECT key FROM temptable
+  //       // Where temptable was first filled to select all keys
+  //       assert.equal(response1.$$meta.count, 0);
+  //       // And do it again to check that it works more than once.
+  //       const response2 = await doGet('/communities?parameterWithExtraQuery=true&parameterWithExtraQuery2=true')
+  //       assert.equal(response2.$$meta.count, 0);
+  //     });
+  //   });
+
   });
 
   describe('escaping', function () {
@@ -216,7 +219,7 @@ exports = module.exports = function (base, logverbose) {
           count = response.$$meta.count
         }
       }
-      await traverse('/alldatatypes?limit=2')
+      await traverse('/alldatatypes?limit=2')     
       assert.equal(hrefsFound.length, _.uniq(hrefsFound).length);
       assert.equal(count, _.uniq(hrefsFound).length);
     });
