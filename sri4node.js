@@ -470,8 +470,28 @@ exports = module.exports = {
 
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(dbR, config)
 
+      global.sri4node_loaded_plugins = new Map();
+
+      global.sri4node_install_plugin = async (plugin) => {
+        const util=require('util');
+        console.log(`Installing plugin ${util.inspect(plugin)}`)
+        // load plugins with a uuid only once; backwards compatible with old system without uuid
+        if ((plugin.uuid !== undefined) && global.sri4node_loaded_plugins.has(plugin.uuid)) {
+          return
+        }
+
+        await plugin.install(global.sri4node_configuration, dbW);
+
+        if (plugin.uuid !== undefined) {
+          debug(`Loaded plugin ${plugin.uuid}.`)
+          global.sri4node_loaded_plugins.set(plugin.uuid, plugin);
+        }
+      }
+
       if (config.plugins !== undefined) {
-        await pMap(config.plugins, async (plugin) => await plugin.install(global.sri4node_configuration, dbW), {concurrency: 1}  )
+        await pMap(config.plugins, async (plugin) => {
+          await global.sri4node_install_plugin(plugin)
+        }, {concurrency: 1} )
       }
 
       
