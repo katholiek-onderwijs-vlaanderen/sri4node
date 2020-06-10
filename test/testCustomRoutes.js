@@ -158,7 +158,7 @@ exports = module.exports = function (base, logdebug) {
         }});
 
       assert.equal(response.statusCode, 200);
-      assert.equal(response.body, '["OK"]');
+      assert.equal(JSON.stringify(JSON.parse(response.body)), JSON.stringify([ 'OK' ]));
     });
 
   });
