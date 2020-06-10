@@ -687,11 +687,11 @@ exports = module.exports = {
 
                               if (cr.binaryStream) {
                                 stream = sriRequest.outStream;
-
                               } else {
                                 sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
-                                stream = JSONStream.stringify();
-                                stream.pipe(sriRequest.outStream)
+                                stream = new require('stream').Readable({objectMode: true});
+                                stream._read = function () {};
+                                stream.pipe(JSONStream.stringify()).pipe(sriRequest.outStream);
                                 keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
                               }
 
@@ -712,7 +712,11 @@ exports = module.exports = {
                                 }
                               }
 
-                              stream.end();
+                              if (cr.binaryStream) {
+                                stream.end();
+                              } else {
+                                stream.push(null)
+                              }
 
                               // wait until stream is ended
                               await streamDonePromise;
