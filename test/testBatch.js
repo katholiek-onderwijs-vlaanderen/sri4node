@@ -372,6 +372,7 @@ exports = module.exports = function (base, logverbose) {
         }, 
         (error) => {
           assert.equal(error.status, 400);
+          assert.equal(error.body.errors[0].code, 'no.verb');
         })
     });    
 
