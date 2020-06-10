@@ -320,25 +320,20 @@ transformInternalRequest(tx, sriRequest, parentSriRequest)
 
 This function is called at creation of each sriRequest created via the 'internal' interface.
 
-
 ## Overload protection
 
-Sri4node contains a protection mechanism for in case of overload. Instead of trying to handle all requests in case of overload and ending with requests receiving a response only after several seconds (or worest case even timing out), some requests are refused with an HTTP 503 (with optional a 'Retry-After' header).
+Sri4node contains a protection mechanism for in case of overload. Instead of trying to handle all requests in case of overload and ending with requests receiving a response only after several seconds (or worest case even timing out), some requests are refused with an HTTP 503 (too many concurrent requests) error.
+
+The mechanism works quite trivial by requiring a 'pipeline' for each requests running in parallel and defining a maximum number of 'pipelines'. As these 'pipelines' are just a virtual concept, they are implemented by a counter. If at the start of a request the pipelinesInUse counter has not reached the maximum, processing of the request starts and the counter is incremented. If the pipelinesInUse counter has reached the maximum, the request is refused with a 503 error. At the end of allowed requests, the counter is decremented. A batch is a special case, as a batch can run multiple operations in paralellel. Therefore, the number of pipelinesInUse is incremented/decreented with the number of batch operations running in parallel.
 
 To enable this mechanism, an `overloadProtection` object needs to be configured in the sri4node configuration with following fields:
 
-* concurrency: mandatory field - the maximum number of requests being processed at the same time (after reaching this treshold, requests are being queued)
-* maxQTime: mandatory field - the maximum number of millisecods requests are allowed to be in the queue (in a lot of cases it makes no sense to keep requests queued for long time); requests being timed out in the queue will get a 503 response
-* maxQLen: mandatory field - the maximum number of request allowed in the queue (after reaching this treshold, requests will get a 503 response)
-* retryAfter: optional field - if present, a 'Retry-After' header is sent whith the 503 responses
+* maxPipelines: mandatory field - the maximum number of requests being processed at the same time; addional requests will be refused with a 503 error
 
 For example: 
 ```
     overloadProtection: {
-        concurrency: 7,
-        maxQTime: 100,
-        maxQLen: 8,
-        retryAfter: 1000
+        maxPipelines: 15
     },
 ```
 
