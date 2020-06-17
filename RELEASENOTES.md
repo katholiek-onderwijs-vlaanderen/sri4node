@@ -2,8 +2,9 @@
 
 ## sprint-223-4 (17-06-2020)
 * fixed streaming issue (streamed JSON reply was not closed correctly), made it work for node 8 and node 12
-* added singleresource regex for resources with string key in isPartOf functionality (needed for samenscholing)
-* added testcases for isPartOf functionality
+* added singleresource regex for resources with string key in isPartOf query (needed for samenscholing)
+* added testcases for isPartOf query
+* added documentation for isPartOf query
 
 ## sprint-223-3 (10-06-2020)
 * Node 12 compatible (with and upgrade of libraries and backward compatible with node 8)
