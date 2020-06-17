@@ -404,14 +404,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
   const typeA = matchUrl(urlA, mapping)
 
   const resultList = await pFilter(sriRequest.body.b.hrefs, async urlB => {
-    let typeB = null;
-    try {
-      typeB = matchUrl(urlB, mapping);
-    } catch (err) {
-      debug(`catched error matching B url ${urlB}:`)
-      debug(err);
-      return false;
-    }
+    const typeB = matchUrl(urlB, mapping);
 
     if (typeB.type === 'single') {
       if (typeA.type === 'single') {

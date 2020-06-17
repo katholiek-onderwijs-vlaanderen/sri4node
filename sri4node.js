@@ -225,7 +225,6 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
       // if (!isBatchRequest) {
         global.overloadProtection.startPipeline();
       // }
-    
       if (readOnly === true) {
         ({t, endTask} = await startTask(dbR))
       } else {
@@ -425,6 +424,8 @@ exports = module.exports = {
             mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})$`);
           } else if (mapping.schema.properties.key.type === schemaUtils.numeric('foo').type) {
             mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9]+)$`);
+          } else if (mapping.schema.properties.key.type === schemaUtils.string('foo').type) {
+            mapping.singleResourceRegex = new RegExp(`^${mapping.type}/(\\w+)$`);
           }  else {
             throw new Error(`Key type of resource ${mapping.type} unknown!`);
           }
@@ -493,8 +494,6 @@ exports = module.exports = {
           await global.sri4node_install_plugin(plugin)
         }, {concurrency: 1} )
       }
-
-      
 
       // set the overload protection as first middleware to drop requests as soon as possible
       global.overloadProtection = require('./js/overloadProtection.js')(config.overloadProtection);
@@ -716,6 +715,10 @@ exports = module.exports = {
                               }
 
                               stream.on('close', () => streamEndEmitter.emit('done'));
+                              // 'end' event listener needed for backwards compability with node 8
+                              //  (on node 12, the 'close' event will do the job)
+                              stream.on('end', () => streamEndEmitter.emit('done'));
+
                               streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
 
                               // Wait till busboy handler are in place (can be done in beforeStreamingHandler 
@@ -736,6 +739,7 @@ exports = module.exports = {
                                 stream.end();
                               } else {
                                 stream.push(null)
+                                stream.destroy();
                               }
 
                               // wait until stream is ended

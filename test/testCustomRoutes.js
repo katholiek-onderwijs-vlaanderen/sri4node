@@ -25,6 +25,7 @@ exports = module.exports = function (base, logdebug) {
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
   const authHdrObjIngrid = { headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') } }
+  const authHdrObjEddy = { headers: { authorization: makeBasicAuthHeader('eddy@email.be', 'pwd') } }
 
   function debug(x) {
     if (logdebug) {
@@ -142,7 +143,7 @@ exports = module.exports = function (base, logdebug) {
     it('streaming file upload (multipart form) with incorrect data should return error', async function () {
       await utils.testForStatusCode(
           async () => {
-            await doPost('/persons/upStream', {}, authHdrObj);
+            await doPost('/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a/upStream', {}, authHdrObj);
           }, 
           (error) => {
             assert.equal(error.status, 400);
@@ -152,13 +153,22 @@ exports = module.exports = function (base, logdebug) {
 
     it('streaming file upload (multipart form) should work', async function () {
 
-      const response = await util.promisify(request.post)(base + '/persons/upStream', {formData: {
+      const response = await util.promisify(request.post)(base + '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a/upStream', {formData: {
           image: fs.createReadStream('test/files/test.jpg'),
           pdf: fs.createReadStream('test/files/test.pdf')
         }});
 
       assert.equal(response.statusCode, 200);
       assert.equal(JSON.stringify(JSON.parse(response.body)), JSON.stringify([ 'OK' ]));
+
+      // Here we have a race condition if we immediatly read the person: as the transaction of the upload
+      // is only commited after finishing the stream, the read start task can start before the commit is
+      // done -> work around with sleep (maybe sri4node should be redesigned, to support streaming request
+      // but sending a non-streaming answer)
+      await sleep(500);
+
+      const p = await doGet('/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a', null, authHdrObjEddy);
+      assert.notEqual(p.picture, null);
     });
 
   });

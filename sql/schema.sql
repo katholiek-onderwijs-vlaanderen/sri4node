@@ -37,6 +37,7 @@ CREATE TABLE "persons" (
   "community" uuid references "communities"(key),
   -- never, daily, weekly, instant
   "mail4elas" text default 'never', -- default : don't spam.
+  "picture" bytea,
   "$$meta.deleted" boolean default false,
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp
@@ -125,6 +126,16 @@ CREATE TABLE "alldatatypes" (
 CREATE TABLE "packages" (
   "key" uuid unique,
   "name" text,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "countries" (
+  "key" text,
+  "name" text,
+  "position" jsonb,
+  "cities" jsonb,
   "$$meta.deleted" boolean default false,
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp

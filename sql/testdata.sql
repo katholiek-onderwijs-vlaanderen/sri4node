@@ -122,5 +122,8 @@ INSERT INTO "cities" (key, "name", "nisCode") VALUES (21001, 'Anderlecht', 21001
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (56001, 'Anderlues', 56001);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (91005, 'Anhée', 91005);
 
-
 UPDATE "cities" SET "$$meta.modified"='2015-11-01', "$$meta.created"='2018-09-20 13:22:32.7814';
+
+INSERT INTO "countries" (key, "name", "position") VALUES ('bd', 'Bangladesh', '{"latitude": 23.684994, "longitude": 90.356331}');
+INSERT INTO "countries" (key, "name", "position") VALUES ('be', 'Belgium', '{"latitude": 50.503887, "longitude": 4.469936}');
+INSERT INTO "countries" (key, "name", "position") VALUES ('bf', 'Burkina Faso', '{"latitude": 12.238333, "longitude": -1.561593}');

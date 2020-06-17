@@ -82,6 +82,7 @@ exports = module.exports = {
         require('./context/personrelations.js')(roa, commonResourceConfig),
         require('./context/cities.js')(roa, commonResourceConfig),
         require('./context/selfreferential.js')(commonResourceConfig),
+        require('./context/countries.js')(roa, commonResourceConfig),
       ],
 
       // temporarily global batch for samenscholing

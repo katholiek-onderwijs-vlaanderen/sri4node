@@ -36,5 +36,13 @@ exports = module.exports = {
   stringify: function (key, e) {
     'use strict';
     e[key] = JSON.stringify(e[key]);
+  },
+
+  base64enc: function (key, e) {
+    'use strict';
+    if (e[key] !== null) {
+      e[key] = e[key].toString('base64');
+    }
   }
+
 };

@@ -84,6 +84,7 @@ describe('Sri4node testing', function () {
   require('./testExpand.js')(base, logdebug);
   require('./testErrorHandling.js')(base, logdebug);
   require('./testCustomRoutes.js')(base, logdebug); 
+  require('./testIsPartOf.js')(base, logdebug);   
   require('./testBatch.js')(base, logdebug);
 
   require('./defaultFilter/testDefaultFilterGreater.js')(base, logdebug);

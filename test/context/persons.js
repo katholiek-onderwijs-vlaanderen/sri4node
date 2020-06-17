@@ -161,6 +161,9 @@ exports = module.exports = function (roa, logverbose, extra) {
       mail4elas: {},
       community: {
         references: '/communities'
+      },
+      picture: {
+        columnToField: [ $m.base64enc ]
       }
     },
     customRoutes: [
@@ -210,9 +213,10 @@ exports = module.exports = function (roa, logverbose, extra) {
           await pEvent(fstream, 'end')
         }
       },
-      { routePostfix: "/upStream"
+      { routePostfix: "/:key/upStream"
       , httpMethods: ['POST']
       , busBoy: true
+      , readOnly: false
       , beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
         // set header + http return code
         }
@@ -255,6 +259,14 @@ exports = module.exports = function (roa, logverbose, extra) {
             }            
           }, {concurrency: 1})
 
+
+          // store jpg attachment as person picture
+          const data = fs.readFileSync('test/files/test.jpg');
+          await tx.none('UPDATE persons SET picture=${data} WHERE key=${key}', {
+                            data: data,
+                            key: sriRequest.params['key']
+                        });
+
           stream.push('OK')
         }        
       },
@@ -284,6 +296,7 @@ exports = module.exports = function (roa, logverbose, extra) {
         },
         balance: $s.numeric('Balance of the person.'),
         community: $s.permalink('/communities', 'Permalink to community.'),
+        picture: $s.string('Picture (base64 encoded)'),
       },
       required: ['firstname', 'lastname', 'street', 'streetnumber', 'zipcode', 'city', 'mail4elas']
     },
