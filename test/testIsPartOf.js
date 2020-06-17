@@ -203,5 +203,23 @@ exports = module.exports = function (base, logdebug) {
       assert.equal(r.length, 2);
     });
 
+    it('list resource - exact match', async function () {
+      const r = await doPost('/messages/isPartOf', {
+                        "a": { "href": "/messages?descriptionRegEx=^Ik.*$" },
+                        "b": { "hrefs": [ "/messages?descriptionRegEx=^Ik.*$" ] }
+                      }, authHdrObj);
+
+      assert.equal(r.length, 1);
+    });
+
+    it('single resource - exact match', async function () {
+      const r = await doPost('/messages/isPartOf', {
+                        "a": { "href": "/messages/ad9ff799-7727-4193-a34a-09f3819c3479" },
+                        "b": { "hrefs": [ "/messages/ad9ff799-7727-4193-a34a-09f3819c3479" ] }
+                      }, authHdrObj);
+
+      assert.equal(r.length, 1);
+    });
+
   });
 };
