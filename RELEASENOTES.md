@@ -1,5 +1,10 @@
 # Release Notes
 
+## sprint-223-4 (17-06-2020)
+* fixed streaming issue (streamed JSON reply was not closed correctly), made it work for node 8 and node 12
+* added singleresource regex for resources with string key in isPartOf functionality (needed for samenscholing)
+* added testcases for isPartOf functionality
+
 ## sprint-223-3 (10-06-2020)
 * Node 12 compatible (with and upgrade of libraries and backward compatible with node 8)
 * 'Internal' requests: to make it possible to do sri4node operations on your own API within the state of the current transaction. (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#internal-requests for more info)
