@@ -337,6 +337,32 @@ For example:
     },
 ```
 
+## isPartOf query
+
+With the isPartOf query one can check if a given raw url A is a subset of the given raw urls in list B. 
+
+The syntax of the query request is POST to `/[resource]/isPartOf` with a JSON body containing an object with 2 fields:
+* `a`: an object with field `href` containing a raw url (can be a single resource or a list url) 
+* `b`: an object with fields `hrefs` containing a list of raw urls (each element in list B can also be a single resource or a list url)
+The reply is a JSON array with all raw urls from list B for which url A is a subset (urls B and A are compared by resolving them to a set of single resources and checking if set A is a subset or equal of set B).
+
+An example request:
+```
+POST /messages/isPartOf
+{ 
+	"a": { "href": "/messages?descriptionRegEx=^Ik.*$"  },
+        "b": { "hrefs": [ "/messages?type=request"
+                        , "/messages?titleRegEx=^Wie.*$"
+			, "/messages"] }
+}
+```
+with an example reply:
+```
+[ "/messages?type=request", "/messages" ] 
+```
+
+Remark: the raw url A and all raw urls in list B needs to be of the same type [resource].
+
 
 ## Other changes and bug fixes
 
