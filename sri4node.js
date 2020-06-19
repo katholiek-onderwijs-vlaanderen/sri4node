@@ -10,9 +10,8 @@ const bodyParser = require('body-parser');
 const express = require('express');
 const route = require('route-parser');
 const pathfinderUI = require('pathfinder-ui')
-const _ = require('lodash')
+const _ = require('lodash');
 const pMap = require('p-map');
-const readAllStream = require('read-all-stream')
 const Busboy = require('busboy');
 const EventEmitter = require('events');
 const pEvent = require('p-event');
@@ -20,19 +19,6 @@ const httpContext = require('express-http-context');
 const shortid = require('shortid');
 const stream = require('stream');
 const JSONStream = require('JSONStream');
-const toobusy = require('node-toobusy');
-
-toobusy.interval(250);
-toobusy.maxLag(25);
-
-toobusy.onLag(function(currentLag) {
-  console.log("Event loop lag detected! Latency: " + currentLag + "ms");
-});
-// Set check interval to a faster value. This will catch more latency spikes
-// but may cause the check to be too sensitive.
-
- 
-
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,

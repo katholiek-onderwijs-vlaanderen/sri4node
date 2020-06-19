@@ -2,7 +2,7 @@ const pMap = require('p-map');
 const pEvent = require('p-event'); 
 const sleep = require('await-sleep');
 const fs = require('fs');
-const streamEqual = require('stream-equal');
+const streamEqual = require('stream-equal').default;
 const util = require('util');
 
 var common = require('../../js/common.js');
@@ -229,14 +229,14 @@ exports = module.exports = function (roa, logverbose, extra) {
                 throw 'Unexpected mimetype! got ' + mimetype
               }
               const fileRead = fs.createReadStream('test/files/test.jpg');
-              const equalPromise = util.promisify(streamEqual)(file, fileRead);
+              const equalPromise = streamEqual(file, fileRead);
               sriRequest.attachmentsRcvd.push({filename, equalPromise})
             } else if (filename === 'test.pdf') {
               if (mimetype !== 'application/pdf') {
                 throw 'Unexpected mimetype! got ' + mimetype
               }
               const fileRead = fs.createReadStream('test/files/test.pdf');
-              const equalPromise = util.promisify(streamEqual)(file, fileRead);
+              const equalPromise = streamEqual(file, fileRead);
               sriRequest.attachmentsRcvd.push({filename, equalPromise})
             } else {
               throw 'Unexpected file received: ' + filename

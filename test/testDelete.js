@@ -3,7 +3,7 @@ const pMap = require('p-map');
 const assert = require('assert');
 const { cl } = require('../js/common.js');
 const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
-const uuid = require('node-uuid');
+const uuid = require('uuid');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';

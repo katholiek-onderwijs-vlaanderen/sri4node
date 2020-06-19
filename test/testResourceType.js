@@ -1,5 +1,5 @@
 var assert = require('assert');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
 
 exports = module.exports = function (base) {

@@ -4,7 +4,7 @@ var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;
 var sriclient = require('@kathondvla/sri-client/node-sri-client');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 
 
 

@@ -7,7 +7,7 @@ const sleep = require('await-sleep');
 const pEvent = require('p-event');
 const JSONStream = require('JSONStream');
 const fs = require('fs');
-const streamEqual = require('stream-equal');
+const streamEqual = require('stream-equal').default;
 const util = require('util');
 
 exports = module.exports = function (base, logdebug) {
@@ -134,7 +134,8 @@ exports = module.exports = function (base, logdebug) {
         assert.equal(response.headers['content-disposition'], 'inline; filename=test.jpg');
       });
 
-      const equal = await util.promisify(streamEqual)(crRead, fileRead);
+      // const equal = await util.promisify(streamEqual)(crRead, fileRead);
+      const equal = await streamEqual(crRead, fileRead);
       assert.equal(equal, true);
     });
 

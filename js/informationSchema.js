@@ -12,8 +12,8 @@ if(type === 'text') {
   // do something.
 }
 */
+const _ = require('lodash');
 
-var unique = require('array-unique');
 var qo = require('./queryObject.js');
 var common = require('./common.js');
 //var cl = common.cl;
@@ -37,7 +37,7 @@ exports = module.exports = async function (db, configuration) {
       tableName = table ? table : type.split('/')[type.split('/').length - 1];
       tableNames.push(tableName);
     }
-    tableNames = unique(tableNames);
+    tableNames = _.uniq(tableNames);
     q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
       .array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
     const rows = await pgExec(db, q, true)

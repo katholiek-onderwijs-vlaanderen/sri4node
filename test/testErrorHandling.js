@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 
 exports = module.exports = function (base) {
   'use strict';

@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 var assert = require('assert');
 var common = require('../js/common.js');
 var cl = common.cl;

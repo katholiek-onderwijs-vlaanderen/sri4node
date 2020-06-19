@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
 const _ = require('lodash');
-const uuid = require('node-uuid');
+const uuid = require('uuid');
 
 exports = module.exports = function (base) {
   'use strict';
