@@ -172,6 +172,14 @@ exports = module.exports = function (roa, logverbose, extra) {
       , handler:  simpleOutput
       , beforeHandler: disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')  // Ingrid Ohno
       },
+      { routePostfix: '/:key/simple_slow'
+      , httpMethods: ['GET']
+      , handler:   async (tx, sriRequest, customMapping) => {
+            await sleep(2000);
+            return simpleOutput(tx, sriRequest, customMapping)
+        }
+      , beforeHandler: disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')  // Ingrid Ohno
+      },
       { like: "/:key"
       , routePostfix: "/simpleLike"
       , httpMethods: ['GET']

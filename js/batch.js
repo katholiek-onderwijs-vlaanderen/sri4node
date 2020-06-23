@@ -2,6 +2,11 @@ const _ = require('lodash')
 const pMap = require('p-map');
 const pEachSeries = require('p-each-series');
 const url = require('url');
+const stream = require('stream');
+const JSONStream = require('JSONStream');
+const EventEmitter = require('events');
+const pEvent = require('p-event');
+const httpContext = require('express-http-context');
 
 const { debug, cl, SriError, startTransaction, typeToConfig, stringifyError, settleResultsToSriResults } = require('./common.js');
 const listResource = require('./listResource.js')
@@ -181,6 +186,127 @@ exports = module.exports = {
 
       return { status: status, body: batchResults }    
     } finally {
+      global.overloadProtection.endPipeline(batchConcurrency);
+    }
+  },
+
+  batchOperationStreaming: async (sriRequest, transformHookWrapper) => {
+    'use strict';
+    let keepAliveTimer = null;
+    const stream = null;
+    const reqBody = sriRequest.body
+    const batchConcurrency = global.overloadProtection.startPipeline(
+                                Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
+    try {
+      const context = {};
+
+      const handleBatch = async (batch, tx) => {
+        if ( batch.every(element =>  Array.isArray(element)) ) {
+          debug('┌──────────────────────────────────────────────────────────────────────────────')
+          debug(`| Handling batch list`)
+          debug('└──────────────────────────────────────────────────────────────────────────────')
+          return await pMap( batch
+                           , async element => {
+                                const result = await handleBatch(element, tx)
+                                return result;
+                             }
+                           , {concurrency: 1}
+                           )
+        } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
+          const batchJobs = await pMap(batch, async element => {
+            if (!element.verb) {
+              throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]})
+            }
+            debug('┌──────────────────────────────────────────────────────────────────────────────')
+            debug(`| Executing /batch section ${element.verb} - ${element.href} `)
+            debug('└──────────────────────────────────────────────────────────────────────────────')
+
+            const match = element.match;
+
+            // As long as we have a global batch (for which we can't determine mapping at the
+            // expressWrapper), we need to execute the wrapped transformRequest hooks here.
+            await transformHookWrapper(match.handler.mapping);
+
+            const innerSriRequest  = {
+              ...sriRequest,
+              path: match.path,
+              originalUrl: element.href,
+              query: match.queryParams,
+              params: match.routeParams,
+              httpMethod: element.verb,
+              body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
+              sriType: match.handler.mapping.type,
+              isBatchPart: true,
+              context: context
+            }
+
+            return [ match.handler.func, [tx, innerSriRequest, match.handler.mapping] ]
+          }, {concurrency: 1})
+
+          const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: batchConcurrency} ))
+
+          await pEachSeries( results
+                       , async (res, idx) => {
+                            const [ _phaseSyncer, _tx, innerSriRequest, mapping ] = batchJobs[idx][1]
+                            if (! (res instanceof SriError)) {
+                              await hooks.applyHooks('transform response'
+                                                    , mapping.transformResponse
+                                                    , f => f(tx, innerSriRequest, res))
+                            }
+                         } )
+          return results.map( (res, idx) => {
+                              const [ _phaseSyncer, _tx, innerSriRequest, _mapping ] = batchJobs[idx][1]
+                              res.href = innerSriRequest.originalUrl
+                              res.verb = innerSriRequest.httpMethod
+                              stream.push(res);
+                              return res.status;
+                            })
+        } else {
+          throw new SriError({status: 400, errors: [{code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.'}]})
+        }
+      }
+
+      const reqId = httpContext.get('reqId');
+      if (reqId!==undefined) {
+        sriRequest.setHeader('vsko-req-id', reqId)
+      }
+      sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
+      const stream = new require('stream').Readable({objectMode: true});
+      stream._read = function () {};
+      stream.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, {end: false});
+      keepAliveTimer = setInterval(() => { sriRequest.outStream.push('') }, 20000)
+
+      const streamEndEmitter = new EventEmitter()
+      const streamDonePromise = pEvent(streamEndEmitter, 'done')
+
+      stream.on('end', () => streamEndEmitter.emit('done'));
+
+      sriRequest.outStream.write('{')
+      sriRequest.outStream.write('"results":')
+
+      const batchResults = _.flatten(await handleBatch(reqBody, sriRequest.dbT))
+
+      // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside
+      // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the
+      // server MUST respond with 403 Forbidden.
+      const status = batchResults.some( e => (e === 403) )
+                          ? 403
+                          : Math.max(200, ...batchResults)
+
+      // signal end to JSON stream
+      stream.push(null)
+      stream.destroy();
+
+      // wait until JSON stream is ended
+      await streamDonePromise;
+
+      sriRequest.outStream.write(`, "status": ${status}`);
+      sriRequest.outStream.write('}');
+      sriRequest.outStream.end();
+    } finally {
+      if (keepAliveTimer !== null) {
+        clearInterval(keepAliveTimer)
+      }
       global.overloadProtection.endPipeline(batchConcurrency);
     }
   }

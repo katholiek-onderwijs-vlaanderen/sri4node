@@ -317,6 +317,11 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
       }
 
       if (resp.headersSent) {
+        error('____________________________ E R R O R (expressWrapper)____________________________________')
+        error(err)
+        error('STACK:')
+        error(err.stack)
+        error('___________________________________________________________________________________________')
         error('NEED TO DESTROY STREAMING REQ')
         // TODO: HTTP trailer
         // next(err)
@@ -606,6 +611,9 @@ exports = module.exports = {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
         app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
         app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
+
+        app.put(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, null, true, true, false));
+        app.post(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, null, true, true, false));
       }
 
       // map with urls which can be called within a batch 
@@ -625,6 +633,8 @@ exports = module.exports = {
         const batchRoutes = 
           [ [ mapping.type + '/batch', 'PUT', batch.batchOperation, mapping, false, false, true]
           , [ mapping.type + '/batch', 'POST', batch.batchOperation, mapping, false, false, true]
+          , [ mapping.type + '/batch_streaming', 'PUT', batch.batchOperationStreaming, mapping, true, false, true]
+          , [ mapping.type + '/batch_streaming', 'POST', batch.batchOperationStreaming, mapping, true, false, true]
           ]
 
 // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
