@@ -302,11 +302,11 @@ exports = module.exports = {
 
       sriRequest.outStream.write(`, "status": ${status}`);
       sriRequest.outStream.write('}');
-      sriRequest.outStream.end();
     } finally {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer)
       }
+      sriRequest.outStream.end();
       global.overloadProtection.endPipeline(batchConcurrency);
     }
   }
