@@ -274,7 +274,7 @@ exports = module.exports = {
       const stream = new require('stream').Readable({objectMode: true});
       stream._read = function () {};
       stream.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, {end: false});
-      keepAliveTimer = setInterval(() => { sriRequest.outStream.push('') }, 20000)
+      keepAliveTimer = setInterval(() => { sriRequest.outStream.write('') }, 15000)
 
       const streamEndEmitter = new EventEmitter()
       const streamDonePromise = pEvent(streamEndEmitter, 'done')
