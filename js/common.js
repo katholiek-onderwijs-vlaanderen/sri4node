@@ -33,6 +33,19 @@ const pgp = require('pg-promise')(pgpInitOptions);
 // to a JS Date object to indicate UTC.
 pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
 
+pgp.pg.types.setTypeParser(1184, s => {
+    const match = s.match(/\.\d\d\d(\d{0,3})\+/);
+    let microseconds = '';
+    if (match !== null) {
+      microseconds = match[1];
+    }
+
+    const isoWithoutMicroseconds = (new Date(s)).toISOString();
+    const isoWithMicroseconds = isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1)
+                                    + microseconds + 'Z';
+    return isoWithMicroseconds;
+  });
+
 pgp.pg.defaults.poolSize = 15;
 pgp.pg.defaults.idleTimeoutMillis = 1000;
 
