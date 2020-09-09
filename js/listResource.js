@@ -129,13 +129,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     const tableInformation = global.sri4node_configuration.informationSchema['/' + table]; 
 
     const addQueryClause = (table, k, orderKeyOp, value) => {
-      if (tableInformation[k].type === 'timestamp with time zone') {
-        // strip microseconds as we only use milliseconds in sri4node
-        // add 0.5 millisecond to get 'round' instead of 'trunc', needed to get similar behavior as toISOString()
-        query.sql(` date_trunc('milliseconds', "${table}"."${k}" + interval '0.5 millisecond') ${orderKeyOp} `).param(value);
-      } else {
-        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(value);      
-      }
+        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(value);
     }
 
     orderKeys.forEach( (k, idx) => {
@@ -199,6 +193,9 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   const originalUrl = sriRequest.originalUrl
   const queryParams = sriRequest.query
 
+  const table = tableFromMapping(mapping);
+  const tableInformation = global.sri4node_configuration.informationSchema['/' + table];
+
   // const elements = [];
   rows.forEach( (currentrow) => {
     const element = {
@@ -254,8 +251,14 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
 
   if (results.length === parseInt(queryLimit) && results.length > 0) {  
     let lastElement = queryParams.expand && queryParams.expand.toLowerCase() === 'none' ? rows[queryLimit-1] : results[queryLimit-1]['$$expanded'];
-    const keyOffset = orderKeys.map( k => _.get(lastElement, k) )
-                               .map( o => (o instanceof Date) ? encodeURIComponent(o.toISOString()) : o.toString() )
+    const keyOffset = orderKeys.map( k => {
+                                      const o =_.get(lastElement, k);
+                                      if (tableInformation[k].type === 'timestamp with time zone') {
+                                        return encodeURIComponent(o);
+                                      } else {
+                                        return o.toString();
+                                      }
+                                   })
                                .join(',')
     output.$$meta.next = addOrReplaceParameter(originalUrl, 'keyOffset', keyOffset)
   }
