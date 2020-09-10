@@ -1,5 +1,10 @@
 # Release Notes
 
+## sprint-227-0 (09-09-2020)
+* added a streaming variant of batch to be able to deal with huge batches without Heroku closing the connection after 30 seconds of idle time (/batch_streaming)
+* bugfix on how timestamps with timezone are treated: postgress stores them with microseconds precision. sri4node used to round these timestamps to milliseconds precision which in some cases caused issues. Now the full timestamp is used for keyOffset and in the JSON output.
+* removed obsolete deps and updated remaining deps
+
 ## sprint-223-4 (17-06-2020)
 * fixed streaming issue (streamed JSON reply was not closed correctly), made it work for node 8 and node 12
 * isPartOf query
