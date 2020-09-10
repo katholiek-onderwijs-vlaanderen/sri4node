@@ -10,37 +10,11 @@ const env = require('./env.js');
 const { Readable } = require('stream')
 const httpContext = require('express-http-context');
 
-const pgpInitOptions = {
-    schema: process.env.POSTGRES_SCHEMA,
-};
 
 // const monitor = require('pg-monitor');
 // monitor.attach(pgpInitOptions);
 
-const pgp = require('pg-promise')(pgpInitOptions);
-
-// The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
-//   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
-// In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
-// override the pg handler for type 'timestamp without time zone' with one that appends a 'Z' before conversion
-// to a JS Date object to indicate UTC.
-pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
-
-pgp.pg.types.setTypeParser(1184, s => {
-    const match = s.match(/\.\d\d\d(\d{0,3})\+/);
-    let microseconds = '';
-    if (match !== null) {
-      microseconds = match[1];
-    }
-
-    const isoWithoutMicroseconds = (new Date(s)).toISOString();
-    const isoWithMicroseconds = isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1)
-                                    + microseconds + 'Z';
-    return isoWithMicroseconds;
-  });
-
-pgp.pg.defaults.poolSize = 15;
-pgp.pg.defaults.idleTimeoutMillis = 1000;
+let pgp = null; // will be initialized at pgConnect
 
 exports = module.exports = {
   cl: function (x) {
@@ -209,6 +183,42 @@ exports = module.exports = {
 
   pgConnect: async function (configuration) {
     'use strict';
+
+    const pgpInitOptions = {
+        schema: process.env.POSTGRES_SCHEMA,
+        connect: (client, dc, isFresh) => {
+            const cp = client.connectionParameters;
+            if (isFresh && global.sri4node_configuration.dbConnectionInitSql) {
+              client.query(global.sri4node_configuration.dbConnectionInitSql);
+            }
+        },
+    };
+    pgp = require('pg-promise')(pgpInitOptions);
+
+    // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
+    //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
+    // In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
+    // override the pg handler for type 'timestamp without time zone' with one that appends a 'Z' before conversion
+    // to a JS Date object to indicate UTC.
+    pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
+
+    pgp.pg.types.setTypeParser(1184, s => {
+        const match = s.match(/\.\d\d\d(\d{0,3})\+/);
+        let microseconds = '';
+        if (match !== null) {
+          microseconds = match[1];
+        }
+
+        const isoWithoutMicroseconds = (new Date(s)).toISOString();
+        const isoWithMicroseconds = isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1)
+                                        + microseconds + 'Z';
+        return isoWithMicroseconds;
+      });
+
+    pgp.pg.defaults.poolSize = 15;
+    pgp.pg.defaults.idleTimeoutMillis = 1000;
+
+
     var cl = exports.cl;
 
     // ssl=true is required for heruko.com
