@@ -353,6 +353,8 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
                                 )
                         )  
 
+  await phaseSyncer.phase()
+
   debug('* executing expansion : ' + queryParams.expand);
   await expand.executeExpansion(tx, sriRequest, output.results, mapping);
 

@@ -173,7 +173,7 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
     result = await func(sriRequest, transformHookWrapper);
   } else {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
-    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs))  
+    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: mapping.beforePhase }))
     if (result instanceof SriError) {
       throw result
     }
@@ -363,7 +363,7 @@ exports = module.exports = {
       config.resources.forEach( (resource) => {
           // initialize undefined hooks in all resources with empty list
           [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
-            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformInternalRequest', 'transformResponse', 'customRoutes'  ]
+            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformInternalRequest', 'transformResponse', 'customRoutes', 'beforePhase' ]
               .forEach((name) => { 
                   if (resource[name] === undefined) { 
                     resource[name] = [] 

@@ -4,6 +4,7 @@ const pEvent = require('p-event');
 const uuidv1 = require('uuid/v1');
 const EventEmitter = require('events');
 const { debug, SriError } = require('./common.js');
+const hooks = require('./hooks.js');
 
 debug_log = (id, msg) => {
 	debug(`PS -${id}- ${msg}`)
@@ -18,7 +19,6 @@ PhaseSyncer = class {
 		this.jobEmitter = new EventEmitter()
 		this.sriRequest = args[1];
 		args.unshift(this)
-
 
 		const jobWrapperFun = async () => {
 			try {
@@ -46,27 +46,32 @@ PhaseSyncer = class {
     	}  	   	
   		this.phaseCntr += 1    	
 
-    	const status = await promise
-    	if (status === 'failed') {
-    		throw new SriError({status: 202, errors: [{code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.'}]})
+    	const result = await promise;
+    	if (result instanceof SriError) {
+    		throw result;
     	}
   	}  
 }
 
 
 const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)]
-exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
-
+exports = module.exports = async (jobList, {maxNrConcurrentJobs = 1, beforePhaseHooks} = {}) => {
 	const ctrlEmitter = new EventEmitter()
 	const jobMap = new Map(jobList.map( ([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter) )
 							      .map( phaseSyncer => [ phaseSyncer.id, phaseSyncer ] ))
 	const pendingJobs = new Set(jobMap.keys())
+	const sriRequestMap = new Map(Array.from( jobMap ).map( ([ id, phaseSyncer ]) =>
+														 [ id, phaseSyncer.sriRequest ] ));
 
 	let queuedJobs;
 	let phasePendingJobs;
 
 
-	const startNewPhase = () => {
+	const startNewPhase = async () => {
+	    await hooks.applyHooks('phaseSyncer - before new phase'
+	                          , beforePhaseHooks
+	                          , f => f(sriRequestMap, jobMap, pendingJobs));
+
 		const pendingJobList = [...pendingJobs.values()];
 		const [ jobsToWake, jobsToQueue ] = splitListAt(pendingJobList, maxNrConcurrentJobs);
 
@@ -83,20 +88,20 @@ exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
 		}
 	}
 
-	ctrlEmitter.on('stepDone', listener = function (id, stepnr) {
+	ctrlEmitter.on('stepDone', listener = async function (id, stepnr) {
 		debug_log(id,`*step ${stepnr}* done.`)
 		phasePendingJobs.delete(id)
 
 		if (phasePendingJobs.size === 0) {
 			debug_log(id,` Starting new phase.`)
-			startNewPhase()
+			await startNewPhase()
 		} else {
 			debug_log(id,` Starting queued job.`)
 			startQueuedJob()
 		}
 	});
 
-	ctrlEmitter.on('jobDone', listener = function (id) {
+	ctrlEmitter.on('jobDone', listener = async function (id) {
 		debug_log(id, `*JOB* done.`)
 
 		pendingJobs.delete(id)
@@ -104,7 +109,7 @@ exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
 		phasePendingJobs.delete(id)
 
 		if (phasePendingJobs.size === 0) {
-			startNewPhase()
+			await startNewPhase()
 		} else {
 			startQueuedJob()
 		}
@@ -112,18 +117,24 @@ exports = module.exports = (jobList, {maxNrConcurrentJobs = 1} = {}) => {
 
 	ctrlEmitter.on('jobFailed', listener = function (id) {
 		debug_log(id, `*JOB* failed.`)
-
-		pendingJobs.delete(id)
-		queuedJobs.delete(id)
-		phasePendingJobs.delete(id)
+		try {
+			pendingJobs.delete(id)
+			queuedJobs.delete(id)
+			phasePendingJobs.delete(id)
+		} catch (err) {
+			console.log('WARNING:')
+			console.log(err)
+		}
 
 		// failure of one job in batch leads to failure of the complete batch
 		//  --> notify the other jobs of the failure
-		pendingJobs.forEach( id => jobMap.get(id).jobEmitter.emit('ready', 'failed') )
+		pendingJobs.forEach( id => jobMap.get(id).jobEmitter.emit(
+			'ready',
+			new SriError({status: 202, errors: [{code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.'}]})) );
 	});
 
 
-	startNewPhase()
+	await startNewPhase();
 
 	return pSettle( [...jobMap.values()].map( phaseSyncer => phaseSyncer.jobPromise ) )
 }

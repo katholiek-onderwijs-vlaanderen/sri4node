@@ -90,6 +90,9 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                                                   , incoming: null
                                                   , stored: element }] )
                         )
+
+  await phaseSyncer.phase()
+
   return { status: 200, body: element }
 }
 
@@ -246,6 +249,9 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       await hooks.applyHooks('after insert'
                             , mapping.afterInsert
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}]))
+
+      await phaseSyncer.phase()
+
       return { status: 201 }
     } else {
       debug('No row affected ?!');
@@ -287,6 +293,9 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       await hooks.applyHooks('after update'
                             , mapping.afterUpdate
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
+
+      await phaseSyncer.phase()
+
       return { status: 200 }
     } else {
       debug('No row affected - resource is gone');
@@ -372,6 +381,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                             , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}]))
     }
   }
+  await phaseSyncer.phase();
   return { status: 200 }
 }
 
