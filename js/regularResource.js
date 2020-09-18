@@ -183,7 +183,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
   const table = tableFromMapping(mapping);
 
   debug('PUT processing starting. Request object :');
-  debug(obj);
+  debug(JSON.stringify(obj));
   debug('Key received on URL : ' + key);
 
   if (obj.key !== undefined && obj.key.toString() !== key) {
@@ -261,18 +261,18 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     // update existing element
     const prevObj = result.object
 
+    await hooks.applyHooks('before update'
+                          , mapping.beforeUpdate
+                          , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
+
+    await phaseSyncer.phase()
+
     // If new resource is the same as the one in the database => don't update the resource. Otherwise meta
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
     if (isEqualSriObject(prevObj, obj, mapping)) {
       debug('Putted resource does NOT contain changes -> ignore PUT.');
       return { status: 200 }
     }
-
-    await hooks.applyHooks('before update'
-                          , mapping.beforeUpdate
-                          , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
-
-    await phaseSyncer.phase()
     
     const updateRow = transformObjectToRow(obj, mapping, false)
 

@@ -173,7 +173,8 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
     result = await func(sriRequest, transformHookWrapper);
   } else {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
-    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: mapping.beforePhase }))
+
+    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }));
     if (result instanceof SriError) {
       throw result
     }
@@ -354,6 +355,20 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
 
 
 
+const toArray = (resource, name) => {
+  // makes the property <name> of object <resource> an array
+  if (resource[name] === undefined) {
+    resource[name] = []
+  } else if (resource[name] === null) {
+    console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
+    resource[name] = []
+  } else if (!Array.isArray(resource[name])) {
+    resource[name] = [ resource[name] ]
+  }
+}
+
+
+
 /* express.js application, configuration for roa4node */
 exports = module.exports = {
   configure: async function (app, config) {
@@ -363,24 +378,18 @@ exports = module.exports = {
       config.resources.forEach( (resource) => {
           // initialize undefined hooks in all resources with empty list
           [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
-            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformInternalRequest', 'transformResponse', 'customRoutes', 'beforePhase' ]
-              .forEach((name) => { 
-                  if (resource[name] === undefined) { 
-                    resource[name] = [] 
-                  } else if (resource[name] === null) {
-                    console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
-                    resource[name] = []
-                  } else if (!Array.isArray(resource[name])) {
-                    resource[name] = [ resource[name] ]
-                  } 
-              })
-
+            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformInternalRequest', 'transformResponse', 'customRoutes' ]
+              .forEach((name) => toArray(resource, name))
           // for backwards compability set listResultDefaultIncludeCount default to true
           if (resource.listResultDefaultIncludeCount === undefined) { 
             resource.listResultDefaultIncludeCount = true
           }
         }
       )
+
+      // initialize undefined global hooks with empty list
+      toArray(config, 'beforePhase');
+
       if (config.bodyParserLimit === undefined) {
         config.bodyParserLimit = '5mb'
       }
