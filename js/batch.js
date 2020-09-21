@@ -246,7 +246,8 @@ exports = module.exports = {
             return [ match.handler.func, [tx, innerSriRequest, match.handler.mapping] ]
           }, {concurrency: 1})
 
-          const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, {concurrency: batchConcurrency} ))
+          const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, { concurrency: batchConcurrency
+                                                                                        , beforePhaseHooks: global.sri4node_configuration.beforePhase }))
 
           await pEachSeries( results
                        , async (res, idx) => {
