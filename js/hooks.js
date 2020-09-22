@@ -9,9 +9,11 @@ exports = module.exports = {
 
     if (functions && functions.length > 0) {
       try {
+        const startTime = Date.now();
         debug(`${functions.length} functions`);
         await pMap(functions, applyFun, {concurrency: 1})
-        debug(`All ${type} functions resolved.`);
+        const duration = Date.now() - startTime;
+        debug(`All ${type} functions resolved (took ${duration}ms).`);
       } catch(err) {
         if (err instanceof SriError) {
           throw err
