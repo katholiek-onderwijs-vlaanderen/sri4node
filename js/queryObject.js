@@ -99,7 +99,10 @@ exports = module.exports = {
             this.text = 'WITH RECURSIVE ' + tablename + ' AS (' + nonrecursivequery.text + ') /*LASTCTE*/ ' + this.text;
           } else {
             cte = ', ' + tablename + ' AS (' + nonrecursivequery.text + ') /*LASTCTE*/ ';
-            this.text = this.text.replace('/*LASTCTE*/', cte);
+            // Do not use text.replace() as this function special uses replacement patterns which can interfere with
+            // our $$meta fields.
+            // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
+            this.text = this.text.split('/*LASTCTE*/').join(cte);
           }
           this.params = nonrecursivequery.params.concat(this.params);
         } else
@@ -114,7 +117,10 @@ exports = module.exports = {
             } else {
               cte = ', ' + virtualtablename +
                   ' AS (' + nonrecursivequery.text + ' ' + unionclause + ' ' + recursivequery.text + ') /*LASTCTE*/ ';
-              this.text = this.text.replace('/*LASTCTE*/', cte);
+              // Do not use text.replace() as this function special uses replacement patterns which can interfere with
+              // our $$meta fields.
+              // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
+              this.text = this.text.split('/*LASTCTE*/').join(cte);
             }
             this.params = nonrecursivequery.params.concat(this.params);
             this.params = recursivequery.params.concat(this.params);
