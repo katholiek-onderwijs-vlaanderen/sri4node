@@ -91,7 +91,7 @@ exports = module.exports = {
       },
       with: function (nonrecursivequery, unionclause, recursivequery, virtualtablename) {
         // Form : select.with(nonrecursiveterm,virtualtablename)
-        var tablename, cte;
+        var tablename, cte, countParamsInCurrentCtes = 0;
 
         if (nonrecursivequery && unionclause && !recursivequery && !virtualtablename) {
           tablename = unionclause;
@@ -102,9 +102,11 @@ exports = module.exports = {
             // Do not use text.replace() as this function special uses replacement patterns which can interfere with
             // our $$meta fields.
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
-            this.text = this.text.split('/*LASTCTE*/').join(cte);
+            const textSplitted = this.text.split('/*LASTCTE*/');
+            countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
+            this.text = textSplitted.join(cte);
           }
-          this.params = nonrecursivequery.params.concat(this.params);
+          this.params.splice(countParamsInCurrentCtes, 0, ...nonrecursivequery.params);
         } else
         // Format : select.with(nonrecursiveterm, 'UNION' or 'UNION ALL', recursiveterm, virtualtablename)
         if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
@@ -120,10 +122,11 @@ exports = module.exports = {
               // Do not use text.replace() as this function special uses replacement patterns which can interfere with
               // our $$meta fields.
               // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
-              this.text = this.text.split('/*LASTCTE*/').join(cte);
+              const textSplitted = this.text.split('/*LASTCTE*/');
+              countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
+              this.text = textSplitted.join(cte);
             }
-            this.params = nonrecursivequery.params.concat(this.params);
-            this.params = recursivequery.params.concat(this.params);
+            this.params.splice(countParamsInCurrentCtes, 0, ...nonrecursivequery.params.concat(recursivequery.params));
           } else {
             throw new Error('Must use UNION or UNION ALL as union-clause');
           }
