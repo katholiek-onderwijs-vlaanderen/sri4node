@@ -325,11 +325,19 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           debug('++ Exception catched. Closing database transaction. ++');
           if (typeof endTask == 'function') {
             await endTask();
+          } else {
+            error('!!! endTask is not a function !!!')
+            error(endTask);
+            error(typeof endTask);
           }
         } else {
           debug('++ Exception catched. Rolling back database transaction. ++');
           if (typeof rejectTx == 'function') {
             await rejectTx();
+          } else {
+            error('!!! rejectTx is not a function !!!')
+            error(rejectTx);
+            error(typeof rejectTx);            
           }
         }
       }
