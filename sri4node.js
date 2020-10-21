@@ -203,7 +203,7 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 
 
 
-const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly) => {
+const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx;
@@ -220,6 +220,8 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           }
         }
         readOnly = _.flatten(req.body.map(mapReadOnly)).every(e => e);
+      } else {
+        readOnly = readOnly0;
       }
 
       // if (!isBatchRequest) {
@@ -279,7 +281,7 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
 
         const result = await handleRequest(sriRequest, func, mapping, transformHookWrapper);
 
-        const terminateDb = async (error) => {
+        const terminateDb = async (error, readOnly) => {
           if (readOnly===true) {
             debug('++ Processing went OK. Closing database task. ++');
             await endTask()     
@@ -304,12 +306,12 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
         }
 
         if (resp.headersSent) {
-          await terminateDb(false);
+          await terminateDb(false, readOnly);
         } else {
           if (result.status < 300) {
-            await terminateDb(false);
+            await terminateDb(false, readOnly);
           } else {
-            await terminateDb(true);  
+            await terminateDb(true, readOnly);
           }
 
           if (result.headers) {
@@ -322,7 +324,7 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly===true) {
-          debug('++ Exception catched. Closing database transaction. ++');
+          debug('++ Exception catched. Closing database task. ++');
           if (typeof endTask == 'function') {
             await endTask();
           } else {
