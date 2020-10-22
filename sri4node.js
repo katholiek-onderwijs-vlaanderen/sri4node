@@ -268,7 +268,7 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
 
         const result = await handleRequest(sriRequest, func, mapping, transformHookWrapper);
 
-        const terminateDb = async (error) => {
+        const terminateDb = async (error, readOnly) => {
           if (readOnly===true) {
             debug('++ Processing went OK. Closing database task. ++');
             await endTask()     
@@ -293,12 +293,12 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
         }
 
         if (resp.headersSent) {
-          await terminateDb(false);
+          await terminateDb(false, readOnly);
         } else {
           if (result.status < 300) {
-            await terminateDb(false);
+            await terminateDb(false, readOnly);
           } else {
-            await terminateDb(true);  
+            await terminateDb(true, readOnly);
           }
 
           if (result.headers) {
@@ -311,7 +311,7 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly===true) {
-          debug('++ Exception catched. Closing database transaction. ++');
+          debug('++ Exception catched. Closing database task. ++');
           await endTask();
         } else {
           debug('++ Exception catched. Rolling back database transaction. ++');
