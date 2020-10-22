@@ -190,10 +190,10 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 
 
 
-const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly) => {
+const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     debug('expressWrapper starts processing ' + req.originalUrl);
-    let t=null, endTask, resolveTx, rejectTx;
+    let t=null, endTask, resolveTx, rejectTx, readOnly;
     try {
       if (isBatchRequest) {
         // evaluate batch body now to know wether the batch is completetly read-only
@@ -207,6 +207,8 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
           }
         }
         readOnly = _.flatten(req.body.map(mapReadOnly)).every(e => e);
+      } else {
+        readOnly = readOnly0
       }
 
       // if (!isBatchRequest) {
