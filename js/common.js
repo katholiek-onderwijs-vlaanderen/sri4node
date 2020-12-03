@@ -10,10 +10,6 @@ const env = require('./env.js');
 const { Readable } = require('stream')
 const httpContext = require('express-http-context');
 
-
-// const monitor = require('pg-monitor');
-// monitor.attach(pgpInitOptions);
-
 let pgp = null; // will be initialized at pgConnect
 
 exports = module.exports = {
@@ -181,19 +177,17 @@ exports = module.exports = {
   },
 
 
-  pgConnect: async function (configuration) {
-    'use strict';
-
+  pgInit: async function (pgpInitOptionsIn = {}) {
     const pgpInitOptions = {
         schema: process.env.POSTGRES_SCHEMA,
-        connect: (client, dc, isFresh) => {
-            const cp = client.connectionParameters;
-            if (isFresh && global.sri4node_configuration.dbConnectionInitSql) {
-              client.query(global.sri4node_configuration.dbConnectionInitSql);
-            }
-        },
+        ...pgpInitOptionsIn,
     };
+
     pgp = require('pg-promise')(pgpInitOptions);
+    if (process.env.PGP_MONITOR === 'true') {
+      const monitor = require('pg-monitor');
+      monitor.attach(pgpInitOptions);
+    }
 
     // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
     //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
@@ -214,37 +208,59 @@ exports = module.exports = {
                                         + microseconds + 'Z';
         return isoWithMicroseconds;
       });
+  },
 
-    pgp.pg.defaults.poolSize = 15;
-    pgp.pg.defaults.idleTimeoutMillis = 1000;
+  pgConnect: async function (arg) {
+    // pgConnect can be called with the database url as argument of the sri4configuration object
+    const cl = exports.cl;
+    let dbUrl, ssl, sri4nodeConfig;
+    
+    if (typeof arg === 'string') {
+      // arg is the connection string
+      dbUrl = arg;
+    } else {
+      // arg is sri4node configuration object
+      sri4nodeConfig = arg;
+      if (pgp === null) {
+        pgpInitOptions = {} 
+        if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
+          pgpInitOptions.connect = (client, dc, isFresh) => {
+                if (isFresh) {
+                  client.query(sri4nodeConfig.dbConnectionInitSql);
+                }
+            };
+        } 
+        this.pgInit(pgpInitOptions);
+      }
+      if (process.env.DATABASE_URL) {
+        dbUrl = process.env.DATABASE_URL;
+      } else {
+        dbUrl = configsri4nodeConfiguration.defaultdatabaseurl;
+      }      
+    }
 
-
-    var cl = exports.cl;
+    cl('Using database connection string : [' + dbUrl + ']');
 
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
-    var databaseUrl = env.databaseUrl;
-    var dbUrl, searchPathPara;
-    if (databaseUrl && databaseUrl.indexOf('ssl=false') === -1) {
-      pgp.pg.defaults.ssl = { rejectUnauthorized: false } 
+    if (dbUrl.indexOf('ssl=false') === -1) {
+      ssl = { rejectUnauthorized: false } 
       // recent pg 8 deprecates implicit disabling of certificate verification 
       //   and heroku does not provide for their  CA files or certificate for your Heroku Postgres server
       //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
       //   ==> need for explicit disabling of rejectUnauthorized
     } else {
-      pgp.pg.defaults.ssl = false
+      ssl = false
     }    
-    if (databaseUrl) {
-      dbUrl = databaseUrl;
-    } else {
-      dbUrl = configuration.defaultdatabaseurl;
-    }      
-    cl('Using database connection string : [' + dbUrl + ']');
 
-    let cn = {connectionString: dbUrl};
-    if (configuration !== undefined && configuration.maxConnections) {
-      cn.max = configuration.maxConnections; // default is 10
+    let cn = {
+       connectionString: dbUrl,
+       ssl: ssl,
+       connectionTimeoutMillis: process.env.PGP_CONN_TIMEOUT || 2000,
+       idleTimeoutMillis: process.env.PGP_IDLE_TIMEOUT || 1000,
+       max: process.env.PGP_POOL_SIZE || (sri4nodeConfig !== undefined && sri4nodeConfig.maxConnections) || 16,
     }
+
     return pgp(cn);
   },
 
