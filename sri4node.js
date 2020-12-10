@@ -620,6 +620,8 @@ exports = module.exports = {
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
+        debug(`registering route ${globalBatchPath} - PUT/POST`);
+        debug(`registering route ${globalBatchPath + '_streaming'} - PUT/POST`);
         app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
         app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
 
