@@ -682,6 +682,7 @@ exports = module.exports = {
                               if ( sriRequest.isBatchPart ) {
                                 throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
                               }
+                              await phaseSyncer.phase()
                               if (cr.busBoy) {
                                 try {
                                   let busBoyConfig = {}
@@ -704,6 +705,7 @@ exports = module.exports = {
                                   sriRequest.setStatus(status)                                  
                                 }
                               }
+                              await phaseSyncer.phase()
 
                               let keepAliveTimer = null;
                               let streamingHandlerPromise;
@@ -771,6 +773,7 @@ exports = module.exports = {
                                 if (cr.afterHandler !== undefined) {
                                   await cr.afterHandler(tx, sriRequest, customMapping, result)
                                 }
+                                await phaseSyncer.phase()
                                 debug('returning result')
                                 return result
                               }
