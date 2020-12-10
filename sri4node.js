@@ -620,6 +620,8 @@ exports = module.exports = {
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
+        debug(`registering route ${globalBatchPath} - ${PUT/POST}`)
+        debug(`registering route ${globalBatchPath + '_streaming'} - ${PUT/POST}`)
         app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
         app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
 
@@ -679,6 +681,7 @@ exports = module.exports = {
                 acc.push( [ mapping.type + cr.routePostfix
                           , method.toUpperCase()
                           , async (phaseSyncer, tx, sriRequest, mapping) => {
+                              await phaseSyncer.phase()
                               if ( sriRequest.isBatchPart ) {
                                 throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
                               }
@@ -704,7 +707,8 @@ exports = module.exports = {
                                   sriRequest.setStatus(status)                                  
                                 }
                               }
-
+                              await phaseSyncer.phase()
+                              
                               let keepAliveTimer = null;
                               let streamingHandlerPromise;
                               let stream;
@@ -771,6 +775,7 @@ exports = module.exports = {
                                 if (cr.afterHandler !== undefined) {
                                   await cr.afterHandler(tx, sriRequest, customMapping, result)
                                 }
+                                await phaseSyncer.phase()
                                 debug('returning result')
                                 return result
                               }
