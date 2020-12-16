@@ -685,6 +685,7 @@ exports = module.exports = {
                               if ( sriRequest.isBatchPart ) {
                                 throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
                               }
+                              await phaseSyncer.phase()
                               if (cr.busBoy) {
                                 try {
                                   let busBoyConfig = {}
