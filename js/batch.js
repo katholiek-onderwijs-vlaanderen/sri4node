@@ -138,6 +138,7 @@ exports = module.exports = {
 
             const innerSriRequest  = {
               ...sriRequest,
+              parentSriRequest: sriRequest,
               path: match.path,
               originalUrl: element.href,
               query: match.queryParams,
@@ -232,6 +233,7 @@ exports = module.exports = {
 
             const innerSriRequest  = {
               ...sriRequest,
+              parentSriRequest: sriRequest,
               path: match.path,
               originalUrl: element.href,
               query: match.queryParams,
