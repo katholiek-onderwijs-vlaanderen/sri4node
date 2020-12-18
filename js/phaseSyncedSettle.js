@@ -120,9 +120,7 @@ exports = module.exports = async (jobList, {maxNrConcurrentJobs = 1, beforePhase
 			queuedJobs.delete(id)
 			phasePendingJobs.delete(id)
 
-			if (phasePendingJobs.size === 0) {
-				await startNewPhase()
-			} else {
+			if (phasePendingJobs.size !== 0) {
 				startQueuedJob()
 			}
 		}));
