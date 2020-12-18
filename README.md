@@ -195,6 +195,26 @@ The sriResult object has at least following properties:
 And optionally:
  * headers
 
+### afterRequest
+
+New hook which will be called after the request is handled. At the moment this handler is called, the database task/transaction is already closed and the response is already sent to the client.
+
+```javascript
+afterRequest(sriRequest)
+```
+
+### beforePhase
+
+New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see Batch execution order (#Batch-execution-order)).
+
+```javascript
+beforePhase(sriRequestMap, jobMap, pendingJobs)
+```
+
+* `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
+* `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
+* `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
+
 ### Performance enhancements
 
 A count query is a heavy query in Postgres in case of a huge table. Therefore the count in the list result is made optional. By adding `listResultDefaultIncludeCount: false` to the configuration of a resource the count will be omitted by default. This setting can be overriden in a linst query by appending `?$$includeCount=[boolean]` to the query parameters.
@@ -207,6 +227,7 @@ In a batch all operations in an inner list are executed in 'parallel' (in practi
 - at the start of 'before' hooks
 - at the start of database operations
 - at the start of 'after' hooks
+- after the 'after' hooks
 
 With 'phaseSynced' is meant that **all** operations need to be at the sync point before the operations continue (again in 'parallel'), so you can be sure that at the moment a validation rule in an after hook is evaluated all database operations of the inner batch list have been executed.
  
