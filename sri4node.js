@@ -190,7 +190,7 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 
 
 
-const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, readOnly0) => {
+const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx, readOnly;
@@ -305,6 +305,10 @@ const expressWrapper = (dbR, dbW, func, mapping, streaming, isBatchRequest, read
             resp.set(result.headers)
           }
           resp.status(result.status).send(result.body)
+
+          await hooks.applyHooks('afterRequest'
+          , config.afterRequest
+          , f => f(sriRequest))
         }
       // }
     } catch (err) {
@@ -620,13 +624,13 @@ exports = module.exports = {
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
-        debug(`registering route ${globalBatchPath} - ${PUT/POST}`)
-        debug(`registering route ${globalBatchPath + '_streaming'} - ${PUT/POST}`)
-        app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
-        app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, null, false, true, false));
+        debug(`registering route ${globalBatchPath} - PUT/POST`)
+        debug(`registering route ${globalBatchPath + '_streaming'} - PUT/POST`)
+        app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
+        app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
 
-        app.put(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, null, true, true, false));
-        app.post(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, null, true, true, false));
+        app.put(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, config, null, true, true, false));
+        app.post(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, config, null, true, true, false));
       }
 
       // map with urls which can be called within a batch 
@@ -634,20 +638,20 @@ exports = module.exports = {
 
         // [path, verb, func, mapping, streaming, readOnly, isBatch]
         const crudRoutes = 
-          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, mapping, false, true, false]
-          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, mapping, false, false, false]
-          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, mapping, false, false, false]
-          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, mapping, false, false, false]
-          , [ mapping.type, 'GET', listResource.getListResource, mapping, false, true, false]
+          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, config, mapping, false, true, false]
+          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, config, mapping, false, false, false]
+          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, config, mapping, false, false, false]
+          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, config, mapping, false, false, false]
+          , [ mapping.type, 'GET', listResource.getListResource, config, mapping, false, true, false]
           // a check operation to determine wether lists A is part of list B
-          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, mapping, false, true, false]
+          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, config, mapping, false, true, false]
           ]
 
         const batchRoutes = 
-          [ [ mapping.type + '/batch', 'PUT', batch.batchOperation, mapping, false, false, true]
-          , [ mapping.type + '/batch', 'POST', batch.batchOperation, mapping, false, false, true]
-          , [ mapping.type + '/batch_streaming', 'PUT', batch.batchOperationStreaming, mapping, true, false, true]
-          , [ mapping.type + '/batch_streaming', 'POST', batch.batchOperationStreaming, mapping, true, false, true]
+          [ [ mapping.type + '/batch', 'PUT', batch.batchOperation, config, mapping, false, false, true]
+          , [ mapping.type + '/batch', 'POST', batch.batchOperation, config, mapping, false, false, true]
+          , [ mapping.type + '/batch_streaming', 'PUT', batch.batchOperationStreaming, config, mapping, true, false, true]
+          , [ mapping.type + '/batch_streaming', 'POST', batch.batchOperationStreaming, config, mapping, true, false, true]
           ]
 
 // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
@@ -675,7 +679,7 @@ exports = module.exports = {
                   console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`)
                 } else {
                   const [path, verb, handler, _mapping, streaming] = likeMatches[0]
-                  acc.push([ crudPath + cr.routePostfix, verb, handler, customMapping, streaming, likeMatches.readOnly, false ])                  
+                  acc.push([ crudPath + cr.routePostfix, verb, handler, config, customMapping, streaming, likeMatches.readOnly, false ])                  
                 }
               } else if (cr.streamingHandler !== undefined) {
                 acc.push( [ mapping.type + cr.routePostfix
@@ -757,6 +761,7 @@ exports = module.exports = {
                               // wait until stream is ended
                               await streamDonePromise;
                             }
+                          , config
                           , customMapping
                           , true
                           , cr.readOnly
@@ -780,6 +785,7 @@ exports = module.exports = {
                                 debug('returning result')
                                 return result
                               }
+                          , config
                           , customMapping
                           , false
                           , cr.readOnly
@@ -800,17 +806,17 @@ exports = module.exports = {
 
 
       // register individual routes in express
-      batchHandlerMap.forEach( ([path, verb, func, mapping, streaming, readOnly, isBatch]) => {
+      batchHandlerMap.forEach( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
         debug(`registering route ${path} - ${verb} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(expressWrapper(dbR, dbW, func, mapping, streaming, isBatch, readOnly), 'func') )
+                                 emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'func') )
       })
 
       // transform map with 'routes' to be usable in batch
-      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, mapping, streaming, readOnly, isBatch]) => {
-        return { route: new route(path), verb, func, mapping, streaming, readOnly, isBatch}
+      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
+        return { route: new route(path), verb, func, config, mapping, streaming, readOnly, isBatch}
       })
 
       app.get('/', (req, res) => res.redirect('/resources'))
