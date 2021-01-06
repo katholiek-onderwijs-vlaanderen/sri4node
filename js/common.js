@@ -230,16 +230,14 @@ exports = module.exports = {
                 }
             };
         } 
-        this.pgInit(pgpInitOptions);
+        exports.pgInit(pgpInitOptions);
       }
       if (process.env.DATABASE_URL) {
         dbUrl = process.env.DATABASE_URL;
       } else {
-        dbUrl = configsri4nodeConfiguration.defaultdatabaseurl;
+        dbUrl = sri4nodeConfig.defaultdatabaseurl;
       }      
     }
-
-    cl('Using database connection string : [' + dbUrl + ']');
 
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
@@ -250,6 +248,7 @@ exports = module.exports = {
       //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
       //   ==> need for explicit disabling of rejectUnauthorized
     } else {
+      dbUrl = dbUrl.replace('ssl=false', '').replace(/\?$/, '');
       ssl = false
     }    
 
@@ -260,6 +259,8 @@ exports = module.exports = {
        idleTimeoutMillis: process.env.PGP_IDLE_TIMEOUT || 1000,
        max: process.env.PGP_POOL_SIZE || (sri4nodeConfig !== undefined && sri4nodeConfig.maxConnections) || 16,
     }
+
+    cl('Using database connection object : [' + JSON.stringify(cn) + ']');
 
     return pgp(cn);
   },
@@ -286,6 +287,19 @@ exports = module.exports = {
     }
 
     return db.query(sql, values)
+  },
+
+  pgResult: function (db, query) {
+    'use strict';
+    var cl = exports.cl;
+    const {sql, values} = query.toParameterizedSql()
+
+    if (global.sri4node_configuration.logsql) {
+      const q = pgp.as.format(sql, values);
+      cl(q);
+    }
+
+    return db.result(sql, values)
   },
 
   startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
@@ -432,9 +446,9 @@ exports = module.exports = {
                         WHERE proname = 'vsko_resource_version_inc_function'
                         ${( env.postgresSchema !== undefined
                           ? `AND nspname = '${env.postgresSchema}'`
-                          : `AND nspname = ''` )}
+                          : `AND nspname = 'public'` )}
                       ) THEN
-          CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+          CREATE FUNCTION ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
             NEW."$$meta.version" := OLD."$$meta.version" + 1;
             RETURN NEW;
@@ -444,7 +458,7 @@ exports = module.exports = {
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
             CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
-            FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
+            FOR EACH ROW EXECUTE PROCEDURE ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function();
         END IF;
       END
       $___$

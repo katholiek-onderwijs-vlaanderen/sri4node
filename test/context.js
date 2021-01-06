@@ -66,7 +66,7 @@ exports = module.exports = {
       logrequests: logrequests,
       logdebug: logdebug,
       logmiddleware: logmiddleware,
-      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres',
+      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
 
       resources: [
         require('./context/persons.js')(roa, logdebug, commonResourceConfig),
