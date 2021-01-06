@@ -1,5 +1,20 @@
 # Release Notes
 
+## sprint-234-0 (06-01-2021)
+
+* treat PUT on logically deleted resource as CREATE (https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/197)
+* added new global hooks:
+    * beforePhaseHook: executed at the start of each 'phase' (synchronization points for batch requests running in parallel)
+      the beforePhaseHook can be used to collect data from different requests in a batch and use all collected data together in one operation (e.g. the sri4node security plugin uses this mechanism to do more efficient handling of security and the security server uses this mechanism to update configuration with all batch changes at once)
+    * afterRequest: called after request is handled (db transaction is already committed or rolled back)
+* modified pgInit and pgConnect to be able to optionally provide extra pgp initialization options and to be able to use pgConnect also with just a database url instead of an sri4node configuration object
+* added pgResult function besides pgExec to sri4node common (in case you need more query information then just the fetched rows)
+* added the option to configure an sql string to be executed at the initialization of each new db connection (dbConnectionInitSql)
+* added duration time logging for all sri4node hooks
+* added parentSriRequest to batch sriRequest for reference during batch operations
+* bugfixes for queries with multiple recursive CTE's
+* bugfixes for some internal issues (race condition, crash instead of error 500 in certain case)
+
 ## sprint-227-0 (09-09-2020)
 * added a streaming variant of batch to be able to deal with huge batches without Heroku closing the connection after 30 seconds of idle time (/batch_streaming)
 * bugfix on how timestamps with timezone are treated: postgress stores them with microseconds precision. sri4node used to round these timestamps to milliseconds precision which in some cases caused issues. Now the full timestamp is used for keyOffset and in the JSON output.
