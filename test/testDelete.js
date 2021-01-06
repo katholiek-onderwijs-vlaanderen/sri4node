@@ -4,6 +4,7 @@ const assert = require('assert');
 const { cl } = require('../js/common.js');
 const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
 const uuid = require('uuid');
+const _ = require('lodash');
 
 exports = module.exports = function (base, logverbose) {
   'use strict';
@@ -58,6 +59,11 @@ exports = module.exports = function (base, logverbose) {
       return doPut('/communities/' + key, body, { headers: { authorization: auth } })
     });
 
+    after(function() {
+      return doDelete('/communities/' + key, { headers: { authorization: auth } })
+    });
+
+
     it('should be possible to delete a newly created resource', async function () {
       await doDelete('/communities/' + key, { headers: { authorization: auth } })
     });
@@ -74,16 +80,6 @@ exports = module.exports = function (base, logverbose) {
 
     it('deleting a deleted resource should return 200 - OK', async function () {
       await doDelete('/communities/' + key, { headers: { authorization: auth } })
-    });
-
-    it('updating a deleted resource should return 410 - Gone', async function () {
-      await utils.testForStatusCode(
-        async () => {
-          await doPut('/communities/' + key, body,  { headers: { authorization: auth } })
-        }, 
-        (error) => {
-          assert.equal(error.status, 410);
-        })
     });
 
     it('retrieving a deleted resource with deleted=true should return the resource', async function () {
@@ -116,6 +112,28 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(response.results.length, 0);
     });
 
+    it('PATCH on soft deleted resources should fail', async function () {
+        await utils.testForStatusCode(
+            async () => {
+                const p = [{ op: 'replace', path: 'name', value: 'foo' }];
+                await doPatch('/communities/' + key, p, { headers: { authorization: auth } })
+            }, 
+            (error) => {
+              assert.equal(error.status, 410);
+            })
+    });
+
+      it('updating a deleted resource should have same result as CREATE', async function () {
+          const body2 = _.clone(body);
+          body2.currencyname = 'pollekes';
+          const response = await doPut('/communities/' + key, body2, { headers: { authorization: auth } })
+
+          assert.equal(response.getStatusCode(), 201);
+
+          const response2 = await doGet('/communities/' + key, null,  { headers: { authorization: auth } })
+          assert.equal(response2.currencyname, 'pollekes');
+          assert.equal(response2.$$meta.deleted, undefined);
+       });
 
     // // does not work out-of-the-box with logical delete ==> TODO?
     // it('deleting resource resulting in foreign key error should return 409 - Conflict', async function () {

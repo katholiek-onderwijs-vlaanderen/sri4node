@@ -2,7 +2,7 @@ const _ = require('lodash')
 const { Validator } = require('jsonschema')
 const jiff = require('jiff');
 
-const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, transformRowToObject, transformObjectToRow, errorAsCode,
+const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, errorAsCode,
         executeOnFunctions, SriError, getCountResult, isEqualSriObject } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
@@ -227,7 +227,25 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
   const permalink = mapping.type + '/' + key
 
-  const result = previousQueriedByKey || await queryByKey(tx, mapping, key, true)
+//   const result = previousQueriedByKey || await queryByKey(tx, mapping, key, true)
+
+  const result = previousQueriedByKey || await queryByKey(tx, mapping, key, false)
+  if (result.code == 'resource.gone') {
+    // we are dealing with a PUT on a deleted resource
+    //  -> treat this as a new CREATE
+    //  -> remove old resource from DATABASE and then continue the "insert" code path
+
+    const deleteQ = prepare('delete-' + table);
+    deleteQ.sql(`delete from "${table}" where "key" = `).param(key);
+    // deleteQ.sql(`delete from "${table}" where "key" = `).param('0acc6a08-4f20-11eb-99a6-331a83e94ab7');
+
+    const deleteRes = await pgResult(tx, deleteQ);
+    if (deleteRes.rowCount !== 1) {
+      debug('Removal of soft deleted resource failed ?!');
+      debug(JSON.stringify(deleteRes))
+      throw new SriError({status: 500, errors: [{code: 'delete.failed', msg: 'Removal of soft deleted resource failed.'}]})
+    }
+  }    
   if (result.code != 'found') {
     // insert new element
     await hooks.applyHooks('before insert'
