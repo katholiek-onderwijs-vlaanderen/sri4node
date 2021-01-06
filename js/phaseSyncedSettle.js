@@ -68,12 +68,15 @@ exports = module.exports = async (jobList, {maxNrConcurrentJobs = 1, beforePhase
 	try {
 
 		const startNewPhase = async () => {
-		    await hooks.applyHooks('phaseSyncer - before new phase'
-		                          , beforePhaseHooks
-		                          , f => f(sriRequestMap, jobMap, pendingJobs));
-
 			const pendingJobList = [...pendingJobs.values()];
 			const [ jobsToWake, jobsToQueue ] = splitListAt(pendingJobList, maxNrConcurrentJobs);
+
+            if (jobsToWake.length > 0) {
+                // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer will be terminated
+                await hooks.applyHooks('phaseSyncer - before new phase'
+                , beforePhaseHooks
+                , f => f(sriRequestMap, jobMap, pendingJobs));
+            }
 
 			jobsToWake.forEach( id => jobMap.get(id).jobEmitter.queue('ready'));
 			queuedJobs = new Set(jobsToQueue);
@@ -120,7 +123,9 @@ exports = module.exports = async (jobList, {maxNrConcurrentJobs = 1, beforePhase
 			queuedJobs.delete(id)
 			phasePendingJobs.delete(id)
 
-			if (phasePendingJobs.size !== 0) {
+            if (phasePendingJobs.size === 0) {
+				await startNewPhase()
+			} else {
 				startQueuedJob()
 			}
 		}));
