@@ -384,6 +384,21 @@ with an example reply:
 
 Remark: the raw url A and all raw urls in list B needs to be of the same type [resource].
 
+## Additions to the sri4node configuration object
+
+* dbConnectionInitSql: optional sql string which will be executed at the start of each new database connection
+
+By default sri4node will initialize the database connection based on environment variables or the sri4node configuration object. But one can also pass database connection(s) to sri4node (initialized with the pgInit and/or pgConnect functions - see also General Utilities, just below) in case some customization is required. These database connection(s) can be passed with following fields in the sri4node configuration object:
+
+* db: a pgp database connection object,
+* dbR and dbW: two pgp database connection objects, one for reading and one for writing (can be used when working with database followers)
+## General Utilities
+
+* pgInit: `async function (pgpInitOptionsIn = {})` can optionally be called to initiate the pgp-promise library with some extra configuration
+
+* pgConnect: `async function (arg)` can be called to create a pgp database object, argument can be an sri4node configuration object or a plain database url string
+
+* pgResult: alternative to pgExec in case more information about the query is needed then just the returned rows as provided by pgExec. The result is a pg.Result shape (see https://node-postgres.com/api/result).
 
 ## Other changes and bug fixes
 
