@@ -21,7 +21,7 @@
     "global-configuration": "^0.3.1",
     "jiff": "0.7.3",
     "jsonschema": "^1.2.6",
-    "lodash": "4.17.15",
+    "lodash": "^4.17.20",
     "p-each-series": "^2.1.0",
     "p-event": "4.2.0",
     "p-filter": "^2.1.0",
@@ -41,7 +41,7 @@
     "describe": "^1.2.0",
     "eslint": "7.2.0",
     "express": "4.17.1",
-    "mocha": "~8.0.1",
+    "mocha": "^8.2.1",
     "nodemon": "2.0.4",
     "pg-monitor": "^1.4.0",
     "stream-equal": "2.0.0"
