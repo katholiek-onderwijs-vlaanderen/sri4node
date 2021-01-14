@@ -1,5 +1,8 @@
 # Release Notes
 
+## sprint-234-0 (14-01-2021)
+* npm audit fix
+* added LICENSE file
 ## sprint-234-0 (06-01-2021)
 
 * treat PUT on logically deleted resource as CREATE (https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/197)
