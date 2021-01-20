@@ -1,6 +1,8 @@
 # Release Notes
 
-## sprint-234-0 (14-01-2021)
+## sprint-235-1 (14-01-2021)
+* fixed SQL injection possibilities and added 'Overlaps' filter testcases
+## sprint-235-0 (14-01-2021)
 * npm audit fix
 * added LICENSE file
 ## sprint-234-0 (06-01-2021)
