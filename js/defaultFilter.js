@@ -133,22 +133,22 @@ function filterString(select, filter, value, mapping) {
   }
   else if (filter.operator === 'Contains' && not && sensitive) {
 
-    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT LIKE \'%').param(value, true).sql('%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT LIKE ').param(`%${value}%`).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text LIKE \'%').param(value, true).sql('%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text LIKE ').param(`%${value}%`);
 
   }
   else if (filter.operator === 'Contains' && not && !sensitive) {
 
-    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT ILIKE \'%').param(value, true).sql('%\' OR ' + filter.key + '::text IS NULL)');
+    select.sql(' AND (' + tablename + '."' + filter.key + '"::text NOT ILIKE ').param(`%${value}%`).sql(' OR ' + filter.key + '::text IS NULL)');
 
   }
   else if (filter.operator === 'Contains' && !not && !sensitive) {
 
-    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ILIKE \'%').param(value, true).sql('%\'');
+    select.sql(' AND ' + tablename + '."' + filter.key + '"::text ILIKE ').param(`%${value}%`);
 
   }
   else if (not && sensitive) {
@@ -224,10 +224,9 @@ function filterNumericOrTimestamp(select, filter, value, mapping, baseType) {
 
 // filter function for arrays. Important: since the schema doesn't specify the type of field of the array
 // we treat each object in a generic way (no string manipulation, only exact matches)
-function filterArray(select, filter, value) {
+function filterArray(select, filter, value, _mapping, _baseType, field) {
   'use strict';
   var values = value.split(',');
-  var i;
 
   if (values.length > 0) {
     if (filter.postfix === 'Not') {
@@ -237,17 +236,20 @@ function filterArray(select, filter, value) {
       select.sql(' AND (');
     }
     if (filter.operator === 'Overlaps') {
-      select.sql('ARRAY[\'' + values.join('\',\'') + '\']' + ' && "' + filter.key + '"');
+      select.sql('ARRAY[').array(values).sql(`]::${field.element_type}[] && "${filter.key}"`);
+    } else if (filter.operator === 'Contains') { 
+        select.sql('ARRAY[').array(values).sql(`]::${field.element_type}[] <@ "${filter.key}"`);
+    } else if (filter.operator === undefined) { 
+        // plain equal match, NOT taking into account order of the elements
+        select.sql('( ARRAY[').array(values).sql(`]::${field.element_type}[] <@ "${filter.key}"`)
+              .sql('AND ARRAY[').array(values).sql(`]::${field.element_type}[] @> "${filter.key}" )`);
     } else {
-      for (i = 0; i < values.length; i++) {
-        if (i > 0) {
-          select.sql(' AND');
-        }
-        select.sql(' \'' + values[i] + '\' = ANY("' + filter.key + '")');
-      }
-      if (filter.operator !== 'Contains') {
-        select.sql(' AND array_length(' + filter.key + ', 1) = ').param(values.length);
-      }
+      // Not expected to be here -> throw error 
+      throw new SriError({status: 400, errors: [{
+        code: 'invalid.array.filter',
+        parameter: filter.operator,
+        message: 'Invalid array filter operator.'
+      }]})
     }
     select.sql(')');
   }
@@ -307,12 +309,12 @@ function filterJson(select, filter, value, mapping) {
     }
     else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
 
-      select.sql(' AND LOWER(' + jsonKey + '::text) < LOWER(\'' + value + '\')');
+      select.sql(' AND LOWER(' + jsonKey + '::text) < LOWER(').param(value).sql(')');
 
     }
     else if (filter.operator === 'Greater' && !not && !sensitive || filter.operator === 'Less' && not && !sensitive) {
 
-      select.sql(' AND LOWER(' + jsonKey + '::text) > LOWER(\'' + value + '\')');
+      select.sql(' AND LOWER(' + jsonKey + '::text) > LOWER(').param(value).sql(')');
 
     }
     else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive ||
@@ -330,13 +332,13 @@ function filterJson(select, filter, value, mapping) {
     else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive ||
       (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && !sensitive) {
 
-      select.sql(' AND LOWER(' + jsonKey + '::text) <= LOWER(\'' + value + '\')');
+      select.sql(' AND LOWER(' + jsonKey + '::text) <= LOWER(').param(value).sql(')');
 
     }
     else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && !sensitive ||
       (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && !sensitive) {
 
-      select.sql(' AND LOWER(' + jsonKey + '::text) >= LOWER(\'' + value + '\')');
+      select.sql(' AND LOWER(' + jsonKey + '::text) >= LOWER(').param(value).sql(')');
 
     }
     else if (filter.operator === 'In' && not && sensitive) {
@@ -389,22 +391,22 @@ function filterJson(select, filter, value, mapping) {
     }
     else if (filter.operator === 'Contains' && not && sensitive) {
 
-      select.sql(' AND (' + jsonKey + '::text NOT LIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+      select.sql(' AND (' + jsonKey + '::text NOT LIKE ').param(`%${value}%`).sql(' OR ' + filter.key + '::text IS NULL)');
 
     }
     else if (filter.operator === 'Contains' && !not && sensitive) {
 
-      select.sql(' AND ' + jsonKey + '::text LIKE \'%' + value + '%\'');
+      select.sql(' AND ' + jsonKey + '::text LIKE ').param(`%${value}%`);
 
     }
     else if (filter.operator === 'Contains' && not && !sensitive) {
 
-      select.sql(' AND (' + jsonKey + '::text NOT ILIKE \'%' + value + '%\' OR ' + filter.key + '::text IS NULL)');
+      select.sql(' AND (' + jsonKey + '::text NOT ILIKE ').param(`%${value}%`).sql(' OR ' + filter.key + '::text IS NULL)');
 
     }
     else if (filter.operator === 'Contains' && !not && !sensitive) {
 
-      select.sql(' AND ' + jsonKey + '::text ILIKE \'%' + value + '%\'');
+      select.sql(' AND ' + jsonKey + '::text ILIKE ').param(`%${value}%`);
 
     }
     else if (not && sensitive) {
@@ -457,7 +459,7 @@ function filterFieldByValues(select, value, textFields) {
     if (i > 0) {
       select.sql(' OR ');
     }
-    select.sql('"' + textFields[i] + '"::text ILIKE \'%').param(value, true).sql('%\'');
+    select.sql('"' + textFields[i] + '"::text ILIKE ').param(`%${value}%`);
   }
   select.sql(')');
 }
@@ -548,7 +550,7 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database) =>  {
     }
 
     if (filterFn) {
-      filterFn(query, filter, value, mapping, baseType);
+      filterFn(query, filter, value, mapping, baseType, field);
     }
   }
   else if (filter.key === 'q') {

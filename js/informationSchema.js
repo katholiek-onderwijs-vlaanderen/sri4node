@@ -38,8 +38,12 @@ exports = module.exports = async function (db, configuration) {
       tableNames.push(tableName);
     }
     tableNames = _.uniq(tableNames);
-    q.sql('select table_name, column_name, data_type from information_schema.columns where table_name in (')
-      .array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
+    q.sql(`SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
+           LEFT JOIN information_schema.element_types e
+              ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
+                  = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
+           WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
+
     const rows = await pgExec(db, q, true)
     cache = {};
     for (i = 0; i < rows.length; i++) {
@@ -57,6 +61,7 @@ exports = module.exports = async function (db, configuration) {
 
       // We may add extra fields like precision, etc.. in the future.
       columnCache.type = row.data_type;
+      columnCache.element_type = row.element_type;
     }
     return cache
   }

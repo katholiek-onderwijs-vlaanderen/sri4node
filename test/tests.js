@@ -5,7 +5,7 @@ var port = 5000;
 var logsql, logrequests, logdebug, logmiddleware;
 logsql = logrequests = logdebug = logmiddleware = false;
 // logdebug=true
-// logsql = true
+logsql = true
 
 var base = 'http://localhost:' + port;
 
@@ -98,6 +98,7 @@ describe('Sri4node testing', function () {
   require('./defaultFilter/testDefaultFilterQ.js')(base, logdebug);
   require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
   require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);
+  require('./defaultFilter/testDefaultFilterOverlaps.js')(base, logdebug);
 
   require('./relationsFilter/testRelationsFilterFromTypes.js')(base, logdebug);
   require('./relationsFilter/testRelationsFilterToTypes.js')(base, logdebug);
