@@ -122,34 +122,19 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
           }]})      
     }
 
-    query.sql(' AND (')
-    const orderKeyOp = (descending === 'true') ? '<' : '>';
-    let equalConditions = []
     const table = tableFromMapping(mapping);
-    const tableInformation = global.sri4node_configuration.informationSchema['/' + table]; 
+    const orderKeyOp = (descending === 'true') ? '<' : '>';
+    query.sql(` AND (${orderKeys.map(k => `"${table}"."${k}"`).join()}) ${orderKeyOp} (`);
 
-    const addQueryClause = (table, k, orderKeyOp, value) => {
-        query.sql(` "${table}"."${k}" ${orderKeyOp} `).param(value);
-    }
+    orderKeys.forEach( 
+        (k, idx) => {
+            if (idx > 0) {
+                query.sql(',');
+            }
+            query.param(keyValues[idx]);
+        } );
 
-    orderKeys.forEach( (k, idx) => {
-      if (idx===0) {
-        addQueryClause(table, k, orderKeyOp, keyValues[idx]);
-      } else {
-        query.sql(' OR (')
-        orderKeys.slice(0, idx).forEach( (k2, idx2) => {
-          if (idx2 > 0) {
-            query.sql(' AND ')
-          }
-          addQueryClause(table, k2, '=', keyValues[idx2]);
-        });
-        query.sql(' AND ')
-        addQueryClause(table, k, orderKeyOp, keyValues[idx]);
-        query.sql(' )')
-      }
-    })
-    query.sql(') ')
-
+    query.sql(`)`);
   }
 
   // add order parameter
