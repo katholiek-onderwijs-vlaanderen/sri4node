@@ -309,10 +309,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     }
   }
 
-
-  const containsDeleted = rows.some( r => r['$$meta.deleted'] === true )
-
-  sriRequest.containsDeleted = { get: () => containsDeleted } 
+  sriRequest.containsDeleted = rows.some( r => r['$$meta.deleted'] === true );
 
   const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, orderKeys)
 

@@ -76,6 +76,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
   const element = result.object
 
+  sriRequest.containsDeleted = element['$$meta'].deleted;
+
   element['$$meta'].type = mapping.metaType;
 
   debug('* executing expansion');
@@ -237,7 +239,6 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
     const deleteQ = prepare('delete-' + table);
     deleteQ.sql(`delete from "${table}" where "key" = `).param(key);
-    // deleteQ.sql(`delete from "${table}" where "key" = `).param('0acc6a08-4f20-11eb-99a6-331a83e94ab7');
 
     const deleteRes = await pgResult(tx, deleteQ);
     if (deleteRes.rowCount !== 1) {
@@ -245,9 +246,13 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       debug(JSON.stringify(deleteRes))
       throw new SriError({status: 500, errors: [{code: 'delete.failed', msg: 'Removal of soft deleted resource failed.'}]})
     }
-  }    
+  }
+
+  sriRequest.containsDeleted = false;
+
   if (result.code != 'found') {
     // insert new element
+
     await hooks.applyHooks('before insert'
                           , mapping.beforeInsert
                           , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}]))
@@ -375,6 +380,8 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   if (result.code != 'found') {
     debug('No row affected - the resource is already gone');
   } else {
+    sriRequest.containsDeleted = false;
+
     const prevObj = result.object
     await hooks.applyHooks('before delete'
                           , mapping.beforeDelete
