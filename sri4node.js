@@ -293,7 +293,11 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         }
 
         if (resp.headersSent) {
-          await terminateDb(false, readOnly);
+          if (result.status < 300) {
+            await terminateDb(false, readOnly);
+          } else {
+            await terminateDb(true, readOnly);
+          }
         } else {
           if (result.status < 300) {
             await terminateDb(false, readOnly);

@@ -188,7 +188,7 @@ exports = module.exports = {
                           ? 403 
                           : Math.max(200, ...batchResults.map( e => e.status ))                      
 
-      return { status: status, body: batchResults }    
+      return { status: status, body: batchResults }
     } finally {
       global.overloadProtection.endPipeline(batchConcurrency);
     }
@@ -308,6 +308,8 @@ exports = module.exports = {
 
       sriRequest.outStream.write(`, "status": ${status}`);
       sriRequest.outStream.write('}');
+
+      return { status: status };
     } finally {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer)

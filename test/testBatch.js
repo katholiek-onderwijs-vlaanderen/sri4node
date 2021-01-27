@@ -45,6 +45,9 @@ exports = module.exports = function (base, logverbose) {
   const sriClientOptionsAuthSabine = {
     headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') }
   }
+  const sriClientOptionsAuthIngrid = {
+    headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') }
+  }
 
 
   function debug(x) {
@@ -112,23 +115,6 @@ exports = module.exports = function (base, logverbose) {
       name: "RandomCity"
     };
   }
-
-
-
-  function generateTransaction(key, permalinkFrom, permalinkTo, amount) {
-    return {
-      key: key,
-      fromperson: {
-        href: permalinkFrom
-      },
-      toperson: {
-        href: permalinkTo
-      },
-      amount: amount,
-      description: 'description for transaction ' + key
-    };
-  }
-
 
   describe('BATCH', function () {
 
@@ -542,7 +528,53 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(r[2].status, 200);
     });
 
+    it('batch: when one requests fails, everything should rollbacked', async function () {
+        const body1 = generateRandomCity();
+        // create a batch array
+        const batch = [
+            { "href": '/cities/' + body1.key
+            , "verb": "PUT"
+            , "body": body1
+            },
+            { "href": '/cities/52074'
+            , "verb": "GET"
+            },
+            { "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
+            , "verb": "DELETE"  // will fail
+            },
+            { "href": '/cities/52074'
+            , "verb": "DELETE"
+            },
+        ]
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthIngrid);
+            }, 
+            async (error) => {
+              const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
+            });
+      });
 
-
+      it('batch streaming: when one requests fails, everything should rollbacked', async function () {
+        const body1 = generateRandomCity();
+        // create a batch array
+        const batch = [
+            { "href": '/cities/' + body1.key
+            , "verb": "PUT"
+            , "body": body1
+            },
+            { "href": '/cities/52074'
+            , "verb": "GET"
+            },
+            { "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
+            , "verb": "DELETE"   // will fail
+            },
+            { "href": '/cities/52074'
+            , "verb": "DELETE"
+            },
+        ]
+        const r = await doPut('/batch_streaming', batch, sriClientOptionsAuthIngrid);
+        const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
+      });
   });
 };
