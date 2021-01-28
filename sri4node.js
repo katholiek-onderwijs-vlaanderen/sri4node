@@ -764,6 +764,8 @@ exports = module.exports = {
 
                               // wait until stream is ended
                               await streamDonePromise;
+
+                              return { status: 200 }
                             }
                           , config
                           , customMapping
