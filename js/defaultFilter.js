@@ -237,7 +237,10 @@ function filterArray(select, filter, value, _mapping, _baseType, field) {
     }
     if (filter.operator === 'Overlaps') {
       select.sql('ARRAY[').array(values).sql(`]::${field.element_type}[] && "${filter.key}"`);
-    } else if (filter.operator === 'Contains') { 
+    } else if ( (filter.operator === 'Contains')
+                    || (filter.operator === 'In') ) {
+                            // Implement 'In' as an alias for 'Contains'; before previous change 'In' was implicitly
+                            // (probably unintended) implemented as equal array match, but that did not make much sense.
         select.sql('ARRAY[').array(values).sql(`]::${field.element_type}[] <@ "${filter.key}"`);
     } else if (filter.operator === undefined) { 
         // plain equal match, NOT taking into account order of the elements
