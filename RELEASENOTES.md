@@ -1,5 +1,9 @@
 # Release Notes
 
+## sprint-235-3 (27-01-2021)
+* use different compare sql for ordering list resources (huge performance difference for database with a lot of records)
+* fix on /batch_streaming to rollback database transaction in case of failure
+* make sriRequest.containsDeleted functional for both list and regular resources
 ## sprint-235-1 (14-01-2021)
 * fixed SQL injection possibilities and added 'Overlaps' filter testcases
 ## sprint-235-0 (14-01-2021)
