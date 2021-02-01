@@ -169,6 +169,12 @@ exports = module.exports = {
           }
         }
         return { sql: text, values: values }
+      },
+      appendQueryObject: function (queryObject2) {
+        this.text = this.text + queryObject2.text;
+        this.params.push(...queryObject2.params);
+
+        return this;
       }
     };
   }
