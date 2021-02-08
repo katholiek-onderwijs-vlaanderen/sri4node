@@ -33,7 +33,7 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
                 if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
                   await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx)
                 } else {
-                  await mapping.query[key](urlparameters[key], query, key, tx, count, mapping)
+                  await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters)
                 }
               } else {
                 throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
