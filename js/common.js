@@ -477,7 +477,7 @@ exports = module.exports = {
   },
 
   isEqualSriObject: (obj1, obj2, mapping) => {
-    const relevantProperties = Object.keys(mapping.schema.properties)
+    const relevantProperties = Object.keys(mapping.map)
 
     function customizer(val, key, obj) {
       if (mapping.schema.properties[key] && mapping.schema.properties[key].format === 'date-time') {
