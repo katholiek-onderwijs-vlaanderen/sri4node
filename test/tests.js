@@ -5,7 +5,7 @@ var port = 5000;
 var logsql, logrequests, logdebug, logmiddleware;
 logsql = logrequests = logdebug = logmiddleware = false;
 // logdebug=true
-logsql = true
+// logsql = true
 
 var base = 'http://localhost:' + port;
 

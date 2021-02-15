@@ -381,8 +381,8 @@ exports = module.exports = function (base, logverbose) {
     describe('simple working PATCH', function () {
       it('should return 200 ok', async function () {
         const patch = [
-          { op: 'replace', path: 'streetnumber', value: '5' },
-          { op: 'add', path: 'streetbus', value: 'a' },
+          { op: 'replace', path: '/streetnumber', value: '5' },
+          { op: 'add', path: '/streetbus', value: 'a' },
         ]
         try {
           await doPatch(personSabine, patch, { headers: { authorization: auth } })
@@ -393,8 +393,8 @@ exports = module.exports = function (base, logverbose) {
       });
       it('should be idempotent', async function () {
         const patch = [
-          { op: 'replace', path: 'streetnumber', value: '5' },
-          { op: 'add', path: 'streetbus', value: 'a' },
+          { op: 'replace', path: '/streetnumber', value: '5' },
+          { op: 'add', path: '/streetbus', value: 'a' },
         ]
         try {
           await doPatch(personSabine, patch, { headers: { authorization: auth } })
@@ -422,11 +422,24 @@ exports = module.exports = function (base, logverbose) {
             },
             (error) => {
               assert.equal(error.status, 409);
-              // assert.equal(error.body.errors[0].code, 'validation.errors');
+              assert.equal(error.body.errors[0].code, 'validation.errors');
             })
       });
     });
 
+    describe('PATCH with single object instead of array should fail', function () {
+        it('should return 400 bad request', async function () {
+          await utils.testForStatusCode(
+              async () => {
+                const patch = { op: 'replace', path: '/streetnumber', value: '5' };
+                await doPatch(personSabine, patch, { headers: { authorization: auth } })
+              },
+              (error) => {
+                assert.equal(error.status, 400);
+                assert.equal(error.body.errors[0].code, 'patch.invalid');
+              })
+        });
+      });
 
 
   });

@@ -1,6 +1,6 @@
 const _ = require('lodash')
 const { Validator } = require('jsonschema')
-const jiff = require('jiff');
+const jsonPatch = require('fast-json-patch');
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, errorAsCode,
         executeOnFunctions, SriError, getCountResult, isEqualSriObject } = require('./common.js');
@@ -156,10 +156,10 @@ async function executePatchInsideTransaction(phaseSyncer, tx, sriRequest, mappin
   // overwrite the body with the patched previous record
   try {
     // RFC6902 (with 'op' and 'path'), RFC7396 (just a sparse object) NOT currently supported
-    sriRequest.body = jiff.patch(patch, result.object);
+    sriRequest.body = jsonPatch.applyPatch(result.object, patch, true, false).newDocument;
     debug(`Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
   } catch(e) {
-    throw new SriError({status: 409, errors: [{code: 'patch.invalid', msg: 'The patch could not be applied.' }]});
+    throw new SriError({status: 400, errors: [{code: 'patch.invalid', msg: 'The patch could not be applied.', error: e }]});
   }
 
   // from now on behave like a PUT of the patched object
