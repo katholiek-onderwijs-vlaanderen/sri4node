@@ -189,6 +189,11 @@ exports = module.exports = {
       monitor.attach(pgpInitOptions);
     }
 
+    if (global.sri4node_configuration.pgMonitor===true) {
+        const monitor = require('pg-monitor');
+        monitor.attach(pgpInitOptions);
+    };
+
     // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
     //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
     // In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
@@ -224,8 +229,8 @@ exports = module.exports = {
       if (pgp === null) {
         pgpInitOptions = {} 
         if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
-          pgpInitOptions.connect = (client, dc, isFresh) => {
-                if (isFresh) {
+          pgpInitOptions.connect = (client, dc, useCount) => {
+                if (useCount===0) {
                   client.query(sri4nodeConfig.dbConnectionInitSql);
                 }
             };
