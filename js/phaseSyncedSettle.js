@@ -1,7 +1,7 @@
 const pSettle = require('p-settle')
 const pFinally = require('p-finally');
 const pEvent = require('p-event');
-const uuidv1 = require('uuid/v1');
+const { v1: uuidv1 } = require('uuid');
 const queue = require('emitter-queue');
 const Emitter = require('events')
 
