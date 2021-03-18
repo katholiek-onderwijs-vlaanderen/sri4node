@@ -173,6 +173,7 @@ exports = module.exports = {
                               const [ _phaseSyncer, _tx, innerSriRequest, _mapping ] = batchJobs[idx][1]
                               res.href = innerSriRequest.originalUrl
                               res.verb = innerSriRequest.httpMethod
+                              delete res.sriRequestID
                               return res
                             })
         } else {
