@@ -1,5 +1,14 @@
 # Release Notes
 
+## sprint-239-0 (18-03-2021)
+* bugfix: fix reported status of batches were an SriError was thrown in a beforePhaseHook (in the JSON output the error status was shown at a random element of the batch instead of the element causing the error).
+* bugifx: replace jiff with fast-json-patch to deal better with error case like an object as input instead of array
+* bugfix: adapted pg-promise initialisation to recent (breaking) pg-promise and have dbConnectionInitSql working again
+* bugfix: fix in isEqualSriObject (now compare is done with correct properties)
+* bugfix: for custom streaming routes, send 200 success at the end
+* added 'In' for arrays explicitly to defaultFilter as alias for 'Contains' (before recent sql injection fix it was implicitly like this)
+* added appendQueryObject to queryObject to be able to concat two queryObjects 
+
 ## sprint-235-3 (27-01-2021)
 * use different compare sql for ordering list resources (huge performance difference for database with a lot of records)
 * fix on /batch_streaming to rollback database transaction in case of failure
