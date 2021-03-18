@@ -19,6 +19,8 @@ const httpContext = require('express-http-context');
 const shortid = require('shortid');
 const stream = require('stream');
 const JSONStream = require('JSONStream');
+const { v4: uuidv4 } = require('uuid');
+
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
@@ -225,6 +227,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         }
 
         const sriRequest  = {
+          id: uuidv4(),
           path: req.path,
           originalUrl: req.originalUrl,
           query: req.query,
@@ -709,11 +712,15 @@ exports = module.exports = {
                               }
 
                               if (cr.beforeStreamingHandler !== undefined) {
-                                const result = await cr.beforeStreamingHandler(tx, sriRequest, customMapping)
-                                if (result !== undefined) {
-                                  const {status, headers} = result
-                                  headers.forEach( ([k, v]) => sriRequest.setHeader(k, v) )
-                                  sriRequest.setStatus(status)                                  
+                                try {
+                                    const result = await cr.beforeStreamingHandler(tx, sriRequest, customMapping)
+                                    if (result !== undefined) {
+                                      const {status, headers} = result
+                                      headers.forEach( ([k, v]) => sriRequest.setHeader(k, v) )
+                                      sriRequest.setStatus(status)                                  
+                                    }
+                                } catch (err) {
+                                    throw new SriError({status: 500, errors: err})
                                 }
                               }
                               await phaseSyncer.phase()
@@ -831,6 +838,7 @@ exports = module.exports = {
         const match = batch.matchHref(internalReq.href, internalReq.verb);
 
         const sriRequest  = {
+          id: uuidv4(),
           path: match.path,          
           query: match.queryParams,
           params: match.routeParams,

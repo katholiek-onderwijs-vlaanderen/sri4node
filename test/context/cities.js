@@ -25,6 +25,11 @@ exports = module.exports = function (roa, extra) {
       },
       required: ['key', 'name', 'nisCode']
     },
+    beforeInsert: [ (tx, sriRequest, elements) => { 
+        if (sriRequest.body.key === 100001) {
+            sriRequest.generateError = true;
+        }
+    }]
   };
 
   common.mergeObject(extra, ret);

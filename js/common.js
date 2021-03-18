@@ -540,7 +540,7 @@ exports = module.exports = {
   },
 
   SriError: class {
-    constructor({status = 500, errors = [], headers = {}, document}) {
+    constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
       this.status = status,
       this.body = {
         errors: errors.map( e => {
@@ -552,7 +552,8 @@ exports = module.exports = {
         status: status,
         document: document
       },
-      this.headers = headers
+      this.headers = headers,
+      this.sriRequestID = sriRequestID
     }
   }
 

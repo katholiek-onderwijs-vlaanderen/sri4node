@@ -43,9 +43,11 @@ exports = module.exports = function (base, logverbose) {
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
   const sriClientOptionsAuthSabine = {
+    maxAttempts: 1,
     headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') }
   }
   const sriClientOptionsAuthIngrid = {
+    maxAttempts: 1,
     headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') }
   }
 
@@ -576,5 +578,128 @@ exports = module.exports = function (base, logverbose) {
         const r = await doPut('/batch_streaming', batch, sriClientOptionsAuthIngrid);
         const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
       });
+
+      it('batch: errors triggered in the global beforePhase should match the correct request', async function () {
+        const body1 = generateRandomCity();
+        const body2 = generateRandomCity();
+        const body3 = generateRandomCity();
+        const body4 = generateRandomCity();
+        const body5 = generateRandomCity();
+        const body6 = generateRandomCity();
+        const body7 = generateRandomCity();
+        const body8 = generateRandomCity();
+        const body9 = generateRandomCity();
+        const body10 = generateRandomCity();
+        const body11 = generateRandomCity();
+        const body12 = generateRandomCity();
+        const body13 = generateRandomCity();
+        const body14 = generateRandomCity();
+        const body15 = generateRandomCity();
+        const body16 = generateRandomCity();
+        const body17 = generateRandomCity();
+        const body18 = generateRandomCity();
+        const body19 = generateRandomCity();
+        const body20 = generateRandomCity();
+        // create a batch array
+        const batch = [
+            { "href": '/cities/' + body1.key
+            , "verb": "PUT"
+            , "body": body1
+            },
+            { "href": '/cities/' + body2.key
+            , "verb": "PUT"
+            , "body": body2
+            },
+            { "href": '/cities/' + body3.key
+            , "verb": "PUT"
+            , "body": body3
+            },
+            { "href": '/cities/100001'
+            , "verb": "PUT"
+            , "body": {
+                key: 100001,
+                nisCode: 100001,
+                name: "BadCity"
+              }
+            },
+            { "href": '/cities/' + body4.key
+            , "verb": "PUT"
+            , "body": body4
+            },
+            { "href": '/cities/' + body5.key
+            , "verb": "PUT"
+            , "body": body5
+            },
+            { "href": '/cities/' + body6.key
+            , "verb": "PUT"
+            , "body": body6
+            },
+            { "href": '/cities/' + body7.key
+            , "verb": "PUT"
+            , "body": body7
+            },
+            { "href": '/cities/' + body8.key
+            , "verb": "PUT"
+            , "body": body8
+            },
+            { "href": '/cities/' + body9.key
+            , "verb": "PUT"
+            , "body": body9
+            },
+            { "href": '/cities/' + body10.key
+            , "verb": "PUT"
+            , "body": body10
+            },
+            { "href": '/cities/' + body11.key
+            , "verb": "PUT"
+            , "body": body11
+            },
+            { "href": '/cities/' + body12.key
+            , "verb": "PUT"
+            , "body": body12
+            },
+            { "href": '/cities/' + body13.key
+            , "verb": "PUT"
+            , "body": body13
+            },
+            { "href": '/cities/' + body14.key
+            , "verb": "PUT"
+            , "body": body14
+            },
+            { "href": '/cities/' + body15.key
+            , "verb": "PUT"
+            , "body": body15
+            },
+            { "href": '/cities/' + body16.key
+            , "verb": "PUT"
+            , "body": body16
+            },
+            { "href": '/cities/' + body17.key
+            , "verb": "PUT"
+            , "body": body17
+            },
+            { "href": '/cities/' + body18.key
+            , "verb": "PUT"
+            , "body": body18
+            },
+            { "href": '/cities/' + body19.key
+            , "verb": "PUT"
+            , "body": body19
+            },
+            { "href": '/cities/' + body20.key
+            , "verb": "PUT"
+            , "body": body20
+            },
+        ]
+
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+              assert.equal(error.body[3].status, 400);
+            });
+      });
+
   });
 };

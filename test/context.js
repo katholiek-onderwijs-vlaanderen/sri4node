@@ -85,6 +85,19 @@ exports = module.exports = {
         require('./context/countries.js')(roa, commonResourceConfig),
       ],
 
+      beforePhase: [  async (sriRequestMap, jobMap, pendingJobs) => {
+            Array.from(sriRequestMap)
+            .forEach( ([psId, sriRequest]) => {
+                if (pendingJobs.has(psId)) {
+                    if (sriRequest.generateError === true) {
+                        sriRequest.generateError = false;
+                        throw new common.SriError({status: 400, errors: [{code: 'foo'}], sriRequestID: sriRequest.id});
+                    }
+                }
+            });
+        }
+      ],
+
       // temporarily global batch for samenscholing
       enableGlobalBatch: true
     };

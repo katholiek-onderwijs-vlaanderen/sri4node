@@ -7,6 +7,7 @@ const JSONStream = require('JSONStream');
 const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
+const { v4: uuidv4 } = require('uuid');
 
 const { debug, cl, SriError, startTransaction, typeToConfig, stringifyError, settleResultsToSriResults } = require('./common.js');
 const listResource = require('./listResource.js')
@@ -138,6 +139,7 @@ exports = module.exports = {
 
             const innerSriRequest  = {
               ...sriRequest,
+              id: uuidv4(),
               parentSriRequest: sriRequest,
               path: match.path,
               originalUrl: element.href,
