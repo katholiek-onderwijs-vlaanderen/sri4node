@@ -18,6 +18,7 @@ const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const shortid = require('shortid');
 const stream = require('stream');
+const util = require('util');
 const JSONStream = require('JSONStream');
 const { v4: uuidv4 } = require('uuid');
 
@@ -720,7 +721,11 @@ exports = module.exports = {
                                       sriRequest.setStatus(status)                                  
                                     }
                                 } catch (err) {
-                                    throw new SriError({status: 500, errors: err})
+                                    if (err instanceof SriError) {
+                                        throw err;
+                                    } else {
+                                        throw new SriError({status: 500, errors: [ `${util.format(err)}`]});
+                                    }
                                 }
                               }
                               await phaseSyncer.phase()
