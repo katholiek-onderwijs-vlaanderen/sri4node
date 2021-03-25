@@ -4,6 +4,7 @@ const _ = require('lodash')
 const url = require('url')
 const EventEmitter = require('events');
 const pEvent = require('p-event');
+const path = require('path');
 
 const env = require('./env.js');
 
@@ -44,6 +45,51 @@ exports = module.exports = {
 
     return { type, key }
   },
+
+
+// 2 functions below are COPIED FROM beveiliging_nodejs --> TODO: remove them there and use the version here
+
+// Unfortunatly we seems to have generated invalid UUIDs in the past.
+// (we even have uuids with invalid version like /organisations/efeb7119-60e4-8bd7-e040-fd0a059a2c55)
+// Therefore we cannot use a strict uuid checker like the npm module 'uuid-validate' but do we have to be less strict.
+  isUuid: (uuid) => (uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null),
+
+  parseResource: (u) => {
+    if (!u) {
+      return null;
+    }
+  
+    const [u1, comment] = (u.includes('#'))
+      ? u.split('#/')
+      : [u, null];
+  
+    if (u1.includes('?')) {
+      const splittedUrl = u1.split('?');
+      return {
+        base: splittedUrl[0],
+        id: null,
+        query: splittedUrl[1],
+        comment,
+      };
+    }
+    const pp = path.parse(u1);
+    if (exports.isUuid(pp.name)) {
+      return {
+        base: pp.dir,
+        id: pp.name,
+        query: null,
+        comment,
+      };
+    }
+    return {
+      base: `${(pp.dir !== '/' ? pp.dir : '')}/${pp.name}`,
+      id: null,
+      query: null,
+      comment,
+    };
+  },
+  
+
 
 
   errorAsCode: (s) => {
