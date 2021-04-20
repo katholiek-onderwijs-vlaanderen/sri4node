@@ -14,7 +14,7 @@ exports = module.exports = {
    * key : the name of the key to add to the retrieved elements.
    */  
    //TODO: refactor in v2.1 together with the whole expand story
-  addReferencingResources: function (type, column, targetkey, toExpand) {
+  addReferencingResources: function (type, column, targetkey, excludeOnExpand) {
     'use strict';
 
 
@@ -22,9 +22,11 @@ exports = module.exports = {
       const resources = global.sri4node_configuration.resources
       const typeToMapping = typeToConfig(resources);
       const mapping = typeToMapping[type];
-      const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : undefined;
+      const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : 'full';
 
-      if (elements && elements.length && elements.length > 0 && expand != 'none') {
+      if (elements && elements.length && elements.length > 0 && expand != 'none' 
+                && ( ( Array.isArray(excludeOnExpand) && !excludeOnExpand.includes(expand) ) || !Array.isArray(excludeOnExpand) )
+                ) {
         const tablename = type.split('/')[type.split('/').length - 1];
         const query = prepare();
         const elementKeys = [];

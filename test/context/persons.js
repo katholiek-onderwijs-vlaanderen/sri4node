@@ -314,7 +314,12 @@ exports = module.exports = function (roa, logverbose, extra) {
     },
     afterRead: [
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExpanded', true),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleT', true),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleF', false),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnSummary', [ 'summary' ]),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnFull', [ 'full' ]),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnFullAndSummary', [ 'full', 'summary' ]),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsEmptyExclude', [] ),
       checkMe,
       failOnBadUser,
       forbidUser,
