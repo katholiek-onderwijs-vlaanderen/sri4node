@@ -97,6 +97,8 @@ exports = module.exports = {
     // return any string as code for REST API error object.
     var ret = s;
 
+    ret = ret.replace(/".*"/, '');
+
     ret = ret.toLowerCase().trim();
     ret = ret.replace(/[^a-z0-9 ]/gmi, '');
     ret = ret.replace(/ /gmi, '.');
@@ -259,6 +261,12 @@ exports = module.exports = {
                                         + microseconds + 'Z';
         return isoWithMicroseconds;
       });
+
+    pgp.pg.types.setTypeParser(20, BigInt);
+    pgp.pg.types.setTypeParser(1700, function(val) {
+        return parseFloat(val);
+    });
+    BigInt.prototype.toJSON = function() { return this.toString() };
   },
 
   pgConnect: async function (arg) {
@@ -533,6 +541,11 @@ exports = module.exports = {
     function customizer(val, key, obj) {
       if (mapping.schema.properties[key] && mapping.schema.properties[key].format === 'date-time') {
         return (new Date(val)).getTime();
+      }
+
+      if (global.sri4node_configuration.informationSchema[mapping.type][key]
+            && global.sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
+        return BigInt(val)
       }
     }
 

@@ -36,8 +36,7 @@ exports = module.exports = {
   numeric: function (description, min, max) {
     'use strict';
     const ret = {
-      type: 'numeric',
-      multipleOf: '1.0',
+      type: 'number',
       description: description
     };
     if (min || min == 0) {

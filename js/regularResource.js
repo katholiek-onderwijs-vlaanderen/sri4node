@@ -1,5 +1,6 @@
 const _ = require('lodash')
-const { Validator } = require('jsonschema')
+const Ajv = require("ajv")
+const addFormats = require("ajv-formats")
 const jsonPatch = require('fast-json-patch');
 
 const { debug, cl, typeToConfig, tableFromMapping, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, errorAsCode,
@@ -10,6 +11,10 @@ const queryobject = require('./queryObject.js');
 const prepare = queryobject.prepareSQL;
 const schemaUtils = require('./schemaUtils');
 
+const ajv = new Ajv({ coerceTypes: true }) // options can be passed, e.g. {allErrors: true}
+
+
+addFormats(ajv)
 
 async function queryByKey(tx, mapping, key, wantsDeleted) {
   'use strict';
@@ -18,9 +23,10 @@ async function queryByKey(tx, mapping, key, wantsDeleted) {
   const table = tableFromMapping(mapping);
 
   if (mapping.schema && mapping.schema.properties.key) {
-    const result = (new Validator()).validate(key, mapping.schema.properties.key);
-    if (result.errors.length > 0) {
-      throw new SriError({status: 400, errors: result.errors.map( e => ({code: 'key.invalid', msg: 'key ' + e.message}) )})
+    const validateKey =  ajv.compile(mapping.schema.properties.key);
+    const validKey = validateKey(key)
+    if (!validKey) {
+        throw new SriError({status: 400, errors: validateKey.errors.map( e => ({code: 'key.invalid', key: key, err: e}) )})
     }
   }
 
@@ -100,30 +106,16 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
 function getSchemaValidationErrors(json, schema) {
   'use strict';
-  var result = (new Validator()).validate(json, schema);
-
-  const ret = {}
-  var i, current, err;
-
-  if (result.errors && result.errors.length > 0) {
+  const validate = ajv.compile(schema)
+  const valid = validate(json)
+  if (!valid) {
     cl('Schema validation revealed errors.');
-    cl(result.errors);
+    cl(validate.errors);
     cl('JSON schema was : ');
     cl(schema);
     cl('Document was : ');
     cl(json);
-    ret.errors = [];
-    ret.document = json;
-    for (i = 0; i < result.errors.length; i++) {
-      current = result.errors[i];
-      err = {};
-      err.code = errorAsCode(current.message);
-      if (current.property && current.property.indexOf('instance.') === 0) {
-        err.path = current.property.substring(9);
-      }
-      ret.errors.push(err);
-    }
-    return ret;
+    return validate.errors.map( e => ({ code: errorAsCode(e.message), err: e}) );
   } else {
     return null;
   }
@@ -211,20 +203,6 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     } else {
       debug('Schema validation passed.');
     }
-    // const validationErrors = getSchemaValidationErrors(obj, mapping.schemaWithoutAdditionalProperties);
-    // if (validationErrors !== null) {
-    //   const validationErrors2 = getSchemaValidationErrors(obj, mapping.schema);
-    //   if (validationErrors2 !== null) {
-    //     const errors = { validationErrors2 }
-    //     throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
-    //   }
-    //   else {
-    //     debug('Schema validation passed, but object contains some additional properties...');
-    //     // TODO: handle idempotence of updates when there are edditional properties (that won't be stored) in the object being PUT
-    //   }
-    // } else {
-    //   debug('Schema validation passed.');
-    // }
   }
 
   const permalink = mapping.type + '/' + key

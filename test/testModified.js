@@ -3,6 +3,17 @@ var assert = require('assert');
 const _ = require('lodash');
 const uuid = require('uuid');
 
+function generateRandomAllDatatypes(key) {
+    return {
+      key: key,
+      id: 40n,
+      numberbigserial:40n,
+      numberserial:40,
+      numbersmallserial:40,
+      text2:'b2kx2rzb8q9',
+    };
+  }
+
 exports = module.exports = function (base) {
   'use strict';
 
@@ -178,7 +189,14 @@ exports = module.exports = function (base) {
     //     assert.equal(r['$$meta'].version, 0)
     //   });
 
+    it('New version with float should work', async function () {
+        const key = uuid.v4();
+        var body = generateRandomAllDatatypes(key);
+        await doPut('/alldatatypes/' + key, body, authHdrObj)
 
+        body.id = 40.95;
+        await doPut('/alldatatypes/' + key, body,authHdrObj)
+    });
 
 
   });

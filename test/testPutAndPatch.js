@@ -16,7 +16,6 @@ exports = module.exports = function (base, logverbose) {
   const api = sriClientFactory(sriClientConfig);
   const doGet = function() { return api.getRaw(...arguments) };
   const doPut = function() { return api.put(...arguments) };
-  const doDelete = function() { return api.delete(...arguments) };
   const doPatch = function() { return api.patch(...arguments) };
 
   const utils =  require('./utils.js')(api);
@@ -82,6 +81,17 @@ exports = module.exports = function (base, logverbose) {
     };
   }
 
+  function generateRandomAllDatatypes(key) {
+    return {
+      key: key,
+      id: 40n,
+      numberbigserial:40n,
+      numberserial:40,
+      numbersmallserial:40,
+      text2:'b2kx2rzb8q9',
+    };
+  }
+
   function generateTransaction(key, permalinkFrom, permalinkTo, amount) {
     return {
       key: key,
@@ -143,7 +153,7 @@ exports = module.exports = function (base, logverbose) {
           }, 
           (error) => {
             assert.equal(error.status, 409);
-            assert.equal(error.body.errors[0].errors.validationErrors.errors[0].code, 'requires.property.name');
+            assert.equal(error.body.errors[0].errors.validationErrors[0].code, 'must.have.required.property.name');
           })
       });
     });
@@ -156,6 +166,16 @@ exports = module.exports = function (base, logverbose) {
         await doPut('/transactions/' + key, body, { headers: { authorization: auth } })
       });
     });
+
+    describe('with a float', function () {
+        it('should work', async function () {
+            const key = uuid.v4();
+            var body = generateRandomAllDatatypes(key);
+            body.id = 40.95;
+            await doPut('/alldatatypes/' + key, body, { headers: { authorization: auth } })
+        });
+    });
+
   });
 
   describe('VALIDATION', function () {
@@ -204,7 +224,7 @@ exports = module.exports = function (base, logverbose) {
           }, 
           (error) => {
             assert.equal(error.status, 409);
-            assert.equal(error.body.errors[0].errors.validationErrors.errors[0].code, 'requires.property.name');
+            assert.equal(error.body.errors[0].errors.validationErrors[0].code, 'must.have.required.property.name');
           })
       });
     });
@@ -287,8 +307,8 @@ exports = module.exports = function (base, logverbose) {
           (error) => {
             assert.equal(error.status, 409);
             assert.equal(error.body.errors[0].code, 'validation.errors');
-            assert.equal( error.body.errors[0].errors.validationErrors.errors[0].code.substring(0, 22)
-                        , 'does.not.match.pattern');
+            assert.equal( error.body.errors[0].errors.validationErrors[0].code.substring(0, 22)
+                        , 'must.match.pattern');
           })
     });
   });
@@ -303,8 +323,8 @@ exports = module.exports = function (base, logverbose) {
           }, 
           (error) => {
             assert.equal(error.status, 409);
-            assert.equal( error.body.errors[0].errors.validationErrors.errors[0].code.substring(0, 22)
-                        , 'does.not.match.pattern');
+            assert.equal( error.body.errors[0].errors.validationErrors[0].code.substring(0, 22)
+                        , 'must.match.pattern');
           })
     });
   });
