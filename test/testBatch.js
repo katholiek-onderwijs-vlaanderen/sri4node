@@ -701,5 +701,48 @@ exports = module.exports = function (base, logverbose) {
             });
       });
 
+
+
+      it('batch: check if phasesyncing is correctly aligned for al different kind of requests', async function () {
+        const body1 = generateRandomCity();
+        // create a batch array
+        const batch = [
+            { "href": '/countries/isPartOf'
+            , "verb": "POST"
+            , "body": {  
+                "a": { "href": "/countries/be" },
+                "b": { "hrefs": [ "/countries?nameRegEx=^be.*$" ] }
+              }
+            },
+            { "href": '/cities/52074'
+            , "verb": "GET"
+            },
+            { "href": '/cities/52074'
+            , "verb": "DELETE"
+            },
+            { "href": '/countries'
+            , "verb": "GET"
+            },
+            { "href": '/cities/' + body1.key
+            , "verb": "PUT"
+            , "body": body1
+            },
+            { "href": personSabine
+            , "verb": "PATCH"
+            , "body": [
+                { op: 'replace', path: '/streetnumber', value: '9999' },
+                { op: 'add', path: '/streetbus', value: 'Z' },
+              ]
+            },
+            { "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+            , "verb": "GET"
+            },
+            { "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike'
+            , "verb": "GET"
+            },
+        ]
+        const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
+      });
+
   });
 };

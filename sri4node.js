@@ -111,8 +111,8 @@ const getResourcesOverview = (req, resp) => {
 
 function checkRequiredFields(mapping, information) {
   'use strict';
-  const table = tableFromMapping(mapping)
-  const idx = '/' + table
+  const table = tableFromMapping(mapping);
+  const idx = mapping.type;
   if (!information[idx]) {
     throw new Error(`Table '${table}' seems to be missing in the database.`);
   }  
@@ -185,7 +185,8 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
     if (sriRequest.streamStarted === undefined || ! sriRequest.streamStarted()) {
       await hooks.applyHooks('transform response'
                             , mapping.transformResponse
-                            , f => f(t, sriRequest, result))          
+                            , f => f(t, sriRequest, result)
+                            )
     }
   }
   return result;
@@ -260,7 +261,8 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         transformHookWrapper = async (mapping) => {
             await hooks.applyHooks('transform request'
                                   , mapping.transformRequest
-                                  , f => f(req, sriRequest, t)) 
+                                  , f => f(req, sriRequest, t)
+                                  )
         }
 
         // As long as we have a global batch (for which we can't determine mapping), we cannot
@@ -316,7 +318,8 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
 
           await hooks.applyHooks('afterRequest'
           , config.afterRequest
-          , f => f(sriRequest))
+          , f => f(sriRequest)
+          )
         }
       // }
     } catch (err) {
@@ -403,6 +406,7 @@ exports = module.exports = {
 
       // initialize undefined global hooks with empty list
       toArray(config, 'beforePhase');
+      config.beforePhase.push(regularResource.beforePhaseQueryByKey);
 
       if (config.bodyParserLimit === undefined) {
         config.bodyParserLimit = '5mb'
@@ -874,7 +878,8 @@ exports = module.exports = {
 
         await hooks.applyHooks('transform internal sriRequest'
                             , match.handler.mapping.transformInternalRequest
-                            , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest))   
+                            , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
+                            )   
 
         const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping, null);
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected

@@ -208,7 +208,7 @@ exports = module.exports = {
         map[key]['fieldToColumn'].forEach( f => f(key, row, isNewResource) );
       } 
 
-      const fieldTypeDb = global.sri4node_configuration.informationSchema['/' + exports.tableFromMapping(resourceMapping)][key].type
+      const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type
       const fieldTypeObject = resourceMapping.schema.properties[key] 
                                   ? resourceMapping.schema.properties[key].type
                                   : null
@@ -596,6 +596,14 @@ exports = module.exports = {
   getPersonFromSriRequest: (sriRequest) => {
     // A userObject of null happens when the use is (not yet) logged in
     return (sriRequest.userObject ? '/persons/' + sriRequest.userObject.uuid : 'NONE')
+  },
+
+  getParentSriRequest: (sriRequest) => {
+    return sriRequest.parentSriRequest ? sriRequest.parentSriRequest : sriRequest;
+  },
+  getParentSriRequestFromRequestMap: (sriRequestMap) => {
+    const sriRequest = Array.from(sriRequestMap.values())[0];
+    return exports.getParentSriRequest(sriRequest);
   },
 
   SriError: class {

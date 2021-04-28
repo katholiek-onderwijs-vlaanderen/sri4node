@@ -264,6 +264,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
   const offset = queryParams.offset;
 
   await phaseSyncer.phase()
+  await phaseSyncer.phase()  
 
   await hooks.applyHooks( 'before read', 
                           mapping.beforeRead, 
@@ -299,7 +300,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     debug('* executing SELECT query on tx');
     const start = new Date();
     rows = await pgExec(tx, query);
-    
+
     // cl('pgExec select ... OK, exectime='+(new Date() - start)+' ms.');
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
@@ -371,6 +372,7 @@ const matchUrl = (url, mapping) =>  {
 // ==> [ [urlB2] ]  (all raw urls from list B for which url A is a subset)
 
 async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
+  await phaseSyncer.phase();
 
   if ( sriRequest.body.a === undefined || sriRequest.body.a.href === undefined
        || sriRequest.body.b === undefined || sriRequest.body.b.hrefs === undefined ) {
@@ -382,10 +384,6 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
   if (!Array.isArray(sriRequest.body.b.hrefs)) {
     throw new SriError({status: 400, errors: [{code: 'b.hrefs.must.be.array'}]})
   }
-
-  await phaseSyncer.phase();
-  await phaseSyncer.phase();
-  await phaseSyncer.phase();
 
   const urlA = sriRequest.body.a.href
   const typeA = matchUrl(urlA, mapping)

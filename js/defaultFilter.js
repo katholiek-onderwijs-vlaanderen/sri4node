@@ -528,7 +528,7 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database) =>  {
 
   // 2) Find data type on database from information schema;
   const informationSchema = global.sri4node_configuration.informationSchema
-  const idx = mapping.table ? '/' + mapping.table : '/' + mapping.type.split('/')[mapping.type.split('/').length - 1];
+  const idx = mapping.type;
   const field = informationSchema[idx][filter.key];
 
   // 3) Extend the sql query with the correct WHERE clause.
@@ -557,7 +557,7 @@ exports = module.exports = (valueEnc, query, parameter, mapping, database) =>  {
     }
   }
   else if (filter.key === 'q') {
-    filterGeneral(query, value, getTextFieldsFromTable(informationSchema['/' + mapping.type.split('/')[mapping.type.split('/').length - 1]]));
+    filterGeneral(query, value, getTextFieldsFromTable(informationSchema[idx]));
   }
   else {
     throw new SriError({status: 404, errors: [{
