@@ -29,7 +29,7 @@ exports = module.exports = async function (db, configuration) {
                            = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
                WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
 
-        const rowsByTable = _.groupBy(await pgExec(db, query, true), r => r.table_name);
+        const rowsByTable = _.groupBy(await pgExec(db, query), r => r.table_name);
 
         cache = Object.fromEntries(
             configuration.resources.map(mapping => {
