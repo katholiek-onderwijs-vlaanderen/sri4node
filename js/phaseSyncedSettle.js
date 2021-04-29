@@ -6,7 +6,7 @@ const queue = require('emitter-queue');
 const Emitter = require('events')
 const _ = require('lodash')
 
-const { debug, SriError } = require('./common.js');
+const { debug, SriError, getParentSriRequestFromRequestMap } = require('./common.js');
 const hooks = require('./hooks.js');
 
 debug_log = (id, msg) => {
@@ -79,7 +79,9 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
                 // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer will be terminated
                 await hooks.applyHooks('phaseSyncer - before new phase'
                     , beforePhaseHooks
-                    , f => f(sriRequestMap, jobMap, pendingJobs));
+                    , f => f(sriRequestMap, jobMap, pendingJobs)
+                    , null // getParentSriRequestFromRequestMap(sriRequestMap)
+                    );
             }
 
             jobsToWake.forEach(id => jobMap.get(id).jobEmitter.queue('ready'));

@@ -6,7 +6,7 @@ const url = require('url');
 const hooks = require('./hooks.js')
 const expand = require('./expand.js');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
-        transformRowToObject, tableFromMapping, pgExec, SriError } = require('./common.js');
+        transformRowToObject, tableFromMapping, pgExec, SriError, setServerTimingHdr } = require('./common.js');
 const queryobject = require('./queryObject.js');
 const queryUtils = require('./queryUtils.js');
 const prepare = queryobject.prepareSQL; 
@@ -285,23 +285,19 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     if ( queryParams["$$includeCount"] !== undefined ) {
       includeCount = ( queryParams["$$includeCount"] === 'true' )
     } 
+    const startTime = Date.now();
     if ( includeCount ) {      
       const countquery = prepare();
       await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
       debug('* executing SELECT COUNT query on tx');
-      const startc = new Date();
-      count = await getCountResult(tx, countquery) 
-      // cl('pgExec count ... OK, exectime='+(new Date() - startc)+' ms.');
+      count = await getCountResult(tx, countquery, sriRequest) 
     }
 
     const query = prepare();
     await getSQLFromListResource(mapping, queryParams, false, tx, query);
     orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset)
     debug('* executing SELECT query on tx');
-    const start = new Date();
-    rows = await pgExec(tx, query);
-
-    // cl('pgExec select ... OK, exectime='+(new Date() - start)+' ms.');
+    rows = await pgExec(tx, query, sriRequest);
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
       throw new SriError({status: 409, errors: [{code: 'invalid.query.parameter'}]})
@@ -427,7 +423,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
         query.params.push(...valuesA);
         query.params.push(...valuesB);
       }
-      const [{result}] = await pgExec(tx, query);
+      const [{result}] = await pgExec(tx, query, sriRequest);
       return result;
     }
   });

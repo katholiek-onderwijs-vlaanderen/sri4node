@@ -335,8 +335,7 @@ exports = module.exports = {
   // values : An array of java values to be inserted in $1,$2, etc..
   //
   // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-  pgExec: function (db, query) {
-    'use strict';
+  pgExec: async function (db, query, sriRequest=null) {
     var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
@@ -345,11 +344,17 @@ exports = module.exports = {
       cl(q);
     }
 
-    return db.query(sql, values)
+    const startTime = Date.now();
+    const result = await db.query(sql, values)
+    const duration = Date.now() - startTime;
+    if (sriRequest) {
+        exports.setServerTimingHdr(sriRequest, 'db', duration);
+    }
+
+    return result;
   },
 
-  pgResult: function (db, query) {
-    'use strict';
+  pgResult: async function (db, query, sriRequest=null) {
     var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
@@ -358,7 +363,14 @@ exports = module.exports = {
       cl(q);
     }
 
-    return db.result(sql, values)
+    const startTime = Date.now();
+    const result = await db.result(sql, values) 
+    const duration = Date.now() - startTime;
+    if (sriRequest) {
+        exports.setServerTimingHdr(sriRequest, 'db', duration);
+    }
+
+    return result;
   },
 
   startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
@@ -526,8 +538,8 @@ exports = module.exports = {
     await db.query(plpgsql)
   },
 
-  getCountResult: async (tx, countquery) => {
-    const [{count}] = await exports.pgExec(tx, countquery) 
+  getCountResult: async (tx, countquery, sriRequest) => {
+    const [{count}] = await exports.pgExec(tx, countquery, sriRequest) 
     return parseInt(count, 10);
   },
 
@@ -594,8 +606,20 @@ exports = module.exports = {
   },
 
   getPersonFromSriRequest: (sriRequest) => {
-    // A userObject of null happens when the use is (not yet) logged in
+    // A userObject of null happens when the user is (not yet) logged in
     return (sriRequest.userObject ? '/persons/' + sriRequest.userObject.uuid : 'NONE')
+  },
+
+  setServerTimingHdr: (sriRequest, property, value) => {
+    const parentSriRequest = exports.getParentSriRequest(sriRequest);
+    if (parentSriRequest.serverTiming === undefined) {
+        parentSriRequest.serverTiming = {}
+    }
+    if (parentSriRequest.serverTiming[property] === undefined) {
+        parentSriRequest.serverTiming[property] = value;
+    } else {
+        parentSriRequest.serverTiming[property] += value;
+    }
   },
 
   getParentSriRequest: (sriRequest) => {

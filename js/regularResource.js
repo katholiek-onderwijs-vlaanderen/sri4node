@@ -5,7 +5,7 @@ const jsonPatch = require('fast-json-patch');
 const pMap = require('p-map');
 
 const { debug, cl, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, 
-        errorAsCode, executeOnFunctions, SriError, isEqualSriObject, getParentSriRequest,
+        errorAsCode, executeOnFunctions, SriError, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
         getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping } = require('./common.js');
 const expand = require('./expand.js');
 const hooks = require('./hooks.js');
@@ -83,7 +83,8 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
                  .sql(`::${keyDbType}[]) "key"
                        INNER JOIN "${table}" USING ("key");`);
 
-            const rows = await pgExec(sriRequest.dbT, query);
+            const rows = await pgExec(sriRequest.dbT, query, sriRequest);
+
             return Object.fromEntries(rows.map( r => [r.key, r] ));
         }, { concurrency: 3 });
 
@@ -108,7 +109,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                           mapping.beforeRead, 
                           f => f( tx, 
                                   sriRequest
-                                )
+                                ),
+                          sriRequest
                         )
 
   queryByKeyRequestKey(sriRequest, mapping, key);
@@ -141,7 +143,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                           mapping.afterRead,
                           f => f(tx, sriRequest, [{ permalink: element.$$meta.permalink
                                                   , incoming: null
-                                                  , stored: element }] )
+                                                  , stored: element }] ),
+                          sriRequest
                         )
 
   await phaseSyncer.phase()
@@ -254,6 +257,8 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       debug('Schema validation passed.');
     }
     const duration = Date.now() - startTime;
+
+    setServerTimingHdr(sriRequest, 'schema-validation', duration);
   }
 
   const permalink = mapping.type + '/' + key
@@ -279,7 +284,8 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     const deleteQ = prepare('delete-' + table);
     deleteQ.sql(`delete from "${table}" where "key" = `).param(key);
 
-    const deleteRes = await pgResult(tx, deleteQ);
+    const deleteRes = await pgResult(tx, deleteQ, sriRequest);
+
     if (deleteRes.rowCount !== 1) {
       debug('Removal of soft deleted resource failed ?!');
       debug(JSON.stringify(deleteRes))
@@ -295,6 +301,7 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     await hooks.applyHooks('before insert'
                           , mapping.beforeInsert
                           , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null}])
+                          , sriRequest
                           )
 
     await phaseSyncer.phase()
@@ -305,14 +312,14 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     const insert = prepare('insert-' + table);
     insert.sql('insert into "' + table + '" (').keys(newRow).sql(') values (').values(newRow).sql(') ');
     insert.sql(' returning key') // to be able to check rows.length
-    const insertRes = await pgExec(tx, insert)
+    const insertRes = await pgExec(tx, insert, sriRequest)
     if (insertRes.length === 1) {
       await phaseSyncer.phase()
 
       await hooks.applyHooks('after insert'
                             , mapping.afterInsert
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: null}])
-                            )
+                            , sriRequest)
 
       await phaseSyncer.phase()
 
@@ -350,14 +357,14 @@ async function executePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     update.sql(' where "$$meta.deleted" = false and "key" = ').param(key);
     update.sql(' returning key')
 
-    const updateRes = await pgExec(tx, update)
+    const updateRes = await pgExec(tx, update, sriRequest)
     if (updateRes.length === 1) {
       await phaseSyncer.phase()
 
       await hooks.applyHooks('after update'
                             , mapping.afterUpdate
                             , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}])
-                            )
+                            , sriRequest)
 
       await phaseSyncer.phase()
 
@@ -436,7 +443,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
     await hooks.applyHooks('before delete'
                           , mapping.beforeDelete
                           , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
-                          )
+                          , sriRequest)
 
     await phaseSyncer.phase()
 
@@ -445,7 +452,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                  + `where "$$meta.deleted" = false and "key" = `
     deletequery.sql(sql).param(key);
     deletequery.sql(' returning key') // to be able to check rows.length
-    const rows = await pgExec(tx, deletequery);
+    const rows = await pgExec(tx, deletequery, sriRequest);
     if (rows.length === 0) {
       debug('No row affected - the resource is already gone');
     } else { // eslint-disable-line
@@ -455,7 +462,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
       await hooks.applyHooks('after delete'
                             , mapping.afterDelete
                             , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
-                            )
+                            , sriRequest)
     }
   }
   await phaseSyncer.phase();

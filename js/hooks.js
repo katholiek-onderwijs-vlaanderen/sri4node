@@ -1,10 +1,10 @@
 const pMap = require('p-map'); 
 
-const { errorAsCode, debug, SriError, stringifyError } = require('./common.js')
+const { errorAsCode, debug, SriError, stringifyError, setServerTimingHdr } = require('./common.js')
 
 exports = module.exports = {
 
-  applyHooks: async (type, functions, applyFun) => {
+  applyHooks: async (type, functions, applyFun, sriRequest) => {
     debug(`applyHooks ${type}`);
 
     if (functions && functions.length > 0) {
@@ -14,6 +14,9 @@ exports = module.exports = {
         await pMap(functions, applyFun, {concurrency: 1})
         const duration = Date.now() - startTime;
         debug(`All ${type} functions resolved (took ${duration}ms).`);
+        if (sriRequest) {
+            setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
+        };
       } catch(err) {
         if (err instanceof SriError) {
           throw err

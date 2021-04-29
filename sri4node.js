@@ -186,6 +186,7 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
       await hooks.applyHooks('transform response'
                             , mapping.transformResponse
                             , f => f(t, sriRequest, result)
+                            , null // sriRequest
                             )
     }
   }
@@ -262,6 +263,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
             await hooks.applyHooks('transform request'
                                   , mapping.transformRequest
                                   , f => f(req, sriRequest, t)
+                                  , null //sriRequest 
                                   )
         }
 
@@ -311,6 +313,16 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
             await terminateDb(true, readOnly);
           }
 
+          if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
+            const notNullEntries = Object.entries(sriRequest.serverTiming)
+                                         .filter(([property, value]) => value > 0)
+
+            if (notNullEntries.length > 0) {
+                const hdrVal = notNullEntries.map(([property, value]) => `${property};${value}`).join(', ');
+                resp.set('Server-Timing', hdrVal);
+            }
+          }
+
           if (result.headers) {
             resp.set(result.headers)
           }
@@ -319,7 +331,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           await hooks.applyHooks('afterRequest'
           , config.afterRequest
           , f => f(sriRequest)
-          )
+          , sriRequest)
         }
       // }
     } catch (err) {
@@ -879,7 +891,7 @@ exports = module.exports = {
         await hooks.applyHooks('transform internal sriRequest'
                             , match.handler.mapping.transformInternalRequest
                             , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
-                            )   
+                            , sriRequest)
 
         const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping, null);
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
