@@ -83,6 +83,7 @@ exports = module.exports = {
         require('./context/cities.js')(roa, commonResourceConfig),
         require('./context/selfreferential.js')(commonResourceConfig),
         require('./context/countries.js')(roa, commonResourceConfig),
+        require('./context/onlycustom.js')(roa, commonResourceConfig),
       ],
 
       beforePhase: [  async (sriRequestMap, jobMap, pendingJobs) => {

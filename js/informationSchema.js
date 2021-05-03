@@ -32,11 +32,13 @@ exports = module.exports = async function (db, configuration) {
         const rowsByTable = _.groupBy(await pgExec(db, query), r => r.table_name);
 
         cache = Object.fromEntries(
-            configuration.resources.map(mapping => {
-                return [mapping.type, Object.fromEntries(
-                    rowsByTable[tableFromMapping(mapping)].map(c => [c.column_name, { type: c.data_type, element_type: c.element_type }])
-                )];
-            }));
+            configuration.resources
+                .filter(mapping => !mapping.onlyCustom)
+                .map(mapping => {
+                    return [mapping.type, Object.fromEntries(
+                        rowsByTable[tableFromMapping(mapping)].map(c => [c.column_name, { type: c.data_type, element_type: c.element_type }])
+                    )];
+                }));
     }
     return cache;
 };

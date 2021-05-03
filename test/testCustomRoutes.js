@@ -172,5 +172,10 @@ exports = module.exports = function (base, logdebug) {
       assert.notEqual(p.picture, null);
     });
 
+    it('onlyCustom should work', async function () {
+        const response = await doGet('/onlyCustom', null,  authHdrObj)
+        assert.equal(response.bar, 'foo');
+    });
+
   });
 };
