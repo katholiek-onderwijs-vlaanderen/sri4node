@@ -366,6 +366,17 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(response.$$meta.count===undefined, true);
     });
 
-  });  
+  });
+
+  describe('Prefixed resource should also work', function () {
+    it('should return all resources', async function () {
+        const response = await doGet('/prefix/countries2', null, sriClientOptionsAuthSabine)
+        assert.equal(response.results.length, 3);
+    });
+    it('paging should work', async function () {
+        const response = await doGet('/prefix/countries2?limit=2', null, sriClientOptionsAuthSabine)
+        assert.equal(response.results.length, 2);
+    });
+  });
 
 };

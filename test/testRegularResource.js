@@ -137,4 +137,12 @@ exports = module.exports = function (base, logverbose) {
       });
     });
   });
+
+  describe('Prefixed resource should also work', function () {
+    it('get by "key" on resource', async function () {
+        const auth = makeAuthHeader('sabine@email.be', 'pwd')
+        const response = await doGet('/prefix/countries2/be', null, { headers: { authorization: auth } })
+        assert.equal(response.name, 'Belgium');
+    });
+  });
 };

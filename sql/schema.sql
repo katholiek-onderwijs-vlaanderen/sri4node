@@ -141,6 +141,16 @@ CREATE TABLE "countries" (
   "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
+CREATE TABLE "countries2" (
+  "key" text,
+  "name" text,
+  "position" jsonb,
+  "cities" jsonb,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
 CREATE TABLE "products" (
   "key" uuid unique,
   "name" text,
