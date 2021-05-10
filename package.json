@@ -32,7 +32,7 @@
     "p-settle": "4.1.1",
     "pathfinder-ui": "1.0.3",
     "pg-monitor": "^1.4.0",
-    "pg-promise": "10.5.6",
+    "pg-promise": "10.10.2",
     "pug": "^3.0.0",
     "route-parser": "0.0.5",
     "shortid": "^2.2.15",
@@ -46,7 +46,8 @@
     "express": "4.17.1",
     "mocha": "^8.2.1",
     "nodemon": "2.0.4",
-    "stream-equal": "2.0.0"
+    "stream-equal": "2.0.0",
+    "iso-datestring-validator": "2.1.4"
   },
   "repository": {
     "type": "git",

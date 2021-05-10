@@ -15,6 +15,7 @@ exports = module.exports = function (base, logverbose) {
     baseUrl: base,
     username: 'sabine@email.be',
     password: 'pwd',
+    maxAttempts: 1, 
     // headers: { authorization: utils.makeBasicAuthHeader('sabine@email.be', 'pwd') },
   }
   const api = sriClientFactory(sriClientConfig);
@@ -65,7 +66,7 @@ exports = module.exports = function (base, logverbose) {
 
 
     it('should be possible to delete a newly created resource', async function () {
-      await doDelete('/communities/' + key, { headers: { authorization: auth } })
+      await doDelete('/communities/' + key, { maxAttempts: 1, headers: { authorization: auth } })
     });
 
     it('retrieving a deleted resource should return 410 - Gone', async function () {

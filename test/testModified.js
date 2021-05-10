@@ -2,6 +2,7 @@
 var assert = require('assert');
 const _ = require('lodash');
 const uuid = require('uuid');
+const { isValidISODateString } = require('iso-datestring-validator');
 
 function generateRandomAllDatatypes(key) {
     return {
@@ -29,11 +30,11 @@ exports = module.exports = function (base) {
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
 
   describe('Modify resource', function () {
-
     it('it should have the field created with a valid timestamp', async function () {
       const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj)
       assert.equal(response.id, 38);
       assert(response.$$meta.created);
+      assert(isValidISODateString(response.$$meta.created), true);
     });
 
     it('it should have the field modified with a timestamp after the previous one after the resource is updated',

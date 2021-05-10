@@ -41,7 +41,7 @@ exports = module.exports = (api) => ({
      	  throw "Func() execution did not raise any error, but an error was expected."
 			} catch (error) {
 				if (error.status && error.body && error.headers ) { // error instanceof SriClientError) {
-					assertFunc(error)
+					await assertFunc(error)
 				} else {
 					assert.fail('ERROR: ' + error.toString());
 				}

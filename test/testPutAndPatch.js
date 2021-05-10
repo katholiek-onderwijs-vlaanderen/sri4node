@@ -329,7 +329,7 @@ exports = module.exports = function (base, logverbose) {
     });
   });
 
-  describe('PUT resulting in foreign key error', function () {
+  describe('PUT (insert) resulting in foreign key error', function () {
     it('should return 409 conflict', async function () {
       await utils.testForStatusCode(
           async () => {
@@ -338,11 +338,30 @@ exports = module.exports = function (base, logverbose) {
             await doPut('/persons/' + keyp, p, { headers: { authorization: auth } })
           }, 
           (error) => {
-            assert.equal(error.status, 409);            
+            assert.equal(error.status, 409);
             assert.equal(error.body.errors[0].code, 'db.constraint.violation');
           })
     });
   });
+
+
+  describe('PUT (update) resulting in foreign key error', function () {
+    it('should return 409 conflict', async function () {
+      await utils.testForStatusCode(
+          async () => {
+            const keyp = uuid.v4();
+            const p = generateRandomPerson(keyp, communityDendermonde);
+            await doPut('/persons/' + keyp, p, { headers: { authorization: auth } })
+            p.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+            await doPut('/persons/' + keyp, p, { headers: { authorization: auth } })
+          }, 
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].code, 'db.constraint.violation');
+          })
+    });
+  });
+
 
 
   describe('PUT must distinguish between create (201) and update (200)', function () {
@@ -356,11 +375,21 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(response.getStatusCode(), 201);
     });
 
-    it('must return 200 on an update', async function () {
+    it('must return 200 on an update without changes', async function () {
       const response = await doPut('/persons/' + key, p, { headers: { authorization: auth } })
       debug(response);     
       assert.equal(response.getStatusCode(), 200);
     });
+
+    it('must return 200 on an update with changes', async function () {
+        const p1 = await doGet('/persons/' + key, null, { headers: { authorization: auth } });
+        p1.city = 'Borsbeek';
+        const response = await doPut('/persons/' + key, p1, { headers: { authorization: auth } })
+        debug(response);     
+        assert.equal(response.getStatusCode(), 200);
+        const p2 = await doGet('/persons/' + key, null, { headers: { authorization: auth } });
+        assert.notStrictEqual( p1.$$meta.modified, p2.$$meta.modified )
+      });
   });
 
   describe('PUT of 100 items ', function () {

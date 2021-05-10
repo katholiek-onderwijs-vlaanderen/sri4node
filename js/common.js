@@ -298,6 +298,12 @@ exports = module.exports = {
       }      
     }
 
+    if (dbUrl === undefined) {
+        exports.error('FATAL: database configuration is missing !');
+        process.exit(1)
+    }
+
+
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
     if (dbUrl.indexOf('ssl=false') === -1) {
@@ -590,8 +596,10 @@ exports = module.exports = {
           } else {      
             exports.error('____________________________ E R R O R (settleResultsToSriResults)_________________________') 
             exports.error(exports.stringifyError(err))
-            exports.error('STACK:')
-            exports.error(err.stack)            
+            if (err && err.stack) {
+                exports.error('STACK:')
+                exports.error(err.stack)
+            }
             exports.error('___________________________________________________________________________________________') 
             return new exports.SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
@@ -629,6 +637,8 @@ exports = module.exports = {
     const sriRequest = Array.from(sriRequestMap.values())[0];
     return exports.getParentSriRequest(sriRequest);
   },
+
+  getPgp: () => pgp,
 
   SriError: class {
     constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {

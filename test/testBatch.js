@@ -26,8 +26,10 @@ var uuid = require('uuid');
  */
 exports = module.exports = function (base, logverbose) {
   'use strict';
-  var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
-  var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
+  const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
+  const communityHamme = '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d';
+
+  const personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
 
   const sriClientConfig = {
     baseUrl: base
@@ -742,6 +744,159 @@ exports = module.exports = function (base, logverbose) {
             },
         ]
         const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
+      });
+
+
+
+
+    it('batch with multiple single inserts with one constraint error', async function () {
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        // create a batch array
+        const batch = [
+            [ { "href": '/persons/' + keyp1
+            , "verb": "PUT"
+            , "body": p1
+            } ],
+            [ { "href": '/persons/' + keyp2
+            , "verb": "PUT"
+            , "body": p2
+            } ]
+        ]
+
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+              assert.strictEqual(error.body[0].status, 409);
+              assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
+              assert.strictEqual(error.body[1].status, 201);
+            });
+      });
+
+
+      it('batch with multi row insert and a constraint error', async function () {
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        // create a batch array
+        const batch = [
+            { "href": '/persons/' + keyp1
+            , "verb": "PUT"
+            , "body": p1
+            },
+            { "href": '/persons/' + keyp2
+            , "verb": "PUT"
+            , "body": p2
+            }
+        ]
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+                assert.strictEqual(error.body[0].status, 409);
+                assert.strictEqual(error.body[1].status, 409);
+            });
+
+      });
+
+      it('batch with multiple single updates with one constraint error', async function () {
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, communityDendermonde);
+        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+        p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+        // create a batch array
+        const batch = [
+            [{ "href": '/persons/' + keyp1
+            , "verb": "PUT"
+            , "body": p1
+            }],
+            [{ "href": '/persons/' + keyp2
+            , "verb": "PUT"
+            , "body": p2
+            }]
+        ]
+
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+              assert.strictEqual(error.body[0].status, 409);
+              assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
+              assert.strictEqual(error.body[1].status, 200);
+            });
+      });
+
+      it('batch with multi row update and a constraint error', async function () {
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, communityDendermonde);
+        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+        const keyp3 = uuid.v4();
+        const p3 = generateRandomPerson(keyp3, communityDendermonde);
+        await doPut('/persons/' + keyp3, p3, sriClientOptionsAuthSabine)
+
+        p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+        p2.community.href = communityHamme;
+        // create a batch array
+        const batch = [
+            { "href": '/persons/' + keyp1
+            , "verb": "PUT"
+            , "body": p1
+            },
+            { "href": '/persons/' + keyp2
+            , "verb": "PUT"
+            , "body": p2
+            },
+            { "href": '/persons/' + keyp3
+            , "verb": "PUT"
+            , "body": p3
+            }
+        ]
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+                assert.strictEqual(error.body[0].status, 409);
+                assert.strictEqual(error.body[1].status, 409);
+                assert.strictEqual(error.body[2].status, 200);
+            });
+
+      });
+
+      it('batch with multi delete', async function () {
+        const keyp1 = uuid.v4();
+        const p1 = generateRandomPerson(keyp1, communityDendermonde);
+        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+        const keyp2 = uuid.v4();
+        const p2 = generateRandomPerson(keyp2, communityDendermonde);
+        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+
+        // create a batch array
+        const batch = [
+            { "href": '/persons/' + keyp1
+            , "verb": "DELETE"
+            // , "body": p1
+            },
+            { "href": '/persons/' + keyp2
+            , "verb": "DELETE"
+            // , "body": p2
+            }
+        ]
+        await doPut('/batch', batch, sriClientOptionsAuthSabine);
+
       });
 
   });

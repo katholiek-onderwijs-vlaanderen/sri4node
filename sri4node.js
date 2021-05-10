@@ -25,7 +25,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, createReadableStream, jsonArrayStream } = require('./js/common.js');
+        typeToMapping, createReadableStream, jsonArrayStream, sqlColumnNames, getPgp } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -419,6 +419,7 @@ exports = module.exports = {
       // initialize undefined global hooks with empty list
       toArray(config, 'beforePhase');
       config.beforePhase.push(regularResource.beforePhaseQueryByKey);
+      config.beforePhase.push(regularResource.beforePhaseInsertUpdate);
 
       if (config.bodyParserLimit === undefined) {
         config.bodyParserLimit = '5mb'
@@ -476,6 +477,8 @@ exports = module.exports = {
         config.batchConcurrency = 4;
       }
 
+
+
       global.sri4node_configuration = config // share configuration with other modules
 
       let dbR, dbW;
@@ -500,6 +503,57 @@ exports = module.exports = {
         }, { concurrency: 1 })
 
       global.sri4node_configuration.informationSchema = await require('./js/informationSchema.js')(dbR, config)
+
+      // Prepare pg-promise columnsets for multi insert/update & delete
+      const pgp = getPgp();
+
+      const generatePgColumnSet = (columnNames, type, table) => {
+            const columns = columnNames.map(cname => {
+                const col = { name: cname };
+                if (cname.includes('.')) {
+                    // popertynames with dot like $$meta.* are problematic with default pg-promise
+                    // see https://github.com/vitaly-t/pg-promise/issues/494  ==> workaround with .init() fun
+                    col.prop = `_${cname.replace(/\./g, '_')}`; // if prop is not unique multiple $$meta.* will get the same value!
+                    col.init = c => {
+                        return c.source[cname]
+                    }
+                }
+                const cType = global.sri4node_configuration.informationSchema[type][cname].type;
+                const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
+                if (cType !== 'text') {
+                    if (cType === 'ARRAY') {
+                        col.cast = `${cElementType}[]`;
+                    } else {
+                        col.cast = cType;
+                    }
+                }
+                if (cname === 'key') {
+                    col.cnd = true;
+                }
+                return col;
+            });
+
+            return new pgp.helpers.ColumnSet(columns, { table });
+      }
+
+      global.sri4node_configuration.pgColumns = Object.fromEntries(
+            config.resources.map(resource => {
+                if (!resource.onlyCustom) {
+                    const type = resource.type;
+                    const table = tableFromMapping(typeToMapping(type));
+                    const columns = JSON.parse('[' + sqlColumnNames(typeToMapping(type)) + ']')
+                        .filter(cname => !cname.startsWith('$$meta.'));
+                    const ret = {}
+                    ret.insert = new pgp.helpers.ColumnSet(columns, { table });
+
+                    const dummyUpdateRow = transformObjectToRow({}, resource, false);
+                    ret.update = generatePgColumnSet([...new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])], type, table);
+                    ret.delete = generatePgColumnSet(["key", "$$meta.modified", "$$meta.deleted"], type, table);
+
+                    return [table, ret];
+                }
+            }).filter( e => e !== undefined) );
+
 
       global.sri4node_loaded_plugins = new Map();
 
