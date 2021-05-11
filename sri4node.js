@@ -318,7 +318,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
                                          .filter(([property, value]) => value > 0)
 
             if (notNullEntries.length > 0) {
-                const hdrVal = notNullEntries.map(([property, value]) => `${property};${value}`).join(', ');
+                const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
                 resp.set('Server-Timing', hdrVal);
             }
           }
