@@ -266,6 +266,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
                                   )
         }
 
+        req.on('close', function (err){
+            sriRequest.reqCancelled = true;
+         });
+
         // As long as we have a global batch (for which we can't determine mapping), we cannot
         // do the mapping.transformRequest hook for batch here => pass a wrapper.
         if (!isBatchRequest) {
@@ -357,20 +361,22 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         req.destroy()
       } else {
         if (err instanceof SriError) {
-          const reqId = httpContext.get('reqId')
-          if (reqId!==undefined) {
-            err.body.vskoReqId = reqId;
-            err.headers['vsko-req-id'] = reqId;
+          if (err.status>0) {
+              const reqId = httpContext.get('reqId')
+              if (reqId!==undefined) {
+                err.body.vskoReqId = reqId;
+                err.headers['vsko-req-id'] = reqId;
+              }
+              resp.set(err.headers).status(err.status).send(err.body);
           }
-          resp.set(err.headers).status(err.status).send(err.body);
-        } else {      
+        } else {
           error('____________________________ E R R O R (expressWrapper)____________________________________') 
           error(err)
           error('STACK:')
           error(err.stack)
           error('___________________________________________________________________________________________') 
           resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-        }        
+        }
       }
     } finally {
       // if (!isBatchRequest) {
@@ -487,6 +493,8 @@ exports = module.exports = {
                 '------------------------------------------------------------------------------------------------------------------\n\n\n'
                 )
             config.logdebug = new Set(['general', 'trace', 'requests'])
+        } else if (config.logdebug === false) {
+            config.logdebug = new Set();
         } else {
             config.logdebug = new Set(config.logdebug.split(','))
         }

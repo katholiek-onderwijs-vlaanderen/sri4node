@@ -123,6 +123,10 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
             debug_log(id, `*step ${stepnr}* done.`)
             phasePendingJobs.delete(id)
 
+            if (getParentSriRequestFromRequestMap(sriRequestMap).reqCancelled) {
+                throw new SriError({ status: 0, errors: [{ code: 'cancelled', msg: 'Request cancelled by client.' }] });
+            }
+
             if (phasePendingJobs.size === 0) {
                 debug_log(id, ` Starting new phase.`)
                 await startNewPhase()
