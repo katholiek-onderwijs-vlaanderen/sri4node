@@ -52,12 +52,12 @@ function forceSecureSockets(req, res, next) {
 const logRequests = (req, res, next) => {
   'use strict';
   if (global.sri4node_configuration.logrequests) {
-    debug(req.method + ' ' + req.path + ' starting.'
+    debug('requests', req.method + ' ' + req.path + ' starting.'
               + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
     req.startTime = Date.now();
     res.on('finish', function () {
       const duration = Date.now() - req.startTime;
-      debug(req.method + ' ' + req.path + ' took ' + duration + ' ms. '
+      debug('requests', req.method + ' ' + req.path + ' took ' + duration + ' ms. '
                 + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
     });
   }
@@ -197,7 +197,6 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 
 const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
-    debug('expressWrapper starts processing ' + req.originalUrl);
     let t=null, endTask, resolveTx, rejectTx, readOnly;
     try {
       if (isBatchRequest) {
@@ -278,22 +277,22 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
 
         const terminateDb = async (error, readOnly) => {
           if (readOnly===true) {
-            debug('++ Processing went OK. Closing database task. ++');
+            debug('db', '++ Processing went OK. Closing database task. ++');
             await endTask()     
           } else {
             if (error) {
               if (req.query.dryRun === 'true') {
-                debug('++ Error during processing in dryRun mode. Rolling back database transaction.');
+                debug('db', '++ Error during processing in dryRun mode. Rolling back database transaction.');
               } else {
-                debug('++ Error during processing. Rolling back database transaction.');
+                debug('db', '++ Error during processing. Rolling back database transaction.');
               }
               await rejectTx()     
             } else {
               if (req.query.dryRun === 'true') {
-                debug('++ Processing went OK in dryRun mode. Rolling back database transaction.');
+                debug('db', '++ Processing went OK in dryRun mode. Rolling back database transaction.');
                 await rejectTx()   
               } else {
-                debug('++ Processing went OK. Committing database transaction.');  
+                debug('db', '++ Processing went OK. Committing database transaction.');  
                 await resolveTx()   
               }
             }
@@ -338,10 +337,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly===true) {
-          debug('++ Exception catched. Closing database task. ++');
+          debug('db', '++ Exception catched. Closing database task. ++');
           await endTask();
         } else {
-          debug('++ Exception catched. Rolling back database transaction. ++');
+          debug('db', '++ Exception catched. Rolling back database transaction. ++');
           await rejectTx()  
         }
       }
@@ -358,7 +357,6 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         req.destroy()
       } else {
         if (err instanceof SriError) {
-          debug('Sending SriError to client.')
           const reqId = httpContext.get('reqId')
           if (reqId!==undefined) {
             err.body.vskoReqId = reqId;
@@ -477,7 +475,22 @@ exports = module.exports = {
         config.batchConcurrency = 4;
       }
 
-
+      if (config.logdebug !== undefined) {
+        if (config.logdebug === true) {
+            // for backwards compability
+            console.warn(
+                '\n\n\n------------------------------------------------------------------------------------------------------------------\n' +
+                'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n' +
+                'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n' +
+                'sri4node documentation for more details ). For now "general,trace,requests" is set as sensible default, but please\n' +
+                'specify the preferred channels for which logging is requested.\n' +
+                '------------------------------------------------------------------------------------------------------------------\n\n\n'
+                )
+            config.logdebug = new Set(['general', 'trace', 'requests'])
+        } else {
+            config.logdebug = new Set(config.logdebug.split(','))
+        }
+      }
 
       global.sri4node_configuration = config // share configuration with other modules
 
@@ -568,7 +581,7 @@ exports = module.exports = {
         await plugin.install(global.sri4node_configuration, dbW);
 
         if (plugin.uuid !== undefined) {
-          debug(`Loaded plugin ${plugin.uuid}.`)
+          debug('general', `Loaded plugin ${plugin.uuid}.`)
           global.sri4node_loaded_plugins.set(plugin.uuid, plugin);
         }
       }
@@ -585,7 +598,7 @@ exports = module.exports = {
         if ( global.overloadProtection.canAccept() ) {
           next();
         } else {
-          debug(`DROPPED REQ`);
+          debug('overloadProtection', `DROPPED REQ`);
           if (config.overloadProtection.retryAfter !== undefined) {
             res.set('Retry-After', config.overloadProtection.retryAfter);
           }
@@ -626,23 +639,23 @@ exports = module.exports = {
       app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
       app.post('/setlogdebug', function (req, resp, next) {
-        if (req.query.enabled === 'true') {
-          global.sri4node_configuration.logdebug = true
-          debug('Enabled logdebug via /setlogdebug')
+        if (req.query.channels !== undefined) {
+          global.sri4node_configuration.logdebug = new Set(req.query.channels.split(','))
+          debug('general', 'Enabled logdebug via /setlogdebug')
           resp.send('Enabled logdebug.')
         } else {
-          debug('Disabled logdebug via /setlogdebug')
-          global.sri4node_configuration.logdebug = false
+          debug('general', 'Disabled logdebug via /setlogdebug')
+          delete global.sri4node_configuration.logdebug;
           resp.send('Disabled logdebug.')
         }
       });
       app.post('/setlogsql', function (req, resp, next) {
         if (req.query.enabled === 'true') {
           global.sri4node_configuration.logsql = true
-          debug('Enabled logdebug via /setlogsql')
+          debug('general', 'Enabled logsql via /setlogsql')
           resp.send('Enabled logsql.')
         } else {
-          debug('Disabled logdebug via /setlogsql')
+          debug('general', 'Disabled logsql via /setlogsql')
           global.sri4node_configuration.logsql = false
           resp.send('Disabled logsql.')
         }
@@ -702,8 +715,8 @@ exports = module.exports = {
       // temporarilty allow a global /batch via config option for samenscholing
       if (config.enableGlobalBatch) {
         const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
-        debug(`registering route ${globalBatchPath} - PUT/POST`)
-        debug(`registering route ${globalBatchPath + '_streaming'} - PUT/POST`)
+        debug('general', `registering route ${globalBatchPath} - PUT/POST`)
+        debug('general', `registering route ${globalBatchPath + '_streaming'} - PUT/POST`)
         app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
         app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
 
@@ -865,12 +878,10 @@ exports = module.exports = {
                                 await phaseSyncer.phase()
                                 const result = await cr.handler(tx, sriRequest, customMapping)
                                 await phaseSyncer.phase()
-                                debug('phase done')
                                 if (cr.afterHandler !== undefined) {
                                   await cr.afterHandler(tx, sriRequest, customMapping, result)
                                 }
                                 await phaseSyncer.phase()
-                                debug('returning result')
                                 return result
                               }
                           , config
@@ -897,7 +908,7 @@ exports = module.exports = {
       batchHandlerMap.forEach( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        debug(`registering route ${path} - ${verb} - ${readOnly}`)
+        debug('general', `registering route ${path} - ${verb} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
                                  emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'func') )
       })

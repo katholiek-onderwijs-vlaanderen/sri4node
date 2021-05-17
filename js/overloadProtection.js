@@ -6,7 +6,7 @@ exports = module.exports = (config) => {
 	return {
 		canAccept: () => {
 			if (config!==undefined) {
-				debug(`canAccept ${extraDrop} - ${usedPipelines} - ${config.maxPipelines}`)
+				debug('overloadProtection', `overloadProtection - canAccept ${extraDrop} - ${usedPipelines} - ${config.maxPipelines}`)
 				if (extraDrop === 0) {
 					return (usedPipelines < config.maxPipelines);
 				} else {
@@ -22,14 +22,14 @@ exports = module.exports = (config) => {
 				const remainingCap = Math.max((config.maxPipelines - usedPipelines), 1);
 				const nrServed = Math.min(nr, remainingCap);
 				usedPipelines += nrServed;
-				debug(`startPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
+				debug('overloadProtection', `overloadProtection - startPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 				return nrServed;
 			} 			
 		},
 		endPipeline: (nr = 1) => { 
 			if (config!==undefined) { 
 				usedPipelines -= nr 
-				debug(`endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
+				debug('overloadProtection', `overloadProtection - endPipeline(${nr}) => ${usedPipelines}/${config.maxPipelines}`);
 			} 
 		},
 		addExtraDrops: (nr = 1) => {

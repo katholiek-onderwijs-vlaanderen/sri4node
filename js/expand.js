@@ -45,7 +45,7 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
   if (elements && elements.length > 0) {
     const { expand, recurse, recursepath } = checkRecurse(expandpath)
     if (!mapping.map[expand]) {
-      debug('** rejecting expand value [' + expand + ']');
+      debug('trace', 'expand - rejecting expand value [' + expand + ']');
       throw new SriError({status: 404, errors: [{code: 'expansion.failed', msg: `Cannot expand [${expand}] because it is not mapped.`}]})
     } else {
       const keysToExpand = elements.reduce( 
@@ -71,11 +71,10 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
         const table = tableFromMapping(targetMapping)
         const columns = sqlColumnNames(targetMapping);
 
-        debug(table);
         const query = prepare();
         query.sql(`select ${columns} from "${table}" where key in (`).array(keysToExpand).sql(')');
         const rows = await pgExec(db, query)
-        debug('** expansion query done');
+        debug('trace', 'expand - expansion query done');
 
         const expandedElements = rows.map( row => {
             const element = transformRowToObject(row, targetMapping) 
@@ -84,7 +83,7 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
           })
         const expandedElementsDict = _.fromPairs(expandedElements.map( obj => ([ obj.$$meta.permalink, obj ])))
 
-        debug('** executing afterRead functions on expanded resources');
+        debug('trace', 'expand - executing afterRead functions on expanded resources');
         await hooks.applyHooks( 'after read'
                               , targetMapping.afterRead
                               , f => f( db, sriRequest, 
@@ -102,10 +101,10 @@ async function executeSingleExpansion(db, sriRequest, elements, mapping, resourc
         })
               
         if (recurse) {
-          debug('** recursing to next level of expansion : ' + recursepath);
+          debug('trace', 'expand - recursing to next level of expansion : ' + recursepath);
           await executeSingleExpansion(db, sriRequest, expandedElements, targetMapping, resources, recursepath);
         } else {
-          debug('** executeSingleExpansion resolving');
+          debug('trace', 'expand - executeSingleExpansion resolving');
         }
       }
       
@@ -131,8 +130,7 @@ function parseExpand(expand) {
                .map( p => p.replace(/^results\./, '') )
   }
 
-  debug('** parseExpand() results in :');
-  debug(ret);
+  debug('trace', `expand - parseExpand() results in : ${ret}`);
 
   return ret;
 }
@@ -160,13 +158,13 @@ module.exports.executeExpansion = async (db, sriRequest, elements, mapping) => {
 
   const resources = global.sri4node_configuration.resources
 
-  debug('** executeExpansion()');
+  debug('trace', 'expand - executeExpansion()');
   if (expand) {
     const paths = parseExpand(expand, mapping);
     if (paths && paths.length > 0) {
       const expandedElements = elements.map( element => element.$$expanded || element );
       const results = await pMap(paths, (path) => executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path) )
-      debug('expansion done');
+      debug('trace', 'expand - expansion done');
     }
   }
   return 

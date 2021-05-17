@@ -19,9 +19,10 @@ exports = module.exports = {
     console.log(x); // eslint-disable-line
   },
 
-  debug: (x) => {
+  debug: (channel, x) => {
     'use strict';
-    if (global.sri4node_configuration===undefined || global.sri4node_configuration.logdebug) {
+    if (global.sri4node_configuration===undefined || 
+        (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.has(channel))) {
       const reqId = httpContext.get('reqId');
       console.log(reqId ? `[reqId:${reqId}] ${x}` : x);
     }
@@ -172,7 +173,6 @@ exports = module.exports = {
     element.$$meta.permalink = resourceMapping.type + '/' + row.key;     
     element.$$meta.version = row['$$meta.version'];  
 
-    // exports.debug('Transformed incoming row according to configuration');
     return element
   },
 
@@ -215,12 +215,11 @@ exports = module.exports = {
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
         // for this type combination we need to explicitly stringify the JSON, 
         // otherwise insert will attempt to store a postgres array which fails for jsonb
-        row[key] = JSON.stringify(row[key])        
+        row[key] = JSON.stringify(row[key])
       }
 
     })
 
-    // exports.debug('Transformed incoming object according to configuration');
     return row
   },
 
@@ -380,7 +379,7 @@ exports = module.exports = {
   },
 
   startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
-    exports.debug('++ Starting database transaction.');  
+    exports.debug('db', '++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
 
@@ -425,7 +424,7 @@ exports = module.exports = {
         });
         txWrapper(emitter);
       });
-      exports.debug('Got db tx object.');
+      exports.debug('db', 'Got db tx object.');
 
       await tx.none('SET CONSTRAINTS ALL DEFERRED;');
 
@@ -442,15 +441,15 @@ exports = module.exports = {
 
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
     } catch (err) {
-      exports.debug('CATCHED ERROR: ');  
-      exports.debug(JSON.stringify(err));  
+      exports.error('CATCHED ERROR: ');  
+      exports.error(JSON.stringify(err));  
       throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }      
   },
 
 
   startTask: async (db) => {
-    exports.debug('++ Starting database task.');  
+    exports.debug('db', '++ Starting database task.');  
 
     const emitter = new EventEmitter()  
 
@@ -479,12 +478,12 @@ exports = module.exports = {
         });
         taskWrapper(emitter);
       });
-      exports.debug('Got db t object.');  
+      exports.debug('db', 'Got db t object.');  
 
       const endTask = async () => {
           emitter.emit('terminate')
           const res = await pEvent(emitter, 'tDone')
-          exports.debug('db task done.');  
+          exports.debug('db', 'db task done.');  
           if (res !== undefined) {
             throw res
           }
@@ -492,8 +491,8 @@ exports = module.exports = {
 
       return ({ t, endTask: endTask })
     } catch (err) {
-      exports.debug('CATCHED ERROR: ');  
-      exports.debug(JSON.stringify(err));  
+      exports.error('CATCHED ERROR: ');
+      exports.error(JSON.stringify(err));
       throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
   },

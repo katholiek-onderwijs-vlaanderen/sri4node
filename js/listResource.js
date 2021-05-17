@@ -84,7 +84,7 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
     query.sql(sql);
   }
 
-  debug('* applying URL parameters to WHERE clause');
+  debug('trace', 'listResource - applying URL parameters to WHERE clause');
   await applyRequestParameters(mapping, query, parameters, tx, count)
 
 }
@@ -200,8 +200,8 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
       // Intentionally left blank.
     } else if (queryParams.expand) {
       // Error expand must be either 'full','none' or start with 'href'
-      const msg = 'expand value unknown : ' + queryParams.expand;
-      debug(msg);
+      const msg = 'listResource - expand value unknown : ' + queryParams.expand;
+      debug('trace', msg);
       throw new SriError({ status: 400, 
                            errors: [{ code: 'parameter.value.unknown', 
                                  msg: `Unknown value [${queryParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
@@ -275,7 +275,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
   await phaseSyncer.phase()
 
-  debug('GET list resource ' + type);
+  debug('trace', 'listResource - GET list resource starting' + type);
 
   let count = null;
   let rows;
@@ -289,14 +289,14 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     if ( includeCount ) {      
       const countquery = prepare();
       await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
-      debug('* executing SELECT COUNT query on tx');
+      debug('trace', 'listResource - executing SELECT COUNT query on tx');
       count = await getCountResult(tx, countquery, sriRequest) 
     }
 
     const query = prepare();
     await getSQLFromListResource(mapping, queryParams, false, tx, query);
     orderKeys = applyOrderAndPagingParameters(query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset)
-    debug('* executing SELECT query on tx');
+    debug('trace', 'listResource - executing SELECT query on tx');
     rows = await pgExec(tx, query, sriRequest);
   } catch (error) { 
     if (error.code === '42703') { //UNDEFINED COLUMN
@@ -312,7 +312,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
   await phaseSyncer.phase()
 
-  debug('* executing afterRead functions on results');
+  debug('trace', 'listResource - executing afterRead functions on results');
 
   await hooks.applyHooks( 'after read', 
                           mapping.afterRead, 
@@ -334,7 +334,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
   await phaseSyncer.phase()
 
-  debug('* executing expansion : ' + queryParams.expand);
+  debug('trace', 'listResource - executing expansion : ' + queryParams.expand);
   await expand.executeExpansion(tx, sriRequest, output.results, mapping);
 
   return {status: 200, body: output}

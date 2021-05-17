@@ -138,12 +138,6 @@ exports = module.exports = {
         return this;
       },
       toParameterizedSql: function () {
-        function debug(x) {
-          if (global.sri4node_configuration.logdebug) {
-            console.log(x);
-          }
-        }
-
         var text = this.text;
         var values = this.params;
         var paramCount = 1;
@@ -152,7 +146,7 @@ exports = module.exports = {
             const index = text.indexOf(exports.parameterPattern);
             if (index === -1) {
               var msg = 'Parameter count in query does not add up. Too few parameters in the query string';
-              debug('** ' + msg);
+              error('** ' + msg);
               throw new Error(msg)
             } else {
               const prefix = text.substring(0, index);
@@ -164,7 +158,7 @@ exports = module.exports = {
           const index = text.indexOf(exports.parameterPattern);
           if (index !== -1) {
             var msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
-            debug('** ' + msg);
+            error('** ' + msg);
             throw new Error(msg)
           }
         }

@@ -27,7 +27,7 @@ const multiDeleteError = makeMultiError('delete');
 
 
 function queryByKeyRequestKey(sriRequest, mapping, key) {
-  debug(`** queryByKeyRequestKey(${key})`);
+  debug('trace', `queryByKeyRequestKey(${key})`);
   const type = mapping.type;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
@@ -52,13 +52,13 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
 
 
 function queryByKeyGetResult(sriRequest, mapping, key, wantsDeleted) {
-  debug(`** queryByKeyGetResult(${key})`);
+  debug('trace', `queryByKeyGetResult(${key})`);
   const type = mapping.type;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
   if (parentSriRequest.queryByKeyResults === undefined || parentSriRequest.queryByKeyResults[type] === undefined) {
     const msg = `The function queryByKey did not produce the expected output for key ${key} and type ${type}`;
-    debug(msg);
+    error(msg);
     throw new SriError({status: 500, errors: [{code: 'fetching.key.failed', type, key, msg: msg}]})
   }
 
@@ -67,7 +67,6 @@ function queryByKeyGetResult(sriRequest, mapping, key, wantsDeleted) {
     if (row['$$meta.deleted'] && !wantsDeleted) {
       return { code: 'resource.gone' }
     } else {
-      debug('** transforming row to JSON object');
       return { code: 'found', object: transformRowToObject(row, mapping) }
     }
   } else {
@@ -140,12 +139,12 @@ async function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
   element['$$meta'].type = mapping.metaType;
 
-  debug('* executing expansion');
+  debug('trace', '* executing expansion');
   await expand.executeExpansion(tx, sriRequest, [element], mapping);
 
   await phaseSyncer.phase()
 
-  debug('* executing afterRead functions on results');
+  debug('trace', '* executing afterRead functions on results');
   await hooks.applyHooks( 'after read',
                           mapping.afterRead,
                           f => f(tx, sriRequest, [{ permalink: element.$$meta.permalink
@@ -190,9 +189,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mappin
   const key = sriRequest.params.key;
   const patch = sriRequest.body;
 
-  debug('PATCH processing starting. Request object :');
-  debug(patch);
-  debug('Key received on URL : ' + key);
+  debug('trace', `PATCH processing starting key ${key}`);
 
   queryByKeyRequestKey(sriRequest, mapping, key);
   await phaseSyncer.phase();
@@ -234,9 +231,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
   const obj = sriRequest.body
   const table = tableFromMapping(mapping);
 
-  debug('PUT processing starting. Request object :');
-  debug(JSON.stringify(obj));
-  debug('Key received on URL : ' + key);
+  debug('trace', `PUT processing starting for key ${key}`);
 
   if (obj.key !== undefined && obj.key.toString() !== key) {
     throw new SriError({status: 400, errors: [{code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }]})
@@ -249,7 +244,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     if (obj[k] === null) { delete obj[k] }
   })
 
-  debug('Validating schema.');
+  debug('trace', 'Validating schema.');
   if (mapping.schema) {
     if (!mapping.schemaWithoutAdditionalProperties) {
       mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
@@ -261,7 +256,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       const errors = { validationErrors }
       throw new SriError({status: 409, errors: [{code: 'validation.errors', msg: 'Validation error(s)', errors }]})
     } else {
-      debug('Schema validation passed.');
+      debug('trace', 'Schema validation passed.');
     }
     const duration = Date.now() - startTime;
 
@@ -290,8 +285,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     const deleteRes = await pgResult(tx, deleteQ, sriRequest);
 
     if (deleteRes.rowCount !== 1) {
-      debug('Removal of soft deleted resource failed ?!');
-      debug(JSON.stringify(deleteRes))
+      debug('trace', 'Removal of soft deleted resource failed ?!');
+      debug('trace', JSON.stringify(deleteRes))
       throw new SriError({status: 500, errors: [{code: 'delete.failed', msg: 'Removal of soft deleted resource failed.'}]})
     }
   }
@@ -336,7 +331,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     // If new resource is the same as the one in the database => don't update the resource. Otherwise meta
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
     if (isEqualSriObject(prevObj, obj, mapping)) {
-      debug('Putted resource does NOT contain changes -> ignore PUT.');
+      debug('trace', 'Putted resource does NOT contain changes -> ignore PUT.');
       return { retVal: { status: 200 } }
     }
 
@@ -492,7 +487,7 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
 async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
-  debug('* sri4node PUT processing invoked.');
+  debug('trace', '* sri4node PUT processing invoked.');
   try {
     const state = await preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     if (state.retVal!==undefined) {
@@ -534,7 +529,7 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
 async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   'use strict';
   await phaseSyncer.phase()
-  debug('* sri4node PATCH processing invoked.');
+  debug('trace', '* sri4node PATCH processing invoked.');
   try {
     const state = await preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping)
     if (state.retVal!==undefined) {
@@ -561,7 +556,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
   await phaseSyncer.phase()
 
-  debug('sri4node DELETE invoked');
+  debug('trace', 'sri4node DELETE invoked');
   const key = sriRequest.params.key;
 
   queryByKeyRequestKey(sriRequest, mapping, key);
@@ -573,7 +568,7 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
                                                    || sriRequest.query['$$meta.deleted'] === 'any');
 
   if (result.code != 'found') {
-    debug('No row affected - the resource is already gone');
+    debug('trace', 'No row affected - the resource is already gone');
   } else {
     const table = tableFromMapping(mapping);
     sriRequest.containsDeleted = false;
@@ -615,7 +610,6 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
     await phaseSyncer.phase()
 
-    debug('Processing afterdelete');
     await hooks.applyHooks('after delete'
                           , mapping.afterDelete
                           , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])

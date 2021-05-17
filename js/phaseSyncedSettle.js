@@ -10,7 +10,7 @@ const { debug, SriError, getParentSriRequestFromRequestMap } = require('./common
 const hooks = require('./hooks.js');
 
 debug_log = (id, msg) => {
-    debug(`PS -${id}- ${msg}`)
+    debug('phaseSyncer', `PS -${id}- ${msg}`)
 };
 
 PhaseSyncer = class {

@@ -106,9 +106,9 @@ exports = module.exports = {
 
       const handleBatch = async (batch, tx) => {  
         if ( batch.every(element =>  Array.isArray(element)) ) {
-          debug('┌──────────────────────────────────────────────────────────────────────────────')
-          debug(`| Handling batch list`)
-          debug('└──────────────────────────────────────────────────────────────────────────────')
+          debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
+          debug('batch', `| Handling batch list`)
+          debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
           return await pMap( batch
                            , async element => {
                                 const {tx: tx1, resolveTx, rejectTx} = await startTransaction(tx)
@@ -127,9 +127,9 @@ exports = module.exports = {
             if (!element.verb) {
               throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]}) 
             }
-            debug('┌──────────────────────────────────────────────────────────────────────────────')
-            debug(`| Executing /batch section ${element.verb} - ${element.href} `)
-            debug('└──────────────────────────────────────────────────────────────────────────────')
+            debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
+            debug('batch', `| Executing /batch section ${element.verb} - ${element.href} `)
+            debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
 
             const match = element.match;
 
@@ -209,9 +209,9 @@ exports = module.exports = {
 
       const handleBatch = async (batch, tx) => {
         if ( batch.every(element =>  Array.isArray(element)) ) {
-          debug('┌──────────────────────────────────────────────────────────────────────────────')
-          debug(`| Handling batch list`)
-          debug('└──────────────────────────────────────────────────────────────────────────────')
+          debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
+          debug('batch', `| Handling batch list`)
+          debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
           return await pMap( batch
                            , async element => {
                                 const result = await handleBatch(element, tx)
@@ -224,9 +224,9 @@ exports = module.exports = {
             if (!element.verb) {
               throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]})
             }
-            debug('┌──────────────────────────────────────────────────────────────────────────────')
-            debug(`| Executing /batch section ${element.verb} - ${element.href} `)
-            debug('└──────────────────────────────────────────────────────────────────────────────')
+            debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
+            debug('batch', `| Executing /batch section ${element.verb} - ${element.href} `)
+            debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
 
             const match = element.match;
 

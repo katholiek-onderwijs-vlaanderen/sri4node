@@ -5,15 +5,13 @@ const { errorAsCode, debug, SriError, stringifyError, setServerTimingHdr } = req
 exports = module.exports = {
 
   applyHooks: async (type, functions, applyFun, sriRequest) => {
-    debug(`applyHooks ${type}`);
-
     if (functions && functions.length > 0) {
       try {
         const startTime = Date.now();
-        debug(`${functions.length} functions`);
+        debug('hooks', `applyHooks-${type}: going to apply ${functions.length} functions`);
         await pMap(functions, applyFun, {concurrency: 1})
         const duration = Date.now() - startTime;
-        debug(`All ${type} functions resolved (took ${duration}ms).`);
+        debug('hooks', `applyHooks-${type}: all functions resolved (took ${duration}ms).`);
         if (sriRequest) {
             setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
         };
@@ -30,7 +28,7 @@ exports = module.exports = {
         }
       }
     } else {
-      debug(`No ${type} functions registered.`);
+      debug('hooks', `applyHooks-${type}: no ${type} functions registered.`);
     }
     return
   }
