@@ -11,6 +11,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var common = require('../js/common.js');
 var cl = common.cl;
+const utils = require('./utils.js')(null);
 
 var $u;
 var configCache = null;
@@ -100,11 +101,11 @@ exports = module.exports = {
         }
       ],
 
+      transformRequest: [ utils.lookForBasicAuthUser ],
+
       // temporarily global batch for samenscholing
       enableGlobalBatch: true
     };
-
-
 
     configCache = config;
     return config;

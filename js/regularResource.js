@@ -32,8 +32,7 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
   const parentSriRequest = getParentSriRequest(sriRequest);
 
   if (mapping.schema && mapping.schema.properties.key) {
-    const validateKey =  ajv.compile(mapping.schema.properties.key);
-    const validKey = validateKey(key)
+    const validKey = mapping.validateKey(key)
     if (!validKey) {
         throw new SriError({status: 400, errors: validateKey.errors.map( e => ({code: 'key.invalid', key: key, err: e}) )})
     }

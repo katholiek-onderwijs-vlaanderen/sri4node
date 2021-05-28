@@ -68,6 +68,7 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
 
     let queuedJobs;
     let phasePendingJobs;
+    let failureHasBeenBroadcasted = false;
 
     try {
 
@@ -157,11 +158,14 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
             queuedJobs.delete(id)
             phasePendingJobs.delete(id)
 
-            // failure of one job in batch leads to failure of the complete batch
-            //  --> notify the other jobs of the failure
-            pendingJobs.forEach(id => jobMap.get(id).jobEmitter.queue(
-                'sriError',
-                new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })));
+            if (!failureHasBeenBroadcasted) {
+                failureHasBeenBroadcasted = true;
+                // failure of one job in batch leads to failure of the complete batch
+                //  --> notify the other jobs of the failure
+                pendingJobs.forEach(id => jobMap.get(id).jobEmitter.queue(
+                    'sriError',
+                    new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })));
+            }
         }));
 
         await startNewPhase();

@@ -4,7 +4,7 @@ var context = require('./context.js');
 var port = 5000;
 var logsql, logrequests, logdebug, logmiddleware;
 logsql = logrequests = logdebug = logmiddleware = false;
-// logdebug=true
+// logdebug='all'
 // logsql = true
 
 var base = 'http://localhost:' + port;

@@ -22,7 +22,9 @@ exports = module.exports = {
   debug: (channel, x) => {
     'use strict';
     if (global.sri4node_configuration===undefined || 
-        (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.has(channel))) {
+        (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.has(channel)) ||
+        global.sri4node_configuration.logdebug.has('all')
+        ) {
       const reqId = httpContext.get('reqId');
       console.log(reqId ? `[reqId:${reqId}] ${x}` : x);
     }

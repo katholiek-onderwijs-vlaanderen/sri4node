@@ -22,10 +22,14 @@ const util = require('util');
 const JSONStream = require('JSONStream');
 const { v4: uuidv4 } = require('uuid');
 
+const Ajv = require("ajv")
+const ajv = new Ajv({ coerceTypes: true }) // options can be passed, e.g. {allErrors: true}
+const addFormats = require("ajv-formats")
+addFormats(ajv)
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, createReadableStream, jsonArrayStream, sqlColumnNames, getPgp } = require('./js/common.js');
+        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -169,11 +173,11 @@ const middlewareErrorWrapper = (fun) => {
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
 
-const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) => {
+const handleRequest = async (sriRequest, func, mapping) => {
   const t = sriRequest.dbT;
   let result;
   if (sriRequest.isBatchRequest) {
-    result = await func(sriRequest, transformHookWrapper);
+    result = await func(sriRequest);
   } else {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
 
@@ -198,11 +202,17 @@ const handleRequest = async (sriRequest, func, mapping, transformHookWrapper) =>
 const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     let t=null, endTask, resolveTx, rejectTx, readOnly;
+    debug('trace', 'Starting express wrapper');
     try {
+      let batchRoutingDuration = 0;
       if (isBatchRequest) {
         // evaluate batch body now to know wether the batch is completetly read-only
         // and do early error detecion
+
+        const startTime = Date.now();
         batch.matchBatch(req);
+        batchRoutingDuration = Date.now() - startTime;
+
         const mapReadOnly = (a) => {
           if ( Array.isArray(a) ) {
             return a.map(mapReadOnly);
@@ -214,10 +224,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
       } else {
         readOnly = readOnly0
       }
-
-      // if (!isBatchRequest) {
-        global.overloadProtection.startPipeline();
-      // }
+      global.overloadProtection.startPipeline();
       if (readOnly === true) {
         ({t, endTask} = await startTask(dbR))
       } else {
@@ -258,26 +265,19 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           sriRequest.streamStarted = (() => resp.headersSent);
         }
 
-        transformHookWrapper = async (mapping) => {
-            await hooks.applyHooks('transform request'
-                                  , mapping.transformRequest
-                                  , f => f(req, sriRequest, t)
-                                  , null //sriRequest 
-                                  )
-        }
-
         req.on('close', function (err){
             sriRequest.reqCancelled = true;
          });
 
-        // As long as we have a global batch (for which we can't determine mapping), we cannot
-        // do the mapping.transformRequest hook for batch here => pass a wrapper.
-        if (!isBatchRequest) {
-          sriRequest.sriType = mapping.type; // the batch code will set sriType for batch elements 
-          await transformHookWrapper(mapping);
-        }
+        await hooks.applyHooks('transform request'
+            , config.transformRequest
+            , f => f(req, sriRequest, t)
+            , null //sriRequest 
+        )
 
-        const result = await handleRequest(sriRequest, func, mapping, transformHookWrapper);
+        setServerTimingHdr(sriRequest, 'batch-routing', batchRoutingDuration);
+
+        const result = await handleRequest(sriRequest, func, mapping);
 
         const terminateDb = async (error, readOnly) => {
           if (readOnly===true) {
@@ -411,17 +411,18 @@ exports = module.exports = {
       config.resources.forEach( (resource) => {
           // initialize undefined hooks in all resources with empty list
           [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
-            'afterInsert', 'beforeDelete', 'afterDelete', 'transformRequest', 'transformInternalRequest', 'transformResponse', 'customRoutes' ]
+            'afterInsert', 'beforeDelete', 'afterDelete', , 'customRoutes', 'transformResponse' ]
               .forEach((name) => toArray(resource, name))
           // for backwards compability set listResultDefaultIncludeCount default to true
           if (resource.listResultDefaultIncludeCount === undefined) { 
             resource.listResultDefaultIncludeCount = true
           }
         }
-      )
+      );
 
       // initialize undefined global hooks with empty list
-      toArray(config, 'beforePhase');
+      ([ 'beforePhase', 'transformRequest', 'transformInternalRequest'])
+        .forEach((name) => toArray(config, name))
       config.beforePhase.push(regularResource.beforePhaseQueryByKey);
       config.beforePhase.push(regularResource.beforePhaseInsertUpdate);
 
@@ -465,6 +466,7 @@ exports = module.exports = {
             throw new Error(`Key type of resource ${mapping.type} unknown!`);
           }
           mapping.listResourceRegex = new RegExp(`^${mapping.type}(?:[?#]\\S*)?$`);
+          mapping.validateKey =  ajv.compile(mapping.schema.properties.key);
         }
       })
 
@@ -759,7 +761,8 @@ exports = module.exports = {
             const customMapping = _.cloneDeep(mapping);
             if (cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping)
-            } else {
+            } 
+            else {
       			  if (cr.transformRequest !== undefined) {
       		      customMapping.transformRequest.push(cr.transformRequest)
       		    }
@@ -922,9 +925,10 @@ exports = module.exports = {
       })
 
       // transform map with 'routes' to be usable in batch
-      config.batchHandlerMap = batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
+      config.batchHandlerMap = _.groupBy(batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
         return { route: new route(path), verb, func, config, mapping, streaming, readOnly, isBatch}
-      })
+      }), e => e.verb);
+
 
       app.get('/', (req, res) => res.redirect('/resources'))
 
@@ -962,11 +966,12 @@ exports = module.exports = {
         }
 
         await hooks.applyHooks('transform internal sriRequest'
-                            , match.handler.mapping.transformInternalRequest
+                            // , match.handler.mapping.transformInternalRequest
+                            , match.handler.transformInternalRequest
                             , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
                             , sriRequest)
 
-        const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping, null);
+        const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
         // in string format instead of Date objects
         return  JSON.parse( JSON.stringify(result) );

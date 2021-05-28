@@ -773,7 +773,7 @@ exports = module.exports = function (base, logverbose) {
             async (error) => {
               assert.strictEqual(error.body[0].status, 409);
               assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
-              assert.strictEqual(error.body[1].status, 201);
+              assert.strictEqual(error.body[1].status, 202);
             });
       });
 
@@ -832,7 +832,7 @@ exports = module.exports = function (base, logverbose) {
             async (error) => {
               assert.strictEqual(error.body[0].status, 409);
               assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
-              assert.strictEqual(error.body[1].status, 200);
+              assert.strictEqual(error.body[1].status, 202);
             });
       });
 

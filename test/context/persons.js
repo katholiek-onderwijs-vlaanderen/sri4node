@@ -9,7 +9,6 @@ var common = require('../../js/common.js');
 var cl = common.cl;
 const queryobject = require('../../js/queryObject.js');
 const prepare = queryobject.prepareSQL; 
-const utils = require('../utils.js')(null);
 
 exports = module.exports = function (roa, logverbose, extra) {
   'use strict';
@@ -188,7 +187,7 @@ exports = module.exports = function (roa, logverbose, extra) {
                                   function (tx, sriRequest, result) {
                                     const simple = { firstname: result.body.firstname
                                                    , lastname: result.body.lastname }
-                                    result.body = simple                                    
+                                    result.body = simple;
                                   }
                               ],
                               mapping.afterRead = [ checkMe ]
@@ -335,7 +334,6 @@ exports = module.exports = function (roa, logverbose, extra) {
       checkMe, checkElements, failOnBadUser, forbidUser
     ],
 
-    transformRequest: utils.lookForBasicAuthUser
   };
 
   common.mergeObject(extra, ret);
