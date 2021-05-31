@@ -151,20 +151,28 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
             }
         }));
 
-        ctrlEmitter.on('jobFailed', listener = errorHandlingWrapper(function (id) {
+        ctrlEmitter.on('jobFailed', listener = errorHandlingWrapper(async function (id) {
             debug_log(id, `*JOB* failed.`)
 
             pendingJobs.delete(id)
             queuedJobs.delete(id)
             phasePendingJobs.delete(id)
 
-            if (!failureHasBeenBroadcasted) {
-                failureHasBeenBroadcasted = true;
-                // failure of one job in batch leads to failure of the complete batch
-                //  --> notify the other jobs of the failure
-                pendingJobs.forEach(id => jobMap.get(id).jobEmitter.queue(
-                    'sriError',
-                    new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })));
+            if (getParentSriRequestFromRequestMap(sriRequestMap).readOnly === true) {
+                if (phasePendingJobs.size === 0) {
+                    await startNewPhase()
+                } else {
+                    startQueuedJob()
+                }
+            } else {
+                if (!failureHasBeenBroadcasted) {
+                    failureHasBeenBroadcasted = true;
+                    // failure of one job in batch leads to failure of the complete batch
+                    //  --> notify the other jobs of the failure
+                    pendingJobs.forEach(id => jobMap.get(id).jobEmitter.queue(
+                        'sriError',
+                        new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })));
+                }
             }
         }));
 

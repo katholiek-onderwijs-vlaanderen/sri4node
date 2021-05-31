@@ -156,7 +156,7 @@ exports = module.exports = {
                                                          beforePhaseHooks: global.sri4node_configuration.beforePhase
                                                        } ));
 
-              if (results.some(e => e instanceof SriError)) {
+              if (results.some(e => e instanceof SriError) && sriRequest.readOnly === false) {
                   batchFailed = true;
               }
 

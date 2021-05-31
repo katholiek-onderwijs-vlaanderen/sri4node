@@ -899,5 +899,79 @@ exports = module.exports = function (base, logverbose) {
 
       });
 
+    it('read-only batch with error should not be cancelled', async function () {
+        // create a batch array
+        const batch = [
+            { "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
+            , "verb": "GET"
+            },
+            { "href": '/cities/56001'
+            , "verb": "GET"
+            },
+            { "href": '/cities/38002'
+            , "verb": "GET"
+            },
+            { "href": '/cities/61003'
+            , "verb": "GET"
+            },
+            { "href": '/cities/92003'
+            , "verb": "GET"
+            },
+            { "href": '/cities/56001'
+            , "verb": "GET"
+            },
+        ]
+
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+              assert.strictEqual(error.body[0].status, 403);
+              assert.strictEqual(error.body[1].status, 200);
+              assert.strictEqual(error.body[2].status, 200);
+              assert.strictEqual(error.body[3].status, 200);
+              assert.strictEqual(error.body[4].status, 200);
+              assert.strictEqual(error.body[5].status, 200);
+            });
+      });
+
+      it('read-only batch (chunked) with error should not be cancelled', async function () {
+        // create a batch array
+        const batch = [
+            [{ "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
+            , "verb": "GET"
+            }],
+            [{ "href": '/cities/56001'
+            , "verb": "GET"
+            }],
+            [{ "href": '/cities/38002'
+            , "verb": "GET"
+            }],
+            [{ "href": '/cities/61003'
+            , "verb": "GET"
+            }],
+            [{ "href": '/cities/92003'
+            , "verb": "GET"
+            }],
+            [{ "href": '/cities/56001'
+            , "verb": "GET"
+            }],
+        ]
+
+        await utils.testForStatusCode(
+            async () => {
+                await doPut('/batch', batch, sriClientOptionsAuthSabine);
+            },
+            async (error) => {
+              assert.strictEqual(error.body[0].status, 403);
+              assert.strictEqual(error.body[1].status, 200);
+              assert.strictEqual(error.body[2].status, 200);
+              assert.strictEqual(error.body[3].status, 200);
+              assert.strictEqual(error.body[4].status, 200);
+              assert.strictEqual(error.body[5].status, 200);
+            });
+      });
+
   });
 };
