@@ -238,7 +238,7 @@ exports = module.exports = {
       monitor.attach(pgpInitOptions);
     }
 
-    if (global.sri4node_configuration.pgMonitor===true) {
+    if (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true) {
         const monitor = require('pg-monitor');
         monitor.attach(pgpInitOptions);
     };
