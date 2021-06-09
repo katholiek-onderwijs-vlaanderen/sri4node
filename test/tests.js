@@ -104,6 +104,7 @@ describe('Sri4node testing', function () {
   require('./relationsFilter/testRelationsFilterToTypes.js')(base, logdebug);
   require('./relationsFilter/testRelationsFilterNoType.js')(base, logdebug);
 
+  require('./testServerTiming.js')(base, logdebug);
 
   require('./testDocs.js')(base, logdebug);
   require('./testInformationSchema.js')(logdebug);

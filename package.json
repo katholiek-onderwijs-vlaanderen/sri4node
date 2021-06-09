@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "POSTGRES_SCHEMA=\"sri4node\" mocha --exit",
+    "test_performance": "mocha --config .mocharc_performance.js --exit",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
@@ -21,6 +22,7 @@
     "express-http-context": "^1.2.3",
     "express-middleware-timer": "^0.2.2",
     "fast-json-patch": "^3.0.0-1",
+    "gc-stats": "^1.4.0",
     "global-configuration": "^0.3.1",
     "jsonschema": "^1.2.6",
     "lodash": "^4.17.20",
@@ -36,6 +38,7 @@
     "pug": "^3.0.0",
     "route-parser": "0.0.5",
     "shortid": "^2.2.15",
+    "undici": "^3.3.6",
     "uuid": "8.1.0"
   },
   "devDependencies": {

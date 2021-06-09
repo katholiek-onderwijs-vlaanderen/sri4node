@@ -407,6 +407,20 @@ exports = module.exports = {
   configure: async function (app, config) {
     'use strict';
 
+    let maxHeapUsage = 0;
+
+    if (config.trackHeapMax === true) {
+        var gc = (require('gc-stats'))();
+        gc.on('stats', function (stats) {
+          const heapUsage =  (stats.before.usedHeapSize  / 1024 / 1024);
+          if (heapUsage > maxHeapUsage) {
+            maxHeapUsage = heapUsage;
+          }
+        });
+    }
+
+
+
     try {
       config.resources.forEach( (resource) => {
           // initialize undefined hooks in all resources with empty list
@@ -975,6 +989,13 @@ exports = module.exports = {
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
         // in string format instead of Date objects
         return  JSON.parse( JSON.stringify(result) );
+      }
+
+      if (config.trackHeapMax === true) {
+        app.get('/heap_max', (req, res) => {
+            res.set('Content-Type', 'application/json');
+            res.send({ maxHeapUsage: maxHeapUsage });
+        });
       }
 
       console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________')
