@@ -188,16 +188,12 @@ exports = module.exports = {
 
       const batchResults = _.flatten(await handleBatch(reqBody, sriRequest.dbT))
 
-      if (sriRequest['headers']['request-server-timing']) {
-        sriRequest.setHeader('Trailer', 'Server-Timing')
-      }
-
       // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
       // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the 
       // server MUST respond with 403 Forbidden.
       const status = batchResults.some( e => (e.status === 403) ) 
                           ? 403 
-                          : Math.max(200, ...batchResults.map( e => e.status ))                      
+                          : Math.max(200, ...batchResults.map( e => e.status ))
 
       return { status: status, body: batchResults }
     } finally {
@@ -339,7 +335,9 @@ exports = module.exports = {
 
             if (notNullEntries.length > 0) {
                 const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
-                sriRequest.outStream.write(`Server-Timing: ${hdrVal}\n`);
+                sriRequest.outStream.addTrailers({
+                    'Server-Timing': hdrVal
+                });
             }
       }
 
