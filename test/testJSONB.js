@@ -1,10 +1,9 @@
 // Utility methods for calling the SRI interface
 var uuid = require('uuid');
 var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
+const { debug } = require('../js/common.js');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -18,16 +17,10 @@ exports = module.exports = function (base, logverbose) {
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
 
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
-
   describe('JSONB support', function () {
     it('should allow reading JSON column as objects', async function () {
       const response = await doGet('/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504')
-      debug(response);
+      debug('mocha', response);
       assert.equal(response.details.productDeliveryOptions[0].product,
                    '/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c');
     });
@@ -44,7 +37,7 @@ exports = module.exports = function (base, logverbose) {
             }
           ]
         },
-        foo: { href: '/foo/00000000-0000-0000-0000-000000000000' }        
+        foo: { href: '/foo/00000000-0000-0000-0000-000000000000' }
       };
 
       const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
@@ -52,7 +45,7 @@ exports = module.exports = function (base, logverbose) {
       assert.equal(responsePut.getStatusCode(), 201);
 
       const responseGet = await doGet('/jsonb/' + key, null, { headers: { authorization: auth } })
-      debug(typeof responseGet.details);
+      debug('mocha', typeof responseGet.details);
       if (typeof responseGet.details !== 'object') {
         assert.fail('should be object');
       }

@@ -29,7 +29,7 @@ addFormats(ajv)
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp } = require('./js/common.js');
+        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -52,21 +52,6 @@ function forceSecureSockets(req, res, next) {
   next();
 }
 
-
-const logRequests = (req, res, next) => {
-  'use strict';
-  if (global.sri4node_configuration.logrequests) {
-    debug('requests', req.method + ' ' + req.path + ' starting.'
-              + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
-    req.startTime = Date.now();
-    res.on('finish', function () {
-      const duration = Date.now() - req.startTime;
-      debug('requests', req.method + ' ' + req.path + ' took ' + duration + ' ms. '
-                + (req.headers['x-request-id'] ? ' req_id: ' + req.headers['x-request-id'] : '') + ' ');
-    });
-  }
-  next();
-}
 
 /* Handle GET /{type}/schema */
 function getSchema(req, resp) {
@@ -202,6 +187,13 @@ const handleRequest = async (sriRequest, func, mapping) => {
 const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     let t=null, endTask, resolveTx, rejectTx, readOnly;
+    const reqMsgStart = req.method + ' ' + req.path;
+    debug('requests', `${reqMsgStart} starting.`);
+    req.startTime = Date.now();
+    resp.on('finish', function () {
+        const duration = Date.now() - req.startTime;
+        debug('requests', `${reqMsgStart} took ${duration} ms`);
+    });
     debug('trace', 'Starting express wrapper');
     try {
       let batchRoutingDuration = 0;
@@ -336,7 +328,12 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           , f => f(sriRequest)
           , sriRequest)
         }
-      // }
+        if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+            setImmediate(() => {
+                // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
+                handleRequestDebugLog(result.status);
+            })
+        }
     } catch (err) {
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
@@ -378,10 +375,15 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
         }
       }
+      if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+        setImmediate(() => {
+            // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
+            console.log('GOING TO CALL handleRequestDebugLog' )
+            handleRequestDebugLog(err.status ? err.status : 500);
+        })
+      }
     } finally {
-      // if (!isBatchRequest) {
-        global.overloadProtection.endPipeline();
-      // }
+      global.overloadProtection.endPipeline();
     } 
   }
 }
@@ -498,22 +500,7 @@ exports = module.exports = {
       }
 
       if (config.logdebug !== undefined) {
-        if (config.logdebug === true) {
-            // for backwards compability
-            console.warn(
-                '\n\n\n------------------------------------------------------------------------------------------------------------------\n' +
-                'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n' +
-                'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n' +
-                'sri4node documentation for more details ). For now "general,trace,requests" is set as sensible default, but please\n' +
-                'specify the preferred channels for which logging is requested.\n' +
-                '------------------------------------------------------------------------------------------------------------------\n\n\n'
-                )
-            config.logdebug = new Set(['general', 'trace', 'requests'])
-        } else if (config.logdebug === false) {
-            config.logdebug = new Set();
-        } else {
-            config.logdebug = new Set(config.logdebug.split(','))
-        }
+        config.logdebug  = createDebugLogConfigObject(config.logdebug);
       }
 
       global.sri4node_configuration = config // share configuration with other modules
@@ -638,7 +625,8 @@ exports = module.exports = {
       }
 
       app.use(emt.instrument(compression()))
-      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true})));
+      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true, strict: false})));
+        //use option 'strict: false' to allow also valid JSON like a single boolean
 
       app.use('/pathfinder', function(req, res, next){
         pathfinderUI(app)
@@ -663,26 +651,8 @@ exports = module.exports = {
       app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
       app.post('/setlogdebug', function (req, resp, next) {
-        if (req.query.channels !== undefined) {
-          global.sri4node_configuration.logdebug = new Set(req.query.channels.split(','))
-          debug('general', 'Enabled logdebug via /setlogdebug')
-          resp.send('Enabled logdebug.')
-        } else {
-          debug('general', 'Disabled logdebug via /setlogdebug')
-          delete global.sri4node_configuration.logdebug;
-          resp.send('Disabled logdebug.')
-        }
-      });
-      app.post('/setlogsql', function (req, resp, next) {
-        if (req.query.enabled === 'true') {
-          global.sri4node_configuration.logsql = true
-          debug('general', 'Enabled logsql via /setlogsql')
-          resp.send('Enabled logsql.')
-        } else {
-          debug('general', 'Disabled logsql via /setlogsql')
-          global.sri4node_configuration.logsql = false
-          resp.send('Disabled logsql.')
-        }
+        global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
+        resp.send('OK')
       });
 
       app.use(httpContext.middleware);
@@ -697,9 +667,6 @@ exports = module.exports = {
           httpContext.set('reqId', reqId);
           next();
       });
-
-      app.use(emt.instrument(logRequests))
-
 
 
       await pMap(
@@ -826,7 +793,7 @@ exports = module.exports = {
                                     if (result !== undefined) {
                                       const {status, headers} = result
                                       headers.forEach( ([k, v]) => sriRequest.setHeader(k, v) )
-                                      sriRequest.setStatus(status)                                  
+                                      sriRequest.setStatus(status)
                                     }
                                 } catch (err) {
                                     if (err instanceof SriError) {

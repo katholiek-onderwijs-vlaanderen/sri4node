@@ -1,6 +1,6 @@
 const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../sri4node.js');
 var common = require('../../js/common.js');
-var cl = common.cl;
+var debug = common.debug;
 
 
 async function allParentsOf(value, select) {
@@ -13,7 +13,7 @@ async function allParentsOf(value, select) {
     ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
   select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
   select.sql(' AND key IN (SELECT key FROM parentsof)');
-  cl(select.text);
+  debug('mocha', select.text);
 }
 
 exports = module.exports = function (extra) {

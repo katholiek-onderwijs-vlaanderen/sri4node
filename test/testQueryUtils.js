@@ -1,10 +1,7 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
+const assert = require('assert');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -15,13 +12,6 @@ exports = module.exports = function (base, logverbose) {
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
-
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('utils.addReferencingResources ', function () {
     describe('on afterread /persons', function () {

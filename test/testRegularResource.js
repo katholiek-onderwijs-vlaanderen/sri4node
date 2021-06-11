@@ -1,13 +1,11 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
+const assert = require('assert');
 const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
 
 const makeAuthHeader = (user, pw) => 
   'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -27,18 +25,10 @@ exports = module.exports = function (base, logverbose) {
   const utils =  require('./utils.js')(api);
 
 
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
-
   describe('GET public regular resource', function () {
     describe('without authentication', function () {
       it('should return LETS Regio Dendermonde', async function () {
         const response = await doGet('/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849')
-        debug(response);
         assert.equal(response.name, 'LETS Regio Dendermonde');
       });
     });

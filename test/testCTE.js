@@ -1,10 +1,8 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
+const assert = require('assert');
+const { debug } = require('../js/common.js');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -16,12 +14,6 @@ exports = module.exports = function (base, logverbose) {
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('query parameters', function () {
     describe('that use a CTE', function () {
@@ -57,7 +49,7 @@ exports = module.exports = function (base, logverbose) {
     // describe('that require recursion', function () {
     //   it('should find parents', async function () {
     //     const response = await doGet('/selfreferential?allParentsOf=/selfreferential/ab142ea6-7e79-4f93-82d3-8866b0c8d46b')
-    //     debug(response);
+    //     debug('mocha', response);
     //     assert.equal(response.$$meta.count, 4);
     //   });
     // });
@@ -65,7 +57,7 @@ exports = module.exports = function (base, logverbose) {
     // describe('that require recursion', function () {
     //   it('should find parents', async function () {
     //     const response = await doGet('/selfreferential?allParentsOf=/selfreferential/b8c020bf-0505-407c-a8ad-88044d741712')
-    //     debug(response);
+    //     debug('mocha', response);
     //     assert.equal(response.$$meta.count, 2);
     //   });
     // });

@@ -3,21 +3,14 @@ const pEvent = require('p-event');
 const sleep = require('await-sleep');
 const fs = require('fs');
 const streamEqual = require('stream-equal').default;
-const util = require('util');
 
-var common = require('../../js/common.js');
-var cl = common.cl;
+const common = require('../../js/common.js');
+const debug = common.debug;
 const queryobject = require('../../js/queryObject.js');
 const prepare = queryobject.prepareSQL; 
 
-exports = module.exports = function (roa, logverbose, extra) {
+exports = module.exports = function (roa, extra) {
   'use strict';
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   var isHrefAPermalink = function (href) {
     return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
@@ -70,29 +63,29 @@ exports = module.exports = function (roa, logverbose, extra) {
         // Should allways restrict to /me community.
         if (sriRequest.query.communities) {
           if (sriRequest.query.communities === sriRequest.userObject.community.href) {
-            debug('** restrictReadPersons resolves.');
+            debug('mocha', '** restrictReadPersons resolves.');
           } else {
-            cl('** restrictReadPersons rejecting - can only request persons from your own community.');
+            debug('mocha', '** restrictReadPersons rejecting - can only request persons from your own community.');
             throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
           }
         } else {
-          cl('** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
+            debug('mocha', '** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
           throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
         }
       } else {
         const key = url.split('/')[2];     
         const myCommunityKey = sriRequest.userObject.community.href.split('/')[2];
-        debug('community key = ' + myCommunityKey);
+        debug('mocha', 'community key = ' + myCommunityKey);
 
         const query = prepare('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
           .param(key).sql(' and community = ').param(myCommunityKey);
         const [ row ] = await common.pgExec(tx, query)
         if (parseInt(row.count, 10) === 1) {
-          debug('** restrictReadPersons resolves.');
+          debug('mocha', '** restrictReadPersons resolves.');
         } else {
-          debug('row.count = ' + row.count);
-          debug('** security method restrictedReadPersons denies access.', key, myCommunityKey);
+          debug('mocha', 'row.count = ' + row.count);
+          debug('mocha', '** security method restrictedReadPersons denies access.', key, myCommunityKey);
           throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
         }
        
@@ -106,7 +99,7 @@ exports = module.exports = function (roa, logverbose, extra) {
     return async function (tx, sriRequest, elements) {
       const key = sriRequest.params.key;
       if (key === forbiddenKey) {
-        cl('security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
+        debug('mocha', 'security method disallowedOnePerson for ' + forbiddenKey + ' denies access');
         throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
       } 
     };

@@ -1,12 +1,7 @@
 // Utility methods for calling the SRI interface
 const pMap = require('p-map'); 
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
-var uuid = require('uuid');
-
-
+const assert = require('assert');
+const uuid = require('uuid');
 
 /**
  * BATCH should work like this (and now it works the other way around):
@@ -24,7 +19,7 @@ var uuid = require('uuid');
  *   to make sure a simple single-array batch is executed IN SEQUENCE as everybody would expect !!!
  *
  */
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
   const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   const communityHamme = '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d';
@@ -51,13 +46,6 @@ exports = module.exports = function (base, logverbose) {
   const sriClientOptionsAuthIngrid = {
     maxAttempts: 1,
     headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') }
-  }
-
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
   }
 
   function generateRandomPerson(key, communityPermalink, firstname, lastname) {

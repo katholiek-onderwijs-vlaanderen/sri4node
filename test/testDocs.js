@@ -1,7 +1,4 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
-var doGet = sriclient.get;
 
 exports = module.exports = function (base) {
   'use strict';

@@ -1,10 +1,6 @@
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
-var sriclient = require('@kathondvla/sri-client/node-sri-client');
-var doGet = sriclient.get;
+const assert = require('assert');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -17,12 +13,6 @@ exports = module.exports = function (base, logverbose) {
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') } }
   const authHdrObjKevin = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('Expansion', function () {
     // Test expand=none

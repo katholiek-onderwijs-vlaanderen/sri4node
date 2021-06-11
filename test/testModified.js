@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
+const assert = require('assert');
 const _ = require('lodash');
 const uuid = require('uuid');
 const { isValidISODateString } = require('iso-datestring-validator');

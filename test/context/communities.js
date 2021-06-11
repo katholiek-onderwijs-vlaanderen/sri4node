@@ -1,18 +1,11 @@
 const pMap = require('p-map');
-var common = require('../../js/common.js');
-var cl = common.cl;
+const { debug, SriError, mergeObject, pgExec } = require('../../js/common.js');
 const queryobject = require('../../js/queryObject.js');
 const prepare = queryobject.prepareSQL; 
 
 
-exports = module.exports = function (roa, logverbose, extra) {
+exports = module.exports = function (roa, extra) {
   'use strict';
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   var $m = roa.mapUtils;
   var $s = roa.schemaUtils;
@@ -20,7 +13,7 @@ exports = module.exports = function (roa, logverbose, extra) {
   var $u = roa.utils;
 
   async function invalidQueryParameter() {
-    throw new common.SriError({status: 404, errors: [{code: 'invalid.query.parameter'}]})
+    throw new SriError({status: 404, errors: [{code: 'invalid.query.parameter'}]})
   }
 
   function disallowOneCommunity(forbiddenKey) {
@@ -30,7 +23,7 @@ exports = module.exports = function (roa, logverbose, extra) {
           if ( sriRequest.path === '/communities/' + forbiddenKey ||
                 (sriRequest.query.expand !== undefined && e.permalink === '/communities/' + forbiddenKey) ) {
 
-            cl('security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
+            debug('mocha', 'security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
             throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
           }
         }, {concurrency: 1})
@@ -44,7 +37,7 @@ exports = module.exports = function (roa, logverbose, extra) {
     if (count) {
       const query = prepare('create-allcommunitykeys');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query)
+      await pgExec(tx, query)
       
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
     } else {
@@ -56,7 +49,7 @@ exports = module.exports = function (roa, logverbose, extra) {
     if (count) {
       const query = prepare('create-allcommunitykeys2');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query)
+      await pgExec(tx, query)
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
     } else {
@@ -66,8 +59,8 @@ exports = module.exports = function (roa, logverbose, extra) {
 
 
   async function addMessageCountToCommunities( tx, sriRequest, elements ) {
-    debug('addMessageCountToCommunities');
-    debug(elements);
+    debug('mocha', 'addMessageCountToCommunities');
+    debug('mocha', elements);
 
     if (elements.length > 0) {
       // Lets do this efficiently. Remember that we receive an array of elements.
@@ -85,7 +78,7 @@ exports = module.exports = function (roa, logverbose, extra) {
       query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
       query.array(keys);
       query.sql(')');
-      const rows = await common.pgExec(tx, query)
+      const rows = await pgExec(tx, query)
       rows.forEach( row => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10) )
     }
   }
@@ -164,6 +157,6 @@ exports = module.exports = function (roa, logverbose, extra) {
     ]
   };
 
-  common.mergeObject(extra, ret);
+  mergeObject(extra, ret);
   return ret;
 };

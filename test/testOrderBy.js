@@ -1,23 +1,15 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
 const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
     baseUrl: base
   }
   const api = sriclientFactory(sriClientConfig)
-  const doGet = function() { return api.getRaw(...arguments) };
 
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('Order by', function () {
     describe('no specific order', function () {

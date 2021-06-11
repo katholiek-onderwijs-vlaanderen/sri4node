@@ -1,4 +1,4 @@
-var common = require('../../js/common.js');
+const common = require('../../js/common.js');
 // Messages relations
 exports = module.exports = function (roa, extra) {
   'use strict';

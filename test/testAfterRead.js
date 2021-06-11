@@ -1,10 +1,9 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
+const assert = require('assert');
+const { debug } = require('../js/common.js');
 
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -13,12 +12,6 @@ exports = module.exports = function (base, logverbose) {
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
 
   const utils =  require('./utils.js')(api);
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   describe('Afterread methods', function () {
     describe('should be executed on regular resources', function () {
@@ -33,7 +26,7 @@ exports = module.exports = function (base, logverbose) {
     describe('should be executed on list resources', function () {
       it('should have a correct messagecount.', async function () {
         const response = await api.getRaw('/communities?hrefs=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849');
-        debug(response);
+        debug('mocha', response);
         assert.equal(response.$$meta.count, 1);
         assert.equal(response.results[0].$$expanded.$$messagecount, 5);
       });
@@ -42,10 +35,10 @@ exports = module.exports = function (base, logverbose) {
     describe('should be executed on lists with many resources', function () {
       it('should have correct messagecounts on all items', async function () {
         const response = await api.getRaw('/communities?limit=4')
-        debug('response body');
-        debug(response);
-        debug(response.results[2].$$expanded);
-        debug(response.results[3].$$expanded);
+        debug('mocha', 'response body');
+        debug('mocha', response);
+        debug('mocha', response.results[2].$$expanded);
+        debug('mocha', response.results[3].$$expanded);
         if (response.results[0].$$expanded.$$messagecount === null) {
           assert.fail('should have $$messagecount');
         }

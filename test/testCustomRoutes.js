@@ -1,7 +1,5 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
+const assert = require('assert');
 const request = require('request');
 const sleep = require('await-sleep');
 const pEvent = require('p-event');
@@ -10,7 +8,7 @@ const fs = require('fs');
 const streamEqual = require('stream-equal').default;
 const util = require('util');
 
-exports = module.exports = function (base, logdebug) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -26,12 +24,6 @@ exports = module.exports = function (base, logdebug) {
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
   const authHdrObjIngrid = { headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') } }
   const authHdrObjEddy = { headers: { authorization: makeBasicAuthHeader('eddy@email.be', 'pwd') } }
-
-  function debug(x) {
-    if (logdebug) {
-      cl(x);
-    }
-  }
 
   describe('Custom routes', function () {
 

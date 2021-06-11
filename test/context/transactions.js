@@ -1,4 +1,4 @@
-var common = require('../../js/common.js');
+const common = require('../../js/common.js');
 const pMap = require('p-map'); 
 const queryobject = require('../../js/queryObject.js');
 const prepare = queryobject.prepareSQL; 

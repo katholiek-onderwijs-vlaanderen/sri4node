@@ -1,39 +1,19 @@
 
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var common = require('../js/common.js');
-var cl = common.cl;
-const request = require('request');
-const sleep = require('await-sleep');
-const pEvent = require('p-event');
-const JSONStream = require('JSONStream');
-const fs = require('fs');
-const streamEqual = require('stream-equal');
-const util = require('util');
+const assert = require('assert');
 
-exports = module.exports = function (base, logdebug) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = function() { return api.getRaw(...arguments) };
-  const doPut = function() { return api.put(...arguments) };
   const doPost = function() { return api.post(...arguments) };
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
-  const authHdrObjIngrid = { headers: { authorization: makeBasicAuthHeader('ingrid@email.be', 'pwd') } }
-  const authHdrObjEddy = { headers: { authorization: makeBasicAuthHeader('eddy@email.be', 'pwd') } }
-
-  function debug(x) {
-    if (logdebug) {
-      cl(x);
-    }
-  }
-
 
   describe('isPartOf', function () {
 

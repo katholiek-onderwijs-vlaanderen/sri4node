@@ -13,20 +13,62 @@ const httpContext = require('express-http-context');
 
 let pgp = null; // will be initialized at pgConnect
 
+const logBuffer = {};
+
 exports = module.exports = {
   cl: function (x) {
     'use strict';
     console.log(x); // eslint-disable-line
   },
 
-  debug: (channel, x) => {
-    'use strict';
-    if (global.sri4node_configuration===undefined || 
-        (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.has(channel)) ||
-        global.sri4node_configuration.logdebug.has('all')
-        ) {
+  createDebugLogConfigObject: (logdebug) => {
+    if (logdebug === true) {
+        // for backwards compability
+        console.warn(
+            '\n\n\n------------------------------------------------------------------------------------------------------------------\n' +
+            'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n' +
+            'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n' +
+            'sri4node documentation for more details ). For now "general,trace,requests" is set as sensible default, but please\n' +
+            'specify the preferred channels for which logging is requested.\n' +
+            '------------------------------------------------------------------------------------------------------------------\n\n\n'
+            )
+        return { channels: new Set(['general', 'trace', 'requests']) }
+    } else if (logdebug === false) {
+        return { channels: new Set() }
+    } else {
+        const tempLogDebug = { channels: logdebug.channels === 'all' ? 'all' : new Set(logdebug.channels) }
+        if (logdebug.statuses) {
+            tempLogDebug.statuses =  new Set(logdebug.statuses)
+        }
+        return tempLogDebug;
+    }
+  },
+
+  handleRequestDebugLog: (status) => {
       const reqId = httpContext.get('reqId');
-      console.log(reqId ? `[reqId:${reqId}] ${x}` : x);
+      if (global.sri4node_configuration.logdebug.statuses.has(status)) {
+        logBuffer[reqId].forEach( e => console.log(e) );
+      }
+      delete logBuffer[reqId];
+  },
+
+  debug: (channel, x) => {
+    if (global.sri4node_configuration===undefined || 
+          (global.sri4node_configuration.logdebug && (
+              global.sri4node_configuration.logdebug.channels==='all' ||
+              global.sri4node_configuration.logdebug.channels.has(channel)) ) )
+    {
+      const reqId = httpContext.get('reqId');
+      const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof x === 'function' ? x() : x}`
+      if (reqId !== undefined) {
+          if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+            logBuffer[reqId] ? logBuffer[reqId].push(msg) : logBuffer[reqId] = [ msg ];
+          } else {
+            console.log(msg);
+          }
+      } else {
+        console.log(msg);
+      }
     }
   },
 
@@ -346,10 +388,7 @@ exports = module.exports = {
     var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
-    if (global.sri4node_configuration.logsql) {
-      const q = pgp.as.format(sql, values);
-      cl(q);
-    }
+    exports.debug('sql', () => pgp.as.format(sql, values));
 
     const startTime = Date.now();
     const result = await db.query(sql, values)
@@ -365,10 +404,7 @@ exports = module.exports = {
     var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
-    if (global.sri4node_configuration.logsql) {
-      const q = pgp.as.format(sql, values);
-      cl(q);
-    }
+    exports.debug('sql', () => pgp.as.format(sql, values));
 
     const startTime = Date.now();
     const result = await db.result(sql, values) 

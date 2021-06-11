@@ -8,7 +8,6 @@ context.serve();
 
 // External includes
 var express = require('express');
-var bodyParser = require('body-parser');
 var common = require('../js/common.js');
 var cl = common.cl;
 const utils = require('./utils.js')(null);
@@ -18,14 +17,13 @@ var configCache = null;
 var knownPasswords = {};
 
 exports = module.exports = {
-  serve: async function (roa, port, logsql, logrequests, logdebug, logmiddleware) {
+  serve: async function (roa, port, logdebug) {
     'use strict';
-    var config = exports.config(roa, port, logsql, logrequests, logdebug, logmiddleware);
+    var config = exports.config(roa, port, logdebug);
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
     app.set('port', port);
-    app.use(bodyParser.json());
 
     await roa.configure(app, config)
 
@@ -49,7 +47,7 @@ exports = module.exports = {
     return configCache;
   },
 
-  config: function (roa, port, logsql, logrequests, logdebug, logmiddleware) {
+  config: function (roa, port, logdebug) {
     'use strict';
     if (configCache !== null) {
       cl('config cached');
@@ -63,16 +61,13 @@ exports = module.exports = {
 
     var config = {
       // For debugging SQL can be logged.
-      logsql: logsql,
-      logrequests: logrequests,
       logdebug: logdebug,
-      logmiddleware: logmiddleware,
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
 
       resources: [
-        require('./context/persons.js')(roa, logdebug, commonResourceConfig),
-        require('./context/messages.js')(roa, logdebug, commonResourceConfig),
-        require('./context/communities.js')(roa, logdebug, commonResourceConfig),
+        require('./context/persons.js')(roa, commonResourceConfig),
+        require('./context/messages.js')(roa, commonResourceConfig),
+        require('./context/communities.js')(roa, commonResourceConfig),
         require('./context/transactions.js')(roa, commonResourceConfig),
         require('./context/table.js')(roa, commonResourceConfig),
         require('./context/jsonb.js')(commonResourceConfig),

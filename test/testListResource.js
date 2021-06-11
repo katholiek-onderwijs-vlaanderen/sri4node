@@ -1,10 +1,8 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var _ = require('lodash');
-var common = require('../js/common.js');
-var cl = common.cl;
+const assert = require('assert');
+const _ = require('lodash');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
@@ -24,17 +22,10 @@ exports = module.exports = function (base, logverbose) {
   }
 
 
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
-
   describe('GET public list resource', function () {
     describe('without authentication', function () {
       it('should return a list of 4 communities', async function () {
         const response = await doGet('/communities')
-        debug(response);
         if (!response.$$meta.count) {
           assert.fail();
         }
@@ -219,7 +210,7 @@ exports = module.exports = function (base, logverbose) {
           count = response.$$meta.count
         }
       }
-      await traverse('/alldatatypes?limit=2')     
+      await traverse('/alldatatypes?limit=2')
       assert.equal(hrefsFound.length, _.uniq(hrefsFound).length);
       assert.equal(count, _.uniq(hrefsFound).length);
     });

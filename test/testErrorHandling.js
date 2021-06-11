@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
-var uuid = require('uuid');
+const assert = require('assert');
+const uuid = require('uuid');
 
 exports = module.exports = function (base) {
   'use strict';
@@ -15,9 +15,6 @@ exports = module.exports = function (base) {
 
   const utils =  require('./utils.js')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
-  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') } }
-  const authHdrObjKevin = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } }
-
 
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
 

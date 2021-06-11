@@ -1,12 +1,10 @@
 // Utility methods for calling the SRI interface
-const pMap = require('p-map'); 
 const assert = require('assert');
-const { cl } = require('../js/common.js');
 const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
 const uuid = require('uuid');
 const _ = require('lodash');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
@@ -28,13 +26,6 @@ exports = module.exports = function (base, logverbose) {
 
   const auth = utils.makeBasicAuthHeader('sabine@email.be', 'pwd')
 
-
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   function generateRandomCommunity(key) {
     return {

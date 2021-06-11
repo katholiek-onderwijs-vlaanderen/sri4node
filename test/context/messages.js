@@ -1,15 +1,8 @@
-var common = require('../../js/common.js');
-var cl = common.cl;
+const { debug, mergeObject } = require('../../js/common.js');
 const utils = require('../utils.js')(null);
 
-exports = module.exports = function (roa, logverbose, extra) {
+exports = module.exports = function (roa, extra) {
   'use strict';
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   var $m = roa.mapUtils;
   var $s = roa.schemaUtils;
@@ -24,7 +17,7 @@ exports = module.exports = function (roa, logverbose, extra) {
     return async function (tx, sriRequest, elements) {
       elements.forEach( ({ incoming }) => {
         if (incoming.amount <= max) {
-          debug('Should be more, or equal to ' + max);
+          debug('mocha', 'Should be more, or equal to ' + max);
           throw new sriRequest.SriError({status: 409, errors: [{code: 'not.enough'}]})
         }        
       } )
@@ -125,6 +118,6 @@ exports = module.exports = function (roa, logverbose, extra) {
     transformRequest: utils.lookForBasicAuthUser
   };
 
-  common.mergeObject(extra, ret);
+  mergeObject(extra, ret);
   return ret;
 };

@@ -2,10 +2,8 @@ var roa = require('../sri4node.js');
 var context = require('./context.js');
 
 var port = 5000;
-var logsql, logrequests, logdebug, logmiddleware;
-logsql = logrequests = logdebug = logmiddleware = false;
-// logdebug='all'
-// logsql = true
+const logdebug = false;
+// const logdebug = { channels: 'all' };
 
 var base = 'http://localhost:' + port;
 
@@ -55,7 +53,7 @@ describe('Sri4node testing', function () {
       throw new Error(`Problem while trying to initialize the testing DB: ${e}`)
     }
 
-    server = await context.serve(roa, port, logsql, logrequests, logdebug, logmiddleware);
+    server = await context.serve(roa, port, logdebug);
   });
 
   after(async () => {
@@ -67,46 +65,47 @@ describe('Sri4node testing', function () {
     console.log('Done.')
   });
 
-  require('./testOrderBy.js')(base, logdebug);
-  require('./testAfterRead.js')(base, logdebug);
-  require('./testCTE.js')(base, logdebug);
-  require('./testListResource.js')(base, logdebug);
-  require('./testPublicResources.js')(base, logdebug);
-  require('./testRegularResource.js')(base, logdebug);
-  require('./testPutAndPatch.js')(base, logdebug);
-  require('./testDelete.js')(base, logdebug);
-  require('./testJSONB.js')(base, logdebug);
+  require('./testOrderBy.js')(base);
+  require('./testAfterRead.js')(base);
+  require('./testCTE.js')(base);
+  require('./testListResource.js')(base);
+  require('./testPublicResources.js')(base);
+  require('./testRegularResource.js')(base);
+  require('./testPutAndPatch.js')(base);
+  require('./testDelete.js')(base);
+  require('./testJSONB.js')(base);
 
-  require('./testQueryUtils.js')(base, logdebug);
-  require('./testModified.js')(base, logdebug);
-  require('./testResourceType.js')(base, logdebug);
+  require('./testQueryUtils.js')(base);
+  require('./testModified.js')(base);
+  require('./testResourceType.js')(base);
 
-  require('./testExpand.js')(base, logdebug);
-  require('./testErrorHandling.js')(base, logdebug);
-  require('./testCustomRoutes.js')(base, logdebug); 
-  require('./testIsPartOf.js')(base, logdebug);   
-  require('./testBatch.js')(base, logdebug);
+  require('./testExpand.js')(base);
+  require('./testErrorHandling.js')(base);
+  require('./testCustomRoutes.js')(base);
+  require('./testIsPartOf.js')(base);
+  require('./testBatch.js')(base);
 
-  require('./defaultFilter/testDefaultFilterGreater.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterCombination.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterContains.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterExact.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterGreaterOrEqual.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterIn.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterLess.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterLessOrEqual.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterQ.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterRegEx.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base, logdebug);
-  require('./defaultFilter/testDefaultFilterOverlaps.js')(base, logdebug);
+  require('./defaultFilter/testDefaultFilterGreater.js')(base);
+  require('./defaultFilter/testDefaultFilterCombination.js')(base);
+  require('./defaultFilter/testDefaultFilterContains.js')(base);
+  require('./defaultFilter/testDefaultFilterExact.js')(base);
+  require('./defaultFilter/testDefaultFilterGreaterOrEqual.js')(base);
+  require('./defaultFilter/testDefaultFilterIn.js')(base);
+  require('./defaultFilter/testDefaultFilterLess.js')(base);
+  require('./defaultFilter/testDefaultFilterLessOrEqual.js')(base);
+  require('./defaultFilter/testDefaultFilterQ.js')(base);
+  require('./defaultFilter/testDefaultFilterRegEx.js')(base);
+  require('./defaultFilter/testDefaultFilterInvalidParameter.js')(base);
+  require('./defaultFilter/testDefaultFilterOverlaps.js')(base);
 
-  require('./relationsFilter/testRelationsFilterFromTypes.js')(base, logdebug);
-  require('./relationsFilter/testRelationsFilterToTypes.js')(base, logdebug);
-  require('./relationsFilter/testRelationsFilterNoType.js')(base, logdebug);
+  require('./relationsFilter/testRelationsFilterFromTypes.js')(base);
+  require('./relationsFilter/testRelationsFilterToTypes.js')(base);
+  require('./relationsFilter/testRelationsFilterNoType.js')(base);
 
-  require('./testServerTiming.js')(base, logdebug);
+  require('./testServerTiming.js')(base);
+  require('./testLogging.js')(base);
 
-  require('./testDocs.js')(base, logdebug);
-  require('./testInformationSchema.js')(logdebug);
+  require('./testDocs.js')(base);
+  require('./testInformationSchema.js')();
 
 });

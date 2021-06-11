@@ -1,11 +1,11 @@
 // Utility methods for calling the SRI interface
 const pMap = require('p-map'); 
 const assert = require('assert');
-const { cl } = require('../js/common.js');
+const { debug } = require('../js/common.js');
 const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
 const uuid = require('uuid');
 
-exports = module.exports = function (base, logverbose) {
+exports = module.exports = function (base) {
   'use strict';
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
@@ -21,14 +21,6 @@ exports = module.exports = function (base, logverbose) {
   const utils =  require('./utils.js')(api);
 
   const auth = utils.makeBasicAuthHeader('sabine@email.be', 'pwd')
-
-
-
-  function debug(x) {
-    if (logverbose) {
-      cl(x);
-    }
-  }
 
   function generateRandomPerson(key, communityPermalink, firstname, lastname) {
     return {
@@ -262,15 +254,15 @@ exports = module.exports = function (base, logverbose) {
         const keyp1 = uuid.v4();
         const p1 = generateRandomPerson(keyp1, communityDendermonde);
         await doPut('/persons/' + keyp1, p1, { headers: { authorization: auth } })
-        debug('p1 created');
+        debug('mocha', 'p1 created');
         const keyp2 = uuid.v4();
         const p2 = generateRandomPerson(keyp2, communityDendermonde);
         await doPut('/persons/' + keyp2, p2, { headers: { authorization: auth } })
-        debug('p2 created');
+        debug('mocha', 'p2 created');
         const keyt = uuid.v4();
         const t = generateTransaction(keyt, '/persons/' + keyp1, '/persons/' + keyp2, 20);
         await doPut('/transactions/' + keyt, t, { headers: { authorization: auth } })
-        debug('t created');
+        debug('mocha', 't created');
 
         const responseP1 = await doGet('/persons/' + keyp1, null, { headers: { authorization: auth } });
         assert.equal(responseP1.balance, -20);
@@ -371,13 +363,13 @@ exports = module.exports = function (base, logverbose) {
 
     it('must return 201 on a new resource', async function () {
       const response = await doPut('/persons/' + key, p, { headers: { authorization: auth } } )
-      debug(response);
+      debug('mocha', response);
       assert.equal(response.getStatusCode(), 201);
     });
 
     it('must return 200 on an update without changes', async function () {
       const response = await doPut('/persons/' + key, p, { headers: { authorization: auth } })
-      debug(response);     
+      debug('mocha', response);
       assert.equal(response.getStatusCode(), 200);
     });
 
@@ -385,7 +377,7 @@ exports = module.exports = function (base, logverbose) {
         const p1 = await doGet('/persons/' + key, null, { headers: { authorization: auth } });
         p1.city = 'Borsbeek';
         const response = await doPut('/persons/' + key, p1, { headers: { authorization: auth } })
-        debug(response);     
+        debug('mocha', response);
         assert.equal(response.getStatusCode(), 200);
         const p2 = await doGet('/persons/' + key, null, { headers: { authorization: auth } });
         assert.notStrictEqual( p1.$$meta.modified, p2.$$meta.modified )
