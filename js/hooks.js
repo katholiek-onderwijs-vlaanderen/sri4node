@@ -6,8 +6,8 @@ exports = module.exports = {
 
   applyHooks: async (type, functions, applyFun, sriRequest) => {
     if (functions && functions.length > 0) {
+      const startTime = Date.now();
       try {
-        const startTime = Date.now();
         debug('hooks', `applyHooks-${type}: going to apply ${functions.length} functions`);
         await pMap(functions, applyFun, {concurrency: 1})
         const duration = Date.now() - startTime;
@@ -16,6 +16,11 @@ exports = module.exports = {
             setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
         };
       } catch(err) {
+        const duration = Date.now() - startTime;
+        debug('hooks', `applyHooks-${type}: function failed (took ${duration}ms).`);
+        if (sriRequest) {
+            setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
+        };
         if (err instanceof SriError) {
           throw err
         } else {

@@ -11,14 +11,34 @@ const env = require('./env.js');
 const { Readable } = require('stream')
 const httpContext = require('express-http-context');
 
+process.env.TIMER = true; //eslint-disable-line
+const emt = require('express-middleware-timer');
+
 let pgp = null; // will be initialized at pgConnect
 
 const logBuffer = {};
+
 
 exports = module.exports = {
   cl: function (x) {
     'use strict';
     console.log(x); // eslint-disable-line
+  },
+
+  installEMT: (app) => {
+    app.use(emt.init(function emtReporter(req, res) {
+    }));
+    return emt;
+  },
+
+  emtReportToServerTiming: (req, res, sriRequest) => {
+      const report = emt.calculate(req, res);
+      const timerLogs = Object.keys(report.timers).forEach(timer => {
+        const duration = report.timers[timer]['took']
+        if (duration > 0 && timer !== 'express-wrapper') {
+            exports.setServerTimingHdr(sriRequest, timer, duration);
+        }
+      });
   },
 
   createDebugLogConfigObject: (logdebug) => {
@@ -416,7 +436,8 @@ exports = module.exports = {
     return result;
   },
 
-  startTransaction: async (db, mode = new pgp.txMode.TransactionMode()) => {
+  startTransaction: async (db, sriRequest=null, mode = new pgp.txMode.TransactionMode()) => {
+    const startTime = Date.now();
     exports.debug('db', '++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
@@ -477,16 +498,22 @@ exports = module.exports = {
           }
       }
 
+      const duration = Date.now() - startTime;
+      if (sriRequest) {
+          exports.setServerTimingHdr(sriRequest, 'db-starttx', duration);
+      }
+  
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
     } catch (err) {
       exports.error('CATCHED ERROR: ');  
       exports.error(JSON.stringify(err));  
       throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
-    }      
+    }
   },
 
 
-  startTask: async (db) => {
+  startTask: async (db, sriRequest=null) => {
+    const startTime = Date.now();
     exports.debug('db', '++ Starting database task.');  
 
     const emitter = new EventEmitter()  
@@ -527,6 +554,12 @@ exports = module.exports = {
           }
       }
 
+
+      const duration = Date.now() - startTime;
+      if (sriRequest) {
+          exports.setServerTimingHdr(sriRequest, 'db-starttask', duration);
+      }
+  
       return ({ t, endTask: endTask })
     } catch (err) {
       exports.error('CATCHED ERROR: ');
@@ -656,6 +689,7 @@ exports = module.exports = {
   },
 
   setServerTimingHdr: (sriRequest, property, value) => {
+      console.log(` ^^^ ${property} : ${value}`)
     const parentSriRequest = exports.getParentSriRequest(sriRequest);
     if (parentSriRequest.serverTiming === undefined) {
         parentSriRequest.serverTiming = {}

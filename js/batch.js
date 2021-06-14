@@ -9,7 +9,7 @@ const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const { v4: uuidv4 } = require('uuid');
 
-const { debug, cl, SriError, startTransaction, typeToConfig, stringifyError, settleResultsToSriResults } = require('./common.js');
+const { debug, cl, SriError, startTransaction,  settleResultsToSriResults } = require('./common.js');
 const listResource = require('./listResource.js')
 const regularResource = require('./regularResource.js')
 const hooks = require('./hooks.js')
@@ -329,25 +329,11 @@ exports = module.exports = {
       sriRequest.outStream.write(`, "status": ${status}`);
       sriRequest.outStream.write('}\n');
 
-      if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
-            const notNullEntries = Object.entries(sriRequest.serverTiming)
-                                         .filter(([property, value]) => value > 0)
-
-            if (notNullEntries.length > 0) {
-                const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
-                sriRequest.outStream.addTrailers({
-                    'Server-Timing': hdrVal
-                });
-            }
-      }
-
-
       return { status: status };
     } finally {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer)
       }
-      sriRequest.outStream.end();
       global.overloadProtection.endPipeline(batchConcurrency);
     }
   }

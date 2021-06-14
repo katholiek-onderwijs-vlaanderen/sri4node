@@ -42,11 +42,12 @@ describe('Sri4node testing', function () {
         }
         const heapMax = JSON.parse(Buffer.concat(bufArr2))['maxHeapUsage'] //.maxHeapUsage;
 
+        console.log(trailers['server-timing'])
         // some asserts
         assert.strictEqual(json.status, 302);
         assert.strictEqual( duration < 2000 , true, `duration too long: ${duration}`);
         assert.strictEqual( heapMax < 80, true, `max heap (${heapMax}) usage above 80MB`);
-        assert.strictEqual( (100 * accServerTiming / duration) > 85, true, `server-timing coverage not enough: ${(100 * accServerTiming / duration)}`);
+        assert.strictEqual( (100 * accServerTiming / duration) > 85, true, `server-timing coverage not enough: ${(100 * accServerTiming / duration)} (${accServerTiming} / ${duration})`);
 
       });
 

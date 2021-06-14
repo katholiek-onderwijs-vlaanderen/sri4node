@@ -29,7 +29,8 @@ addFormats(ajv)
 
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject } = require('./js/common.js');
+        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
+        installEMT, emtReportToServerTiming } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -113,32 +114,6 @@ function checkRequiredFields(mapping, information) {
   })
 }
 
-const installEMT = () => {
-  if (global.sri4node_configuration.logmiddleware) {
-    process.env.TIMER = true; //eslint-disable-line
-    const emt = require('express-middleware-timer');
-    // init timer
-    app.use(emt.init(function emtReporter(req, res) {
-      // Write report to file.
-      const report = emt.calculate(req, res);
-      const out = 'middleware timing: ';
-      const timerLogs = Object.keys(report.timers).map.filter(timer => {
-        '[' + timer + ' took ' + report.timers[timer].took + ']'
-      })
-      console.log(out + timerLogs.join(',')); //eslint-disable-line
-
-    }));
-    return emt
-  } else {
-    return {
-      instrument: function noop(middleware) {
-        return middleware;
-      }
-    };
-  }
-}
-
-
 const middlewareErrorWrapper = (fun) => {
   return async (req, resp) => {
       try {
@@ -175,7 +150,7 @@ const handleRequest = async (sriRequest, func, mapping) => {
       await hooks.applyHooks('transform response'
                             , mapping.transformResponse
                             , f => f(t, sriRequest, result)
-                            , null // sriRequest
+                            , sriRequest
                             )
     }
   }
@@ -217,11 +192,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         readOnly = readOnly0
       }
       global.overloadProtection.startPipeline();
-      if (readOnly === true) {
-        ({t, endTask} = await startTask(dbR))
-      } else {
-        ({tx:t, resolveTx, rejectTx} = await startTransaction(dbW))
-      }
+
         const reqId = httpContext.get('reqId')
         if (reqId!==undefined) {
           resp.set('vsko-req-id', reqId);
@@ -241,11 +212,18 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           isBatchRequest: isBatchRequest,
           readOnly: readOnly,   
           SriError: SriError,
-          dbT: t,
           context: {},
           logDebug: debug,
           logError: error
         }
+
+        if (readOnly === true) {
+            ({t, endTask} = await startTask(dbR, sriRequest))
+          } else {
+            ({tx:t, resolveTx, rejectTx} = await startTransaction(dbW, sriRequest))
+        }
+        sriRequest.dbT = t;
+
         if (streaming) {
           // use passthrough streams to avoid passing req and resp in sriRequest
           var inStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
@@ -257,6 +235,8 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           sriRequest.streamStarted = (() => resp.headersSent);
         }
 
+        req.sriRequest = sriRequest;
+
         req.on('close', function (err){
             sriRequest.reqCancelled = true;
          });
@@ -264,7 +244,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         await hooks.applyHooks('transform request'
             , config.transformRequest
             , f => f(req, sriRequest, t)
-            , null //sriRequest 
+            , sriRequest 
         )
 
         setServerTimingHdr(sriRequest, 'batch-routing', batchRoutingDuration);
@@ -296,6 +276,20 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         }
 
         if (resp.headersSent) {
+          // we are in streaming mode
+          if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
+                emtReportToServerTiming(req, resp, sriRequest);
+                const notNullEntries = Object.entries(sriRequest.serverTiming)
+                                             .filter(([property, value]) => value > 0)
+    
+                if (notNullEntries.length > 0) {
+                    const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
+                    sriRequest.outStream.addTrailers({
+                        'Server-Timing': hdrVal
+                    });
+                }
+          }
+          sriRequest.outStream.end();
           if (result.status < 300) {
             await terminateDb(false, readOnly);
           } else {
@@ -309,6 +303,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           }
 
           if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
+            emtReportToServerTiming(req, resp, sriRequest);
             const notNullEntries = Object.entries(sriRequest.serverTiming)
                                          .filter(([property, value]) => value > 0)
 
@@ -617,15 +612,15 @@ exports = module.exports = {
         }
       });   
 
-      const emt = installEMT()
+      const emt = installEMT(app)
 
       if (global.sri4node_configuration.forceSecureSockets) {
         // All URLs force SSL and allow cross origin access.
         app.use(forceSecureSockets);
       }
 
-      app.use(emt.instrument(compression()))
-      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true, strict: false})));
+      app.use(emt.instrument(compression(), 'mw-compression'))
+      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true, strict: false}), 'mw-bodyparser'));
         //use option 'strict: false' to allow also valid JSON like a single boolean
 
       app.use('/pathfinder', function(req, res, next){
@@ -902,7 +897,7 @@ exports = module.exports = {
         // has no direct added value in case of single request.
         debug('general', `registering route ${path} - ${verb} - ${readOnly}`)
         app[verb.toLowerCase()]( path, 
-                                 emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'func') )
+                                 emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'express-wrapper') )
       })
 
       // transform map with 'routes' to be usable in batch

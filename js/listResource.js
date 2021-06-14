@@ -270,7 +270,8 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
                           mapping.beforeRead, 
                           f => f( tx, 
                                   sriRequest
-                                )
+                                ),
+                          sriRequest
                         )    
 
   await phaseSyncer.phase()
@@ -329,7 +330,8 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
                                              , stored: null }
                                     }
                                   })
-                                )
+                                ),
+                          sriRequest
                         )  
 
   await phaseSyncer.phase()

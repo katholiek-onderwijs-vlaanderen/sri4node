@@ -323,7 +323,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
     await hooks.applyHooks('before update'
                           , mapping.beforeUpdate
-                          , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}]))
+                          , f => f(tx, sriRequest, [{permalink: permalink, incoming: obj, stored: prevObj}])
+                          , sriRequest)
 
     await phaseSyncer.phase()
 
