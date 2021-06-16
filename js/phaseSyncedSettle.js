@@ -78,10 +78,10 @@ exports = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhas
 
             if (jobsToWake.length > 0) {
                 // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer will be terminated
-                await hooks.applyHooks('phaseSyncer - before new phase'
+                await hooks.applyHooks('ps'
                     , beforePhaseHooks
                     , f => f(sriRequestMap, jobMap, pendingJobs)
-                    , null // getParentSriRequestFromRequestMap(sriRequestMap)
+                    , getParentSriRequestFromRequestMap(sriRequestMap)
                     );
             }
 

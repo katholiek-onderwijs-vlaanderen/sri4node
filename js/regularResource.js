@@ -89,7 +89,7 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
                  .sql(`::${keyDbType}[]) "key"
                        INNER JOIN "${table}" USING ("key");`);
 
-            const rows = await pgExec(sriRequest.dbT, query, sriRequest);
+            const rows = await pgExec(sriRequest.dbT, query, null); // pass no sriRequest because timing is already registered in beforePhase hook
 
             return Object.fromEntries(rows.map( r => [r.key, r] ));
         }, { concurrency: 3 });
@@ -249,7 +249,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
       mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
     }
 
-    const startTime = Date.now();
+    const hrstart = process.hrtime();
     const validationErrors = getSchemaValidationErrors(obj, mapping.schema);
     if (validationErrors !== null) {
       const errors = { validationErrors }
@@ -257,9 +257,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     } else {
       debug('trace', 'Schema validation passed.');
     }
-    const duration = Date.now() - startTime;
-
-    setServerTimingHdr(sriRequest, 'schema-validation', duration);
+    const hrend = process.hrtime(hrstart);
+    setServerTimingHdr(sriRequest, 'schema-validation', hrend[0]*1000 + hrend[1] / 1000000);
   }
 
   const permalink = mapping.type + '/' + key

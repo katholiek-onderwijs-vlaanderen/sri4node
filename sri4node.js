@@ -164,10 +164,11 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
     let t=null, endTask, resolveTx, rejectTx, readOnly;
     const reqMsgStart = req.method + ' ' + req.path;
     debug('requests', `${reqMsgStart} starting.`);
-    req.startTime = Date.now();
+
+    const hrstart = process.hrtime();
     resp.on('finish', function () {
-        const duration = Date.now() - req.startTime;
-        debug('requests', `${reqMsgStart} took ${duration} ms`);
+        const hrend = process.hrtime(hrstart);
+        debug('requests', `${reqMsgStart} took ${hrend[0]*1000 + hrend[1] / 1000000} ms`);
     });
     debug('trace', 'Starting express wrapper');
     try {
@@ -176,9 +177,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         // evaluate batch body now to know wether the batch is completetly read-only
         // and do early error detecion
 
-        const startTime = Date.now();
+        const hrstart = process.hrtime();
         batch.matchBatch(req);
-        batchRoutingDuration = Date.now() - startTime;
+        const hrend = process.hrtime(hrstart);
+        batchRoutingDuration = hrend[0]*1000 + hrend[1] / 1000000;
 
         const mapReadOnly = (a) => {
           if ( Array.isArray(a) ) {
@@ -283,7 +285,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
                                              .filter(([property, value]) => value > 0)
     
                 if (notNullEntries.length > 0) {
-                    const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
+                    const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value * 100) / 100).toFixed(2)}`).join(', ');
                     sriRequest.outStream.addTrailers({
                         'Server-Timing': hdrVal
                     });
@@ -308,7 +310,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
                                          .filter(([property, value]) => value > 0)
 
             if (notNullEntries.length > 0) {
-                const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${value}`).join(', ');
+                const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value * 100) / 100).toFixed(2)}`).join(', ');
                 resp.set('Server-Timing', hdrVal);
             }
           }

@@ -6,21 +6,31 @@ exports = module.exports = {
 
   applyHooks: async (type, functions, applyFun, sriRequest) => {
     if (functions && functions.length > 0) {
-      const startTime = Date.now();
       try {
         debug('hooks', `applyHooks-${type}: going to apply ${functions.length} functions`);
-        await pMap(functions, applyFun, {concurrency: 1})
-        const duration = Date.now() - startTime;
-        debug('hooks', `applyHooks-${type}: all functions resolved (took ${duration}ms).`);
-        if (sriRequest) {
-            setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
-        };
+        await pMap(functions, async (fun) => {
+            const hrstart = process.hrtime();
+            const funName = fun.name !== '' ? fun.name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`) : 'anonymous-fun'
+            const stHookName = type.replace(/ - /g, '-').replace(/ /g, '-') + '-' + funName;
+            try {
+                await applyFun(fun);
+                const hrend = process.hrtime(hrstart);
+                const duration = hrend[0]*1000 + hrend[1] / 1000000;
+                debug('hooks', `applyHooks-${type}: all functions resolved (took ${duration}ms).`);
+                if (sriRequest) {
+                    setServerTimingHdr(sriRequest, stHookName, duration);
+                }
+            } catch (err) {
+                const hrend = process.hrtime(hrstart);
+                const duration = hrend[0]*1000 + hrend[1] / 1000000;
+                debug('hooks', `applyHooks-${type}: function ${fun.name} failed (took ${duration}ms).`);
+                if (sriRequest) {
+                    setServerTimingHdr(sriRequest, stHookName, duration);
+                }
+                throw (err)
+            }
+        }, {concurrency: 1})
       } catch(err) {
-        const duration = Date.now() - startTime;
-        debug('hooks', `applyHooks-${type}: function failed (took ${duration}ms).`);
-        if (sriRequest) {
-            setServerTimingHdr(sriRequest, `${type}`.replace(' ', '_'), duration);
-        };
         if (err instanceof SriError) {
           throw err
         } else {

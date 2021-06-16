@@ -384,7 +384,7 @@ exports = module.exports = {
        connectionString: dbUrl,
        ssl: ssl,
        connectionTimeoutMillis: process.env.PGP_CONN_TIMEOUT || 2000,
-       idleTimeoutMillis: process.env.PGP_IDLE_TIMEOUT || 1000,
+       idleTimeoutMillis: process.env.PGP_IDLE_TIMEOUT || 14400000, // 4 hours
        max: process.env.PGP_POOL_SIZE || (sri4nodeConfig !== undefined && sri4nodeConfig.maxConnections) || 16,
     }
 
@@ -405,39 +405,37 @@ exports = module.exports = {
   //
   // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
   pgExec: async function (db, query, sriRequest=null) {
-    var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
     exports.debug('sql', () => pgp.as.format(sql, values));
 
-    const startTime = Date.now();
-    const result = await db.query(sql, values)
-    const duration = Date.now() - startTime;
+    const hrstart = process.hrtime();
+    const result = await db.query(sql, values);
+    const hrend = process.hrtime(hrstart);
     if (sriRequest) {
-        exports.setServerTimingHdr(sriRequest, 'db', duration);
+        exports.setServerTimingHdr(sriRequest, 'db', hrend[0]*1000 + hrend[1] / 1000000);
     }
 
     return result;
   },
 
   pgResult: async function (db, query, sriRequest=null) {
-    var cl = exports.cl;
     const {sql, values} = query.toParameterizedSql()
 
     exports.debug('sql', () => pgp.as.format(sql, values));
 
-    const startTime = Date.now();
+    const hrstart = process.hrtime();
     const result = await db.result(sql, values) 
-    const duration = Date.now() - startTime;
+    const hrend = process.hrtime(hrstart);
     if (sriRequest) {
-        exports.setServerTimingHdr(sriRequest, 'db', duration);
+        exports.setServerTimingHdr(sriRequest, 'db', hrend[0]*1000 + hrend[1] / 1000000);
     }
 
     return result;
   },
 
   startTransaction: async (db, sriRequest=null, mode = new pgp.txMode.TransactionMode()) => {
-    const startTime = Date.now();
+    const hrstart = process.hrtime();
     exports.debug('db', '++ Starting database transaction.');  
 
     const emitter = new EventEmitter()  
@@ -498,9 +496,9 @@ exports = module.exports = {
           }
       }
 
-      const duration = Date.now() - startTime;
+      const hrend = process.hrtime(hrstart);
       if (sriRequest) {
-          exports.setServerTimingHdr(sriRequest, 'db-starttx', duration);
+          exports.setServerTimingHdr(sriRequest, 'db-starttx', hrend[0]*1000 + hrend[1] / 1000000);
       }
   
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
@@ -513,7 +511,7 @@ exports = module.exports = {
 
 
   startTask: async (db, sriRequest=null) => {
-    const startTime = Date.now();
+    const hrstart = process.hrtime();
     exports.debug('db', '++ Starting database task.');  
 
     const emitter = new EventEmitter()  
@@ -553,11 +551,9 @@ exports = module.exports = {
             throw res
           }
       }
-
-
-      const duration = Date.now() - startTime;
+      const hrend = process.hrtime(hrstart);
       if (sriRequest) {
-          exports.setServerTimingHdr(sriRequest, 'db-starttask', duration);
+          exports.setServerTimingHdr(sriRequest, 'db-starttask', hrend[0]*1000 + hrend[1] / 1000000);
       }
   
       return ({ t, endTask: endTask })
@@ -689,7 +685,6 @@ exports = module.exports = {
   },
 
   setServerTimingHdr: (sriRequest, property, value) => {
-      console.log(` ^^^ ${property} : ${value}`)
     const parentSriRequest = exports.getParentSriRequest(sriRequest);
     if (parentSriRequest.serverTiming === undefined) {
         parentSriRequest.serverTiming = {}
