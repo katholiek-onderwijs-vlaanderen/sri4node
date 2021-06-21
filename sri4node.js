@@ -243,6 +243,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
             sriRequest.reqCancelled = true;
          });
 
+        if (!isBatchRequest) {
+            sriRequest.sriType = mapping.type; // the batch code will set sriType for batch elements
+        }
+
         await hooks.applyHooks('transform request'
             , config.transformRequest
             , f => f(req, sriRequest, t)

@@ -104,6 +104,7 @@ describe('Sri4node testing', function () {
 
   require('./testServerTiming.js')(base);
   require('./testLogging.js')(base);
+  require('./testSriType.js')(base);
 
   require('./testDocs.js')(base);
   require('./testInformationSchema.js')();

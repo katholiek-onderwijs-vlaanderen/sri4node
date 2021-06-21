@@ -7,7 +7,11 @@ exports = module.exports = function (roa, extra) {
       { routePostfix: ''
       , httpMethods: ['GET']
       , handler: async(tx, sriRequest, mapping) => {
-            return { status: 200, body: '{ "bar": "foo" }' }
+            if (sriRequest.userObject.email === 'sam@email.be') {
+                return { status: 200, body: `{ "sriType": "${sriRequest.sriType}" }` }
+            } else  {
+                return { status: 200, body: '{ "bar": "foo" }' }
+            }
         }
       },
     ],

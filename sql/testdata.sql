@@ -18,6 +18,7 @@ INSERT INTO "persons" VALUES ('82565813-943e-4d1a-ac58-8b4cbc865bdb','Steven','P
 INSERT INTO "persons" VALUES ('de32ce31-af0c-4620-988e-1d0de282ee9d','Kevin','Boon','Markt','32',NULL,'9240','Zele','052422336','kevin@email.be', 0, 'pwd', '6531e471-7514-43cc-9a19-a72cf6d27f4c');
 -- Hamme
 INSERT INTO "persons" VALUES ('ab0fb783-0d36-4511-8ca5-9e29390eea4a','Eddy','Declercq','Sleepstraat','2',NULL,'9220','Hamme','052228877','eddy@email.be', 0, 'pwd', '1edb2754-8481-4996-ae5b-ec33c903ee4d');
+INSERT INTO "persons" VALUES ('838524ec-d267-11eb-bbb0-8f3f35e5f1f8','Sam','ter Braak','Neerstraat','140',NULL,'9220','Hamme','052228899','sam@email.be', 0, 'pwd', '1edb2754-8481-4996-ae5b-ec33c903ee4d');
 
 -- transactions
 INSERT INTO "transactions" VALUES ('147d360c-2bdf-4b6e-a210-3cb8ddf3ce9d', '2014-10-11 04:05:06', '9abe4102-6a29-4978-991e-2a30655030e6','2f11714a-9c45-44d3-8cde-cd37eb0c048b', 'Heerlijke aardperen', 10);

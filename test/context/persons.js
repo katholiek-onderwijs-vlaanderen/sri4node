@@ -105,6 +105,16 @@ exports = module.exports = function (roa, extra) {
     };
   }
 
+  function returnSriTypeForOnePerson() {
+    return async function (tx, sriRequest, elements) {
+      const key = sriRequest.params.key;
+      if (sriRequest.userObject.email === 'sam@email.be') {
+        debug('mocha', 'security method returnSriTypeForOnePerson returns sriType.');
+        throw new sriRequest.SriError({status: 200, errors: [{foo: 'bar', sriType: sriRequest.sriType, type: 'TEST'}]});
+      } 
+    };
+  }
+
 
   async function simpleOutput(tx, sriRequest, customMapping) {
     const query =prepare('get-simple-person');
@@ -159,6 +169,11 @@ exports = module.exports = function (roa, extra) {
       }
     },
     customRoutes: [
+      { routePostfix: '/:key/sritype'
+      , httpMethods: ['GET']
+      , handler:  simpleOutput
+      , beforeHandler: returnSriTypeForOnePerson()
+      },
       { routePostfix: '/:key/simple'
       , httpMethods: ['GET']
       , handler:  simpleOutput
@@ -317,7 +332,8 @@ exports = module.exports = function (roa, extra) {
       forbidUser,
 
       restrictReadPersons,
-      disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2')  // Ingrid Ohno
+      disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2'),  // Ingrid Ohno
+      returnSriTypeForOnePerson(),
     ],
     afterUpdate: [
       checkMe, checkElements, failOnBadUser, forbidUser
