@@ -92,9 +92,13 @@ exports = module.exports = {
     }
   },
 
-  error: (x) => {
+  error: function() {
     const reqId = httpContext.get('reqId');
-    console.error(reqId ? `[reqId:${reqId}] ${x}` : x);
+    if (reqId) {
+        console.error(`[reqId:${reqId}]`, ...arguments);
+    } else {
+        console.error(...arguments);
+    }
   },
 
 
