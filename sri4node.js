@@ -948,8 +948,7 @@ exports = module.exports = {
         }
 
         await hooks.applyHooks('transform internal sriRequest'
-                            // , match.handler.mapping.transformInternalRequest
-                            , match.handler.transformInternalRequest
+                            , match.handler.config.transformInternalRequest
                             , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
                             , sriRequest)
 

@@ -154,7 +154,23 @@ exports = module.exports = function (roa, extra) {
       // $$messagecount: 17
       addMessageCountToCommunities,
       disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c')
-    ]
+    ],
+    customRoutes: [
+        { routePostfix: '/customroute_via_internal_interface'
+        , httpMethods: ['GET']
+        , handler: async (tx, sriRequest, customMapping) => {
+              const getRequest = {
+                href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
+                verb: 'GET',
+                dbT: tx,
+                parentSriRequest: sriRequest,
+                body: ''
+              };
+
+              return global.sri4node_internal_interface(getRequest);
+            }
+        },
+      ],
   };
 
   mergeObject(extra, ret);

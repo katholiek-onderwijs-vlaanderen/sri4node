@@ -35,6 +35,10 @@ exports = module.exports = (api) => ({
 		}
 	},
 
+    copyUserInfo: async (dbT, sriRequest, parentSriRequest) => {
+        sriRequest.userObject = parentSriRequest.userObject;
+        sriRequest.authException = parentSriRequest.authException;
+    },
 	testForStatusCode: async (func, assertFunc) => {
      	try {
      	  await func()

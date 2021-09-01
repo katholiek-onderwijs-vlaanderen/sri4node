@@ -14,7 +14,6 @@ const utils = require('./utils.js')(null);
 
 var $u;
 var configCache = null;
-var knownPasswords = {};
 
 exports = module.exports = {
   serve: async function (roa, port, logdebug) {
@@ -97,6 +96,7 @@ exports = module.exports = {
       ],
 
       transformRequest: [ utils.lookForBasicAuthUser ],
+      transformInternalRequest: [ utils.copyUserInfo ],
 
       // temporarily global batch for samenscholing
       enableGlobalBatch: true

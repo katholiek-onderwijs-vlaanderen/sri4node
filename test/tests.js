@@ -85,6 +85,8 @@ describe('Sri4node testing', function () {
   require('./testIsPartOf.js')(base);
   require('./testBatch.js')(base);
 
+  require('./testInternalRequest.js')(base);
+
   require('./defaultFilter/testDefaultFilterGreater.js')(base);
   require('./defaultFilter/testDefaultFilterCombination.js')(base);
   require('./defaultFilter/testDefaultFilterContains.js')(base);
