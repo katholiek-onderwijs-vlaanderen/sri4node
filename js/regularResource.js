@@ -34,7 +34,7 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
   if (mapping.schema && mapping.schema.properties.key) {
     const validKey = mapping.validateKey(key)
     if (!validKey) {
-        throw new SriError({status: 400, errors: validateKey.errors.map( e => ({code: 'key.invalid', key: key, err: e}) )})
+        throw new SriError({status: 400, errors: mapping.validateKey.errors.map( e => ({code: 'key.invalid', key: key, err: e}) )})
     }
   }
 

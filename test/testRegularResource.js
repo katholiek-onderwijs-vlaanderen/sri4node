@@ -135,4 +135,17 @@ exports = module.exports = function (base) {
         assert.equal(response.name, 'Belgium');
     });
   });
+
+  describe('Invalid key should', function () {
+    it('return "invalid key" error', async function () {
+        await utils.testForStatusCode(
+            async () => {
+                await doGet('/persons/abc', null, {})
+            },
+            (error) => {
+              assert.equal(error.status, 400);
+              assert.equal(error.body.errors[0].code, 'key.invalid');
+            })
+    });
+  });
 };
