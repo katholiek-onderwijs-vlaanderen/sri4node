@@ -1,5 +1,26 @@
 # Release Notes
 
+## sprint-248-1 (01-09-2021)
+
+* several bugfixes/improvements:
+  * fix on batch error broadcasting (unneeded 202 SriErrors where expontential with batch size generated)
+  * abort server side processing of requests at phase() in case requests are aborted by the client
+  * cancel rest of batch (generate 202's) after an error
+  * better handling of bigints
+  * set sri4node default pg idleTimeoutMillis to 4 hours instead of only 1 second
+  * added option to exclude referencing resources for specified expansion types
+* performance improvements:
+  * replace schemavalidation lib with ajv (much faster)
+  * much faster batch routing
+  * combine read object requests (at start of regular resources operations) of a batch into one query
+  * combine insert/update/delete of parallel batch items into one sql operation
+  * do transformRequest once at start of the request instead of for each batch element
+* improved tracing possibilities:
+  * added Server-Timing header
+  * changed debug logging, now different log 'channels' can be enabled according to which logging one wants to see
+  * added possiblity to get only logging for requests returning a specific status code(s)
+
+
 ## sprint-239-0 (18-03-2021)
 * bugfix: fix reported status of batches were an SriError was thrown in a beforePhaseHook (in the JSON output the error status was shown at a random element of the batch instead of the element causing the error).
 * bugifx: replace jiff with fast-json-patch to deal better with error case like an object as input instead of array
