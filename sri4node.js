@@ -427,7 +427,7 @@ exports = module.exports = {
     try {
       config.resources.forEach( (resource) => {
           // initialize undefined hooks in all resources with empty list
-          [ 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
+          [ 'beforeRead', 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert', 
             'afterInsert', 'beforeDelete', 'afterDelete', , 'customRoutes', 'transformResponse' ]
               .forEach((name) => toArray(resource, name))
           // for backwards compability set listResultDefaultIncludeCount default to true
