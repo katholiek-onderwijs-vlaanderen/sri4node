@@ -5,6 +5,8 @@ const url = require('url')
 const EventEmitter = require('events');
 const pEvent = require('p-event');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const stream = require('stream');
 
 const env = require('./env.js');
 
@@ -18,6 +20,85 @@ let pgp = null; // will be initialized at pgConnect
 
 const logBuffer = {};
 
+const debug = (channel, x) => {
+  if (global.sri4node_configuration===undefined ||
+        (global.sri4node_configuration.logdebug && (
+            global.sri4node_configuration.logdebug.channels==='all' ||
+            global.sri4node_configuration.logdebug.channels.has(channel)) ) )
+  {
+    const reqId = httpContext.get('reqId');
+    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof x === 'function' ? x() : x}`
+    if (reqId !== undefined) {
+        if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+          logBuffer[reqId] ? logBuffer[reqId].push(msg) : logBuffer[reqId] = [ msg ];
+        } else {
+          console.log(msg);
+        }
+    } else {
+      console.log(msg);
+    }
+  }
+};
+
+const error = function() {
+  const reqId = httpContext.get('reqId');
+  if (reqId) {
+      console.error(`[reqId:${reqId}]`, ...arguments);
+  } else {
+      console.error(...arguments);
+  }
+};
+
+/**
+ * @typedef {object} SriErrorConstructorObject
+ *  @property {Number} status: the http status
+ *  @property {Array<Error>} errors: the errors
+ *  @property {Array<Header>} headers: the headers that should be sent
+ *  @property {object} document
+ *  @property {String} sriRequestID
+ */
+
+/**
+ * Base class for every error that is being thrown throughout the lifetime of an sri request
+ */
+class SriError {
+  /**
+   * Contructs an sri error based on the given initialisation object 
+   * 
+   * @param {SriErrorConstructorObject} value
+   */
+  constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
+    this.status = status,
+    this.body = {
+      errors: errors.map( e => {
+                  if (e.type == undefined) {
+                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
+                  }
+                  return e
+                }),
+      status: status,
+      document: document
+    },
+    this.headers = headers,
+    this.sriRequestID = sriRequestID
+  }
+};
+
+/**
+ * process.hrtime() method can be used to measure execution time, but returns an array
+ *
+ * @param {Array<Integer>} param0
+ * @returns the input traslated to milliseconds
+ */
+function hrtimeToMilliseconds([seconds, nanoseconds]) {
+  return seconds * 1000 + nanoseconds / 1000000;
+}
+
+/**
+ * @typedef {object} SriRequest
+ *  @property {string} id
+ *  @property {parentSriRequest} SriRequest
+ */
 
 exports = module.exports = {
   cl: function (x) {
@@ -72,45 +153,19 @@ exports = module.exports = {
       delete logBuffer[reqId];
   },
 
-  debug: (channel, x) => {
-    if (global.sri4node_configuration===undefined || 
-          (global.sri4node_configuration.logdebug && (
-              global.sri4node_configuration.logdebug.channels==='all' ||
-              global.sri4node_configuration.logdebug.channels.has(channel)) ) )
-    {
-      const reqId = httpContext.get('reqId');
-      const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof x === 'function' ? x() : x}`
-      if (reqId !== undefined) {
-          if (global.sri4node_configuration.logdebug.statuses !== undefined) {
-            logBuffer[reqId] ? logBuffer[reqId].push(msg) : logBuffer[reqId] = [ msg ];
-          } else {
-            console.log(msg);
-          }
-      } else {
-        console.log(msg);
-      }
-    }
-  },
+  debug,
 
-  error: function() {
-    const reqId = httpContext.get('reqId');
-    if (reqId) {
-        console.error(`[reqId:${reqId}]`, ...arguments);
-    } else {
-        console.error(...arguments);
-    }
-  },
-
+  error,
 
   urlToTypeAndKey: (urlToParse) => {
     if (typeof urlToParse !== 'string') {
       throw 'urlToTypeAndKey requires a string argument instead of ' + urlToParse
     }
     const parsedUrl = url.parse(urlToParse);
-    const pathName = parsedUrl.pathname.replace(/\/$/, '') 
-    const parts = pathName.split('/')
-    const type = _.initial(parts).join('/')
-    const key = _.last(parts)
+    const pathName = parsedUrl.pathname.replace(/\/$/, '');
+    const parts = pathName.split('/');
+    const type = _.initial(parts).join('/');
+    const key = _.last(parts);
 
     return { type, key }
   },
@@ -127,11 +182,11 @@ exports = module.exports = {
     if (!u) {
       return null;
     }
-  
+
     const [u1, comment] = (u.includes('#'))
       ? u.split('#/')
       : [u, null];
-  
+
     if (u1.includes('?')) {
       const splittedUrl = u1.split('?');
       return {
@@ -157,8 +212,6 @@ exports = module.exports = {
       comment,
     };
   },
-  
-
 
 
   errorAsCode: (s) => {
@@ -189,7 +242,7 @@ exports = module.exports = {
   },
 
   sqlColumnNames: function (mapping, summary=false) {
-    const columnNames = summary 
+    const columnNames = summary
                           ? Object.keys(mapping.map).filter(c => ! (mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
                           : Object.keys(mapping.map)
 
@@ -223,29 +276,29 @@ exports = module.exports = {
         if (key.startsWith('$$meta.')) {
           element['$$meta'][key.split('$$meta.')[1]] = row[key]
         } else {
-          element[key] = row[key];          
+          element[key] = row[key];
         }
-      } 
+      }
 
       if (map[key]['columnToField']) {
         map[key]['columnToField'].forEach( f => f(key, element) );
-      }         
+      }
     })
 
-    Object.assign(element.$$meta, _.pickBy({ 
+    Object.assign(element.$$meta, _.pickBy({
         // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
         deleted: row['$$meta.deleted'],
         created: row['$$meta.created'],
         modified: row['$$meta.modified'],
       }))
-    element.$$meta.permalink = resourceMapping.type + '/' + row.key;     
-    element.$$meta.version = row['$$meta.version'];  
+    element.$$meta.permalink = resourceMapping.type + '/' + row.key;
+    element.$$meta.version = row['$$meta.version'];
 
     return element
   },
 
- 
-  transformObjectToRow: function (obj, resourceMapping, isNewResource) {  
+
+  transformObjectToRow: function (obj, resourceMapping, isNewResource) {
     const map = resourceMapping.map
     const row = {}
     Object.keys(map).forEach( key => {
@@ -270,18 +323,18 @@ exports = module.exports = {
           // explicitly set missing properties to null (https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/118)
           row[key] = null
         }
-      } 
+      }
 
       if (map[key]['fieldToColumn']) {
         map[key]['fieldToColumn'].forEach( f => f(key, row, isNewResource) );
-      } 
+      }
 
       const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type
-      const fieldTypeObject = resourceMapping.schema.properties[key] 
+      const fieldTypeObject = resourceMapping.schema.properties[key]
                                   ? resourceMapping.schema.properties[key].type
                                   : null
       if ( fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
-        // for this type combination we need to explicitly stringify the JSON, 
+        // for this type combination we need to explicitly stringify the JSON,
         // otherwise insert will attempt to store a postgres array which fails for jsonb
         row[key] = JSON.stringify(row[key])
       }
@@ -311,7 +364,7 @@ exports = module.exports = {
 
     // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
     //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
-    // In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we 
+    // In the case of sri4node storing in UTC makes more sense as input data arrives in UTC format. Therefore we
     // override the pg handler for type 'timestamp without time zone' with one that appends a 'Z' before conversion
     // to a JS Date object to indicate UTC.
     pgp.pg.types.setTypeParser(1114, s=>new Date(s+'Z'));
@@ -340,7 +393,7 @@ exports = module.exports = {
     // pgConnect can be called with the database url as argument of the sri4configuration object
     const cl = exports.cl;
     let dbUrl, ssl, sri4nodeConfig;
-    
+
     if (typeof arg === 'string') {
       // arg is the connection string
       dbUrl = arg;
@@ -348,21 +401,21 @@ exports = module.exports = {
       // arg is sri4node configuration object
       sri4nodeConfig = arg;
       if (pgp === null) {
-        pgpInitOptions = {} 
+        pgpInitOptions = {}
         if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
           pgpInitOptions.connect = (client, dc, useCount) => {
                 if (useCount===0) {
                   client.query(sri4nodeConfig.dbConnectionInitSql);
                 }
             };
-        } 
+        }
         exports.pgInit(pgpInitOptions);
       }
       if (process.env.DATABASE_URL) {
         dbUrl = process.env.DATABASE_URL;
       } else {
         dbUrl = sri4nodeConfig.defaultdatabaseurl;
-      }      
+      }
     }
 
     if (dbUrl === undefined) {
@@ -374,15 +427,15 @@ exports = module.exports = {
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
     if (dbUrl.indexOf('ssl=false') === -1) {
-      ssl = { rejectUnauthorized: false } 
-      // recent pg 8 deprecates implicit disabling of certificate verification 
+      ssl = { rejectUnauthorized: false }
+      // recent pg 8 deprecates implicit disabling of certificate verification
       //   and heroku does not provide for their  CA files or certificate for your Heroku Postgres server
       //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
       //   ==> need for explicit disabling of rejectUnauthorized
     } else {
       dbUrl = dbUrl.replace('ssl=false', '').replace(/\?$/, '');
       ssl = false
-    }    
+    }
 
     let cn = {
        connectionString: dbUrl,
@@ -415,9 +468,9 @@ exports = module.exports = {
 
     const hrstart = process.hrtime();
     const result = await db.query(sql, values);
-    const hrend = process.hrtime(hrstart);
+    const hrElapsed = process.hrtime(hrstart);
     if (sriRequest) {
-        exports.setServerTimingHdr(sriRequest, 'db', hrend[0]*1000 + hrend[1] / 1000000);
+        exports.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
     }
 
     return result;
@@ -429,10 +482,10 @@ exports = module.exports = {
     exports.debug('sql', () => pgp.as.format(sql, values));
 
     const hrstart = process.hrtime();
-    const result = await db.result(sql, values) 
-    const hrend = process.hrtime(hrstart);
+    const result = await db.result(sql, values)
+    const hrElapsed = process.hrtime(hrstart);
     if (sriRequest) {
-        exports.setServerTimingHdr(sriRequest, 'db', hrend[0]*1000 + hrend[1] / 1000000);
+        exports.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
     }
 
     return result;
@@ -440,14 +493,14 @@ exports = module.exports = {
 
   startTransaction: async (db, sriRequest=null, mode = new pgp.txMode.TransactionMode()) => {
     const hrstart = process.hrtime();
-    exports.debug('db', '++ Starting database transaction.');  
+    exports.debug('db', '++ Starting database transaction.');
 
-    const emitter = new EventEmitter()  
+    const emitter = new EventEmitter()
 
     const txWrapper = async (emitter) => {
       // This wrapper run async without being awaited. This has some consequences:
       //   * errors are not passed the usual way, but via the 'tDone' event
-      //   * exports.debug() does not log the correct reqId      
+      //   * exports.debug() does not log the correct reqId
       try {
         await db.tx( {mode},  async tx => {
           emitter.emit('txEvent', tx)
@@ -463,7 +516,7 @@ exports = module.exports = {
           emitter.emit('txDone', err)
         } else {
           emitter.emit('txDone')
-        }      
+        }
       }
     }
 
@@ -475,7 +528,7 @@ exports = module.exports = {
           resolved = true;
         });
         emitter.on('txDone', (err) => {
-          // ignore undefined error, happens at 
+          // ignore undefined error, happens at
           if (!resolved) {
             console.log('GOT ERROR:')
             console.log(err)
@@ -500,15 +553,15 @@ exports = module.exports = {
           }
       }
 
-      const hrend = process.hrtime(hrstart);
+      const hrElapsed = process.hrtime(hrstart);
       if (sriRequest) {
-          exports.setServerTimingHdr(sriRequest, 'db-starttx', hrend[0]*1000 + hrend[1] / 1000000);
+          exports.setServerTimingHdr(sriRequest, 'db-starttx', hrtimeToMilliseconds(hrElapsed));
       }
-  
+
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
     } catch (err) {
-      exports.error('CATCHED ERROR: ');  
-      exports.error(JSON.stringify(err));  
+      exports.error('CAUGHT ERROR: ');
+      exports.error(JSON.stringify(err));
       throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
   },
@@ -516,9 +569,9 @@ exports = module.exports = {
 
   startTask: async (db, sriRequest=null) => {
     const hrstart = process.hrtime();
-    exports.debug('db', '++ Starting database task.');  
+    exports.debug('db', '++ Starting database task.');
 
-    const emitter = new EventEmitter()  
+    const emitter = new EventEmitter()
 
     const taskWrapper = async (emitter) => {
       // This wrapper run async without being awaited. This has some consequences:
@@ -545,24 +598,24 @@ exports = module.exports = {
         });
         taskWrapper(emitter);
       });
-      exports.debug('db', 'Got db t object.');  
+      exports.debug('db', 'Got db t object.');
 
       const endTask = async () => {
           emitter.emit('terminate')
           const res = await pEvent(emitter, 'tDone')
-          exports.debug('db', 'db task done.');  
+          exports.debug('db', 'db task done.');
           if (res !== undefined) {
             throw res
           }
       }
-      const hrend = process.hrtime(hrstart);
+      const hrElapsed = process.hrtime(hrstart);
       if (sriRequest) {
-          exports.setServerTimingHdr(sriRequest, 'db-starttask', hrend[0]*1000 + hrend[1] / 1000000);
+          exports.setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsed));
       }
-  
+
       return ({ t, endTask: endTask })
     } catch (err) {
-      exports.error('CATCHED ERROR: ');
+      exports.error('CAUGHT ERROR: ');
       exports.error(JSON.stringify(err));
       throw new exports.SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
@@ -577,10 +630,10 @@ exports = module.exports = {
       BEGIN
         -- 1. add column '$$meta.version' if not yet present
         IF NOT EXISTS (
-          SELECT column_name 
-          FROM information_schema.columns 
+          SELECT column_name
+          FROM information_schema.columns
           WHERE table_name = '${tableName}'
-            AND column_name = '$$meta.version'     
+            AND column_name = '$$meta.version'
             ${( env.postgresSchema !== undefined
               ? `AND table_schema = '${env.postgresSchema}'`
               : '' )}
@@ -615,7 +668,7 @@ exports = module.exports = {
   },
 
   getCountResult: async (tx, countquery, sriRequest) => {
-    const [{count}] = await exports.pgExec(tx, countquery, sriRequest) 
+    const [{count}] = await exports.pgExec(tx, countquery, sriRequest);
     return parseInt(count, 10);
   },
 
@@ -663,18 +716,18 @@ exports = module.exports = {
           const err = res.reason
           if (err instanceof exports.SriError) {
             return err
-          } else {      
-            exports.error('____________________________ E R R O R (settleResultsToSriResults)_________________________') 
+          } else {
+            exports.error('____________________________ E R R O R (settleResultsToSriResults)_________________________')
             exports.error(exports.stringifyError(err))
             if (err && err.stack) {
                 exports.error('STACK:')
                 exports.error(err.stack)
             }
-            exports.error('___________________________________________________________________________________________') 
+            exports.error('___________________________________________________________________________________________')
             return new exports.SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
           }
         }
-      });    
+      });
   },
 
   createReadableStream: (objectMode = true) => {
@@ -710,21 +763,154 @@ exports = module.exports = {
 
   getPgp: () => pgp,
 
-  SriError: class {
-    constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
-      this.status = status,
-      this.body = {
-        errors: errors.map( e => {
-                    if (e.type == undefined) {
-                      e.type = 'ERROR' // if no type is specified, set to 'ERROR'
-                    }
-                    return e
-                  }),
-        status: status,
-        document: document
-      },
-      this.headers = headers,
-      this.sriRequestID = sriRequestID
+  SriError,
+ 
+  /**
+   * This function will generate a new SriRequest object, based on some parameters.
+   * Since the SriRequest is some kind of 'abstraction' over the express request,
+   * which was introduced in order to be able to reuse the same code for operations
+   * that would run from inside a batch request for example, this method will be called
+   * from multiple places: once when a regular api request gets initated, but in case of
+   * a batch, also once per every 'inner request' inside that batch.
+   * There is also the possibility for plugins for example to do something like a
+   * 'regular API request' but from within an already running request (imagine one update
+   * would also trigger an update on another resource) but withint the same transaction.
+   *
+   * All these different use-cases produce different SriRequest objects, and need different input,
+   * but I wanted to bring everything together in 1 function to make it easier to have an overview +
+   * to make it easier to manage the stuff that is the same regardless of the mechanism.
+   *
+   * @param {object} expressRequest: needed for creating a basic SriRequest object
+   * @param {object} expressResponse: needed for creating a basic SriRequest object (if streaming mode = true)
+   * @param {object} config: needed for creating a basic SriRequest object, of the form {isBatchRequest: boolean, readOnly: boolean, mapping: <single element from sri4node config 'mappings' section>}
+   * @param {object} batchHandlerAndParams: an object as returned by bath.js/matchHref of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
+   * @param {SriRequest} parentSriRequest: needed when inside a batch or when called as sri4node_internal_onterface
+   * @param {BatchElement} batchElement: needed when creating a 'virtual' SriRequest that represents 1 request from inside a batch
+   *
+   * @returns {SriRequest}
+   */
+   generateSriRequest: function generateSriRequest(expressRequest = undefined, expressResponse = undefined, basicConfig = undefined, batchHandlerAndParams = undefined, parentSriRequest = undefined, batchElement = undefined) {
+    const baseSriRequest = {
+      id: uuidv4(),
+      logDebug: debug,
+      logError: error,
+      SriError,
+      context: {},
+      parentSriRequest,
+
+      path: undefined,
+      query: undefined,
+      params: undefined,
+      sriType: undefined,
+      isBatchRequest: undefined,
+      readOnly: undefined,
+
+      originalUrl: undefined,
+      httpMethod: undefined,
+      headers: undefined,
+      body: undefined,
+      dbT: undefined,
+      inStream: undefined,
+      outStream: undefined,
+      setHeader: undefined,
+      setStatus: undefined,
+      streamStarted: undefined,
+
+      protocol: undefined,
+      isBatchPart: undefined,
+
+      serverTiming: undefined,
+    }
+
+    if (parentSriRequest && !batchElement) { // internal interface
+      // const batchHandlerAndParams = batch.matchHref(parentSriRequest.href, parentSriRequest.verb);
+
+      return {
+        ...baseSriRequest,
+
+        originalUrl: parentSriRequest.href,
+
+        path: batchHandlerAndParams.path,
+        query: batchHandlerAndParams.queryParams,
+        params: batchHandlerAndParams.routeParams,
+
+        sriType: batchHandlerAndParams.handler.mapping.type,
+        isBatchRequest: batchHandlerAndParams.handler.isBatch,
+        readOnly: batchHandlerAndParams.handler.readOnly,
+
+        httpMethod: parentSriRequest.verb,
+        headers: parentSriRequest.headers ? parentSriRequest.headers : {},
+        body: parentSriRequest.body,
+        dbT: parentSriRequest.dbT,
+        inStream: parentSriRequest.inStream,
+        outStream: parentSriRequest.outStream,
+        setHeader: parentSriRequest.setHeader,
+        setStatus: parentSriRequest.setStatus,
+        streamStarted: parentSriRequest.streamStarted,
+
+        protocol: '_internal_',
+        isBatchPart: false,
+
+        parentSriRequest: parentSriRequest.parentSriRequest //??? || parentSriRequest,
+      };
+    } else if (parentSriRequest && batchElement) { // batch item
+      // const batchHandlerAndParams = batchElement.match;
+
+      return {
+        ...parentSriRequest,
+        ...baseSriRequest,
+
+        originalUrl: batchElement.href,
+
+        path: batchHandlerAndParams.path,
+        query: batchHandlerAndParams.queryParams,
+        params: batchHandlerAndParams.routeParams,
+        httpMethod: batchElement.verb,
+
+        body: (batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body)),
+        sriType: batchHandlerAndParams.handler.mapping.type,
+        isBatchPart: true,
+      };
+    } else { // a 'normal' request
+      let generatedSriRequest = {
+        ...baseSriRequest,
+
+        path: expressRequest.path,
+        originalUrl: expressRequest.originalUrl,
+        query: expressRequest.query,
+        params: expressRequest.params,
+        httpMethod: expressRequest.method,
+
+        headers: expressRequest.headers,
+        protocol: expressRequest.protocol,
+        body: expressRequest.body,
+        isBatchPart: false,
+        isBatchRequest: basicConfig.isBatchRequest,
+        readOnly: basicConfig.readOnly,
+
+        // the batch code will set sriType for batch elements
+        sriType: !basicConfig.isBatchRequest ? basicConfig.mapping.type : undefined,
+      };
+
+      // adding sriRequest.dbT should still be done in code after this function
+      // because for the normal case it is asynchronous, and I wanted to keep
+      // this function synchronous as long as possible
+      // ======================================================================
+
+      if (basicConfig.isStreamingRequest) {
+        if (!expressResponse) {
+          throw Error('[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing')
+        }
+        // use passthrough streams to avoid passing req and resp in sriRequest
+        const inStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
+        const outStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
+        generatedSriRequest.inStream = expressRequest.pipe(inStream);
+        generatedSriRequest.outStream = outStream.pipe(expressResponse);
+        generatedSriRequest.setHeader = ((k, v) => expressResponse.set(k, v));
+        generatedSriRequest.setStatus = ((s) => expressResponse.status(s));
+        generatedSriRequest.streamStarted = (() => expressResponse.headersSent);
+      }
+      return generatedSriRequest;
     }
   }
 
