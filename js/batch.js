@@ -2,16 +2,13 @@ const _ = require('lodash')
 const pMap = require('p-map');
 const pEachSeries = require('p-each-series');
 const url = require('url');
-const stream = require('stream');
 const JSONStream = require('JSONStream');
 const EventEmitter = require('events');
 const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const { v4: uuidv4 } = require('uuid');
 
-const { debug, cl, SriError, startTransaction,  settleResultsToSriResults } = require('./common.js');
-const listResource = require('./listResource.js')
-const regularResource = require('./regularResource.js')
+const { debug, cl, SriError, startTransaction, settleResultsToSriResults, generateSriRequest } = require('./common.js');
 const hooks = require('./hooks.js')
 const phaseSyncedSettle = require('./phaseSyncedSettle.js')
 
@@ -32,6 +29,15 @@ const maxSubListLen = (a) =>
 
 exports = module.exports = {
 
+  /**
+   * This will add a 'match' property to every batch element that already contains
+   * which handler will be needed for each operation (and throws SriErrors if necessary)
+   *
+   * Used to detect early (without executing a lot of stuff on the DB first)
+   * if a batch is going to fail anyway along the way because of invalid urls etc.
+   *
+   * @param {SriRequest} req
+   */
   matchBatch: (req) => {
     // Body of request is an array of objects with 'href', 'verb' and 'body' (see sri spec)
     const reqBody = req.body
@@ -42,9 +48,9 @@ exports = module.exports = {
                                                  body: reqBody}]})  
     }
 
-    const handleBatch = (batch) => {
+    const handleBatchForMatchBatch = (batch) => {
         if ( batch.every(element =>  Array.isArray(element)) ) {
-          batch.forEach(handleBatch);
+          batch.forEach(handleBatchForMatchBatch);
         } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
           batch.forEach(element => {
             const match = module.exports.matchHref(element.href, element.verb)
@@ -67,9 +73,18 @@ exports = module.exports = {
           throw new SriError({status: 400, errors: [{code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.'}]})          
         }
     }
-    handleBatch(reqBody);
+    handleBatchForMatchBatch(reqBody);
   },
 
+  /**
+   * Tries to find the proper record in the global batchHandlerMap
+   * and then returns the handler found + some extras
+   * like path, routeParams (example /resources/:id) and queryParams (?key=value)
+   *
+   * @param {String} href
+   * @param {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb: GET,PUT,PATCH,DELETE,POST
+   * @returns an object of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
+   */
   matchHref: (href, verb) => {
     if (!verb) {
       console.log(`No VERB stated for ${href}.`)
@@ -80,15 +95,16 @@ exports = module.exports = {
     const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
 
     const matches = global.sri4node_configuration.batchHandlerMap[verb]
-                                    .map( handler => ({ handler, match: handler.route.match(path)}) )
-                                    .filter( ({ match }) => match !== false );
+      .map( handler => ({ handler, match: handler.route.match(path)}) )
+      .filter( ({ match }) => match !== false );
+
     if (matches.length > 1) {
       cl(`WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`)
     } else if (matches.length === 0) {
       throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${verb} on ${path}.`}]})
     }
 
-    const handler =  _.first(matches).handler;
+    const handler = _.first(matches).handler;
     const routeParams = _.first(matches).match;
 
     return { handler, path, routeParams, queryParams }
@@ -100,10 +116,10 @@ exports = module.exports = {
     const batchConcurrency = global.overloadProtection.startPipeline(
                                 Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
     try {
-      const context = {};
+      const contextInsideBatch = {};
       let batchFailed = false;
 
-      const handleBatch = async (batch, tx) => {  
+      const handleBatchInBatchOperation = async (batch, tx) => {
         if ( batch.every(element =>  Array.isArray(element)) ) {
           debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
           debug('batch', `| Handling batch list`)
@@ -111,7 +127,7 @@ exports = module.exports = {
           return await pMap( batch
                            , async element => {
                                 const {tx: tx1, resolveTx, rejectTx} = await startTransaction(tx)
-                                const result = await handleBatch(element, tx1)
+                                const result = await handleBatchInBatchOperation(element, tx1)
                                 if (result.every(e => e.status < 300)) {
                                   await resolveTx()
                                 } else {
@@ -123,30 +139,17 @@ exports = module.exports = {
                            )
         } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
           if (!batchFailed) {
-              const batchJobs = await pMap(batch, async element => {
-                if (!element.verb) {
+              const batchJobs = await pMap(batch, async batchElement => {
+                if (!batchElement.verb) {
                   throw new SriError({status: 400, errors: [{code: 'verb.missing', msg: 'VERB is not specified.'}]}) 
                 }
                 debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
-                debug('batch', `| Executing /batch section ${element.verb} - ${element.href} `)
+                debug('batch', `| Executing /batch section ${batchElement.verb} - ${batchElement.href} `)
                 debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
 
-                const match = element.match;
+                const match = batchElement.match;
 
-                const innerSriRequest  = {
-                  ...sriRequest,
-                  id: uuidv4(),
-                  parentSriRequest: sriRequest,
-                  path: match.path,
-                  originalUrl: element.href,
-                  query: match.queryParams,
-                  params: match.routeParams,
-                  httpMethod: element.verb,
-                  body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
-                  sriType: match.handler.mapping.type,
-                  isBatchPart: true,
-                  context: context
-                }
+                const innerSriRequest = generateSriRequest(undefined, undefined, undefined, match, sriRequest, batchElement);
 
                 return [ match.handler.func, [tx, innerSriRequest, match.handler.mapping] ]
               }, {concurrency: 1})
@@ -186,7 +189,7 @@ exports = module.exports = {
         }
       }
 
-      const batchResults = _.flatten(await handleBatch(reqBody, sriRequest.dbT))
+      const batchResults = _.flatten(await handleBatchInBatchOperation(reqBody, sriRequest.dbT))
 
       // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside 
       // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the 
@@ -212,14 +215,14 @@ exports = module.exports = {
       const context = {};
       let batchFailed = false;
 
-      const handleBatch = async (batch, tx) => {
+      const handleBatchStreaming = async (batch, tx) => {
         if ( batch.every(element =>  Array.isArray(element)) ) {
           debug('batch', '┌──────────────────────────────────────────────────────────────────────────────')
           debug('batch', `| Handling batch list`)
           debug('batch', '└──────────────────────────────────────────────────────────────────────────────')
           return await pMap( batch
                            , async element => {
-                                const result = await handleBatch(element, tx)
+                                const result = await handleBatchStreaming(element, tx)
                                 return result;
                              }
                            , {concurrency: 1}
@@ -310,7 +313,7 @@ exports = module.exports = {
       sriRequest.outStream.write('{')
       sriRequest.outStream.write('"results":')
 
-      const batchResults = _.flatten(await handleBatch(reqBody, sriRequest.dbT))
+      const batchResults = _.flatten(await handleBatchStreaming(reqBody, sriRequest.dbT))
 
       // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside
       // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the

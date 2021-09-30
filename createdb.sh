@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ $OSTYPE == 'linux-gnu' ]
 then
-  export PSQL_CMD="sudo sudo -u postgres psql $PSQL_VERSION_OPT"
+  export PSQL_CMD="sudo -u postgres psql $PSQL_VERSION_OPT"
 else
   export PSQL_CMD="psql -U postgres"
 fi
