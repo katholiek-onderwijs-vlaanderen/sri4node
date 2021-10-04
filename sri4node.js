@@ -30,7 +30,7 @@ addFormats(ajv)
 const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
         mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
         typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
-        installEMT, emtReportToServerTiming, generateSriRequest } = require('./js/common.js');
+        installEMT, emtReportToServerTiming, generateSriRequest, hrefToNormalizedUrl } = require('./js/common.js');
 const queryobject = require('./js/queryObject.js');
 const $q = require('./js/queryUtils.js');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle.js')
@@ -40,6 +40,7 @@ const regularResource = require('./js/regularResource.js')
 const batch = require('./js/batch.js')
 const utilLib = require('./js/utilLib.js')
 const schemaUtils = require('./js/schemaUtils.js');
+const common = require('mocha/lib/interfaces/common');
 
 
 // Force https in production.
@@ -956,6 +957,7 @@ exports = module.exports = {
       { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL: pgExec,
         prepareSQL: queryobject.prepareSQL,
+        hrefToNormalizedUrl,
         convertListResourceURLToSQL: listResource.getSQLFromListResource,
         addReferencingResources: utilLib.addReferencingResources,
       },

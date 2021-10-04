@@ -20,6 +20,13 @@ let pgp = null; // will be initialized at pgConnect
 
 const logBuffer = {};
 
+
+/**
+ * @typedef {object} SriRequest
+ *  @property {string} id
+ *  @property {parentSriRequest} SriRequest
+ */
+
 const debug = (channel, x) => {
   if (global.sri4node_configuration===undefined ||
         (global.sri4node_configuration.logdebug && (
@@ -94,11 +101,205 @@ function hrtimeToMilliseconds([seconds, nanoseconds]) {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
+
 /**
- * @typedef {object} SriRequest
- *  @property {string} id
- *  @property {parentSriRequest} SriRequest
+ * This will make sure we can easily find all possible dot-separated property names
+ * by going through the keys in the object, because it will create a non-nested version
+ * of the json schema where all the keys are dot-separated.
+ * 
+ * so
+ * {
+ *  type: 'object',
+ *  properties: {
+ *    a: {
+ *      type: 'object',
+ *      properties: {
+ *        b: { type: string }
+ *      }
+ *    }
+ *  }
+ * }
+ * would become:
+ * {
+ *  'a.b': { type: string }
+ * }
+ * 
+ * @param {object} jsonSchema 
+ * @param {Array<string>} pathToCurrent 
+ * @returns a version of the json schema where every property name if on the top-level but with dot notation
  */
+function flattenJsonSchema(jsonSchema, pathToCurrent = []) {
+  if (jsonSchema.type === 'object') {
+    // old skool modification of an object is a bit easier to reason about in this case
+    const retVal = {};
+    Object.entries(jsonSchema.properties)
+      .forEach(([pName, pSchema]) => {
+          Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
+      });
+    return retVal;
+  } else {
+    return { [pathToCurrent.join('.')]: jsonSchema };
+  }
+}
+
+/**
+ * This function should change the given href into an URL object
+ * but one that should be easier to handle later on in all the processes
+ * because all the defaults have been explicitly applied, and all the 'stupid'
+ * url prameters have been translated into parameters more closely aligned with
+ * what sri4node and sri-query spec should support by default.
+ *
+ * Examples:
+ *  * /persons would become /persons?$$meta.deleted_IN=false&_LIMIT=30
+ *  * /persons?hrefs=1,2,3 would become
+ *    /persons?$$meta.deleted_IN=false&$$meta.permalink_IN=1,2,3&_LIMIT=30
+ *  * /persons?$$meta.deleted=any would become /persons?$$meta.deleted_IN=false,true&_LIMIT=30
+ *  * and maybe also sort the query params + for 'lists' (href_IN=B,C,A) we could even sort the list itself
+ *    tag_IN=B,C,A => tag_IN=A,B,C
+ *  * limit=* and expand is NONE => _EXPAND=NONE (and no limit clause as we want all the results)
+ *  * froms => from.href_IN
+ *  * fromTypes => (from.href).type_IN ??? can we invent a proper default for this?
+ *  * orderBy is by default on key I think (needed to make keyOffset work properly)
+ *  * we could imagine that booleanPropGreater=false and booleanPropGreaterOrEqual=false could be
+ *    rewritten to booleanProp_IN=true (and a lot of other variations)
+ *  * should omit be rewritten to _OMIT, or to a positive selctor like _INCLUDEFIELDS=...
+ *
+ * This way, there is no other place in the code where we should take into account
+ * default values for certain parameters (like limit & $$meta.deleted).
+ * Also: everything is translated into a format that we'd like to support in the futere
+ * where all the 'operators' are visually more clearly separated from the property names.
+ * key_IN is easier to understand than keys or keyIn
+ * birthDate_GT is easier to understand than birthDateGreater
+ *
+ * This also makes things easier to optimize (for example sri4node security plugin would become
+ * easier with less exceptions, especially for $$meta.deleted=any) because after nomalisation
+ * /persons and /persons?$$meta.deleted=false will be the same.
+ *
+ * But the good thing is that all the 'old' stuff is still supported, so we stay backwards
+ * compatible, while allowing the API's to evolve into a more mature way of querying.
+ * Also, by prefixing all 'non-filtering' query params with an _ like _LIMIT or _OFFSET,
+ * it is more clear that these are no filters related to a specific property like the other ones.
+ *
+ * What to do with things like rootWithContextContains?
+ * Do we think they should start with an underscore (because root is no property)?
+ * We could forbid the user to configure filters with arbitrary names and say:
+ *  * your filter has to start with an underscore
+ *  * OR it has to start with a property name, followed by an underscore and then some capitals
+ *    to help 'custom filters' to also follow the '<property>_<operator>' spec.
+ *
+ * It could be that we'll provide more options in the mapping section of sri4node config
+ * to control aliases and default values maybe (if they don't exist already)
+ *
+ * With rewriting, can we support easy-to-use params for everything with a start- and an enddate?
+ * like _ACTIVE=true&_DATE=2021-09-07
+ * can/should this be translated in (default date would be 'now') startDate_LTE=<now>&endDate_GTE=now
+ * (in the case of dates we mstly assume that null means an open-ended period, so it's still running)
+ * so endDate_GTEN (greater than or equal to or null)
+ * (normalizing it to ?(startDate_GTE=...;startDate_ISNULL) is no option I guess)
+ *
+ * Why I use the term 'normalized url':
+ * https://en.wikipedia.org/wiki/Canonical_form#Computing
+ * "In computing, the reduction of data to any kind of canonical form is commonly called data normalization."
+ * also check: https://en.wikipedia.org/wiki/Canonical_form
+ *
+ * @param {String} href: the sri4node mapping section holds most info we need to know
+ * @param {object} sri4nodeConfigObject: the sri4node config (and mainly the mapping section) holds most info we need to know
+ */
+function hrefToNormalizedUrl(href, sriConfig = { resources: {} }) {
+  // assuming sriConfig will always be the same, we optimize with
+  // some simple memoization of a few calculated helper data structures
+  if (this.sriConfig !== sriConfig) {
+    this.sriConfig = sriConfig;
+    this.pathToMapping = Object.fromEntries(
+      sriConfig.resources.map((r) => [r.type, r])
+    );
+    this.pathToFlattenedJsonSchema = Object.fromEntries(
+      sriConfig.resources.map((r) => [r.type, flattenJsonSchema(r.schema)]),
+    );
+  }
+
+  const DEFAULT_LIMIT = 30; // if not configured in mapping file
+  const MAX_LIMIT = 500; // if not configured in mapping file
+  const DEFAULT_EXPANSION = 'FULL'; //
+  const DEFAULT_INCLUDECOUNT = false;
+  const allowedSuffixes = ['Greater','In','Before','After','Not','NotIn','NotBefore','_GTE','_LTE','_GT','_LT','_IN','_NOT_IN','_OVERLAPS','_NOT_OVERLAPS','_CONTAINS','_NOT_CONTAINS'];
+
+  // const keyOffset = queryParams.keyOffset || '';
+  // const offset = queryParams.offset;
+
+  // maybe in some cases multiple urls can point to the same resources
+  // but for now we'll just assume that we'll only have to modify the query parameters
+  const urlToWorkOn = new URL(`https://domain.com${href}`);
+  const searchParamsToWorkOn = urlToWorkOn.searchParams;
+  const mapping = this.pathToMapping[urlToWorkOn.pathname] || {};
+  const flattenedJsonSchema = this.pathToFlattenedJsonSchema[urlToWorkOn.pathname] || {};
+
+  /**
+   * 
+   * @param {String} paramName: the name of the query parameter
+   * @param {function} validationFunction: should return false if the value is INVALID, gets param value as input 
+   * @param {function} errorFunction: should return a string describing the error, gets param value as input
+   */
+  const validateQueryParam = (paramName, validationFunction, errorMessage) => {
+    if (!searchParamsToWorkOn.has(paramName)) {
+      throw new Error(`[hrefToNormalizedUrl] ${paramName} is missing`);
+    }
+    const paramValue = searchParamsToWorkOn.get(paramName);
+    if (!validationFunction(paramValue)) {
+      throw new Error(`[hrefToNormalizedUrl] ${errorMessage(paramValue)}`);
+    } 
+  }
+
+  if (!searchParamsToWorkOn.has('_LIMIT')) {
+    const _LIMIT = searchParamsToWorkOn.get('limit') || mapping.defaultlimit || DEFAULT_LIMIT;
+    searchParamsToWorkOn.set('_LIMIT', _LIMIT);
+    // what if limit and _LIMIT are present? maybe the resource has a 'limit' property?
+    searchParamsToWorkOn.delete('limit');
+  }
+  validateQueryParam(
+    '_LIMIT',
+    limit => limit < (mapping.maxlimit || MAX_LIMIT),
+    limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
+  );
+
+  if (!searchParamsToWorkOn.has('_EXPANSION')) {
+    const _EXPANSION = searchParamsToWorkOn.get('expand') || mapping.defaultexpansion || DEFAULT_EXPANSION;
+    searchParamsToWorkOn.set('_EXPANSION', _EXPANSION);
+    // what if expand and _EXPAND are present? maybe the resource has an 'expand' property?
+    searchParamsToWorkOn.delete('expand');
+  }
+  validateQueryParam(
+    '_EXPANSION',
+    expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
+    expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
+  );
+
+  // for omit, will we translate it to _PROPERTYNAME_NOT_IN to stay in line with other IN and NOT IN mechanisms?
+  // is includeCount (being part of the $$meta of the list not of the resources) one to translate to an OMIT clause? I guess not...
+  // + do we translate EVERYTHING to its negative form (also the opposite of omission = inclusion)
+  // because we'll assume that this list wil usually be shorter?
+  // (depends on how we evolve, because if this combines well with security API, we might think about
+  // creating larger resources, because we can give access to only the properties people need to read)
+  //
+  // if (!searchParamsToWorkOn.has('_PROPERTYNAME_NOT_IN')) {
+  // }
+
+  // what to do with $$includeCount, because it doesn't affect the returned documennts
+  // but it only affects the $$meta section OF THE LIST ITSELF?
+  // I think this should be reflected in the translated search param name somehow,
+  // and should the normalized property exclude, or include things? Similar to omit,
+  // we could assume that listing what to leave out will in general be shorter
+  // _LIST_META_NOT_IN
+
+  const properties = [ ...searchParamsToWorkOn.keys()]
+    .filter(k => flattenedJsonSchema[k] || allowedSuffixes.some(s => k.endsWith(s)));
+  console.log('all properties found in the url are', properties);
+
+  searchParamsToWorkOn.sort();
+
+  urlToWorkOn.urlSearchParams = searchParamsToWorkOn;
+  return urlToWorkOn;
+}
 
 exports = module.exports = {
   cl: function (x) {
@@ -789,7 +990,7 @@ exports = module.exports = {
    *
    * @returns {SriRequest}
    */
-   generateSriRequest: function generateSriRequest(expressRequest = undefined, expressResponse = undefined, basicConfig = undefined, batchHandlerAndParams = undefined, parentSriRequest = undefined, batchElement = undefined) {
+  generateSriRequest: function generateSriRequest(expressRequest = undefined, expressResponse = undefined, basicConfig = undefined, batchHandlerAndParams = undefined, parentSriRequest = undefined, batchElement = undefined) {
     const baseSriRequest = {
       id: uuidv4(),
       logDebug: debug,
@@ -912,6 +1113,10 @@ exports = module.exports = {
       }
       return generatedSriRequest;
     }
-  }
+  },
+
+  hrefToNormalizedUrl,
+
+  flattenJsonSchema,
 
 }

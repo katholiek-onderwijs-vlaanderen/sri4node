@@ -30,7 +30,7 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
               if (mapping.query[key] || mapping.query.defaultFilter) {
                 // Execute the configured function that will apply this URL parameter
                 // to the SELECT statement
-                if (!mapping.query[key] && mapping.query.defaultFilter) { // eslint-disable-line
+                if (!mapping.query[key] && mapping.query.defaultFilter) {
                   await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx)
                 } else {
                   await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters)
@@ -151,7 +151,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
             message: 'The maximum allowed limit is ' + maxlimit
           }]})
     }
-    // limit condition is always added except special case where the paremeter limit=* and expand is NONE (#104)
+    // limit condition is always added except special case where the parameter limit=* and expand is NONE (#104)
     query.sql(' limit ').param(queryLimit);
   }
 

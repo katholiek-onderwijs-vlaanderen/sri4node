@@ -238,32 +238,32 @@ So how you construct your batch determines which operations go 'phaseSynced' par
 A batch like the one below will be able to retrieve a newly created resource:
 ```
 [
-	[ {
-	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
-	    "verb": "PUT",
-	    "body": {
-	      "key": "e4f09527-a973-4510-a67c-783d388f7265",
-	      "type": "SCHOOLENTITY",
-	      "names": [
-		{
-		  "type": "OFFICIAL",
-		  "value": "Official 1",
-		  "startDate": "2017-01-01"
-		},
-		{
-		  "type": "SHORT",
-		  "value": "Short 1",
-		  "startDate": "2017-01-01"
-		}
-	      ],
-	      "description": "Some description...",
-	      "startDate": "2017-01-01"
-	    }
-	  } ],
-	[ {
-	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
-	    "verb": "GET"
-	  } ]
+  [ {
+      "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+      "verb": "PUT",
+      "body": {
+        "key": "e4f09527-a973-4510-a67c-783d388f7265",
+        "type": "SCHOOLENTITY",
+        "names": [
+    {
+      "type": "OFFICIAL",
+      "value": "Official 1",
+      "startDate": "2017-01-01"
+    },
+    {
+      "type": "SHORT",
+      "value": "Short 1",
+      "startDate": "2017-01-01"
+    }
+        ],
+        "description": "Some description...",
+        "startDate": "2017-01-01"
+      }
+    } ],
+  [ {
+      "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+      "verb": "GET"
+    } ]
 ]
 ```
 
@@ -371,10 +371,10 @@ An example request:
 ```
 POST /messages/isPartOf
 { 
-	"a": { "href": "/messages?descriptionRegEx=^Ik.*$"  },
+  "a": { "href": "/messages?descriptionRegEx=^Ik.*$"  },
         "b": { "hrefs": [ "/messages?type=request"
                         , "/messages?titleRegEx=^Wie.*$"
-			, "/messages"] }
+      , "/messages"] }
 }
 ```
 with an example reply:
@@ -1269,59 +1269,59 @@ When you want more information about a resource you can access `/resource/docs`
 To document validate functions you need to add *validateDocs* to the resource configuration.
 *validateDocs* has to include a description and possible error codes of the validate function.
 
-	validate: [
-			validateAuthorVersusThemes
-	],
-	validateDocs: {
-			validateAuthorVersusThemes: {
-					description: "Validate if author or theme exists",
-					errors: [{
-							code: 'not.a.desert',
-							description: 'This is not a desert.'
-					}]
-			}
-	}
+  validate: [
+      validateAuthorVersusThemes
+  ],
+  validateDocs: {
+      validateAuthorVersusThemes: {
+          description: "Validate if author or theme exists",
+          errors: [{
+              code: 'not.a.desert',
+              description: 'This is not a desert.'
+          }]
+      }
+  }
 
 ## queryDocs
 
 To document a custom query function you need to add *queryDocs* to the resource configuration.
 *queryDocs* has to include the description of the query function.
 
-	query: {
-			editor: $q.filterReferencedType('/persons','editor'),
-			defaultFilter: $q.defaultFilter
-	},
-	queryDocs: {
-			editor: 'Allow to filer on an editor.'
-	}
+  query: {
+      editor: $q.filterReferencedType('/persons','editor'),
+      defaultFilter: $q.defaultFilter
+  },
+  queryDocs: {
+      editor: 'Allow to filer on an editor.'
+  }
 
-##Description
+## Description
 
-####Interface
+#### Interface
 You can describe your sri interface by using the *description* variable in the root for your configuration
 
-	description: 'A description about the collection of resources'
+  description: 'A description about the collection of resources'
 
-####Resource 	
+#### Resource
 You can describe a resource by using the to use *schema* > *title*
 
-	title: 'An article on the websites/mailinglists'
+  title: 'An article on the websites/mailinglists'
 
-####Property
+#### Property
 If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *description* :
 
-	properties : {
-			authors: {
-					type: 'string'
-					description: 'Comma-separated list of authors.'
-			}
-	}
+  properties : {
+      authors: {
+          type: 'string'
+          description: 'Comma-separated list of authors.'
+      }
+  }
 
 Or use the schemaUtils function:
 
-	properties : {
-			authors: $s.string('Comma-separated list of authors.')
-	}
+  properties : {
+      authors: $s.string('Comma-separated list of authors.')
+  }
 
 
 # Contributions

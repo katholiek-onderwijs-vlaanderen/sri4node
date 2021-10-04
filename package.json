@@ -7,6 +7,7 @@
     "start": "node index.js",
     "test": "POSTGRES_SCHEMA=\"sri4node\" mocha --exit",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
+    "test_common": "mocha ./test/common --exit",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
@@ -43,13 +44,16 @@
   "devDependencies": {
     "@kathondvla/sri-client": "https://github.com/katholiek-onderwijs-vlaanderen/sri-client.git#sprint-220-0",
     "await-sleep": "0.0.1",
+    "chai": "^4.3.4",
     "describe": "^1.2.0",
-    "eslint": "7.2.0",
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.24.2",
     "express": "4.17.1",
+    "iso-datestring-validator": "2.1.4",
     "mocha": "^8.2.1",
     "nodemon": "2.0.4",
     "stream-equal": "2.0.0",
-    "iso-datestring-validator": "2.1.4",
     "test-console": "^1.1.0",
     "undici": "^3.3.6"
   },
