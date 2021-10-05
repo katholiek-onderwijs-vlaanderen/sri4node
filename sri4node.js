@@ -322,7 +322,18 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           if (result.headers) {
             resp.set(result.headers)
           }
-          resp.status(result.status).send(result.body)
+          // resp.status(result.status).send(result.body) // OLD VERSION, now streaming JSON stringify for list resources
+          resp.status(result.status)
+          // now stream result.body to the express response
+          if (result.body && Array.isArray(result.body.results)) {
+            resp.setHeader('Content-Type', 'application/json; charset=utf-8')
+            const writableJsonsStream = JSONStream.stringify(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results":\n`, ',', '\n}');
+            writableJsonsStream.pipe(resp);
+            writableJsonsStream.write(result.body.results);
+            writableJsonsStream.end();
+          } else {
+            resp.send(result.body);
+          }
 
           await hooks.applyHooks('afterRequest'
           , config.afterRequest
