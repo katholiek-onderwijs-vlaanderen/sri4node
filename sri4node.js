@@ -327,10 +327,20 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           // now stream result.body to the express response
           if (result.body && Array.isArray(result.body.results)) {
             resp.setHeader('Content-Type', 'application/json; charset=utf-8')
-            const writableJsonsStream = JSONStream.stringify(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results":\n`, ',', '\n}');
-            writableJsonsStream.pipe(resp);
-            writableJsonsStream.write(result.body.results);
-            writableJsonsStream.end();
+            // VERSION WITH JSON STREAM
+            // const writableJsonsStream = JSONStream.stringify(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results":\n`, ',', '\n}');
+            // writableJsonsStream.pipe(resp);
+            // writableJsonsStream.write(result.body.results);
+            // writableJsonsStream.end();
+
+            // VERSION WHERE I SIMPLY PUT EACH ARRAY ITEM ON THE STREAM MYSELF (is this faster than JSONStream.striingify which seems slow looking at my first tests)
+            resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [\n`);
+            const total = result.body.results.length;
+            result.body.results.forEach(
+              (record, index) => resp.write(`${JSON.stringify(record)}${index + 1 < total ? ',':''}\n`)
+            );
+            resp.write(']}');
+            resp.end();
           } else {
             resp.send(result.body);
           }
