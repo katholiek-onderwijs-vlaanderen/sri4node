@@ -22,6 +22,57 @@ const logBuffer = {};
 
 
 /**
+ * @typedef {object} SriErrorConstructorObject
+ *  @property {Number} status: the http status
+ *  @property {Array<Error>} errors: the errors
+ *  @property {Array<Header>} headers: the headers that should be sent
+ *  @property {object} document
+ *  @property {String} sriRequestID
+ */
+
+/**
+ * Base class for every error that is being thrown throughout the lifetime of an sri request
+ */
+class SriError {
+  /**
+   * Contructs an sri error based on the given initialisation object 
+   * 
+   * @param {SriErrorConstructorObject} value
+   */
+  constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
+    this.status = status,
+    this.body = {
+      errors: errors.map( e => {
+                  if (e.type == undefined) {
+                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
+                  }
+                  return e
+                }),
+      status: status,
+      document: document
+    },
+    this.headers = headers,
+    this.sriRequestID = sriRequestID
+  }
+};
+
+/**
+ * process.hrtime() method can be used to measure execution time, but returns an array
+ *
+ * @param {Array<Integer>} param0
+ * @returns the input traslated to milliseconds
+ */
+function hrtimeToMilliseconds([seconds, nanoseconds]) {
+  return seconds * 1000 + nanoseconds / 1000000;
+}
+
+/**
+ * @typedef {object} SriRequest
+ *  @property {string} id
+ *  @property {parentSriRequest} SriRequest
+ */
+
+/**
  * @typedef {object} SriRequest
  *  @property {string} id
  *  @property {parentSriRequest} SriRequest
@@ -64,32 +115,6 @@ const error = function() {
  *  @property {object} document
  *  @property {String} sriRequestID
  */
-
-/**
- * Base class for every error that is being thrown throughout the lifetime of an sri request
- */
-class SriError {
-  /**
-   * Contructs an sri error based on the given initialisation object 
-   * 
-   * @param {SriErrorConstructorObject} value
-   */
-  constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
-    this.status = status,
-    this.body = {
-      errors: errors.map( e => {
-                  if (e.type == undefined) {
-                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
-                  }
-                  return e
-                }),
-      status: status,
-      document: document
-    },
-    this.headers = headers,
-    this.sriRequestID = sriRequestID
-  }
-};
 
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
@@ -1021,6 +1046,97 @@ exports = module.exports = {
       isBatchPart: undefined,
 
       serverTiming: undefined,
+    }
+
+    if (parentSriRequest && !batchElement) { // internal interface
+      // const batchHandlerAndParams = batch.matchHref(parentSriRequest.href, parentSriRequest.verb);
+
+      return {
+        ...baseSriRequest,
+
+        originalUrl: parentSriRequest.href,
+
+        path: batchHandlerAndParams.path,
+        query: batchHandlerAndParams.queryParams,
+        params: batchHandlerAndParams.routeParams,
+
+        sriType: batchHandlerAndParams.handler.mapping.type,
+        isBatchRequest: batchHandlerAndParams.handler.isBatch,
+        readOnly: batchHandlerAndParams.handler.readOnly,
+
+        httpMethod: parentSriRequest.verb,
+        headers: parentSriRequest.headers ? parentSriRequest.headers : {},
+        body: parentSriRequest.body,
+        dbT: parentSriRequest.dbT,
+        inStream: parentSriRequest.inStream,
+        outStream: parentSriRequest.outStream,
+        setHeader: parentSriRequest.setHeader,
+        setStatus: parentSriRequest.setStatus,
+        streamStarted: parentSriRequest.streamStarted,
+
+        protocol: '_internal_',
+        isBatchPart: false,
+
+        parentSriRequest: parentSriRequest.parentSriRequest //??? || parentSriRequest,
+      };
+    } else if (parentSriRequest && batchElement) { // batch item
+      // const batchHandlerAndParams = batchElement.match;
+
+      return {
+        ...parentSriRequest,
+        ...baseSriRequest,
+
+        originalUrl: batchElement.href,
+
+        path: batchHandlerAndParams.path,
+        query: batchHandlerAndParams.queryParams,
+        params: batchHandlerAndParams.routeParams,
+        httpMethod: batchElement.verb,
+
+        body: (batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body)),
+        sriType: batchHandlerAndParams.handler.mapping.type,
+        isBatchPart: true,
+      };
+    } else { // a 'normal' request
+      let generatedSriRequest = {
+        ...baseSriRequest,
+
+        path: expressRequest.path,
+        originalUrl: expressRequest.originalUrl,
+        query: expressRequest.query,
+        params: expressRequest.params,
+        httpMethod: expressRequest.method,
+
+        headers: expressRequest.headers,
+        protocol: expressRequest.protocol,
+        body: expressRequest.body,
+        isBatchPart: false,
+        isBatchRequest: basicConfig.isBatchRequest,
+        readOnly: basicConfig.readOnly,
+
+        // the batch code will set sriType for batch elements
+        sriType: !basicConfig.isBatchRequest ? basicConfig.mapping.type : undefined,
+      };
+
+      // adding sriRequest.dbT should still be done in code after this function
+      // because for the normal case it is asynchronous, and I wanted to keep
+      // this function synchronous as long as possible
+      // ======================================================================
+
+      if (basicConfig.isStreamingRequest) {
+        if (!expressResponse) {
+          throw Error('[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing')
+        }
+        // use passthrough streams to avoid passing req and resp in sriRequest
+        const inStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
+        const outStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
+        generatedSriRequest.inStream = expressRequest.pipe(inStream);
+        generatedSriRequest.outStream = outStream.pipe(expressResponse);
+        generatedSriRequest.setHeader = ((k, v) => expressResponse.set(k, v));
+        generatedSriRequest.setStatus = ((s) => expressResponse.status(s));
+        generatedSriRequest.streamStarted = (() => expressResponse.headersSent);
+      }
+      return generatedSriRequest;
     }
 
     if (parentSriRequest && !batchElement) { // internal interface
