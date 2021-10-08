@@ -839,14 +839,13 @@ exports = module.exports = {
                                 sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
                                 stream = new require('stream').Readable({objectMode: true});
                                 stream._read = function () {};
-                                stream.pipe(JSONStream.stringify()).pipe(sriRequest.outStream);
-                                keepAliveTimer = setInterval(() => { stream.push('') }, 20000)
+                                const JsonStreamStringify = require('json-stream-stringify');
+                                const JsonStream = new JsonStreamStringify(stream);
+                                JsonStream.pipe(sriRequest.outStream);
+                                keepAliveTimer = setInterval(() => { sriRequest.outStream.write(' ') }, 20000)
                               }
 
-                              stream.on('close', () => streamEndEmitter.emit('done'));
-                              // 'end' event listener needed for backwards compability with node 8
-                              //  (on node 12, the 'close' event will do the job)
-                              stream.on('end', () => streamEndEmitter.emit('done'));
+                              sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));
 
                               streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
 
@@ -868,7 +867,6 @@ exports = module.exports = {
                                 stream.end();
                               } else {
                                 stream.push(null)
-                                stream.destroy();
                               }
 
                               // wait until stream is ended

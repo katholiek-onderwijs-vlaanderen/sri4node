@@ -24,6 +24,7 @@
     "fast-json-patch": "^3.0.0-1",
     "gc-stats": "^1.4.0",
     "global-configuration": "^0.3.1",
+    "json-stream-stringify": "^2.0.4",
     "jsonschema": "^1.2.6",
     "lodash": "^4.17.20",
     "p-each-series": "^2.1.0",
