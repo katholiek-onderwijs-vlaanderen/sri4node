@@ -7,6 +7,7 @@ const pEvent = require('p-event');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const stream = require('stream');
+const peg = require("pegjs");
 
 const env = require('./env.js');
 
@@ -15,6 +16,7 @@ const httpContext = require('express-http-context');
 
 process.env.TIMER = true; //eslint-disable-line
 const emt = require('express-middleware-timer');
+const { DEFAULT_MAX_VERSION } = require('tls');
 
 let pgp = null; // will be initialized at pgConnect
 
@@ -35,8 +37,8 @@ const logBuffer = {};
  */
 class SriError {
   /**
-   * Contructs an sri error based on the given initialisation object 
-   * 
+   * Contructs an sri error based on the given initialisation object
+   *
    * @param {SriErrorConstructorObject} value
    */
   constructor({status = 500, errors = [], headers = {}, document, sriRequestID=null}) {
@@ -117,21 +119,13 @@ const error = function() {
  */
 
 /**
- * process.hrtime() method can be used to measure execution time, but returns an array
- *
- * @param {Array<Integer>} param0
- * @returns the input traslated to milliseconds
- */
-function hrtimeToMilliseconds([seconds, nanoseconds]) {
-  return seconds * 1000 + nanoseconds / 1000000;
-}
-
-
-/**
  * This will make sure we can easily find all possible dot-separated property names
  * by going through the keys in the object, because it will create a non-nested version
  * of the json schema where all the keys are dot-separated.
- * 
+ * In case of a an array, the 'key' should become something like myobj.myarray[*] to indicate
+ * all array elements, and thus myobj.myarray[*].arrayelementproperty if the array contains objects
+ * (cfr. JSONPath)
+ *
  * so
  * {
  *  type: 'object',
@@ -139,18 +133,20 @@ function hrtimeToMilliseconds([seconds, nanoseconds]) {
  *    a: {
  *      type: 'object',
  *      properties: {
- *        b: { type: string }
+ *        b: { type: 'string' }
+ *        cs: { type: 'array', items: { type: 'number' } }
  *      }
  *    }
  *  }
  * }
  * would become:
  * {
- *  'a.b': { type: string }
+ *  'a.b': { type: 'string' }
+ *  'a.cs[*]': { type: 'number' }
  * }
- * 
- * @param {object} jsonSchema 
- * @param {Array<string>} pathToCurrent 
+ *
+ * @param {object} jsonSchema
+ * @param {Array<string>} pathToCurrent
  * @returns a version of the json schema where every property name if on the top-level but with dot notation
  */
 function flattenJsonSchema(jsonSchema, pathToCurrent = []) {
@@ -159,20 +155,476 @@ function flattenJsonSchema(jsonSchema, pathToCurrent = []) {
     const retVal = {};
     Object.entries(jsonSchema.properties)
       .forEach(([pName, pSchema]) => {
-          Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
+        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
       });
     return retVal;
+  } else if (jsonSchema.type === 'array') {
+    return flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']);
   } else {
-    return { [pathToCurrent.join('.')]: jsonSchema };
+    const flattenedName = pathToCurrent.reduce((a, c) => {
+      if (c === '[*]') {
+        return `${a}${c}`;
+      }
+      return `${a}.${c}`;
+    })
+    return { [flattenedName]: jsonSchema };
   }
 }
 
 /**
- * This function should change the given href into an URL object
- * but one that should be easier to handle later on in all the processes
- * because all the defaults have been explicitly applied, and all the 'stupid'
- * url prameters have been translated into parameters more closely aligned with
- * what sri4node and sri-query spec should support by default.
+ * function that tries to turn 1 query param (firstNameIn=John,Bart) into
+ * an object that holds the property name (firstName), the operator ('IN'),
+ * the value list (['John','Bart']) and some other properties as an array.
+ *
+ * It should both support old and new-style (propertyIn & property_IN)
+ * and also translate simpler forms to more generic forms: property= => property_IN=
+ *
+ * @param {String} name
+ * @param {String} value
+ * @param {*} flattenedJsonSchema
+ */
+function parseParam(name, value, flattenedJsonSchema) {
+  const nameStartsWith = Object.keys(flattenedJsonSchema).filter(fieldName => name.startsWith(fieldName));
+  nameStartsWith.map(fieldName => {
+    const postFix = name.substring(fieldName.length);
+    // try to parse the postfix
+  })
+}
+
+// /**
+//  * Currently the parser assumes that all the default filters are allowed on any property,
+//  * but the way sri4node config currently works is: if defaultFilter is not specified,
+//  * the defaultFilters won't work on that property
+//  * (although I think the default filters should ideally always work, because that's
+//  * what the sri-query spec explains).
+//  *
+//  * @param {Array<string>} existingProperties: a list of allowed properties
+//  * @param {SriConfig} sriConfig
+//  */
+// function generateQueryParamNameParser(flattenedJsonSchema, sriConfig = {}) {
+//   const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
+//   const grammar = `
+//     {
+//       /** Turn _IN or In into IN, etc. for other operators
+//        */
+//       function normalizeOperator(o) {
+//         return o.startsWith('_') ? o.substr(1) : o.toUpperCase();
+//       }
+//     }
+
+//     Filter
+//       = p:Property ne:Negator op:Negator ci:CaseInsensitive ? {
+//           // _NOT_NOT should be translated to a simple _IN
+//           return { property: p, caseInsensitive: ci ? true : false, invertOperator: false, operator: 'IN' };
+//         }
+//       / p:Property ne:Negator ? op:Operator ci:CaseInsensitive ? {
+//           return { property: p, caseInsensitive: ci ? true : false, invertOperator: ne ? true : false, operator: normalizeOperator(op) };
+//         }
+//       / p:Property cs:CaseSensitive ? ne:Negator ? op:Operator {
+//           return { property: p, caseInsensitive: cs ? false : true, invertOperator: ne ? true : false, operator: normalizeOperator(op) };
+//         }
+//       / p:Property Negator {
+//           return { property: p, caseInsensitive: true, invertOperator: false, operator: 'IN' };
+//         }
+//       / p:Property {
+//           return { property: p, caseInsensitive: true, invertOperator: true, operator: 'IN' };
+//         }
+//       / cp:ControlParameter {
+//         return { controlParam: cp };
+//       }
+
+//     CaseSensitive = "CaseSensitive"
+
+//     Negator
+//       = "_NOT" / "Not"
+
+//     Operator
+//         = "_IN" / "In"
+//         / "_GTE" / "GreaterOrEqual"
+//         / "_LTE" / "LessOrEqual"
+//         / "_GT" / "Greater"
+//         / "_LT" / "Less"
+//         / "_LIKE" / "Like" / "Matches"
+//         / "_NOT" / "Not"
+
+//     CaseInsensitive = "_I"
+
+//     ControlParameter = ( "_LIMIT" / "limit" ) { return 'LIMIT' }
+//       / ( "_EXPANSION" / "expand" ) { return 'EXPANSION' }
+//       / ( "_OFFSET" / "offset" ) { 'OFFSET' }
+//       / ( "_KEYOFFSET" / "keyOffset" )  { 'KEY_OFFSET' }
+//       / ( "_LIST_META_INCLUDE_COUNT" / "$$includeCount" ) { 'LIST_META_INCLUDE_COUNT' }
+
+//     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
+//     Property = ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
+//     //"firstNameCapital" / "firstName" / "lastName"
+//   `;
+//   const pegConf = {
+//     // Rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
+//     // allowedStartRules: []
+//   };
+//   return peg.generate(grammar, pegConf);
+// };
+
+/**
+ * Generates a peg js grammar parser based on the flattened schema and the sriConfiog object
+ * that can parse the entire query string (ideally it works whether characters are endoed or not).
+ *
+ * But for now we could assume that all characters in the string are escaped
+ * (by escaping the defined propertyNames first, especially maybe the $ characters)?
+ *
+ * Currently the parser assumes that all the default filters are allowed on any property,
+ * but the way sri4node config currently works is: if defaultFilter is not specified,
+ * the defaultFilters won't work on that property
+ * (although I think the default filters should ideally always work, because that's
+ * what the sri-query spec explains).
+ *
+ * @param {Array<string>} existingProperties: a list of allowed properties
+ * @param {SriConfig} sriConfig
+ * @returns {String} the pegjs grammar
+ */
+function generateQueryStringParserGrammar(flattenedJsonSchema, sriConfig = {}) {
+  const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
+    .filter(([k, v]) => k.endsWith('[*]'))
+    .map(([k, v]) => encodeURIComponent(k))
+    .sort().reverse();
+  const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
+    .filter(([k, v]) => !k.endsWith('[*]'))
+    .map(([k, v]) => encodeURIComponent(k))
+    .sort().reverse();
+  const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
+    .map(([k, v]) => encodeURIComponent(k))
+    .sort().reverse();
+
+  const hasMultiValuedProperties = allMultiValuedPropertyNamesSortedInReverse.length > 0;
+
+  const hasSingleValuedProperties = allSingleValuedPropertyNamesSortedInReverse.length > 0;
+
+  // A map to check if the field type is something else than string
+  const propertyNameToOtherThanStringTypeMap = {
+    ...Object.fromEntries(
+      Object.entries(flattenedJsonSchema)
+      .filter(([k, v]) => !v.enum && v.type !== 'string')
+      .map(([k, v]) => [k, v.type])
+    ),
+    ['$$meta.deleted']: 'boolean',
+    ['$$meta.version']: 'integer',
+    // [encodeURIComponent('$$meta.modified')]: 'string',
+  };
+
+  // const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
+  const grammar = `
+    {
+      /** Turn _IN or In into IN, etc. for other operators
+       */
+      function normalizeOperator(o) {
+        if (o === null || o === undefined) return 'IN';
+        if (o.startsWith('_')) return o.substr(1).toUpperCase();
+        return o.toUpperCase();
+      }
+
+      // both control and normal operators
+      const multiValuedNormalizedOperators = new Set(["IN", "OVERLAPS", "CONTAINS"]);
+
+      /** returns true if the operator is 'multi-valued', that is: he expects
+       * a comma-separated list as input
+       */
+      function operatorIsMultiValued(o) {
+        return !o ? false : multiValuedNormalizedOperators.has(normalizeOperator(o));
+      }
+
+      const multiValuedProperties = new Set([${allMultiValuedPropertyNamesSortedInReverse.map(n => `'${n}'`).join()}]);
+      function propertyIsMultiValued(property) {
+        return multiValuedProperties.has(property);
+      }
+
+      const operatorToTypeMap = { LIMIT: 'integer', OFFSET: 'integer', EXPANSION: 'string', KEY_OFFSET: 'integer', LIST_META_INCLUDE_COUNT: 'boolean' };
+
+      const propertyNameToOtherThanStringTypeMap = ${JSON.stringify(propertyNameToOtherThanStringTypeMap)}
+      function translateValueType(property, operator, value) {
+        // console.log('translateValueType(', property, operator, value, ')');
+        const operatorType = operatorToTypeMap[operator];
+        if (operatorType) {
+          if (operatorType === 'boolean') {
+            return Boolean(value);
+          } else if (operatorType === 'integer') {
+            return parseInt(value);
+          } else if (operatorType === 'number') {
+            return Number(value);
+          }
+        }
+        const type = propertyNameToOtherThanStringTypeMap[property];
+        // console.log('property = ', property, ' => ', value, 'should be of type', type || 'string');
+        if (!type) {
+          return value;
+        } else if (type === 'boolean') {
+          return value === 'false' ? false : true;
+        } else if (type === 'integer') {
+          return parseInt(value);
+        } else if (type === 'number') {
+          return Number(value);
+        }
+      }
+
+      /** should be smart enough to properly return an array or a single property
+       * based on whether it is a multivalued property and if the operator is single- or multi-valued
+       *
+       */
+      function produceValue(property, originalOperator, escapedUnparsedValue) {
+        const operator = normalizeOperator(originalOperator);
+        const value = decodeURIComponent(escapedUnparsedValue.replace(/\\+/g, ' '));
+        const inputShouldBeArray = propertyIsMultiValued(property) || operatorIsMultiValued(originalOperator);
+        const outputShouldBeArray = propertyIsMultiValued(property) || operatorIsMultiValued(operator);
+        // console.log('======== input should be array', inputShouldBeArray, property, originalOperator, value);
+        // console.log('======== output should be array', outputShouldBeArray, property, operator, value);
+        const parsedValue = inputShouldBeArray ? value.split(',') : value;
+        if (outputShouldBeArray) {
+          return Array.isArray(parsedValue) ? parsedValue.map(v => translateValueType(property, operator, v)) : [translateValueType(property, operator, parsedValue)];
+        } else {
+          return translateValueType(
+            property,
+            operator,
+            Array.isArray(parsedValue) ? value.join('') : parsedValue,
+          );
+        }
+      }
+    }
+
+    QueryString
+      = p1:QueryStringPart
+        p23etc:( ( "&" part:QueryStringPart { return part } )* )
+        { return [p1, ...p23etc] }
+
+    QueryStringPart
+      = ( fn:FilterName "=" v:UnparsedValue { return { ...fn, operator: normalizeOperator(fn.operator), value: produceValue(fn.property, fn.operator, v) } } )
+      / ( cp:ControlParameter "=" sv:UnparsedValue { return { ...cp, operator: normalizeOperator(cp.operator), value: produceValue(cp.property, cp.operator, sv) } } )
+
+
+    // Missing operator is considered to mean equals (and thus translated to IN)
+    FilterName
+      =
+        p:Property ne:Negator ? op:Operator ? ci:CaseInsensitive ? {
+          return { property: decodeURIComponent(p), operator: op, invertOperator: !!ne, caseInsensitive: ci === null ? true : ci };
+        }
+      / p:Property cs:CaseSensitive ? ne:Negator ? op:Operator ? {
+          return { property: decodeURIComponent(p), operator: op, invertOperator: !!ne, caseInsensitive: !cs };
+        }
+
+    // Missing operator is considered to mean equals (and thus translated to IN)
+    // SingleValuedFilterName
+    //   =
+    //     // SingleValuedProperty with SingleValued operators are SingleValuedFilters
+    //     p:SingleValuedProperty ne:Negator ? op:SingleValuedOperator ? ci:CaseInsensitive ? {
+    //       return { property: p, caseInsensitive: ci === null ? true : ci, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
+    //     }
+    //   / p:SingleValuedProperty cs:CaseSensitive ? ne:Negator ? op:SingleValuedOperator ? {
+    //       return { property: p, caseInsensitive: cs === null ? true : !cs, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
+    //     }
+
+    // all cases where the value can be a comma-separated list
+    // both when the operator expects a list (like _IN)
+    // or when the value is an array aliases=john,johnny
+    // (we might need an operator to treat an array as a set so the order doesn't matter)
+    // MultiValuedFilterName
+    //   =
+    //     // Any property with MultiValued operators are MultiValuedFilters
+    //     p:Property ne:Negator ? op:MultiValuedOperator ? ci:CaseInsensitive ? {
+    //       return { property: p, caseInsensitive: ci === null ? true : ci, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
+    //     }
+    //   / p:Property cs:CaseSensitive ? ne:Negator ? op:MultiValuedOperator ? {
+    //       return { property: p, caseInsensitive: cs === null ? true : !cs, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
+    //     }
+
+    ControlParameter = op:ControlOperator { return { operator: normalizeOperator(op) } }
+
+    CaseSensitive = "CaseSensitive" { return true }
+
+    Negator
+      = "_NOT" / "Not"
+
+    Operator = MultiValuedOperator / SingleValuedOperator
+
+    MultiValuedOperator
+      = "_IN"i / "In"
+      / "_OVERLAPS"i / "Overlaps"
+      / "_CONTAINS"i / "Contains"
+      // / "_NOT"i / "Not"
+
+    SingleValuedOperator
+      = "_GTE"i / "GreaterOrEqual"
+      / "_LTE"i / "LessOrEqual"
+      / "_GT"i / "Greater"
+      / "_LT"i / "Less"
+      / "_LIKE"i / "Like" / "Matches"
+      // / "_NOT" / "Not"
+
+    CaseInsensitive = "_I" { return true }
+
+    UnparsedValue = v:([^&]+) { return v.join('') }
+
+    // Hard to parse if separated by %2C
+    MultiValue = v1:SingleValue v23etc:( ("," / "%2C") v2:SingleValue { return v2 } )*
+      {return [v1, ...v23etc]}
+
+    SingleValue = v:([^,&]+) { return v.join('') }
+
+    // for the future when maybe we also have multi-valued control parameters
+    ControlOperator = SingleValuedControlOperator
+
+    SingleValuedControlOperator = ( "_LIMIT" / "limit" ) { return 'LIMIT' }
+      / ( "_EXPANSION" / "expand" ) { return 'EXPANSION' }
+      / ( "_OFFSET" / "offset" ) { 'OFFSET' }
+      / ( "_KEYOFFSET" / "keyOffset" )  { 'KEY_OFFSET' }
+      / ( "_LIST_META_INCLUDE_COUNT" / "%24%24includeCount" ) { 'LIST_META_INCLUDE_COUNT' }
+
+    // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
+    // example: "firstNameCapital" / "firstName" / "lastName"
+    Property = ${allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ')}
+
+    // if there are no multi-valued properties (simple 'non-object' arrays) we'll match on '\' because it should not be in any url
+    // this keeps things simpler (as in: the grammar always has MultiValuedProperty defined but it should never match anything in real life)
+    // WARNING:by splitting them up into MultiValuedProperty and SingleValuedProperty we could potentially get invalid matches
+    //    if for example "data" would be a MultiValuedProperty and "database" a SingleValuedProperty
+    //    the MultiValuedProperty would match first (the way it's currently written)
+    MultiValuedProperty = ${ hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
+
+    SingleValuedProperty = ${ hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
+  `;
+
+  // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
+
+  return grammar;
+}
+
+/**
+ * Given the generated grammar, generate and return the parser
+ *
+ * @param {*} grammar
+ * @returns
+ */
+function generateQueryStringParser(grammar, allowedStartRules = undefined) {
+  const pegConf = allowedStartRules
+    ? {
+      // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
+      allowedStartRules
+    }
+    : {};
+  return peg.generate(grammar, pegConf);
+};
+
+/**
+ *
+ * @param {pegSyntaxError} e
+ * @param {String} input
+ * @returns a string
+ */
+function pegSyntaxErrorToErrorMessage(e, input) {
+  if (e.location) {
+    const searchParams = input;
+    const markedErrorString = (
+        searchParams.slice(0, e.location.start.offset) +
+        '>>>' + searchParams.slice(e.location.start.offset, e.location.end.offset) +
+        '<<<' + searchParams.slice(e.location.end.offset)
+      )
+      .split('\n')
+      .map((l, lineNr) => `${("0000" + lineNr).slice(-3)} ${l}`)
+      .filter((l, lineNr) => lineNr > e.location.start.line - 3 && lineNr < e.location.start.line + 3)
+      .join('\n');
+
+    return `${e.message} at line ${e.location.start.line}, column ${e.location.start.column}\n\n${markedErrorString}`;
+  }
+  return e.toString(); // not recognized as pegSyntaxError
+}
+
+/**
+ * If the url object has been parsed, it's easy to check if some filters that
+ * have implicit values, are missing from the 'normalized' url.
+ *
+ * This function just generates a list of missing properties, so they can easily
+ * be added to an existing parsed url object.
+ *
+ * Examples: _LIMIT=30&_EXPANSION=FULL&$$meta.deleted_IN=false
+ * (but in parseTree format = an array of objects)
+ *
+ * @param {UrlQueryParamsParseTree} parseTree
+ * @param {} mapping
+ * @returns {UrlQueryParamsParseTree}
+ */
+function generateMissingDefaultsForParseTree(parseTree, mapping) {
+  const DEFAULT_LIMIT = 30; // if not configured in mapping file
+  const DEFAULT_MAX_LIMIT = 500; // if not configured in mapping file
+  const DEFAULT_EXPANSION = 'FULL';
+  const DEFAULT_INCLUDECOUNT = false;
+  const DEFAULT_$$meta_deleted_IN = [false];
+
+  let retVal = [];
+
+  if (!parseTree.find(f => f.operator === 'LIMIT')) {
+    retVal.push({
+      operator: 'LIMIT',
+      value: Math.min(mapping.defaultlimit || DEFAULT_LIMIT, mapping.maxlimit || DEFAULT_MAX_LIMIT),
+    });
+  }
+  if (!parseTree.find(f => f.operator === 'EXPANSION')) {
+    retVal.push({
+      operator: 'EXPANSION',
+      value: mapping.defaultexpansion || DEFAULT_EXPANSION,
+    });
+  }
+  if (!parseTree.find(f => f.operator === 'LIST_META_INCLUDE_COUNT')) {
+    retVal.push({
+      operator: 'LIST_META_INCLUDE_COUNT',
+      value: DEFAULT_INCLUDECOUNT,
+    });
+  }
+  if (!parseTree.find(f => f.property === '$$meta.deleted' && f.operator === 'IN')) {
+    retVal.push({
+      property: '$$meta.deleted',
+      operator: 'IN',
+      value: [ false ],
+      caseInsensitive: true,
+      invertOperator: false,
+    });
+  }
+  return retVal;
+}
+
+/**
+ *
+ * @param {*} parseTree
+ * @returns
+ */
+function sortUrlQueryParamParseTree(parseTree) {
+  const compareProperties = (a, b, properties) => {
+    return properties.reduce((acc, cur) => {
+        if (acc !== 0) return acc;
+        if (a[cur] === b[cur]) return acc;
+        if ((a[cur] || '') > (b[cur] || '')) {
+          // console.log(a[cur], '>', b[cur], ' => return 1', a, b);
+          return 1;
+        }
+        // console.log(a[cur], '<', b[cur], ' => return -1', a, b);
+        return -1;
+      },
+      0
+    );
+  };
+
+  return parseTree.sort((a, b) => compareProperties(
+    a,
+    b,
+    ['property', 'operator', 'invertOperator', 'caseInsensitive', 'value'],
+  ));
+}
+
+/**
+ * This function should change the given href into an object
+ * that contains the "parse tree" (a translation of the url into a data structure
+ * that expresses what it does)
+ * that also contains a translated URL object that should be easier to handle
+ * later on in all the processes because all the defaults have been explicitly
+ * applied, and all the 'stupid' url prameters have been translated into parameters
+ * more closely aligned with what sri4node and sri-query spec should support by default.
  *
  * Examples:
  *  * /persons would become /persons?$$meta.deleted_IN=false&_LIMIT=30
@@ -230,24 +682,46 @@ function flattenJsonSchema(jsonSchema, pathToCurrent = []) {
  * @param {String} href: the sri4node mapping section holds most info we need to know
  * @param {object} sri4nodeConfigObject: the sri4node config (and mainly the mapping section) holds most info we need to know
  */
-function hrefToNormalizedUrl(href, sriConfig = { resources: {} }) {
+function hrefToParsedObject(href, sriConfig = { resources: {} }) {
+  const parseQueryStringPartByPart = false;
+
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
   if (this.sriConfig !== sriConfig) {
-    this.sriConfig = sriConfig;
-    this.pathToMapping = Object.fromEntries(
-      sriConfig.resources.map((r) => [r.type, r])
-    );
-    this.pathToFlattenedJsonSchema = Object.fromEntries(
-      sriConfig.resources.map((r) => [r.type, flattenJsonSchema(r.schema)]),
-    );
+    try {
+      this.sriConfig = sriConfig;
+      this.mappingByPathMap = Object.fromEntries(
+        sriConfig.resources.map((r) => [r.type, r])
+      );
+      this.flattenedJsonSchemaByPathMap = Object.fromEntries(
+        sriConfig.resources.map((r) => [r.type, flattenJsonSchema(r.schema)]),
+      );
+      // this.paramNameParserByPathMap = Object.fromEntries(
+      //   sriConfig.resources.map((r) => [r.type, generateQueryParamNameParser(this.pathToFlattenedJsonSchema[r.type], sriConfig)]),
+      // );
+      this.queryStringParserByPathMap = Object.fromEntries(
+        sriConfig.resources.map((r) => {
+          const grammar = generateQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          try {
+            // console.log(`${r.type} GRAMMAR`);
+            // console.log(`=================`);
+            // console.log(grammar);
+            return [r.type, generateQueryStringParser(grammar, parseQueryStringPartByPart ? ['QueryStringPart'] : undefined)];
+          } catch(e) {
+            console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+            throw e;
+          }
+        }),
+      );
+    } catch(e) {
+      delete this.sriConfig;
+      console.log('Uh oh, something went wrong while setting up flattenedJsonSchema and parsers');
+      console.log(pegSyntaxErrorToErrorMessage(e));
+      throw e;
+    }
   }
 
-  const DEFAULT_LIMIT = 30; // if not configured in mapping file
   const MAX_LIMIT = 500; // if not configured in mapping file
-  const DEFAULT_EXPANSION = 'FULL'; //
-  const DEFAULT_INCLUDECOUNT = false;
-  const allowedSuffixes = ['Greater','In','Before','After','Not','NotIn','NotBefore','_GTE','_LTE','_GT','_LT','_IN','_NOT_IN','_OVERLAPS','_NOT_OVERLAPS','_CONTAINS','_NOT_CONTAINS'];
 
   // const keyOffset = queryParams.keyOffset || '';
   // const offset = queryParams.offset;
@@ -256,13 +730,13 @@ function hrefToNormalizedUrl(href, sriConfig = { resources: {} }) {
   // but for now we'll just assume that we'll only have to modify the query parameters
   const urlToWorkOn = new URL(`https://domain.com${href}`);
   const searchParamsToWorkOn = urlToWorkOn.searchParams;
-  const mapping = this.pathToMapping[urlToWorkOn.pathname] || {};
-  const flattenedJsonSchema = this.pathToFlattenedJsonSchema[urlToWorkOn.pathname] || {};
+  const mapping = this.mappingByPathMap[urlToWorkOn.pathname] || {};
+  // const flattenedJsonSchema = this.pathToFlattenedJsonSchema[urlToWorkOn.pathname] || {};
 
   /**
-   * 
+   *
    * @param {String} paramName: the name of the query parameter
-   * @param {function} validationFunction: should return false if the value is INVALID, gets param value as input 
+   * @param {function} validationFunction: should return false if the value is INVALID, gets param value as input
    * @param {function} errorFunction: should return a string describing the error, gets param value as input
    */
   const validateQueryParam = (paramName, validationFunction, errorMessage) => {
@@ -272,32 +746,9 @@ function hrefToNormalizedUrl(href, sriConfig = { resources: {} }) {
     const paramValue = searchParamsToWorkOn.get(paramName);
     if (!validationFunction(paramValue)) {
       throw new Error(`[hrefToNormalizedUrl] ${errorMessage(paramValue)}`);
-    } 
+    }
   }
 
-  if (!searchParamsToWorkOn.has('_LIMIT')) {
-    const _LIMIT = searchParamsToWorkOn.get('limit') || mapping.defaultlimit || DEFAULT_LIMIT;
-    searchParamsToWorkOn.set('_LIMIT', _LIMIT);
-    // what if limit and _LIMIT are present? maybe the resource has a 'limit' property?
-    searchParamsToWorkOn.delete('limit');
-  }
-  validateQueryParam(
-    '_LIMIT',
-    limit => limit < (mapping.maxlimit || MAX_LIMIT),
-    limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
-  );
-
-  if (!searchParamsToWorkOn.has('_EXPANSION')) {
-    const _EXPANSION = searchParamsToWorkOn.get('expand') || mapping.defaultexpansion || DEFAULT_EXPANSION;
-    searchParamsToWorkOn.set('_EXPANSION', _EXPANSION);
-    // what if expand and _EXPAND are present? maybe the resource has an 'expand' property?
-    searchParamsToWorkOn.delete('expand');
-  }
-  validateQueryParam(
-    '_EXPANSION',
-    expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
-    expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
-  );
 
   // for omit, will we translate it to _PROPERTYNAME_NOT_IN to stay in line with other IN and NOT IN mechanisms?
   // is includeCount (being part of the $$meta of the list not of the resources) one to translate to an OMIT clause? I guess not...
@@ -316,14 +767,70 @@ function hrefToNormalizedUrl(href, sriConfig = { resources: {} }) {
   // we could assume that listing what to leave out will in general be shorter
   // _LIST_META_NOT_IN
 
-  const properties = [ ...searchParamsToWorkOn.keys()]
-    .filter(k => flattenedJsonSchema[k] || allowedSuffixes.some(s => k.endsWith(s)));
-  console.log('all properties found in the url are', properties);
+  // const properties = [...searchParamsToWorkOn.keys()]
+  //   .filter(k => flattenedJsonSchema[k] || allowedSuffixes.some(s => k.endsWith(s)));
+  // console.log('all properties found in the url are', properties);
 
-  searchParamsToWorkOn.sort();
+  // searchParamsToWorkOn.sort(); // only sorts on key, so double keys won't use value to make sure it's always deterministic!
+  properlySortedSearchParams = new URLSearchParams(
+    [...searchParamsToWorkOn.entries()]
+      .map(([k,v]) => `${k}=${v}`)
+      .sort()
+      .join('&')
+  );
 
-  urlToWorkOn.urlSearchParams = searchParamsToWorkOn;
-  return urlToWorkOn;
+  // const paramNameParser = this.pathToParamNameParser[urlToWorkOn.pathname];
+  // const normalizedUrlObject = {
+  //   path: urlToWorkOn.pathname,
+  //   searchParams: [...properlySortedSearchParams.entries()]
+  //     .map(([paramName, paramValue]) => {
+  //       try {
+  //         return {
+  //           ...paramNameParser.parse(paramName),
+  //           value: paramValue,
+  //         }
+  //       } catch (e) {
+  //         return {
+  //           name: paramName,
+  //           error: e.message,
+  //           value: paramValue,
+  //         }
+  //       }
+  //     }),
+  // }
+
+  const queryStringParser = this.queryStringParserByPathMap[urlToWorkOn.pathname];
+  try {
+    const parseTree = parseQueryStringPartByPart
+      ? [...properlySortedSearchParams.entries()].map(([k, v]) => queryStringParser.parse(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`))
+      : queryStringParser.parse(properlySortedSearchParams.toString());
+
+    const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, this.mappingByPathMap[urlToWorkOn.pathname]);
+
+    // validateQueryParam(
+    //   '_LIMIT',
+    //   limit => limit < (mapping.maxlimit || MAX_LIMIT),
+    //   limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
+    // );
+
+    // validateQueryParam(
+    //   '_EXPANSION',
+    //   expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
+    //   expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
+    // );
+
+    const normalizedParseTree = sortUrlQueryParamParseTree([ ...parseTree, ...missingDefaultsParseTree ]);
+
+    const parsedUrlObject = {
+      parseTree: normalizedParseTree,
+      // TODO normalizedUrl: urlQueryStringParseTreeToNormalizedURLSearchParams(parseTree),
+    }
+    return parsedUrlObject;
+  } catch (e) {
+    // console.log('href parse error', e.message, e);
+    console.log(pegSyntaxErrorToErrorMessage(e, properlySortedSearchParams.toString()));
+    throw e;
+  }
 }
 
 exports = module.exports = {
@@ -990,7 +1497,7 @@ exports = module.exports = {
   getPgp: () => pgp,
 
   SriError,
- 
+
   /**
    * This function will generate a new SriRequest object, based on some parameters.
    * Since the SriRequest is some kind of 'abstraction' over the express request,
@@ -1231,8 +1738,11 @@ exports = module.exports = {
     }
   },
 
-  hrefToNormalizedUrl,
+  hrefToParsedObject,
 
   flattenJsonSchema,
 
+  hrtimeToMilliseconds,
+
+  sortUrlQueryParamParseTree,
 }

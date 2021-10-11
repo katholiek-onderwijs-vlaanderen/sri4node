@@ -296,6 +296,8 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
           // resp.status(result.status).send(result.body) // OLD VERSION, now streaming JSON stringify for list resources
           resp.status(result.status)
           // now stream result.body to the express response
+          // TODO: fix bad test to know if it's a list resource, but the code below that also adds
+          // all other fields besides $$meta and results, should avoid that this is a disaster
           if (result.body && Array.isArray(result.body.results)) {
             resp.setHeader('Content-Type', 'application/json; charset=utf-8')
             // VERSION WITH JSON STREAM
@@ -310,7 +312,12 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
             result.body.results.forEach(
               (record, index) => resp.write(`${JSON.stringify(record)}${index + 1 < total ? ',':''}\n`)
             );
-            resp.write(']}');
+            resp.write(']');
+            // if result.body contains other properties, add them to the response as well
+            Object.entries(result.body)
+              .filter(([key]) => !['$$meta', 'results'].includes(key))
+              .forEach(([key, value]) => resp.write(`,\n"${key}": ${JSON.stringify(value)}`));
+            resp.write('\n}');
             resp.end();
           } else {
             resp.send(result.body);

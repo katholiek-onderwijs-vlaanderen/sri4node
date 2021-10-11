@@ -34,6 +34,7 @@
     "p-map": "4.0.0",
     "p-settle": "4.1.1",
     "pathfinder-ui": "1.0.3",
+    "pegjs": "^0.10.0",
     "pg-monitor": "^1.4.0",
     "pg-promise": "10.10.2",
     "pug": "^3.0.0",
