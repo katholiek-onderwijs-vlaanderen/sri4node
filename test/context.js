@@ -61,7 +61,8 @@ exports = module.exports = {
     var config = {
       // For debugging SQL can be logged.
       logdebug: logdebug,
-      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
+      databaseUrl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
+      postgresSchema: 'sri4node',
 
       resources: [
         require('./context/persons.js')(roa, commonResourceConfig),

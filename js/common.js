@@ -6,7 +6,6 @@ const EventEmitter = require('events');
 const pEvent = require('p-event');
 const path = require('path');
 
-const env = require('./env.js');
 
 const { Readable } = require('stream')
 const httpContext = require('express-http-context');
@@ -292,12 +291,7 @@ exports = module.exports = {
   },
 
 
-  pgInit: async function (pgpInitOptionsIn = {}) {
-    const pgpInitOptions = {
-        schema: process.env.POSTGRES_SCHEMA,
-        ...pgpInitOptionsIn,
-    };
-
+  pgInit: async function (pgpInitOptions = {}) {
     pgp = require('pg-promise')(pgpInitOptions);
     if (process.env.PGP_MONITOR === 'true') {
       const monitor = require('pg-monitor');
@@ -348,7 +342,9 @@ exports = module.exports = {
       // arg is sri4node configuration object
       sri4nodeConfig = arg;
       if (pgp === null) {
-        pgpInitOptions = {} 
+        const pgpInitOptions = {
+          schema: sri4nodeConfig.postgresSchema
+        };
         if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
           pgpInitOptions.connect = (client, dc, useCount) => {
                 if (useCount===0) {
@@ -358,11 +354,7 @@ exports = module.exports = {
         } 
         exports.pgInit(pgpInitOptions);
       }
-      if (process.env.DATABASE_URL) {
-        dbUrl = process.env.DATABASE_URL;
-      } else {
-        dbUrl = sri4nodeConfig.defaultdatabaseurl;
-      }      
+      dbUrl = sri4nodeConfig.databaseUrl;
     }
 
     if (dbUrl === undefined) {
@@ -393,7 +385,6 @@ exports = module.exports = {
     }
 
     cl('Using database connection object : [' + JSON.stringify(cn) + ']');
-
     return pgp(cn);
   },
 
@@ -568,9 +559,9 @@ exports = module.exports = {
     }
   },
 
-  installVersionIncTriggerOnTable: async function(db, tableName) {
+  installVersionIncTriggerOnTable: async function(db, tableName, postgresSchema) {
 
-    const tgname = `vsko_resource_version_trigger_${( env.postgresSchema !== undefined ? env.postgresSchema : '' )}_${tableName}`
+    const tgname = `vsko_resource_version_trigger_${( postgresSchema !== undefined ? postgresSchema : '' )}_${tableName}`
 
     const plpgsql = `
       DO $___$
@@ -581,8 +572,8 @@ exports = module.exports = {
           FROM information_schema.columns 
           WHERE table_name = '${tableName}'
             AND column_name = '$$meta.version'     
-            ${( env.postgresSchema !== undefined
-              ? `AND table_schema = '${env.postgresSchema}'`
+            ${( postgresSchema !== undefined
+              ? `AND table_schema = '${postgresSchema}'`
               : '' )}
         ) THEN
           ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
@@ -591,11 +582,11 @@ exports = module.exports = {
         -- 2. create func vsko_resource_version_inc_function if not yet present
         IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                         WHERE proname = 'vsko_resource_version_inc_function'
-                        ${( env.postgresSchema !== undefined
-                          ? `AND nspname = '${env.postgresSchema}'`
+                        ${( postgresSchema !== undefined
+                          ? `AND nspname = '${postgresSchema}'`
                           : `AND nspname = 'public'` )}
                       ) THEN
-          CREATE FUNCTION ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+          CREATE FUNCTION ${( postgresSchema !== undefined ? postgresSchema : 'public' )}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
             NEW."$$meta.version" := OLD."$$meta.version" + 1;
             RETURN NEW;
@@ -605,7 +596,7 @@ exports = module.exports = {
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
             CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
-            FOR EACH ROW EXECUTE PROCEDURE ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function();
+            FOR EACH ROW EXECUTE PROCEDURE ${( postgresSchema !== undefined ? postgresSchema : 'public' )}.vsko_resource_version_inc_function();
         END IF;
       END
       $___$

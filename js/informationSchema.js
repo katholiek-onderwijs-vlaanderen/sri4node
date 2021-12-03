@@ -27,7 +27,7 @@ exports = module.exports = async function (db, configuration) {
                LEFT JOIN information_schema.element_types e
                   ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
                            = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
-               WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
+               WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(configuration.postgresSchema);
 
         const rowsByTable = _.groupBy(await pgExec(db, query), r => r.table_name);
 

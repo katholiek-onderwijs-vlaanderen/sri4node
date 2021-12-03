@@ -544,7 +544,7 @@ exports = module.exports = {
         config.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
-            await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping))
+            await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), config.postgresSchema)
           }
         }, { concurrency: 1 })
 

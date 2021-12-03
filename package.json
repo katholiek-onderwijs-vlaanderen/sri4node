@@ -5,7 +5,7 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "POSTGRES_SCHEMA=\"sri4node\" mocha --exit",
+    "test": "mocha --exit",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
