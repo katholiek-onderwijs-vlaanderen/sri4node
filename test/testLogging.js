@@ -47,8 +47,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
         assert.ok(logLines.length === 0);
@@ -72,8 +70,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -107,8 +103,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
 
@@ -138,8 +132,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -171,8 +163,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
 
@@ -202,8 +192,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -235,8 +223,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
 
@@ -267,8 +253,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
 
@@ -298,8 +282,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -332,8 +314,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        const reqID = headers['vsko-req-id'];
-
         inspect.restore();
         const logLines = inspect.output
 
@@ -363,8 +343,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -404,8 +382,6 @@ exports = module.exports = function (base) {
       for await (const data of body) {
           bufArr.push(data);
       }
-
-      const reqID = headers['vsko-req-id'];
 
       inspect.restore();
       const logLines = inspect.output
@@ -453,8 +429,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
   
-        const reqID = headers['vsko-req-id'];
-  
         inspect.restore();
         const logLines = inspect.output
   
@@ -494,8 +468,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-  
-        const reqID = headers['vsko-req-id'];
   
         inspect.restore();
         const logLines = inspect.output
@@ -537,7 +509,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -586,7 +557,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output
@@ -630,7 +600,6 @@ exports = module.exports = function (base) {
         for await (const data of body) {
             bufArr.push(data);
         }
-        const reqID = headers['vsko-req-id'];
 
         inspect.restore();
         const logLines = inspect.output

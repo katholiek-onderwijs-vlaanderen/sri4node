@@ -682,7 +682,17 @@ exports = module.exports = {
       app.use(function(req, res, next) {
           httpContext.ns.bindEmitter(req);
           httpContext.ns.bindEmitter(res);
-          let reqId = shortid.generate();
+          let reqId;
+          if (req.headers['x-request-id']!==undefined) {
+            // if present use the id provided by heroku
+            reqId = req.headers['x-request-id'];
+          } else if (req.headers['x-amz-cf-id']!==undefined) {
+            // if present use the id provided by cloudfront
+            reqId = req.headers['x-amz-cf-id']
+          } else {
+            reqId = shortid.generate();
+          }
+
           if (config.id!==undefined) {
               reqId = `${config.id}#${reqId}`;
           }
