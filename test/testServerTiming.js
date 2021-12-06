@@ -29,9 +29,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        // there seems to be a race condition in undici, sometimes headers/trailers are not directly set after body is done 
-        //  --> dumb sleep as workaround
-        await sleep(500);
         assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
@@ -51,9 +48,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        // there seems to be a race condition in undici, sometimes headers/trailers are not directly set after body is done 
-        //  --> dumb sleep as workaround
-        await sleep(500);
         assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
@@ -82,9 +76,6 @@ exports = module.exports = function (base) {
           bufArr.push(data);
       }
 
-      // there seems to be a race condition in undici, sometimes headers/trailers are not directly set after body is done 
-      //  --> dumb sleep as workaround
-      await sleep(500);
       assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
@@ -113,9 +104,6 @@ exports = module.exports = function (base) {
             bufArr.push(data);
         }
 
-        // there seems to be a race condition in undici, sometimes headers/trailers are not directly set after body is done 
-        //  --> dumb sleep as workaround
-        await sleep(500); 
         assert.strictEqual(trailers['server-timing'] !== undefined, true, 'Server-Timing header is missing in trailers.');
       });
 
