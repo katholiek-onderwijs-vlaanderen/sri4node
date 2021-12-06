@@ -8,6 +8,8 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const stream = require('stream');
 const peg = require("pegjs");
+const { generateFlatQueryStringParserGrammar } = require('./url_parsing/flat_url_parser')
+const { generateNonFlatQueryStringParserGrammar } = require('./url_parsing/non_flat_url_parser')
 
 const env = require('./env.js');
 
@@ -172,331 +174,6 @@ function flattenJsonSchema(jsonSchema, pathToCurrent = []) {
 }
 
 /**
- * function that tries to turn 1 query param (firstNameIn=John,Bart) into
- * an object that holds the property name (firstName), the operator ('IN'),
- * the value list (['John','Bart']) and some other properties as an array.
- *
- * It should both support old and new-style (propertyIn & property_IN)
- * and also translate simpler forms to more generic forms: property= => property_IN=
- *
- * @param {String} name
- * @param {String} value
- * @param {*} flattenedJsonSchema
- */
-function parseParam(name, value, flattenedJsonSchema) {
-  const nameStartsWith = Object.keys(flattenedJsonSchema).filter(fieldName => name.startsWith(fieldName));
-  nameStartsWith.map(fieldName => {
-    const postFix = name.substring(fieldName.length);
-    // try to parse the postfix
-  })
-}
-
-// /**
-//  * Currently the parser assumes that all the default filters are allowed on any property,
-//  * but the way sri4node config currently works is: if defaultFilter is not specified,
-//  * the defaultFilters won't work on that property
-//  * (although I think the default filters should ideally always work, because that's
-//  * what the sri-query spec explains).
-//  *
-//  * @param {Array<string>} existingProperties: a list of allowed properties
-//  * @param {SriConfig} sriConfig
-//  */
-// function generateQueryParamNameParser(flattenedJsonSchema, sriConfig = {}) {
-//   const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
-//   const grammar = `
-//     {
-//       /** Turn _IN or In into IN, etc. for other operators
-//        */
-//       function normalizeOperator(o) {
-//         return o.startsWith('_') ? o.substr(1) : o.toUpperCase();
-//       }
-//     }
-
-//     Filter
-//       = p:Property ne:Negator op:Negator ci:CaseInsensitive ? {
-//           // _NOT_NOT should be translated to a simple _IN
-//           return { property: p, caseInsensitive: ci ? true : false, invertOperator: false, operator: 'IN' };
-//         }
-//       / p:Property ne:Negator ? op:Operator ci:CaseInsensitive ? {
-//           return { property: p, caseInsensitive: ci ? true : false, invertOperator: ne ? true : false, operator: normalizeOperator(op) };
-//         }
-//       / p:Property cs:CaseSensitive ? ne:Negator ? op:Operator {
-//           return { property: p, caseInsensitive: cs ? false : true, invertOperator: ne ? true : false, operator: normalizeOperator(op) };
-//         }
-//       / p:Property Negator {
-//           return { property: p, caseInsensitive: true, invertOperator: false, operator: 'IN' };
-//         }
-//       / p:Property {
-//           return { property: p, caseInsensitive: true, invertOperator: true, operator: 'IN' };
-//         }
-//       / cp:ControlParameter {
-//         return { controlParam: cp };
-//       }
-
-//     CaseSensitive = "CaseSensitive"
-
-//     Negator
-//       = "_NOT" / "Not"
-
-//     Operator
-//         = "_IN" / "In"
-//         / "_GTE" / "GreaterOrEqual"
-//         / "_LTE" / "LessOrEqual"
-//         / "_GT" / "Greater"
-//         / "_LT" / "Less"
-//         / "_LIKE" / "Like" / "Matches"
-//         / "_NOT" / "Not"
-
-//     CaseInsensitive = "_I"
-
-//     ControlParameter = ( "_LIMIT" / "limit" ) { return 'LIMIT' }
-//       / ( "_EXPANSION" / "expand" ) { return 'EXPANSION' }
-//       / ( "_OFFSET" / "offset" ) { 'OFFSET' }
-//       / ( "_KEYOFFSET" / "keyOffset" )  { 'KEY_OFFSET' }
-//       / ( "_LIST_META_INCLUDE_COUNT" / "$$includeCount" ) { 'LIST_META_INCLUDE_COUNT' }
-
-//     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
-//     Property = ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
-//     //"firstNameCapital" / "firstName" / "lastName"
-//   `;
-//   const pegConf = {
-//     // Rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
-//     // allowedStartRules: []
-//   };
-//   return peg.generate(grammar, pegConf);
-// };
-
-/**
- * Generates a peg js grammar parser based on the flattened schema and the sriConfiog object
- * that can parse the entire query string (ideally it works whether characters are endoed or not).
- *
- * But for now we could assume that all characters in the string are escaped
- * (by escaping the defined propertyNames first, especially maybe the $ characters)?
- *
- * Currently the parser assumes that all the default filters are allowed on any property,
- * but the way sri4node config currently works is: if defaultFilter is not specified,
- * the defaultFilters won't work on that property
- * (although I think the default filters should ideally always work, because that's
- * what the sri-query spec explains).
- *
- * @param {Array<string>} existingProperties: a list of allowed properties
- * @param {SriConfig} sriConfig
- * @returns {String} the pegjs grammar
- */
-function generateQueryStringParserGrammar(flattenedJsonSchema, sriConfig = {}) {
-  const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, v]) => k.endsWith('[*]'))
-    .map(([k, v]) => encodeURIComponent(k))
-    .sort().reverse();
-  const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, v]) => !k.endsWith('[*]'))
-    .map(([k, v]) => encodeURIComponent(k))
-    .sort().reverse();
-  const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .map(([k, v]) => encodeURIComponent(k))
-    .sort().reverse();
-
-  const hasMultiValuedProperties = allMultiValuedPropertyNamesSortedInReverse.length > 0;
-
-  const hasSingleValuedProperties = allSingleValuedPropertyNamesSortedInReverse.length > 0;
-
-  // A map to check if the field type is something else than string
-  const propertyNameToOtherThanStringTypeMap = {
-    ...Object.fromEntries(
-      Object.entries(flattenedJsonSchema)
-      .filter(([k, v]) => !v.enum && v.type !== 'string')
-      .map(([k, v]) => [k, v.type])
-    ),
-    ['$$meta.deleted']: 'boolean',
-    ['$$meta.version']: 'integer',
-    // [encodeURIComponent('$$meta.modified')]: 'string',
-  };
-
-  // const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
-  const grammar = `
-    {
-      /** Turn _IN or In into IN, etc. for other operators
-       */
-      function normalizeOperator(o) {
-        if (o === null || o === undefined) return 'IN';
-        if (o.startsWith('_')) return o.substr(1).toUpperCase();
-        return o.toUpperCase();
-      }
-
-      // both control and normal operators
-      const multiValuedNormalizedOperators = new Set(["IN", "OVERLAPS", "CONTAINS"]);
-
-      /** returns true if the operator is 'multi-valued', that is: he expects
-       * a comma-separated list as input
-       */
-      function operatorIsMultiValued(o) {
-        return !o ? false : multiValuedNormalizedOperators.has(normalizeOperator(o));
-      }
-
-      const multiValuedProperties = new Set([${allMultiValuedPropertyNamesSortedInReverse.map(n => `'${n}'`).join()}]);
-      function propertyIsMultiValued(property) {
-        return multiValuedProperties.has(property);
-      }
-
-      const operatorToTypeMap = { LIMIT: 'integer', OFFSET: 'integer', EXPANSION: 'string', KEY_OFFSET: 'integer', LIST_META_INCLUDE_COUNT: 'boolean' };
-
-      const propertyNameToOtherThanStringTypeMap = ${JSON.stringify(propertyNameToOtherThanStringTypeMap)}
-      function translateValueType(property, operator, value) {
-        // console.log('translateValueType(', property, operator, value, ')');
-        const operatorType = operatorToTypeMap[operator];
-        if (operatorType) {
-          if (operatorType === 'boolean') {
-            return Boolean(value);
-          } else if (operatorType === 'integer') {
-            return parseInt(value);
-          } else if (operatorType === 'number') {
-            return Number(value);
-          }
-        }
-        const type = propertyNameToOtherThanStringTypeMap[property];
-        // console.log('property = ', property, ' => ', value, 'should be of type', type || 'string');
-        if (!type) {
-          return value;
-        } else if (type === 'boolean') {
-          return value === 'false' ? false : true;
-        } else if (type === 'integer') {
-          return parseInt(value);
-        } else if (type === 'number') {
-          return Number(value);
-        }
-      }
-
-      /** should be smart enough to properly return an array or a single property
-       * based on whether it is a multivalued property and if the operator is single- or multi-valued
-       *
-       */
-      function produceValue(property, originalOperator, escapedUnparsedValue) {
-        const operator = normalizeOperator(originalOperator);
-        const value = decodeURIComponent(escapedUnparsedValue.replace(/\\+/g, ' '));
-        const inputShouldBeArray = propertyIsMultiValued(property) || operatorIsMultiValued(originalOperator);
-        const outputShouldBeArray = propertyIsMultiValued(property) || operatorIsMultiValued(operator);
-        // console.log('======== input should be array', inputShouldBeArray, property, originalOperator, value);
-        // console.log('======== output should be array', outputShouldBeArray, property, operator, value);
-        const parsedValue = inputShouldBeArray ? value.split(',') : value;
-        if (outputShouldBeArray) {
-          return Array.isArray(parsedValue) ? parsedValue.map(v => translateValueType(property, operator, v)) : [translateValueType(property, operator, parsedValue)];
-        } else {
-          return translateValueType(
-            property,
-            operator,
-            Array.isArray(parsedValue) ? value.join('') : parsedValue,
-          );
-        }
-      }
-    }
-
-    QueryString
-      = p1:QueryStringPart
-        p23etc:( ( "&" part:QueryStringPart { return part } )* )
-        { return [p1, ...p23etc] }
-
-    QueryStringPart
-      = ( fn:FilterName "=" v:UnparsedValue { return { ...fn, operator: normalizeOperator(fn.operator), value: produceValue(fn.property, fn.operator, v) } } )
-      / ( cp:ControlParameter "=" sv:UnparsedValue { return { ...cp, operator: normalizeOperator(cp.operator), value: produceValue(cp.property, cp.operator, sv) } } )
-
-
-    // Missing operator is considered to mean equals (and thus translated to IN)
-    FilterName
-      =
-        p:Property ne:Negator ? op:Operator ? ci:CaseInsensitive ? {
-          return { property: decodeURIComponent(p), operator: op, invertOperator: !!ne, caseInsensitive: ci === null ? true : ci };
-        }
-      / p:Property cs:CaseSensitive ? ne:Negator ? op:Operator ? {
-          return { property: decodeURIComponent(p), operator: op, invertOperator: !!ne, caseInsensitive: !cs };
-        }
-
-    // Missing operator is considered to mean equals (and thus translated to IN)
-    // SingleValuedFilterName
-    //   =
-    //     // SingleValuedProperty with SingleValued operators are SingleValuedFilters
-    //     p:SingleValuedProperty ne:Negator ? op:SingleValuedOperator ? ci:CaseInsensitive ? {
-    //       return { property: p, caseInsensitive: ci === null ? true : ci, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
-    //     }
-    //   / p:SingleValuedProperty cs:CaseSensitive ? ne:Negator ? op:SingleValuedOperator ? {
-    //       return { property: p, caseInsensitive: cs === null ? true : !cs, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
-    //     }
-
-    // all cases where the value can be a comma-separated list
-    // both when the operator expects a list (like _IN)
-    // or when the value is an array aliases=john,johnny
-    // (we might need an operator to treat an array as a set so the order doesn't matter)
-    // MultiValuedFilterName
-    //   =
-    //     // Any property with MultiValued operators are MultiValuedFilters
-    //     p:Property ne:Negator ? op:MultiValuedOperator ? ci:CaseInsensitive ? {
-    //       return { property: p, caseInsensitive: ci === null ? true : ci, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
-    //     }
-    //   / p:Property cs:CaseSensitive ? ne:Negator ? op:MultiValuedOperator ? {
-    //       return { property: p, caseInsensitive: cs === null ? true : !cs, invertOperator: ne === null ? false : ne, operator: normalizeOperator(op) };
-    //     }
-
-    ControlParameter = op:ControlOperator { return { operator: normalizeOperator(op) } }
-
-    CaseSensitive = "CaseSensitive" { return true }
-
-    Negator
-      = "_NOT" / "Not"
-
-    Operator = MultiValuedOperator / SingleValuedOperator
-
-    MultiValuedOperator
-      = "_IN"i / "In"
-      / "_OVERLAPS"i / "Overlaps"
-      / "_CONTAINS"i / "Contains"
-      // / "_NOT"i / "Not"
-
-    SingleValuedOperator
-      = "_GTE"i / "GreaterOrEqual"
-      / "_LTE"i / "LessOrEqual"
-      / "_GT"i / "Greater"
-      / "_LT"i / "Less"
-      / "_LIKE"i / "Like" / "Matches"
-      // / "_NOT" / "Not"
-
-    CaseInsensitive = "_I" { return true }
-
-    UnparsedValue = v:([^&]+) { return v.join('') }
-
-    // Hard to parse if separated by %2C
-    MultiValue = v1:SingleValue v23etc:( ("," / "%2C") v2:SingleValue { return v2 } )*
-      {return [v1, ...v23etc]}
-
-    SingleValue = v:([^,&]+) { return v.join('') }
-
-    // for the future when maybe we also have multi-valued control parameters
-    ControlOperator = SingleValuedControlOperator
-
-    SingleValuedControlOperator = ( "_LIMIT" / "limit" ) { return 'LIMIT' }
-      / ( "_EXPANSION" / "expand" ) { return 'EXPANSION' }
-      / ( "_OFFSET" / "offset" ) { 'OFFSET' }
-      / ( "_KEYOFFSET" / "keyOffset" )  { 'KEY_OFFSET' }
-      / ( "_LIST_META_INCLUDE_COUNT" / "%24%24includeCount" ) { 'LIST_META_INCLUDE_COUNT' }
-
-    // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
-    // example: "firstNameCapital" / "firstName" / "lastName"
-    Property = ${allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ')}
-
-    // if there are no multi-valued properties (simple 'non-object' arrays) we'll match on '\' because it should not be in any url
-    // this keeps things simpler (as in: the grammar always has MultiValuedProperty defined but it should never match anything in real life)
-    // WARNING:by splitting them up into MultiValuedProperty and SingleValuedProperty we could potentially get invalid matches
-    //    if for example "data" would be a MultiValuedProperty and "database" a SingleValuedProperty
-    //    the MultiValuedProperty would match first (the way it's currently written)
-    MultiValuedProperty = ${ hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
-
-    SingleValuedProperty = ${ hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
-  `;
-
-  // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
-
-  return grammar;
-}
-
-/**
  * Given the generated grammar, generate and return the parser
  *
  * @param {*} grammar
@@ -518,7 +195,7 @@ function generateQueryStringParser(grammar, allowedStartRules = undefined) {
  * @param {String} input
  * @returns a string
  */
-function pegSyntaxErrorToErrorMessage(e, input) {
+function pegSyntaxErrorToErrorMessage(e, input = '') {
   if (e.location) {
     const searchParams = input;
     const markedErrorString = (
@@ -556,12 +233,14 @@ function generateMissingDefaultsForParseTree(parseTree, mapping) {
   const DEFAULT_EXPANSION = 'FULL';
   const DEFAULT_INCLUDECOUNT = false;
   const DEFAULT_$$meta_deleted_IN = [false];
+  const DEFAULT_LIST_ORDER_BY = ['$$meta.created', 'key'];
+  const DEFAULT_LIST_ORDER_DESCENDING = false;
 
   let retVal = [];
 
-  if (!parseTree.find(f => f.operator === 'LIMIT')) {
+  if (!parseTree.find(f => f.operator === 'LIST_LIMIT')) {
     retVal.push({
-      operator: 'LIMIT',
+      operator: 'LIST_LIMIT',
       value: Math.min(mapping.defaultlimit || DEFAULT_LIMIT, mapping.maxlimit || DEFAULT_MAX_LIMIT),
     });
   }
@@ -586,13 +265,26 @@ function generateMissingDefaultsForParseTree(parseTree, mapping) {
       invertOperator: false,
     });
   }
+  if (!parseTree.find(f => f.operator === 'LIST_ORDER_BY')) {
+    retVal.push({
+      operator: 'LIST_ORDER_BY',
+      value: DEFAULT_LIST_ORDER_BY,
+    });
+  }
+  if (!parseTree.find(f => f.operator === 'LIST_ORDER_DESCENDING')) {
+    retVal.push({
+      operator: 'LIST_ORDER_DESCENDING',
+      value: DEFAULT_LIST_ORDER_DESCENDING,
+    });
+  }
   return retVal;
 }
 
 /**
+ * Will modify the parameter array into a sorted param array.
  *
  * @param {*} parseTree
- * @returns
+ * @returns the in-place sorted parseTree
  */
 function sortUrlQueryParamParseTree(parseTree) {
   const compareProperties = (a, b, properties) => {
@@ -618,13 +310,16 @@ function sortUrlQueryParamParseTree(parseTree) {
 }
 
 /**
+ * This factory function will return a function that can parse an href
+ * into an object containing the parseTree, and a normalizedUrl.
+ *
  * This function should change the given href into an object
- * that contains the "parse tree" (a translation of the url into a data structure
- * that expresses what it does)
- * that also contains a translated URL object that should be easier to handle
- * later on in all the processes because all the defaults have been explicitly
- * applied, and all the 'stupid' url prameters have been translated into parameters
- * more closely aligned with what sri4node and sri-query spec should support by default.
+ * - that contains the "parse tree" (a translation of the url into a data structure
+ *   that expresses what it does)
+ * - [MAYBE] that also contains a translated URL object that should be easier to handle
+ *   later on in all the processes because all the defaults have been explicitly
+ *   applied, and all the 'stupid' url prameters have been translated into parameters
+ *   more closely aligned with what sri4node and sri-query spec should support by default.
  *
  * Examples:
  *  * /persons would become /persons?$$meta.deleted_IN=false&_LIMIT=30
@@ -639,7 +334,7 @@ function sortUrlQueryParamParseTree(parseTree) {
  *  * orderBy is by default on key I think (needed to make keyOffset work properly)
  *  * we could imagine that booleanPropGreater=false and booleanPropGreaterOrEqual=false could be
  *    rewritten to booleanProp_IN=true (and a lot of other variations)
- *  * should omit be rewritten to _OMIT, or to a positive selctor like _INCLUDEFIELDS=...
+ *  * should omit be rewritten to _OMIT, or to a positive selector like _INCLUDEFIELDS=...
  *
  * This way, there is no other place in the code where we should take into account
  * default values for certain parameters (like limit & $$meta.deleted).
@@ -679,11 +374,14 @@ function sortUrlQueryParamParseTree(parseTree) {
  * "In computing, the reduction of data to any kind of canonical form is commonly called data normalization."
  * also check: https://en.wikipedia.org/wiki/Canonical_form
  *
- * @param {String} href: the sri4node mapping section holds most info we need to know
  * @param {object} sri4nodeConfigObject: the sri4node config (and mainly the mapping section) holds most info we need to know
+ * @param {boolean} flat: if true, will generate a 'flat' parseTree, otherwise a non-flat parseTree (filters grouped per type) will be generated
  */
-function hrefToParsedObject(href, sriConfig = { resources: {} }) {
-  const parseQueryStringPartByPart = false;
+function hrefToParsedObjectFactory(sriConfig = { resources: {} }, flat = false) {
+  /**
+   * @type {String='NORMAL','PART_BY_PART','VALUES_APART'}
+   */
+  const parseQueryStringPartByPart = 'PART_BY_PART'; //'PARTBYPART';
 
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
@@ -696,17 +394,41 @@ function hrefToParsedObject(href, sriConfig = { resources: {} }) {
       this.flattenedJsonSchemaByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => [r.type, flattenJsonSchema(r.schema)]),
       );
-      // this.paramNameParserByPathMap = Object.fromEntries(
-      //   sriConfig.resources.map((r) => [r.type, generateQueryParamNameParser(this.pathToFlattenedJsonSchema[r.type], sriConfig)]),
-      // );
-      this.queryStringParserByPathMap = Object.fromEntries(
+      this.flatQueryStringParserByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => {
-          const grammar = generateQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          const grammar = generateFlatQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
           try {
             // console.log(`${r.type} GRAMMAR`);
             // console.log(`=================`);
             // console.log(grammar);
-            return [r.type, generateQueryStringParser(grammar, parseQueryStringPartByPart ? ['QueryStringPart'] : undefined)];
+            switch(parseQueryStringPartByPart) {
+              case 'NORMAL':
+                return [r.type, generateQueryStringParser(grammar)];
+              case 'PART_BY_PART':
+                return [r.type, generateQueryStringParser(grammar, ['QueryStringPart'])];
+              case 'VALUES_APART':
+                return [
+                  r.type,
+                  {
+                    filterParser: generateQueryStringParser(grammar, ['FilterName']),
+                    singleValueParser: generateQueryStringParser(grammar, ['SingleValue']),
+                    multiValueParser: generateQueryStringParser(grammar, ['MultiValue']),
+                  }
+                ];
+              default:
+                throw `parseQueryStringPartByPart has an unsupported value (${parseQueryStringPartByPart})`;
+            }
+          } catch(e) {
+            console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+            throw e;
+          }
+        }),
+      );
+      this.nonFlatQueryStringParserByPathMap = Object.fromEntries(
+        sriConfig.resources.map((r) => {
+          const grammar = generateNonFlatQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          try {
+            return [r.type, generateQueryStringParser(grammar)];
           } catch(e) {
             console.log(pegSyntaxErrorToErrorMessage(e, grammar));
             throw e;
@@ -721,6 +443,91 @@ function hrefToParsedObject(href, sriConfig = { resources: {} }) {
     }
   }
 
+  if (flat) {
+    return function hrefToFlatParsedObject(href) {
+      const urlToWorkOn = new URL(`https://domain.com${href}`);
+      const searchParamsToWorkOn = urlToWorkOn.searchParams;
+  
+      const flatQueryStringParser = this.flatQueryStringParserByPathMap[urlToWorkOn.pathname];
+      try {
+        const parseTree = {
+          'NORMAL': () => flatQueryStringParser.parse(searchParamsToWorkOn.toString()),
+          'PART_BY_PART': () => [...searchParamsToWorkOn.entries()].map(([k, v]) => flatQueryStringParser.parse(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`)),
+          // TODO !!!
+          'VALUES_APART': () => [...searchParamsToWorkOn.entries()].map(([k, v]) => {
+              const { expectedValue, ...parsedFilter } = flatQueryStringParser.filterParser.parse(encodeURIComponent(k));
+              // now that we know if the expected input is an array or not, we can parse it as such
+              const value = flatQueryStringParser.valueParser.parse(encodeURIComponent(v), [ expectedValue.inputShouldBeArray ? 'MultiValue' : 'SingleValue']);
+              return { ...parsedFilter, value };
+            }),
+        }[parseQueryStringPartByPart]();
+  
+        const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, this.mappingByPathMap[urlToWorkOn.pathname]);
+  
+        // validateQueryParam(
+        //   '_LIMIT',
+        //   limit => limit < (mapping.maxlimit || MAX_LIMIT),
+        //   limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
+        // );
+  
+        // validateQueryParam(
+        //   '_EXPANSION',
+        //   expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
+        //   expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
+        // );
+  
+        const normalizedParseTree = sortUrlQueryParamParseTree([ ...parseTree, ...missingDefaultsParseTree ])
+          // remove 'expectedValue' to make sure tests still work
+          .map(x => { const { expectedValue, ...rest } = x; return rest });
+  
+        const parsedUrlObject = {
+          parseTree: normalizedParseTree,
+          // TODO normalizedUrl: urlQueryStringParseTreeToNormalizedURLSearchParams(parseTree),
+        }
+  
+        return parsedUrlObject;
+      } catch (e) {
+        // console.log('href parse error', e.message, e);
+        console.log(pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString()));
+        throw e;
+      }
+    }
+  }
+
+  return function hrefToNonFlatParsedObject(href) {
+    const urlToWorkOn = new URL(href, 'https://domain.com');
+    const searchParamsToWorkOn = urlToWorkOn.searchParams;
+
+    const nonFlatQueryStringParser = this.nonFlatQueryStringParserByPathMap[urlToWorkOn.pathname];
+    try {
+      const parseTree = nonFlatQueryStringParser.parse(searchParamsToWorkOn.toString());
+
+      // validateQueryParam(
+      //   '_LIMIT',
+      //   limit => limit < (mapping.maxlimit || MAX_LIMIT),
+      //   limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
+      // );
+
+      // validateQueryParam(
+      //   '_EXPANSION',
+      //   expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
+      //   expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
+      // );
+
+      const parsedUrlObject = {
+        parseTree,
+        // TODO normalizedUrl: urlQueryStringParseTreeToNormalizedURLSearchParams(parseTree),
+      }
+
+      return parsedUrlObject;
+    } catch (e) {
+      // console.log('href parse error', e.message, e);
+      console.log(pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString()));
+      throw e;
+    }
+  }
+
+
   const MAX_LIMIT = 500; // if not configured in mapping file
 
   // const keyOffset = queryParams.keyOffset || '';
@@ -728,9 +535,6 @@ function hrefToParsedObject(href, sriConfig = { resources: {} }) {
 
   // maybe in some cases multiple urls can point to the same resources
   // but for now we'll just assume that we'll only have to modify the query parameters
-  const urlToWorkOn = new URL(`https://domain.com${href}`);
-  const searchParamsToWorkOn = urlToWorkOn.searchParams;
-  const mapping = this.mappingByPathMap[urlToWorkOn.pathname] || {};
   // const flattenedJsonSchema = this.pathToFlattenedJsonSchema[urlToWorkOn.pathname] || {};
 
   /**
@@ -757,7 +561,7 @@ function hrefToParsedObject(href, sriConfig = { resources: {} }) {
   // (depends on how we evolve, because if this combines well with security API, we might think about
   // creating larger resources, because we can give access to only the properties people need to read)
   //
-  // if (!searchParamsToWorkOn.has('_PROPERTYNAME_NOT_IN')) {
+  // if (!searchParamsToWorkOn.has('_PROPERTYNAME_IN')) {
   // }
 
   // what to do with $$includeCount, because it doesn't affect the returned documennts
@@ -767,71 +571,9 @@ function hrefToParsedObject(href, sriConfig = { resources: {} }) {
   // we could assume that listing what to leave out will in general be shorter
   // _LIST_META_NOT_IN
 
-  // const properties = [...searchParamsToWorkOn.keys()]
-  //   .filter(k => flattenedJsonSchema[k] || allowedSuffixes.some(s => k.endsWith(s)));
-  // console.log('all properties found in the url are', properties);
 
-  // searchParamsToWorkOn.sort(); // only sorts on key, so double keys won't use value to make sure it's always deterministic!
-  properlySortedSearchParams = new URLSearchParams(
-    [...searchParamsToWorkOn.entries()]
-      .map(([k,v]) => `${k}=${v}`)
-      .sort()
-      .join('&')
-  );
-
-  // const paramNameParser = this.pathToParamNameParser[urlToWorkOn.pathname];
-  // const normalizedUrlObject = {
-  //   path: urlToWorkOn.pathname,
-  //   searchParams: [...properlySortedSearchParams.entries()]
-  //     .map(([paramName, paramValue]) => {
-  //       try {
-  //         return {
-  //           ...paramNameParser.parse(paramName),
-  //           value: paramValue,
-  //         }
-  //       } catch (e) {
-  //         return {
-  //           name: paramName,
-  //           error: e.message,
-  //           value: paramValue,
-  //         }
-  //       }
-  //     }),
-  // }
-
-  const queryStringParser = this.queryStringParserByPathMap[urlToWorkOn.pathname];
-  try {
-    const parseTree = parseQueryStringPartByPart
-      ? [...properlySortedSearchParams.entries()].map(([k, v]) => queryStringParser.parse(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`))
-      : queryStringParser.parse(properlySortedSearchParams.toString());
-
-    const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, this.mappingByPathMap[urlToWorkOn.pathname]);
-
-    // validateQueryParam(
-    //   '_LIMIT',
-    //   limit => limit < (mapping.maxlimit || MAX_LIMIT),
-    //   limit => `Limit of ${limit} is higher than configured max limit of ${mapping.maxlimit}`
-    // );
-
-    // validateQueryParam(
-    //   '_EXPANSION',
-    //   expansion => ['NONE','FULL','SUMMARY'].includes(expansion),
-    //   expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
-    // );
-
-    const normalizedParseTree = sortUrlQueryParamParseTree([ ...parseTree, ...missingDefaultsParseTree ]);
-
-    const parsedUrlObject = {
-      parseTree: normalizedParseTree,
-      // TODO normalizedUrl: urlQueryStringParseTreeToNormalizedURLSearchParams(parseTree),
-    }
-    return parsedUrlObject;
-  } catch (e) {
-    // console.log('href parse error', e.message, e);
-    console.log(pegSyntaxErrorToErrorMessage(e, properlySortedSearchParams.toString()));
-    throw e;
-  }
 }
+
 
 exports = module.exports = {
   cl: function (x) {
@@ -1738,7 +1480,7 @@ exports = module.exports = {
     }
   },
 
-  hrefToParsedObject,
+  hrefToParsedObjectFactory,
 
   flattenJsonSchema,
 

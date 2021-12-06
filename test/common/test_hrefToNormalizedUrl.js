@@ -1,5 +1,8 @@
 const { assert } = require('chai');
-const { hrefToParsedObject, flattenJsonSchema, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+const { hrefToParsedObjectFactory, flattenJsonSchema, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+
+const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
+const pegjs = require('pegjs');
 
 const sriConfig = {
   resources: [
@@ -902,6 +905,10 @@ const sriConfig = {
   ],
 };
 
+const hrefToFlatParsedObject = hrefToParsedObjectFactory(sriConfig, true);
+const hrefToNonFlatParsedObject = hrefToParsedObjectFactory(sriConfig);
+
+
 /**
  * Checks if hrefToParsedObject of input (with our 'global' sriConfig)
  * returns the same 'normalizedUrl' as the expected string.
@@ -914,10 +921,10 @@ const sriConfig = {
  * @param {String} input
  * @param {String} expected
  */
-function checkHrefToParsedObject(input, expected) {
+function checkHrefToFlatParsedObject(input, expected) {
   // try {
     const hrstart = process.hrtime();
-    const normalizedUrl = hrefToParsedObject(input, sriConfig);
+    const normalizedUrl = hrefToFlatParsedObject(input);
     const hrElapsed = process.hrtime(hrstart);
     console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
 
@@ -943,22 +950,50 @@ function checkHrefToParsedObject(input, expected) {
  * @param {String} expectedParamValue: should be the default, either as configured in sriConfig or the sri4node default
  * @returns
  */
-function checkhrefToParsedObjectAddsMissing(input, paramName, expectedParamValue) {
+function checkhrefToFlatParsedObjectAddsMissing(input, paramName, expectedParamValue) {
   const hrstart = process.hrtime();
-  const parsedUrl = hrefToParsedObject(input, sriConfig);
+  const parsedUrl = hrefToFlatParsedObject(input);
   const hrElapsed = process.hrtime(hrstart);
   console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
   assert.isTrue(
     parsedUrl.parseTree.findIndex(f => f.operator === paramName) >= 0,
     `The expected query parameter '${paramName}' has not been added to the normalized url`,
   );
-  assert.equal(
+  assert.deepEqual(
     parsedUrl.parseTree.find(f => f.operator === paramName).value,
     expectedParamValue,
-    `The expected query parameter '${paramName}' from the normalized url doesn't have the expected value ${expectedParamValue}`,
+    `The expected query parameter '${paramName}' from the normalized url doesn't have the expected value ${Array.isArray(expectedParamValue) ? expectedParamValue.join() : expectedParamValue}`,
   );
 }
 
+
+/**
+ * Only check if the expected param gets added IN THE RIGHT SUBTREE,
+ * and whether its value is as expected.
+ *
+ * @param {String} inputHref the (relative) href that will be parsed
+ * @param {String} expectedSubTreeName the subtree where the item should be located
+ * @param {String} expectedParamValue: should be the default, either as configured in sriConfig or the sri4node default
+ * @returns
+ */
+ function checkhrefToNonFlatParsedObjectContains(inputHref, expectedSubTreeName, expectedParseTreeItem) {
+  const hrstart = process.hrtime();
+  const parsedUrl = hrefToNonFlatParsedObject(inputHref);
+  const hrElapsed = process.hrtime(hrstart);
+  console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+  assert.deepInclude(
+    parsedUrl.parseTree[expectedSubTreeName],
+    expectedParseTreeItem,
+    `The expected parseTree item '${JSON.stringify(expectedParseTreeItem)}' has not been added to the url parse tree in section '${expectedSubTreeName}'.
+This is the actual subtree:
+${JSON.stringify(parsedUrl.parseTree[expectedSubTreeName], null, 2)}`,
+  )
+  // assert.deepEqual(
+  //   parsedUrl.parseTree.find(f => f.operator === paramName).value,
+  //   expectedParamValue,
+  //   `The expected query parameter '${paramName}' from the normalized url doesn't have the expected value ${Array.isArray(expectedParamValue) ? expectedParamValue.join() : expectedParamValue}`,
+  // );
+}
 
 describe('commons.js: flattenJsonSchema(...)', () => {
   it('should produce a flattened json schem', () => {
@@ -1043,11 +1078,11 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
   it('sorts a parseTree as expected', () => {
     const metaDeletedInFalse = { property: '$$meta.deleted', operator: 'IN', invertOperator: false, caseInsensitive: true, value: false };
     const firstNameInJohn = { property: 'firstName', operator: 'IN', invertOperator: false, caseInsensitive: true, value: 'John' };
-    const limit30 = { operator: 'LIMIT', value: 30 };
+    const limit30 = { operator: 'LIST_LIMIT', value: 30 };
 
     // const expansionFull = { operator: 'EXPANSION', value: 'FULL' };
     // 1:{property: '$$meta.deleted', operator: 'IN', value: Array(1)}
-    // 2:{operator: 'LIMIT', value: 100}
+    // 2:{operator: 'LIST_LIMIT', value: 100}
     // 3:{operator: 'LIST_META_INCLUDE_COUNT', value: false}
     // 4:{property: 'firstName', operator: 'IN', invertOperator: false, value: Array(1), caseInsensitive: true}
 
@@ -1079,46 +1114,218 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
   });
 });
 
+/**
+ * This should test if the grammar generator properly works that should produce
+ * a non-flat parse tree.
+ *
+ * In this parser I also want to try to include the defaults immediatley in the pegjs output,
+ * instead of adding a second step for adding the mssing defaults
+ */
+describe('non_flat_url_parser.js: generateNonFlatQueryStringParserGrammar: the non-flat parser should produce a parseTree where different types of query params are put in separate lists', () => {
+  const parse = hrefToParsedObjectFactory(sriConfig);
+
+  it('mergeArrays (used for adding defaults) should work as expected', () => {
+    assert.deepEqual(
+      mergeArrays([1, 2], [2, 3]),
+      [1, 2, 3],
+    );
+    assert.deepEqual(
+      mergeArrays(
+        [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' } ],
+        [ { id: 2, comment: 'TWO' }, { id: 3, comment: 'THREE' } ],
+        (a,b) => a.id === b.id
+      ),
+      [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' }, { id: 3, comment: 'THREE' } ],
+    );
+  })
+
+  it('should put list control parameter in the right subsection', () => {
+    // console.log(JSON.stringify(parse('limit=5')), null, 2));
+    const parsed = parse('/persons?limit=5');
+    console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
+    checkhrefToNonFlatParsedObjectContains(
+      '/persons?limit=5',
+      'listControl',
+      {
+        operator: {
+          name: 'LIST_LIMIT',
+          type: 'integer',
+          multiValued: false,
+        },
+        value: 5,
+      },
+    );
+  });
+
+  it('should put mapping parameter in the right subsection', () => {
+    assert.fail('Test (& functionality) not implemented');
+    // console.log(JSON.stringify(parse('/persons?$$expand=person'), null, 2));
+  });
+
+  it('should add the proper defaults when missing', () => {
+    const personsWithoutDefaultsHref = '/persons';
+
+    checkhrefToNonFlatParsedObjectContains(
+      personsWithoutDefaultsHref,
+      'listControl',
+      {
+        operator: {
+          name: 'LIST_LIMIT',
+          type: 'integer',
+          multiValued: false,
+        },
+        value: 30,
+      },
+    );
+
+    checkhrefToNonFlatParsedObjectContains(
+      personsWithoutDefaultsHref,
+      'listControl',
+      {
+        operator: {
+          name: 'LIST_ORDER_BY',
+          type: 'string',
+          multiValued: true,
+        },
+        value: ['$$meta.created', 'key'],
+      },
+    );
+
+    checkhrefToNonFlatParsedObjectContains(
+      personsWithoutDefaultsHref,
+      'listControl',
+      {
+        operator: {
+          name: 'LIST_ORDER_DESCENDING',
+          type: 'boolean',
+          multiValued: false,
+        },
+        value: false,
+      },
+    );
+
+  });
+
+  it('should put property filter parameter in the right subsection', () => {
+    console.log(JSON.stringify(parse('/persons?firstName_IN=John').rowFilters, null, 2));
+    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  });
+
+  it('should translate missing property filter operator (meaning EQUALS) to IN', () => {
+    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
+    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  });
+
+  it('should translate NOT LTE to GT (and all other similar cases)', () => {
+    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
+    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  });
+
+  /**
+   * Imagine you have a resource with a property called limit.
+   *
+   * /things?limt=5 could mean "only return 5 resources in the result list",
+   * or "give me all things where the property limit has the value 5)
+   *
+   * We define here that it will always have the second meaning in this case!
+   *
+   * /things?limt=5&_LIST_LIMIT=10 will return 10 things where limit=5
+   */
+  it('should give a property filter named after an old-school listControl filter (like limit) precedence', () => {
+    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
+    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  });
+
+
+  /**
+   * Could we somehow find a nice syntax for nested arrays?
+   * Hard to do when it's just a comma-separated list.
+   * 1,2,3  => (a,b),(c,d),(e,f) could work, where the brackets look more like tuples than arrays
+   * but maybe that is no problem.
+   * It also makes it look like arithmetics, saying 'calculate the most inner brackets first'
+   * and it solves any number of sublevels: (a,(b,z)),(c,d),(e,f)
+   */
+  it('should be able to handle comma-separated arrays as values', () => {
+    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
+    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  });
+
+  /**
+   * In /organisations API, we have the following filters: statuses=ACTIVE,FUTURE,ABOLISHED
+   * Something similar (which are basically filters that work on the PERIOD instead of the single
+   * date) would be cool to have as a default.
+   * Not sure yet if we should base this simply on the presence of a startDate and endDate field,
+   * or whether there are fields starting with start and end (could be start,end or startTime,endTime
+   * ...), or whether these fields should be configured specifically
+   * (something similar to period: true, periodeStartfield:...)
+   * 
+   * _DATETIME=NOW()&_PERIODVALIDITY_IN=PAST,PRESENT,FUTURE (NOW() or $NOW or whatever should be
+   * the default, but you should be able to override)
+   * The _DATETIME could also be useful for other filters that might exist that need a reference
+   * date/time.
+   */
+  it('should allow for some special default filters for resources with a time PERIOD', () => {
+    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
+  });
+
+
+  /**
+   * In some API's we have a lot of filters that help us with traversing GRAPHS or tree-like
+   * structures: tos=,froms=, fromTypes=, toTypes=..., depth
+   * 
+   * which would be 'normalized' as to.href_IN
+   */
+  it('should allow for some special default filters for resources expressing an EDGE', () => {
+    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
+  });
+
+  it('should allow combining default filters for resources expressing an EDGE and a PERIOD', () => {
+    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
+  });
+
+});
+
+
 describe('common.js: hrefToParsedObject(...)', () => {
 
-  it('should add _LIMIT if missing', () => {
-    checkhrefToParsedObjectAddsMissing(
+  it('should add _LIST_LIMIT if missing', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
       '/persons?firstName=John',
-      'LIMIT',
+      'LIST_LIMIT',
       100,
     );
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
-      'LIMIT',
+      'LIST_LIMIT',
       20,
     );
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/responsibilities?organisation.href=/organisations/123',
-      'LIMIT',
+      'LIST_LIMIT',
       30,
     );
   });
 
-  it('should translate limit to LIMIT', () => {
-    checkhrefToParsedObjectAddsMissing(
+  it('should translate limit to LIST_LIMIT', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
       '/persons?firstName=John&limit=33',
-      'LIMIT',
+      'LIST_LIMIT',
       33,
     );
   });
 
   it('should add EXPANSION if missing', () => {
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/persons?firstName=John',
       'EXPANSION',
       'FULL',
     );
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
       'EXPANSION',
       'FULL',
     );
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/responsibilities?organisation.href=/organisations/123',
       'EXPANSION',
       'FULL',
@@ -1126,33 +1333,97 @@ describe('common.js: hrefToParsedObject(...)', () => {
   });
 
   it('should translate expand to _EXPANSION', () => {
-    checkhrefToParsedObjectAddsMissing(
+    checkhrefToFlatParsedObjectAddsMissing(
       '/persons?firstName=John&limit=33&expand=NONE',
       'EXPANSION',
       'NONE',
     );
   });
 
+  it('should add _LIST_ORDER_BY if missing', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/persons?firstName=John',
+      'LIST_ORDER_BY',
+      ['$$meta.created', 'key'],
+    );
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
+      'LIST_ORDER_BY',
+      ['$$meta.created', 'key'],
+    );
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/responsibilities?organisation.href=/organisations/123',
+      'LIST_ORDER_BY',
+      ['$$meta.created','key'], // what is the defaults sort order?
+    );
+  });
+
+  it('should translate orderBy to LIST_ORDER_BY', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/persons?firstName=John&orderBy=lastName',
+      'LIST_ORDER_BY',
+      ['lastName'],
+    );
+
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/persons?firstName=John&orderBy=lastName,firstName',
+      'LIST_ORDER_BY',
+      ['lastName', 'firstName'],
+    );
+  });
+
+  it('should add _LIST_ORDER_DESCENDING if missing', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/persons?firstName=John',
+      'LIST_ORDER_DESCENDING',
+      false,
+    );
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
+      'LIST_ORDER_DESCENDING',
+      false,
+    );
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/responsibilities?organisation.href=/organisations/123',
+      'LIST_ORDER_DESCENDING',
+      false,
+    );
+  });
+
+  it('should translate descending to LIST_ORDER_DESCENDING', () => {
+    checkhrefToFlatParsedObjectAddsMissing(
+      '/persons?firstName=John&orderBy=firstName',
+      'LIST_ORDER_DESCENDING',
+      false,
+    );
+  });
+
+
+
 
   const defaultParseTreePart = (path) => [
     { operator: 'EXPANSION', value: sriConfig.resources.find(r => r.type === path).defaultexpansion || 'FULL' },
-    { operator: 'LIMIT', value: sriConfig.resources.find(r => r.type === path).defaultlimit },
+    { operator: 'LIST_LIMIT', value: sriConfig.resources.find(r => r.type === path).defaultlimit },
     { operator: 'LIST_META_INCLUDE_COUNT', value: false },
+    { operator: 'LIST_ORDER_BY', value: ['$$meta.created', 'key'] },
+    { operator: 'LIST_ORDER_DESCENDING', value: false },
     { property: '$$meta.deleted', operator: 'IN', value: [ false ], caseInsensitive: true, invertOperator: false },
   ];
 
   it('should return the parameters sorted alphabetically', () => {
-    checkHrefToParsedObject(
-      '/persons?_LIMIT=30&$$meta.deleted_IN=false&_EXPANSION=FULL',
-      // '$$meta.deleted_IN=false&_EXPANSION=FULL&_LIMIT=30'
+    checkHrefToFlatParsedObject(
+      '/persons?_LIST_LIMIT=30&$$meta.deleted_IN=false&_EXPANSION=FULL',
+      // '$$meta.deleted_IN=false&_EXPANSION=FULL&_LIST_LIMIT=30'
       {
         parseTree: [
           // value could be a boolean if we make the parser even smarter based on the schema
           { property: '$$meta.deleted', operator: 'IN', invertOperator: false, value: [false], caseInsensitive: true },
           { operator: 'EXPANSION', value: 'FULL' },
           // value could be a number if we make the parser even smarter
-          { operator: 'LIMIT', value: 30 },
+          { operator: 'LIST_LIMIT', value: 30 },
           { operator: 'LIST_META_INCLUDE_COUNT', value: false },
+          { operator: 'LIST_ORDER_BY', value: ['$$meta.created', 'key'] },
+          { operator: 'LIST_ORDER_DESCENDING', value: false },
         ],
       },
     );
@@ -1160,7 +1431,7 @@ describe('common.js: hrefToParsedObject(...)', () => {
 
   describe('should return the value(s) as the expected type (string, number, bool) depending on the configuration', () => {
     it('should return a string property filter as a string value', () => {
-      checkHrefToParsedObject(
+      checkHrefToFlatParsedObject(
         '/persons?firstName=John', // assuming defaults for limit & expansion
         {
           parseTree: [

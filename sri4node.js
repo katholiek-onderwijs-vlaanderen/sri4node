@@ -405,7 +405,8 @@ const toArray = (resource, name) => {
 
 
 /* express.js application, configuration for roa4node */
-exports = module.exports = {
+// export = // for typescript
+module.exports = {
   configure: async function (app, config) {
     'use strict';
 
