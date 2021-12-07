@@ -330,7 +330,7 @@ exports = module.exports = {
     BigInt.prototype.toJSON = function() { return this.toString() };
   },
 
-  pgConnect: async function (arg) {
+  pgConnect: async function (arg, pgpInitOptionsIn = {}) {
     // pgConnect can be called with the database url as argument of the sri4configuration object
     const cl = exports.cl;
     let dbUrl, ssl, sri4nodeConfig;
@@ -343,6 +343,7 @@ exports = module.exports = {
       sri4nodeConfig = arg;
       if (pgp === null) {
         const pgpInitOptions = {
+          ...pgpInitOptionsIn,
           schema: sri4nodeConfig.postgresSchema
         };
         if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
