@@ -157,7 +157,34 @@ const handleRequest = async (sriRequest, func, mapping) => {
   return result;
 }
 
+const handleServerTiming = async (req, resp, sriRequest) => {
+  const logEnabled = global.sri4node_configuration.logdebug.channels === 'all'
+                      || global.sri4node_configuration.logdebug.channels.has('server-timing');
+  const hdrEnable = sriRequest['headers']['request-server-timing'] !== undefined;
+  let serverTiming = ''
+  if ((logEnabled || hdrEnable) && (sriRequest.serverTiming !== undefined)) {
+    emtReportToServerTiming(req, resp, sriRequest);
+    const notNullEntries = Object.entries(sriRequest.serverTiming)
+      .filter(([property, value]) => value > 0)
 
+    if (notNullEntries.length > 0) {
+      serverTiming = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value * 100) / 100).toFixed(2)}`).join(', ');
+      if (logEnabled) {
+        debug('server-timing', serverTiming);
+      }
+      if (hdrEnable) {
+        if (resp.headersSent) {
+          // streaming mode
+          sriRequest.outStream.addTrailers({
+            'Server-Timing': serverTiming
+          });
+        } else {
+          resp.set('Server-Timing', serverTiming);
+        }
+      }
+    }
+  }
+}
 
 const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
@@ -283,24 +310,14 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
 
         if (resp.headersSent) {
           // we are in streaming mode
-          if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
-                emtReportToServerTiming(req, resp, sriRequest);
-                const notNullEntries = Object.entries(sriRequest.serverTiming)
-                                             .filter(([property, value]) => value > 0)
-    
-                if (notNullEntries.length > 0) {
-                    const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value * 100) / 100).toFixed(2)}`).join(', ');
-                    sriRequest.outStream.addTrailers({
-                        'Server-Timing': hdrVal
-                    });
-                }
-          }
-          sriRequest.outStream.end();
+
           if (result.status < 300) {
             await terminateDb(false, readOnly);
           } else {
             await terminateDb(true, readOnly);
           }
+          await handleServerTiming(req, resp, sriRequest);
+          sriRequest.outStream.end();
         } else {
           if (result.status < 300) {
             await terminateDb(false, readOnly);
@@ -308,17 +325,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
             await terminateDb(true, readOnly);
           }
 
-          if ((sriRequest['headers']['request-server-timing'] !== undefined) && (sriRequest.serverTiming !== undefined)) {
-            emtReportToServerTiming(req, resp, sriRequest);
-            const notNullEntries = Object.entries(sriRequest.serverTiming)
-                                         .filter(([property, value]) => value > 0)
-
-            if (notNullEntries.length > 0) {
-                const hdrVal = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value * 100) / 100).toFixed(2)}`).join(', ');
-                resp.set('Server-Timing', hdrVal);
-            }
-          }
-
+          await handleServerTiming(req, resp, sriRequest);
           if (result.headers) {
             resp.set(result.headers)
           }
@@ -350,6 +357,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           , f => f(sriRequest)
           , sriRequest)
         }
+
         if (global.sri4node_configuration.logdebug.statuses !== undefined) {
             setImmediate(() => {
                 // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
@@ -682,7 +690,16 @@ exports = module.exports = {
       app.use(function(req, res, next) {
           httpContext.ns.bindEmitter(req);
           httpContext.ns.bindEmitter(res);
-          let reqId = shortid.generate();
+          let reqId;
+          if (req.headers['x-request-id']!==undefined) {
+            // if present use the id provided by heroku
+            reqId = req.headers['x-request-id'];
+          } else if (req.headers['x-amz-cf-id']!==undefined) {
+            // if present use the id provided by cloudfront
+            reqId = req.headers['x-amz-cf-id']
+          } else {
+            reqId = shortid.generate();
+          }
           if (config.id!==undefined) {
               reqId = `${config.id}#${reqId}`;
           }
