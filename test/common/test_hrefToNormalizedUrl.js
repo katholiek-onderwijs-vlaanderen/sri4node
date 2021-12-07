@@ -905,8 +905,28 @@ const sriConfig = {
   ],
 };
 
+
 const hrefToFlatParsedObject = hrefToParsedObjectFactory(sriConfig, true);
+// let hrefToFlatParsedObjectExecutionTimes = [];
+
+
 const hrefToNonFlatParsedObject = hrefToParsedObjectFactory(sriConfig);
+
+let hrefToNonFlatParsedObjectExecutionTimes = [];
+/**
+ * This wraps the parse function to keep track of the execution times, so we can add
+ * some tests add the end that check if the average execution speeds were high enough...
+ *
+ * @param {string} input the relative href to parse
+ * @returns the parse tree object
+ */
+const hrefToNonFlatParsedObjectWrapped = (input) => {
+  const hrstart = process.hrtime();
+  const normalizedUrl = hrefToNonFlatParsedObject(input);
+  const hrElapsed = process.hrtime(hrstart);
+  hrefToNonFlatParsedObjectExecutionTimes.push(hrtimeToMilliseconds(hrElapsed));
+  return normalizedUrl;
+}
 
 
 /**
@@ -926,7 +946,7 @@ function checkHrefToFlatParsedObject(input, expected) {
     const hrstart = process.hrtime();
     const normalizedUrl = hrefToFlatParsedObject(input);
     const hrElapsed = process.hrtime(hrstart);
-    console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+    // console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
 
     const expectedSorted = {
       ...expected,
@@ -954,7 +974,7 @@ function checkhrefToFlatParsedObjectAddsMissing(input, paramName, expectedParamV
   const hrstart = process.hrtime();
   const parsedUrl = hrefToFlatParsedObject(input);
   const hrElapsed = process.hrtime(hrstart);
-  console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+  console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
   assert.isTrue(
     parsedUrl.parseTree.findIndex(f => f.operator === paramName) >= 0,
     `The expected query parameter '${paramName}' has not been added to the normalized url`,
@@ -976,11 +996,8 @@ function checkhrefToFlatParsedObjectAddsMissing(input, paramName, expectedParamV
  * @param {String} expectedParamValue: should be the default, either as configured in sriConfig or the sri4node default
  * @returns
  */
- function checkhrefToNonFlatParsedObjectContains(inputHref, expectedSubTreeName, expectedParseTreeItem) {
-  const hrstart = process.hrtime();
-  const parsedUrl = hrefToNonFlatParsedObject(inputHref);
-  const hrElapsed = process.hrtime(hrstart);
-  console.log('                hrefToParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+ function checkHrefToNonFlatParsedObjectContains(inputHref, expectedSubTreeName, expectedParseTreeItem) {
+  const parsedUrl = hrefToNonFlatParsedObjectWrapped(inputHref);
   assert.deepInclude(
     parsedUrl.parseTree[expectedSubTreeName],
     expectedParseTreeItem,
@@ -1121,166 +1138,230 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
  * In this parser I also want to try to include the defaults immediatley in the pegjs output,
  * instead of adding a second step for adding the mssing defaults
  */
-describe('non_flat_url_parser.js: generateNonFlatQueryStringParserGrammar: the non-flat parser should produce a parseTree where different types of query params are put in separate lists', () => {
+describe('non_flat_url_parser.js', () => {
   const parse = hrefToParsedObjectFactory(sriConfig);
 
-  it('mergeArrays (used for adding defaults) should work as expected', () => {
-    assert.deepEqual(
-      mergeArrays([1, 2], [2, 3]),
-      [1, 2, 3],
-    );
-    assert.deepEqual(
-      mergeArrays(
-        [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' } ],
-        [ { id: 2, comment: 'TWO' }, { id: 3, comment: 'THREE' } ],
-        (a,b) => a.id === b.id
-      ),
-      [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' }, { id: 3, comment: 'THREE' } ],
-    );
-  })
+  describe('parsing of standard filters', () => {
+    it('mergeArrays (used for adding defaults) should work as expected', () => {
+      assert.deepEqual(
+        mergeArrays([1, 2], [2, 3]),
+        [1, 2, 3],
+      );
+      assert.deepEqual(
+        mergeArrays(
+          [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' } ],
+          [ { id: 2, comment: 'TWO' }, { id: 3, comment: 'THREE' } ],
+          (a,b) => a.id === b.id
+        ),
+        [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' }, { id: 3, comment: 'THREE' } ],
+      );
+    });
 
-  it('should put list control parameter in the right subsection', () => {
-    // console.log(JSON.stringify(parse('limit=5')), null, 2));
-    const parsed = parse('/persons?limit=5');
-    console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
-    checkhrefToNonFlatParsedObjectContains(
-      '/persons?limit=5',
-      'listControl',
-      {
-        operator: {
-          name: 'LIST_LIMIT',
-          type: 'integer',
-          multiValued: false,
+    it('should put list control parameter in the right subsection', () => {
+      // console.log(JSON.stringify(parse('limit=5')), null, 2));
+      // const parsed = parse('/persons?limit=5');
+      // console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
+      checkHrefToNonFlatParsedObjectContains(
+        '/persons?limit=5',
+        'listControl',
+        {
+          operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
+          value: 5,
         },
-        value: 5,
-      },
-    );
-  });
-
-  it('should put mapping parameter in the right subsection', () => {
-    assert.fail('Test (& functionality) not implemented');
-    // console.log(JSON.stringify(parse('/persons?$$expand=person'), null, 2));
-  });
-
-  it('should add the proper defaults when missing', () => {
-    const personsWithoutDefaultsHref = '/persons';
-
-    checkhrefToNonFlatParsedObjectContains(
-      personsWithoutDefaultsHref,
-      'listControl',
-      {
-        operator: {
-          name: 'LIST_LIMIT',
-          type: 'integer',
-          multiValued: false,
+      );
+      checkHrefToNonFlatParsedObjectContains(
+        '/persons?orderBy=lastName,firstName',
+        'listControl',
+        {
+          operator: { name: 'LIST_ORDER_BY', type: 'string', multiValued: true },
+          value: ['lastName', 'firstName'],
         },
-        value: 30,
-      },
-    );
+      );
+    });
 
-    checkhrefToNonFlatParsedObjectContains(
-      personsWithoutDefaultsHref,
-      'listControl',
-      {
-        operator: {
-          name: 'LIST_ORDER_BY',
-          type: 'string',
-          multiValued: true,
+    it('should put mapping parameter in the right subsection', () => {
+      assert.fail('Test (& functionality) not implemented');
+      // console.log(JSON.stringify(parse('/persons?$$expand=person'), null, 2));
+    });
+
+    it('should add the proper defaults when missing', () => {
+      const personsWithoutDefaultsHref = '/persons';
+
+      checkHrefToNonFlatParsedObjectContains(
+        personsWithoutDefaultsHref,
+        'listControl',
+        {
+          operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
+          value: 30,
         },
-        value: ['$$meta.created', 'key'],
-      },
-    );
+      );
 
-    checkhrefToNonFlatParsedObjectContains(
-      personsWithoutDefaultsHref,
-      'listControl',
-      {
-        operator: {
-          name: 'LIST_ORDER_DESCENDING',
-          type: 'boolean',
-          multiValued: false,
+      checkHrefToNonFlatParsedObjectContains(
+        personsWithoutDefaultsHref,
+        'listControl',
+        {
+          operator: { name: 'LIST_ORDER_BY', type: 'string', multiValued: true },
+          value: ['$$meta.created', 'key'],
         },
-        value: false,
-      },
-    );
+      );
 
+      checkHrefToNonFlatParsedObjectContains(
+        personsWithoutDefaultsHref,
+        'listControl',
+        {
+          operator: { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false },
+          value: false,
+        },
+      );
+
+    });
+
+    it('should put property filter parameter in the right subsection', () => {
+      checkHrefToNonFlatParsedObjectContains(
+        '/persons?firstNameGreater=J',
+        'rowFilters',
+        {
+          property: { name: 'firstName', type: 'string', multiValued: false },
+          operator: { name: 'GT', multiValued: false },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: 'J',
+        },
+      );
+    });
+
+    it('should translate missing property filter operator (meaning EQUALS) to IN', () => {
+      checkHrefToNonFlatParsedObjectContains(
+        '/persons?firstName=John',
+        'rowFilters',
+        {
+          property: { name: 'firstName', type: 'string', multiValued: false },
+          operator: { name: 'IN', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: ['John'],
+        },
+      );
+
+      checkHrefToNonFlatParsedObjectContains(
+        '/persons?deceased=true',
+        'rowFilters',
+        {
+          property: { name: 'deceased', type: 'boolean', multiValued: false },
+          operator: { name: 'IN', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: [true],
+        },
+      );
+    });
+
+    it('should translate NOT LTE to GT (and all other similar cases)', () => {
+      [ ['LT', 'GTE'], ['LTE', 'GT'], ['GT', 'LTE'], ['GTE', 'LT'] ]
+        .forEach(
+          ([inverted, translated]) => checkHrefToNonFlatParsedObjectContains(
+            `/persons?firstName_NOT_${inverted}=John`,
+            'rowFilters',
+            {
+              property: { name: 'firstName', type: 'string', multiValued: false },
+              operator: { name: translated, multiValued: false },
+              invertOperator: false,
+              caseInsensitive: true,
+              value: 'John',
+            },
+          )
+        );
+    });
   });
 
-  it('should put property filter parameter in the right subsection', () => {
-    console.log(JSON.stringify(parse('/persons?firstName_IN=John').rowFilters, null, 2));
-    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  describe('special cases related to backwards compatibilty', () => {
+    /**
+     * Imagine you have a resource with a property called limit.
+     *
+     * /things?limt=5 could mean "only return 5 resources in the result list",
+     * or "give me all things where the property limit has the value 5)
+     *
+     * We define here that it will always have the second meaning in this case!
+     *
+     * /things?limt=5&_LIST_LIMIT=10 will return 10 things where limit=5
+     */
+    it('should give a property filter named after an old-school listControl filter (like limit) precedence', () => {
+      assert.fail('Test (& functionality) not implemented');
+    });
   });
 
-  it('should translate missing property filter operator (meaning EQUALS) to IN', () => {
-    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
-    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  describe('related to arrays', () => {
+
+    /**
+     * Could we somehow find a nice syntax for nested arrays?
+     * Hard to do when it's just a comma-separated list.
+     * 1,2,3  => (a,b),(c,d),(e,f) could work, where the brackets look more like tuples than arrays
+     * but maybe that is no problem.
+     * It also makes it look like arithmetics, saying 'calculate the most inner brackets first'
+     * and it solves any number of sublevels: (a,(b,z)),(c,d),(e,f)
+     * 
+     * Would this change our syntax as in: an array argument MUST always be surrounded by ()
+     * meaning: firstName_IN=John,Doe would not work because an array is expected?
+     *          (it should have been firstName_IN=(John,Doe) then)
+     * OR if backwards compatibility is extremely important, we would allow this,
+     * but then:
+     *    is firstName_IN=(John,Doe) equivalent to firstName_IN=John,Doe
+     *    OR does that mean firstName_IN=((John,Doe)) ???
+     */
+    it('should be able to handle comma-separated arrays as values', () => {
+      assert.fail('Test (& functionality) not implemented');
+    });
   });
 
-  it('should translate NOT LTE to GT (and all other similar cases)', () => {
-    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
-    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
+  describe('special filters to help with special resources like periods or relations', () => {
+
+    /**
+     * In /organisations API, we have the following filters: statuses=ACTIVE,FUTURE,ABOLISHED
+     * Something similar (which are basically filters that work on the PERIOD instead of the single
+     * date) would be cool to have as a default.
+     * Not sure yet if we should base this simply on the presence of a startDate and endDate field,
+     * or whether there are fields starting with start and end (could be start,end or startTime,endTime
+     * ...), or whether these fields should be configured specifically
+     * (something similar to period: true, periodeStartfield:...)
+     * 
+     * _DATETIME=NOW()&_PERIODVALIDITY_IN=PAST,PRESENT,FUTURE (NOW() or $NOW or whatever should be
+     * the default, but you should be able to override)
+     * The _DATETIME could also be useful for other filters that might exist that need a reference
+     * date/time.
+     */
+    it('should allow for some special default filters for resources with a time PERIOD', () => {
+      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)')
+      // assert.fail('Test (& functionality) not implemented');
+    });
+
+
+    /**
+     * In some API's we have a lot of filters that help us with traversing GRAPHS or tree-like
+     * structures: tos=,froms=, fromTypes=, toTypes=..., depth
+     * 
+     * which would be 'normalized' as to.href_IN
+     */
+    it('should allow for some special default filters for resources expressing an EDGE', () => {
+      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)')
+      // assert.fail('Test (& functionality) not implemented');
+    });
+
+    it('should allow combining default filters for resources expressing an EDGE and a PERIOD', () => {
+      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)')
+      // assert.fail('Test (& functionality) not implemented');
+    });
   });
 
-  /**
-   * Imagine you have a resource with a property called limit.
-   *
-   * /things?limt=5 could mean "only return 5 resources in the result list",
-   * or "give me all things where the property limit has the value 5)
-   *
-   * We define here that it will always have the second meaning in this case!
-   *
-   * /things?limt=5&_LIST_LIMIT=10 will return 10 things where limit=5
-   */
-  it('should give a property filter named after an old-school listControl filter (like limit) precedence', () => {
-    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
-    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
-  });
+  describe('parsing speed', () => {
+    it('should be low on average', () => {
+      const averageExecutionTime = hrefToNonFlatParsedObjectExecutionTimes.reduce((a,c) => a + c, 0) / (hrefToNonFlatParsedObjectExecutionTimes.length || 1);
 
-
-  /**
-   * Could we somehow find a nice syntax for nested arrays?
-   * Hard to do when it's just a comma-separated list.
-   * 1,2,3  => (a,b),(c,d),(e,f) could work, where the brackets look more like tuples than arrays
-   * but maybe that is no problem.
-   * It also makes it look like arithmetics, saying 'calculate the most inner brackets first'
-   * and it solves any number of sublevels: (a,(b,z)),(c,d),(e,f)
-   */
-  it('should be able to handle comma-separated arrays as values', () => {
-    console.log(JSON.stringify(parse('/persons?firstName=John').rowFilters, null, 2));
-    console.log(JSON.stringify(parse('/persons?firstNameIn=John,Franz').rowFilters, null, 2));
-  });
-
-  /**
-   * In /organisations API, we have the following filters: statuses=ACTIVE,FUTURE,ABOLISHED
-   * Something similar (which are basically filters that work on the PERIOD instead of the single
-   * date) would be cool to have as a default.
-   * Not sure yet if we should base this simply on the presence of a startDate and endDate field,
-   * or whether there are fields starting with start and end (could be start,end or startTime,endTime
-   * ...), or whether these fields should be configured specifically
-   * (something similar to period: true, periodeStartfield:...)
-   * 
-   * _DATETIME=NOW()&_PERIODVALIDITY_IN=PAST,PRESENT,FUTURE (NOW() or $NOW or whatever should be
-   * the default, but you should be able to override)
-   * The _DATETIME could also be useful for other filters that might exist that need a reference
-   * date/time.
-   */
-  it('should allow for some special default filters for resources with a time PERIOD', () => {
-    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
-  });
-
-
-  /**
-   * In some API's we have a lot of filters that help us with traversing GRAPHS or tree-like
-   * structures: tos=,froms=, fromTypes=, toTypes=..., depth
-   * 
-   * which would be 'normalized' as to.href_IN
-   */
-  it('should allow for some special default filters for resources expressing an EDGE', () => {
-    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
-  });
-
-  it('should allow combining default filters for resources expressing an EDGE and a PERIOD', () => {
-    console.log(JSON.stringify(parse('/persons?omit=hello'), null, 2));
+      assert.isAtMost(
+        averageExecutionTime,
+        0.5,
+        'Parsing is too slow on average!',
+      );
+    });
   });
 
 });

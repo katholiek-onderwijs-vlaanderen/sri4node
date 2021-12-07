@@ -7,7 +7,28 @@
  * And then also translate the value from an array into a single value sometimes or the other way around?
  */
 function normalizeRowFilter(rowFilter) {
+  let retVal = { ...rowFilter };
+  if (rowFilter.operator.name === 'EQ') {
+    // translate EQ to IN
+    retVal.operator = { ...rowFilter.operator, name: 'IN', multiValued: true };
+    retVal.value = [ rowFilter.value ];
+  } else if (rowFilter.invertOperator) {
+    // translate some inverted operators to their non-inverted equivalent
+    const invertedOperatorMap = {
+      'LT': 'GTE',
+      'GT': 'LTE',
+      'LTE': 'GT',
+      'GTE': 'LT',
+    }
 
+    const invertedOperatorName = invertedOperatorMap[rowFilter.operator.name];
+    if (invertedOperatorName) {
+      retVal.operator = { ...rowFilter.operator, name: invertedOperatorName };
+      retVal.invertOperator = false;
+    }
+  }
+
+  return retVal;
 }
 
 /**
@@ -51,12 +72,15 @@ function produceValue(property = {}, operator = {}, escapedUnparsedValue) {
   const outputShouldBeArray = inputShouldBeArray;
   const parsedValue = inputShouldBeArray ? value.split(',') : value;
   if (outputShouldBeArray) {
+    if (property.name === 'deceased') {
+      console.log('produceValue', parsedValue, safeProperty, safeOperator);
+    }
     return Array.isArray(parsedValue) 
       ? parsedValue.map(v => translateValueType(safeProperty, safeOperator, v)) 
       : [translateValueType(safeProperty, safeOperator, parsedValue)];
   } else {
     return translateValueType(
-      safeOperator,
+      safeProperty,
       safeOperator,
       Array.isArray(parsedValue) ? value.join('') : parsedValue,
     );
@@ -277,16 +301,16 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
     } //////// END OF JAVASCRIPT FUNCTIONS BLOCK ////////
 
 
-    // ParsedQueryStringWithDefaultsAppliedAndNormalizedAndSorted = pqs:ParsedQueryStringWithDefaultsApplied {
-    //   let retVal = {
-    //     ...pqs,
-    //     rowFilters: pqs.rowFilters.map((rowFilter) => normalizeRowFilter(rowFilter)),
-    //     columnFilters: [ ...pqs.columnFilters ].sort((a, b) => );
-    //     listControl: [ ...pqs.listControl ].sort((a, b) => );
-    //   };
+    ParsedQueryStringWithDefaultsAppliedAndNormalizedAndSorted = pqs:ParsedQueryStringWithDefaultsApplied {
+      let retVal = {
+        ...pqs,
+        rowFilters: pqs.rowFilters.map((rowFilter) => normalizeRowFilter(rowFilter)),
+        // columnFilters: [ ...pqs.columnFilters ].sort((a, b) => );
+        // listControl: [ ...pqs.listControl ].sort((a, b) => );
+      };
 
-    //   return retVal;
-    // }
+      return retVal;
+    }
 
 
     ParsedQueryStringWithDefaultsApplied = qs:QueryString {
