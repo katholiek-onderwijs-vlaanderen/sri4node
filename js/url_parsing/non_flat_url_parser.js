@@ -427,48 +427,48 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
               const { enum: enumValues, pattern, minLength, maxLength, multipleOf, minimum, maximum, exclusiveMinimum, exclusiveMaximum } = flattenedJsonSchema[fn.property.name];
               const regexp = pattern ? RegExp(pattern) : null;
 
-              function doCheck(value, isInvalidFunction, [msgPart1, msgPart2]) {
+              function doCheck(value, isInvalidFunction, msg) {
                 if (Array.isArray(value)) {
                   value
                     .filter(isInvalidFunction)
-                    .forEach((e) => doCheck(e, isInvalidFunction, [msgPart1, msgPart2]));
+                    .forEach((e) => doCheck(e, isInvalidFunction, msg));
                 } else {
                   if (isInvalidFunction(value)) {
-                    expected(msgPart1 + value + msgPart2);
+                    expected(msg);
                   }
                 }
               }
 
               if (minLength) {
-                doCheck(v2, (e) => ('' + e).length < minLength, ['a value having at least ' + minLength + ' characters']);
+                doCheck(v2, (e) => ('' + e).length < minLength, 'a value having at least ' + minLength + ' characters');
               }
               if (maxLength) {
-                doCheck(v2, (e) => ('' + e).length > maxLength, ['a value having at most ' + maxLength + ' characters']);
+                doCheck(v2, (e) => ('' + e).length > maxLength, 'a value having at most ' + maxLength + ' characters');
               }
               // multipleOf, minimum, maximum, exclusiveMinimum, exclusiveMaximum
               if ( et.includes('integer') || et.includes('number') ) {
                 if ( multipleOf ) {
-                  doCheck(v2, (e) => e % multipleOf !== 0, ['a multiple of ' + multipleOf]);
+                  doCheck(v2, (e) => e % multipleOf !== 0, 'a multiple of ' + multipleOf);
                 }
                 if (minimum) {
-                  doCheck(v2, (e) => e < minimum, ['a value that is at least ' + minimum]);
+                  doCheck(v2, (e) => e < minimum, 'a value that is at least ' + minimum);
                 }
                 if (exclusiveMinimum) {
-                  doCheck(v2, (e) => e <= exclusiveMinimum, ['a value that is more than ' + exclusiveMinimum]);
+                  doCheck(v2, (e) => e <= exclusiveMinimum, 'a value that is more than ' + exclusiveMinimum);
                 }
                 if (maximum) {
-                  doCheck(v2, (e) => e > maximum, ['a value that is at most ' + maximum]);
+                  doCheck(v2, (e) => e > maximum, 'a value that is at most ' + maximum);
                 }
                 if (exclusiveMaximum) {
-                  doCheck(v2, (e) => e >= exclusiveMaximum, ['a value that is less than ' + exclusiveMaximum]);
+                  doCheck(v2, (e) => e >= exclusiveMaximum, 'a value that is less than ' + exclusiveMaximum);
                 }
               }
               if (enumValues) {
                 const enumValuesSet = new Set(enumValues);
-                doCheck(v2, (e) => !enumValuesSet.has(e), ['one of ' + enumValues.join()]);
+                doCheck(v2, (e) => !enumValuesSet.has(e), 'one of ' + enumValues.join());
               }
               if (regexp) {
-                doCheck(v2, (e) => !regexp.test(e), ['a value matching the regular expression ' + pattern]);
+                doCheck(v2, (e) => !regexp.test(e), 'a value matching the regular expression ' + pattern);
               }
 
               return v2;

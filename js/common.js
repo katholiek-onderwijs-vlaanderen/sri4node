@@ -205,9 +205,7 @@ function pegSyntaxErrorToErrorMessage(e, input = '') {
     //   https://www.fileformat.info/info/unicode/block/combining_diacritical_marks/index.htm
     //   a character that modifies the previous one (like adding underline or something)
     //   try them all with for (let i = 0x0300; i < 0x036F; i ++) { console.log( "hello".split('').map(c => `${c}${String.fromCharCode(i)}`).join('') + ' = 0x' + i.toString(16)); }
-    
-    // h͇e͇l͇l͇o͇ h̳e̳l̳l̳o̳
-    
+        
     const markedPart = searchParams
       .slice(e.location.start.offset, e.location.end.offset)
       .split('')

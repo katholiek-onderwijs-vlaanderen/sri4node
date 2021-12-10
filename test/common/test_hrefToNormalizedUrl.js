@@ -1380,7 +1380,11 @@ describe('non_flat_url_parser.js', () => {
       console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)')
     });
 
-
+    it('should NOT support filtering on additionalProperties (if JSON-schema does allow extra properties)', () => {
+      // https://json-schema.org/understanding-json-schema/reference/conditionals.html
+      // also if aor a sub-schema can be either variation A or variation B
+      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)')
+    });
 
     it('should complain when an argument is unexpected (like a string when an integer was expected etc.)', () => {
       // TODO: a value outside of the allowed enum
@@ -1513,10 +1517,49 @@ describe('non_flat_url_parser.js', () => {
         },
       );
     })
+
+    it('should properly patrse the q parameter', () => {
+      // currently q searches in all text fields + word+word2 finds resources containing both words
+
+      // => rowFilter without a property ?
+      // { operator: { name: 'Q', type: 'string', multiValued: false } }
+      // is the behaviour incfluenced by "omit"?
+      // how does Q param work together with column-based security ?
+      // { property: { name: 'firstName', type: 'string', multiValued: false }, operator: { name: 'IN', type: 'string', multiValued: false } }
+      // { properties: [ { name: 'firstName', type: 'string', multiValued: false } ], operator: { name: 'IN', type: 'string', multiValued: false } }
+      //
+      // { properties: [ 'key', 'firstName', 'lastName' ], operator: { name: 'Q', type: 'string', multiValued: false } }
+
+
+      // maybe you want to only search in a subset of all text fields?
+      // * do we want to allow the user to control that from the query params?
+      //   can this be made performant? maybe with 1 index per column???
+      //   but that would mean multiple index searches per query???
+      // * is this configured in sri4node config? => then we only would need one GIN index
+      //   but this would be impossible (or inefficient) to combine with column-based security
+
+      // isPartOf(a, b): true | false | undefined
+      // generateDefaultDbQuery(parseTree)
+      // generateDbQueryModifications(customFilter)
+      // sriConfig: {
+      //    customFilters: {
+      //      name: '_ROWFILTER_ROOT_WITH_CONTEXT_CONTAINS'
+      //      aliases: 'rootWithContextContains'
+      //      expectedType: 'string[]'
+      //    }
+      // }
+      // { type: 'CUSTOM_ROW_FILTER', operator: { name: 'ROOT_WITH_CONTEXT_CONTAINS', type: 'string', multiValued: true } }
+
+      // We cann allow extra properties in the JSON-schema
+      // myBigintField: { type: 'integer', _DBTYPE_: 'bigint', minimum: 300 }
+    })
+
+    console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality especially BigInt)')
   });
 
   describe('check all supported datatypes like BigInt, integer, boolean, string, ...', () => {
     // cfr. common.js/pg_connect for how some data is being translated different than pg's defaults.
+    console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality especially BigInt)')
   });
 
   describe('special cases related to backwards compatibilty', () => {
