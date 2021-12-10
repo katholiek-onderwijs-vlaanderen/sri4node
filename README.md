@@ -20,6 +20,32 @@ You will also want to install Express.js :
 
 Express.js is *technically* not a dependency (as in npm dependencies) of sri4node. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
 
+# Logging
+
+Logging can be enabled in the sri4node configuration by specifying the `logdebug` property. This property should be defined as an object with following fields:
+* `channels`: **mandatory**, can be either `'all'` to get all possible logging or a list with names of the channels for which logging is desired. The available logchannels are:
+  * `general`: information about plugins loaded and routes registered
+  * `db`: information about database interaction (task/transaction start/commit/rollback/end)
+  * `sql`: the sql being executed
+  * `requests`: logs start and end of a request with timing  
+  * `hooks`: informations about hooks being executed (start/stop/failure with timing)
+  * `server-timing`: logs timing information about the request (same as in the ServerTiming header would be returned)
+  * `batch`: information about batch parts being executed
+  * `trace`: detailed information of interal sri4node flow (schema validation, expansion, count, ...)
+  * `phaseSyncer`: information about the `phase syncer` mechanism
+  * `overloadProtection`: information from the `overload protection`mechanism
+  * `mocha`: extra debug logging when running the mocha test suite 
+* `statuses`: **optional**, a list with status codes; if specified, logging is only done for requests returning the specified statuses
+
+An example:
+```javascript
+logdebug: { 
+  channels: [ 'general', 'requests', 'trace' ] },
+  statuses: [ 500 ] 
+}
+```
+On a running sri4node instance the logdebug configuration can be altered with a POST call to `/setlogdebug` with the new logdebug configuration object as body.
+
 # Changes in sri4node 2.0
 
 In the latest version, we decided to rewrite a few things in order to be able to fix long-known problems (including the fact that GETs inside BATCH operations was not properly supported).
