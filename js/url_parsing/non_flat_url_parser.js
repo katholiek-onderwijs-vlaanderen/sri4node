@@ -3,6 +3,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Used to sort an array of parseTree objects (column, row or listControl)
+ * 
+ * @param {*} a 
+ * @param {*} b 
+ * @returns -1 if a should be before b, 1 if b should be before a, 0 if they are equivalent
+ */
+function parseTreeSortFunction(a, b) {
+  return [
+    [() => a.property && !b.property, -1],
+    [() => !a.property && b.property, +1],
+    [() => a.property && b.property && a.property.name > b.property.name, 1],
+    [() => a.property && b.property && a.property.name < b.property.name, -1],
+    [() => a.operator && !b.property, -1],
+    [() => !a.operator && b.operator, +1],
+    [() => a.operator && b.operator && a.operator.name > b.operator.name, 1],
+    [() => a.operator && b.operator && a.operator.name < b.operator.name, -1],
+  ].reduce(
+    (acc, [test, response]) => acc !== null || !test() ? acc : response,
+    null,
+  );
+}
+
+/**
  * Should turn EQ into IN, but also NOT_LT into GTE etc. ???
  * And then also translate the value from an array into a single value sometimes or the other way around?
  */
@@ -30,6 +53,36 @@ function normalizeRowFilter(rowFilter) {
 
   return retVal;
 }
+
+
+/**
+ * Should turn OMIT into the opposite to list exactly all the fields required fields.
+ */
+function normalizeColumnFilter(columnFilter) {
+  let retVal = { ...columnFilter };
+  // if (columnFilter.operator.name === 'EQ') {
+  //   // translate EQ to IN
+  //   retVal.operator = { ...columnFilter.operator, name: 'IN', multiValued: true };
+  //   retVal.value = [ columnFilter.value ];
+  // } else if (columnFilter.invertOperator) {
+  //   // translate some inverted operators to their non-inverted equivalent
+  //   const invertedOperatorMap = {
+  //     'LT': 'GTE',
+  //     'GT': 'LTE',
+  //     'LTE': 'GT',
+  //     'GTE': 'LT',
+  //   }
+
+  //   const invertedOperatorName = invertedOperatorMap[columnFilter.operator.name];
+  //   if (invertedOperatorName) {
+  //     retVal.operator = { ...columnFilter.operator, name: invertedOperatorName };
+  //     retVal.invertOperator = false;
+  //   }
+  // }
+
+  return retVal;
+}
+
 
 /**
  * Makes sure the input string is propery converted to an actual JSON type.
@@ -159,6 +212,49 @@ function parsedQueryStringToParseTreeWithDefaults(flatParseTree, defaultParseTre
   return retVal;
 };
 
+/**
+ * 
+ * @param {*} parseTreeObject can contain property and operator objects that define what to expect behind the = sign
+ * @param {*} typeDescription something like boolean[] or string or integer[] to express single values or an array of a certain data type
+ * 
+ */
+function checkType({property, operator}, typeDescription) {
+  const safeProperty = property || {};
+  const safeOperator = operator || {};
+  const parseTreeExpectsArray = safeProperty.multiValued || safeOperator.multiValued;
+  const parseTreeExpectedType = operator.type || property.type;
+
+  const parsedTypeDescription = typeDescription.split('[');
+  const describedType = parsedTypeDescription[0];
+  const describedIsArray = !!parsedTypeDescription[1];
+
+  const typesMatch = describedType === parseTreeExpectedType;
+  const isArrayMatches = parseTreeExpectsArray === describedIsArray;
+
+  // console.log('[checkType]', property, operator, 'returns', typesMatch && isArrayMatches);
+
+  return typesMatch && isArrayMatches;
+}
+
+/**
+ * Given a parseTreeObject (which can contain property and operator objects that define what to expect behind the = sign)
+ * will generate a string like 'boolean', 'integer[]', etc.
+ * 
+ * Should probably later on also be smart enough (and thus schema-aware) to
+ * return if it's expecting an enum on the right side, so that we can properly parse
+ * if an inexistent value is given to an enum field filter.
+ * 
+ * @param {*} parseTreeObject can contain property and operator objects that define what to expect behind the = sign
+ * @returns a string expressing the expected type like 'boolean', 'integer[]', ...
+ */
+function generateExpectedType({property, operator}) {
+  const safeProperty = property || {};
+  const safeOperator = operator || {};
+  const parseTreeExpectsArray = safeProperty.multiValued || safeOperator.multiValued;
+  const parseTreeExpectedType = operator.type || property.type;
+
+  return `${parseTreeExpectedType}${parseTreeExpectsArray ? '[]' : ''}`;
+}
 
 /**
  * This grammar should generate a parseTree that is non-flat, so different 'types' of filters
@@ -177,12 +273,12 @@ function parsedQueryStringToParseTreeWithDefaults(flatParseTree, defaultParseTre
  * 
  * WHAT WITH EXPAND=NONE,FULL,... is this listControl, or propertyMapping, or yet another category?
  * 
- * Also: all propertyFilters shoul start with the name of a property and then some operator,
+ * Also: all propertyFilters should start with the name of a property and then some operator,
  * all other filters should start with and underscore to distinguish them from the propertyFilters
  * all listControl filters should start with _LIST_ (like _LIST_LIMIT, _LIST_ORDER_BY, ...)
  * and all propertyMappings should start with _MAP_ (like _MAP_E)
  *
- * Generates a peg js grammar parser based on the flattened schema and the sriConfiog object
+ * Generates a peggy grammar parser based on the flattened schema and the sriConfiog object
  * that can parse the entire query string (ideally it works whether characters are encoded or not).
  *
  * But for now we could assume that all characters in the string are escaped
@@ -196,31 +292,11 @@ function parsedQueryStringToParseTreeWithDefaults(flatParseTree, defaultParseTre
  *
  * @param {Array<string>} existingProperties: a list of allowed properties
  * @param {SriConfig} sriConfig
- * @returns {String} the pegjs grammar
+ * @returns {String} the peggy grammar
  */
 function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigResourceMapping = {}) {
-  // const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-  //   .filter(([k, v]) => k.endsWith('[*]'))
-  //   .map(([k, v]) => encodeURIComponent(k))
-  //   .sort().reverse();
-  const allMultiValuedPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema)
-    .filter((k) => k.endsWith('[*]'))
-    .sort().reverse();
-  // const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-  //   .filter(([k, v]) => !k.endsWith('[*]'))
-  //   .map(([k, v]) => encodeURIComponent(k))
-  //   .sort().reverse();
-  const allSingleValuedPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema)
-    .filter((k) => !k.endsWith('[*]'))
-    .sort().reverse();
-  // const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-  //   .map(([k, v]) => encodeURIComponent(k))
-  // .sort().reverse();
+  const allPropertyNamesSorted = Object.keys(flattenedJsonSchema).sort();
   const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
-
-  const hasMultiValuedProperties = allMultiValuedPropertyNamesSortedInReverse.length > 0;
-
-  const hasSingleValuedProperties = allSingleValuedPropertyNamesSortedInReverse.length > 0;
 
   /**
    * If not overwritten by actual query params, this should be the default parseTree
@@ -261,9 +337,9 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
     columnFilters: [
       // expand=SUMMARY should be translated to PROPERTYNAME_IN with fewer properties, omit is the same (pick could be a good antonym for omit, also used by typescript)
       // (but do we know from the config what these properties are???)
-      { operator: { name: 'RESOURCE_PROPERTYNAME_IN', type: 'string', multiValued: true }, value: allPropertyNamesSortedInReverse }, // not count
+      { operator: { name: 'RESOURCE_PROPERTYNAME_IN', type: 'string', multiValued: true }, value: allPropertyNamesSorted }, // not count
       // OR
-      // { metaProperty: 'RESOURCE_PROPERTYNAME', operator: 'IN', value: allPropertyNamesSortedInReverse }, // not count
+      // { metaProperty: 'RESOURCE_PROPERTYNAME', operator: 'IN', value: ${allPropertyNamesSortedInReverse} }, // not count
     ], // OMIT/PROPERTYNAME_IN but also expansion could belong here ????
     listControl: [
       // $$includeCount=false
@@ -286,7 +362,13 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
       // everything that is not overwritten will be set to the default
       const defaultParseTree = ${JSON.stringify(defaultParseTree, null, 2)};
 
+      const flattenedJsonSchema = ${JSON.stringify(flattenedJsonSchema, null, 2)};
+
+      ${parseTreeSortFunction.toString()};
+
       ${normalizeRowFilter.toString()};
+
+      ${normalizeColumnFilter.toString()};
 
       ${convertValue.toString()};
 
@@ -298,15 +380,19 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
 
       ${parsedQueryStringToParseTreeWithDefaults.toString()}
 
+      ${checkType.toString()}
+
+      ${generateExpectedType.toString()}
+
     } //////// END OF JAVASCRIPT FUNCTIONS BLOCK ////////
 
 
     ParsedQueryStringWithDefaultsAppliedAndNormalizedAndSorted = pqs:ParsedQueryStringWithDefaultsApplied {
       let retVal = {
         ...pqs,
-        rowFilters: pqs.rowFilters.map((rowFilter) => normalizeRowFilter(rowFilter)),
-        // columnFilters: [ ...pqs.columnFilters ].sort((a, b) => );
-        // listControl: [ ...pqs.listControl ].sort((a, b) => );
+        rowFilters: pqs.rowFilters.map((rowFilter) => normalizeRowFilter(rowFilter)).sort(parseTreeSortFunction),
+        columnFilters: pqs.columnFilters.map((rowFilter) => normalizeColumnFilter(rowFilter)).sort(parseTreeSortFunction),
+        listControl: [ ...pqs.listControl ].sort(parseTreeSortFunction),
       };
 
       return retVal;
@@ -325,40 +411,123 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
       / "" { return [] }
 
     QueryStringPart
-      = ( fn:RowFilter "=" v:UnparsedValue {
-          return { type: 'ROW_FILTER', ...fn, value: produceValue(fn.property, fn.operator, v) }
+      = fn:RowFilter "="
+        et:( "" { return generateExpectedType(fn) })
+        v:(
+            v2:(
+                ( & { return et === 'integer[]' } @IntegerArray )
+              / ( & { return et === 'integer'   } @IntegerValue )
+              / ( & { return et === 'number[]'  } @NumberArray )
+              / ( & { return et === 'number'    } @NumberValue )
+              / ( & { return et === 'boolean[]' } @BooleanArray )
+              / ( & { return et === 'boolean'   } @BooleanValue )
+              / ( & { return et === 'string[]'  } @StringArray )
+              / ( & { return et === 'string'    } @StringValue )
+            ) {
+              const { enum: enumValues, pattern, minLength, maxLength, multipleOf, minimum, maximum, exclusiveMinimum, exclusiveMaximum } = flattenedJsonSchema[fn.property.name];
+              const regexp = pattern ? RegExp(pattern) : null;
+
+              function doCheck(value, isInvalidFunction, [msgPart1, msgPart2]) {
+                if (Array.isArray(value)) {
+                  value
+                    .filter(isInvalidFunction)
+                    .forEach((e) => doCheck(e, isInvalidFunction, [msgPart1, msgPart2]));
+                } else {
+                  if (isInvalidFunction(value)) {
+                    expected(msgPart1 + value + msgPart2);
+                  }
+                }
+              }
+
+              if (minLength) {
+                doCheck(v2, (e) => ('' + e).length < minLength, ['a value having at least ' + minLength + ' characters']);
+              }
+              if (maxLength) {
+                doCheck(v2, (e) => ('' + e).length > maxLength, ['a value having at most ' + maxLength + ' characters']);
+              }
+              // multipleOf, minimum, maximum, exclusiveMinimum, exclusiveMaximum
+              if ( et.includes('integer') || et.includes('number') ) {
+                if ( multipleOf ) {
+                  doCheck(v2, (e) => e % multipleOf !== 0, ['a multiple of ' + multipleOf]);
+                }
+                if (minimum) {
+                  doCheck(v2, (e) => e < minimum, ['a value that is at least ' + minimum]);
+                }
+                if (exclusiveMinimum) {
+                  doCheck(v2, (e) => e <= exclusiveMinimum, ['a value that is more than ' + exclusiveMinimum]);
+                }
+                if (maximum) {
+                  doCheck(v2, (e) => e > maximum, ['a value that is at most ' + maximum]);
+                }
+                if (exclusiveMaximum) {
+                  doCheck(v2, (e) => e >= exclusiveMaximum, ['a value that is less than ' + exclusiveMaximum]);
+                }
+              }
+              if (enumValues) {
+                const enumValuesSet = new Set(enumValues);
+                doCheck(v2, (e) => !enumValuesSet.has(e), ['one of ' + enumValues.join()]);
+              }
+              if (regexp) {
+                doCheck(v2, (e) => !regexp.test(e), ['a value matching the regular expression ' + pattern]);
+              }
+
+              return v2;
+            }
+        )
+        {
+          // console.log("        -------- RowFilter value of type", et, v);
+          // First check if the format is correct and throw a parse error otherwise (with error(...) or expected(...))!!!
+
+          return { type: 'ROW_FILTER', ...fn, value: v }
+        }
+      // / ( fn:RowFilter "=" v:UnparsedValue {
+      //     console.log("        -------- RowFilter UnparsedValue", v);
+      //     return { type: 'ROW_FILTER', ...fn, value: produceValue(fn.property, fn.operator, v) }
+      //   } )
+      / ( fn:ColumnFilter "=" v:UnparsedValue {
+          return { type: 'COLUMN_FILTER', ...fn, value: produceValue(fn.property, fn.operator, v) }
         } )
       / ( lcp:ListControlParameter "=" v:UnparsedValue {
           return { type: 'LIST_CONTROL', ...lcp, value: produceValue(lcp.property, lcp.operator, v) } 
         } )
 
 
-    // Missing operator is considered to mean equals (and thus translated to IN)
+    // Property name without an operator is considered to mean 'equals' (and thus translated to IN)
     RowFilter
-        = p:Property ne:OperatorNegator ? op:RowFilterOperator ? ci:CaseInsensitive ? {
-          return { property: p, operator: op || { name: 'EQ', multiValued: false }, invertOperator: !!ne, caseInsensitive: ci === null ? true : ci /*, expectedValue: produceExpectedValue(property, op)*/ };
+      = p:Property ne:OperatorNegator ? op:RowFilterOperator ? ci:CaseInsensitive ? {
+          return { type: 'ROW_FILTER', property: p, operator: op || { name: 'EQ', multiValued: false }, invertOperator: !!ne, caseInsensitive: ci === null ? true : ci /*, expectedValue: produceExpectedValue(property, op)*/ };
         }
       / p:Property cs:OperatorCaseSensitive ? ne:OperatorNegator ? op:RowFilterOperator ? {
-          return { property: p, operator: op || { name: 'EQ', multiValued: false }, invertOperator: !!ne, caseInsensitive: !cs /*, expectedValue: produceExpectedValue(property, op)*/ };
+          return { type: 'ROW_FILTER', property: p, operator: op || { name: 'EQ', multiValued: false }, invertOperator: !!ne, caseInsensitive: !cs /*, expectedValue: produceExpectedValue(property, op)*/ };
         }
 
-    ListControlParameter = op:ListControlOperator { return { operator: op } }
+    ColumnFilter
+      = op:ColumnFilterOperator { return { type: 'COLUMN_FILTER', operator: op } }
+        // "=" v:UnparsedValue
+
+    ColumnFilterOperator = ( "omit" / "_COLUMN_OMIT" ) { return { name: "COLUMN_OMIT", type: "string", multiValued: true } }
+
+    ListControlParameter
+      = op:ListControlOperator { return { operator: op } }
+      // translate $$includeCount to LIST_INCLUDE with property value $$meta.count (${encodeURIComponent('$$')}meta.count)
+      / "%24%24includeCount" { return { operator: op } }
+
 
     OperatorCaseSensitive = "CaseSensitive" { return true }
 
     OperatorNegator
       = "_NOT" / "Not"
 
-    RowFilterOperator = MultiValuedOperator / SingleValuedOperator
+    RowFilterOperator = MultiValuedRowFilterOperator / SingleValuedRowFilterOperator
 
-    MultiValuedOperator = operatorName:(
+    MultiValuedRowFilterOperator = operatorName:(
         ( "_IN"i / "In" ) { return 'IN' }
         / ( "_OVERLAPS"i / "Overlaps" ) { return 'OVERLAPS' }
         / ( "_CONTAINS"i / "Contains" ) { return 'CONTAINS' }
         // ( / "_NOT"i / "Not" ) { return 'NOT' }
       ) { return { name: operatorName, multiValued: true } }
 
-    SingleValuedOperator = operatorName:(
+    SingleValuedRowFilterOperator = operatorName:(
         ( "_GTE"i / "GreaterOrEqual" ) { return 'GTE' }
         / ( "_LTE"i / "LessOrEqual" ) { return 'LTE' }
         / ( "_GT"i / "Greater" ) { return 'GT' }
@@ -369,7 +538,8 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
 
     CaseInsensitive = "_I" { return true }
 
-    UnparsedValue = v:([^&]+) { return v.join('') /* decodeURIComponent(v.join('').replace(/\\+/g, ' ')) */ }
+    UnparsedValue = $([^&]*) { return decodeURIComponent(text().replace(/\\+/g, ' ')) }
+
 
     // TODO: make sure we can properly parse an encoded value,
     // so we can put the intelligence of understanding arrays (or arrays of arrays with parentheses)
@@ -377,31 +547,41 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
     MultiValue = sv1:(SingleValue) v23etc:( CommmaCharacter sv2:SingleValue { return sv2 } )*
       // { return [v1, ...v23etc] }
 
+    StringArray
+      = LeftParenthesis? result:( ( v:StringValue CommmaCharacter? { return v } )* ) RightParenthesis?
+        { return result }
+
+    IntegerArray
+      = LeftParenthesis? result:( ( v:IntegerValue CommmaCharacter ? { return v } )* ) RightParenthesis?
+        { return result }
+
+    NumberArray
+      = LeftParenthesis? result:( ( v:NumberValue CommmaCharacter ? { return v } )*) RightParenthesis?
+        { return result }
+
+    BooleanArray
+      = LeftParenthesis? result:( ( v:BooleanValue CommmaCharacter ? { return v } )*) RightParenthesis?
+        { return result }
+
     SingleValue = $( SingleValueCharacter* )
 
     SingleValueCharacter = !(CommmaCharacter / '&') (
          SpaceCharacter / PercentEncodedCharacter / [^&,]
       )
 
-    CommmaCharacter = ',' / '%2C' { return ',' }
-
-    SpaceCharacter = '+' / '%20' / ' ' { return ' ' }
-
-    PercentEncodedCharacter = c:('%' [0-9A-F] [0-9A-F]) { return decodeURIComponent(c) }
-
-
-    // for the future when maybe we also have multi-valued control parameters
+    // only allow old-school notation like limit or expand when no such properties exist on the resource !!!
     ListControlOperator = 
-      // shouldn't this be _LIST_LIMIT ?
-      ( "_LIMIT" / "limit" ) { return { name: 'LIST_LIMIT', type: 'integer', multiValued: false } }
-      / ( "_EXPANSION" / "expand" ) { return { name: 'EXPANSION', type: 'string', multiValued: true } }
-      // shouldn't this be _LIST_OFFSET ?
-      / ( "_OFFSET" / "offset" ) { return { name: 'LIST_OFFSET', type: 'integer', multiValued: false } }
-      // shouldn't this be _LIST_KEYOFFSET ?
-      / ( "_KEYOFFSET" / "keyOffset" )  { return { name: 'LIST_KEY_OFFSET', type: 'string', multiValued: true } }
-      / ( "_LIST_META_INCLUDE_COUNT" / "%24%24includeCount" ) { return { name: 'LIST_META_INCLUDE_COUNT', type: 'boolean', multiValued: false } }
-      / ( "_LIST_ORDER_BY" / "orderBy" ) { return { name: 'LIST_ORDER_BY', type: 'string', multiValued: true } }
-      / ( "_LIST_ORDER_DESCENDING" / "descending" ) { return { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false } }
+      ( "_LIST_LIMIT" ${ !allPropertyNamesSorted.includes('limit') ? '/ "limit"' : '' } ) { return { name: 'LIST_LIMIT', type: 'integer', multiValued: false } }
+      / ( "_EXPANSION" ${ !allPropertyNamesSorted.includes('expand') ? '/ "expand"' : '' } ) { return { name: 'EXPANSION', type: 'string', multiValued: true } }
+      / ( "_LIST_OFFSET" ${ !allPropertyNamesSorted.includes('offset') ? '/ "offset"' : '' } ) { return { name: 'LIST_OFFSET', type: 'integer', multiValued: false } }
+      / ( "_LIST_KEYOFFSET" ${ !allPropertyNamesSorted.includes('keyOffset') ? '/ "keyOffset"' : '' } )  { return { name: 'LIST_KEY_OFFSET', type: 'string', multiValued: true } }
+      / ( "_LIST_META_INCLUDE" ${ !allPropertyNamesSorted.includes('%24%24includeCount') ? '/ "%24%24includeCount"' : '' } ) { return { name: 'LIST_META_INCLUDE_COUNT', type: 'boolean', multiValued: false } }
+      // _LIST_PROPERTY_EXCLUDE or OMIT ??? This could replace expand=none and list_meta_include (to include or exclude the count)
+      // the frustrating thing is we want to exclude the count by default and include the expanded results by default
+      // of course, if we would change that default (not expanding by default) we wouldn't have a problem
+      // / ( "_LIST_PROPERTY_EXCLUDE" ${ !allPropertyNamesSorted.includes('omit') ? '/ "omit"' : '' } ) { return { name: 'LIST_PROPERTY_EXCLUDE', type: 'boolean', multiValued: false } }
+      / ( "_LIST_ORDER_BY" ${ !allPropertyNamesSorted.includes('orderBy') ? '/ "orderBy"' : '' } ) { return { name: 'LIST_ORDER_BY', type: 'string', multiValued: true } }
+      / ( "_LIST_ORDER_DESCENDING" ${ !allPropertyNamesSorted.includes('descending') ? '/ "descending"' : '' } ) { return { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false } }
 
     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
     // example: "firstNameCapital" / "firstName" / "lastName"
@@ -413,29 +593,47 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
         .join(' / ')
       }
 
-    // if there are no multi-valued properties (simple 'non-object' arrays) we'll match on '\' because it should not be in any url
-    // this keeps things simpler (as in: the grammar always has MultiValuedProperty defined but it should never match anything in real life)
-    // WARNING:by splitting them up into MultiValuedProperty and SingleValuedProperty we could potentially get invalid matches
-    //    if for example "data" would be a MultiValuedProperty and "database" a SingleValuedProperty
-    //    the MultiValuedProperty would match first (the way it's currently written)
-    MultiValuedProperty =
-        ${ hasMultiValuedProperties
-            ? `p:(
-              ${allMultiValuedPropertyNamesSortedInReverse.map(n => `"${encodeURIComponent(n)}"`).join(' / ')}
-              ) { return decodeURIComponent(p) }
-            `
-            : '"\\\\"'
-        }
-      
+    // 1 string element from what can potentially be an array
+    StringValue "string"
+      = s:( ! Comma ! LeftParenthesis ! RightParenthesis @( SpaceCharacter / BackslashEscapedCharacter / PercentEncodedCharacter / UnencodedCharacter ) )+ { return s.join('') }
 
-    SingleValuedProperty =
-      ${ hasSingleValuedProperties
-        ? `p:(
-          ${allSingleValuedPropertyNamesSortedInReverse.map(n => `"${encodeURIComponent(n)}"`).join(' / ')}
-          ) { return decodeURIComponent(p) }
-        `
-        : '"\\\\"'
-      }
+    BooleanValue "boolean (true or false)"
+      = "true" { return true }
+      / "false" { return false }
+
+    IntegerValue "integer"
+      = $([0-9]+) { return parseInt(text()) }
+
+    NumberValue "number"
+      = $( [0-9]+ ( "." [0-9]+ )? ) { return Number(text()) }
+
+    UnencodedCharacter = ! "%" c:. { return c }
+
+    BackslashEscapedCharacter
+      = Backslash c:(PercentEncodedCharacter / UnencodedCharacter)
+        { return c }
+
+    PercentEncodedCharacter = c:('%' [0-9A-F] [0-9A-F]) { return decodeURIComponent(c) }
+
+    Comma = c:"${encodeURIComponent(',')}" { return decodeURIComponent(c) }
+
+    Dollar = c:"${encodeURIComponent('$')}" { return decodeURIComponent(c) }
+
+    LeftParenthesis = c:"${encodeURIComponent('(')}" { return decodeURIComponent(c) }
+
+    RightParenthesis = c:"${encodeURIComponent(')')}" { return decodeURIComponent(c) }
+
+    LeftSquareBracket = c:"${encodeURIComponent('[')}" { return decodeURIComponent(c) }
+
+    RightSquareBracket = c:"${encodeURIComponent(']')}" { return decodeURIComponent(c) }
+
+    Backslash = c:"${encodeURIComponent('\\')}" { return decodeURIComponent(c) }
+
+    CommmaCharacter = ( "," / "%2C" ) { return ',' } // { return decodeURIComponent(c) }
+
+    SpaceCharacter = ( "+" / "%20" / " " ) { return ' ' }
+
+
   `;
 
   // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
@@ -447,5 +645,4 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfigR
 
 module.exports = {
   generateNonFlatQueryStringParserGrammar,
-  mergeArrays,
 }

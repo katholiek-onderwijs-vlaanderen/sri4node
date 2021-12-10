@@ -4,7 +4,7 @@
  * and the value separately (write a parse function that gets 2 parameters and returns 1 object).
  * (URLSearchParams.entries() returns decoded [filtername, filtervalue] pairs)
  *
- * Generates a peg js grammar parser based on the flattened schema and the sriConfiog object
+ * Generates a peggy grammar parser based on the flattened schema and the sriConfiog object
  * that can parse the entire query string (ideally it works whether characters are encoded or not).
  *
  * But for now we could assume that all characters in the string are escaped
@@ -18,7 +18,7 @@
  *
  * @param {Array<string>} existingProperties: a list of allowed properties
  * @param {SriConfig} sriConfig
- * @returns {String} the pegjs grammar
+ * @returns {String} the peggy grammar
  */
  function generateFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfig = {}) {
   const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)

@@ -7,7 +7,7 @@ const pEvent = require('p-event');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const stream = require('stream');
-const peg = require("pegjs");
+const peggy = require("peggy");
 const { generateFlatQueryStringParserGrammar } = require('./url_parsing/flat_url_parser')
 const { generateNonFlatQueryStringParserGrammar } = require('./url_parsing/non_flat_url_parser')
 
@@ -186,7 +186,7 @@ function generateQueryStringParser(grammar, allowedStartRules = undefined) {
       allowedStartRules
     }
     : {};
-  return peg.generate(grammar, pegConf);
+  return peggy.generate(grammar, pegConf);
 };
 
 /**
@@ -198,10 +198,27 @@ function generateQueryStringParser(grammar, allowedStartRules = undefined) {
 function pegSyntaxErrorToErrorMessage(e, input = '') {
   if (e.location) {
     const searchParams = input;
+
+    // const markedPart = ' >> ' + searchParams.slice(e.location.start.offset, e.location.end.offset) + ' << ' + 
+
+    // Since we can expect to be in a UTF-8 environment we can use some UTF-8 niftyness
+    //   https://www.fileformat.info/info/unicode/block/combining_diacritical_marks/index.htm
+    //   a character that modifies the previous one (like adding underline or something)
+    //   try them all with for (let i = 0x0300; i < 0x036F; i ++) { console.log( "hello".split('').map(c => `${c}${String.fromCharCode(i)}`).join('') + ' = 0x' + i.toString(16)); }
+    
+    // h͇e͇l͇l͇o͇ h̳e̳l̳l̳o̳
+    
+    const markedPart = searchParams
+      .slice(e.location.start.offset, e.location.end.offset)
+      .split('')
+      .map( c => `${c}\u0333`) // \u0330 (tilde below) \u0332 (underline) \u0333 (double underline) \u0347 (also double underline)
+      .join('');
+    
+
     const markedErrorString = (
         searchParams.slice(0, e.location.start.offset) +
-        '>>>' + searchParams.slice(e.location.start.offset, e.location.end.offset) +
-        '<<<' + searchParams.slice(e.location.end.offset)
+        markedPart +
+        searchParams.slice(e.location.end.offset)
       )
       .split('\n')
       .map((l, lineNr) => `${("0000" + lineNr).slice(-3)} ${l}`)
