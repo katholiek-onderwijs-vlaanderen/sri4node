@@ -1518,7 +1518,7 @@ describe('non_flat_url_parser.js', () => {
       );
     })
 
-    it('should properly patrse the q parameter', () => {
+    it('should properly parse the q parameter', () => {
       // currently q searches in all text fields + word+word2 finds resources containing both words
 
       // => rowFilter without a property ?
@@ -1556,6 +1556,12 @@ describe('non_flat_url_parser.js', () => {
 
     console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality especially BigInt)')
   });
+
+  it('should properly parse custom filters', () => {
+    // on the 'view' built on content api, it uses extra parameters like 'preview'
+    console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality especially BigInt)')
+  });
+
 
   describe('check all supported datatypes like BigInt, integer, boolean, string, ...', () => {
     // cfr. common.js/pg_connect for how some data is being translated different than pg's defaults.
