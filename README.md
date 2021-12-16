@@ -298,7 +298,7 @@ To be able to keep track of requests in the server logging and at the client, sr
 
 ## Internal requests
 
-Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
+Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). (global as any).sri4node_internal_interface has following fields:
 
 * href: mandatory field
 * verb: mandatory field
@@ -328,7 +328,7 @@ An example:
         parentSriRequest: sriRequest,
     }
 
-    const resp = await global.sri4node_internal_interface(internalReq);
+    const resp = await (global as any).sri4node_internal_interface(internalReq);
 ```
 
 ### transformInternalRequest

@@ -1,5 +1,5 @@
 'use strict';
 
 module.exports = {
-  spec: 'test_performance/tests.js'
+  spec: 'test_performance/tests'
 };

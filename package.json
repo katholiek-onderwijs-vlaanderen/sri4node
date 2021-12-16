@@ -5,9 +5,9 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "POSTGRES_SCHEMA=\"sri4node\" mocha --exit",
+    "test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/*.ts",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
-    "test_common": "mocha ./test/common --exit",
+    "test_common": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/common/*.ts",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
@@ -44,6 +44,10 @@
   },
   "devDependencies": {
     "@kathondvla/sri-client": "https://github.com/katholiek-onderwijs-vlaanderen/sri-client.git#sprint-220-0",
+    "@types/body-parser": "^1.19.2",
+    "@types/express": "^4.17.13",
+    "@types/json-schema": "^7.0.9",
+    "@types/node": "^17.0.0",
     "await-sleep": "0.0.1",
     "chai": "^4.3.4",
     "describe": "^1.2.0",
@@ -52,10 +56,12 @@
     "eslint-plugin-import": "^2.24.2",
     "express": "4.17.1",
     "iso-datestring-validator": "2.1.4",
-    "mocha": "^8.2.1",
+    "mocha": "^8.4.0",
     "nodemon": "2.0.4",
     "stream-equal": "2.0.0",
     "test-console": "^1.1.0",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.4",
     "undici": "^3.3.6"
   },
   "repository": {
