@@ -1229,6 +1229,12 @@ describe('non_flat_url_parser.ts', () => {
     //   );
     // });
 
+    it('should know what to do with ?dryRun=true', () => {
+      // doesn't seem to matter a lot for list resources or gets in general, so maybe they are simply not supported on gets?
+      // on the other hand, adding this somewhere to the parse tree does seem to make sense
+      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)');
+    });
+
     it('should put list control parameter in the right subsection', () => {
       // const parsed = parse('/persons?limit=5');
       // console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
