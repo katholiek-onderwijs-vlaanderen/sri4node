@@ -7,7 +7,9 @@ context.serve();
 */
 
 // External includes
-var express = require('express');
+// var express = require('express');
+import * as express from 'express';
+
 var common = require('../js/common');
 var cl = common.cl;
 const utils = require('./utils')(null);
@@ -16,15 +18,16 @@ var $u;
 var configCache:any = null;
 
 export = module.exports = {
-  serve: async function (roa, port, logdebug) {
+  serve: async function (sri4node, port, logdebug) {
     'use strict';
-    var config = module.exports.config(roa, port, logdebug);
+    var config = module.exports.config(sri4node, port, logdebug);
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
     app.set('port', port);
 
-    await roa.configure(app, config)
+    await sri4node.configure(app, config)
+    // app.get('/', (req, resp) => resp.end('hello world'));
 
     try {
       const port = app.get('port');
@@ -46,14 +49,14 @@ export = module.exports = {
     return configCache;
   },
 
-  config: function (roa, port, logdebug) {
+  config: function (sri4node, port, logdebug) {
     'use strict';
     if (configCache !== null) {
       cl('config cached');
       return configCache;
     }
 
-    $u = roa.utils;
+    $u = sri4node.utils;
 
     var commonResourceConfig = {
     };
@@ -64,22 +67,22 @@ export = module.exports = {
       defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
 
       resources: [
-        require('./context/persons')(roa, commonResourceConfig),
-        require('./context/messages')(roa, commonResourceConfig),
-        require('./context/communities')(roa, commonResourceConfig),
-        require('./context/transactions')(roa, commonResourceConfig),
-        require('./context/table')(roa, commonResourceConfig),
+        require('./context/persons')(sri4node, commonResourceConfig),
+        require('./context/messages')(sri4node, commonResourceConfig),
+        require('./context/communities')(sri4node, commonResourceConfig),
+        require('./context/transactions')(sri4node, commonResourceConfig),
+        require('./context/table')(sri4node, commonResourceConfig),
         require('./context/jsonb')(commonResourceConfig),
-        require('./context/alldatatypes')(roa, commonResourceConfig),
-        require('./context/products')(roa, commonResourceConfig),
-        require('./context/packages')(roa, commonResourceConfig),
-        require('./context/relations')(roa, commonResourceConfig),
-        require('./context/personrelations')(roa, commonResourceConfig),
-        require('./context/cities')(roa, commonResourceConfig),
+        require('./context/alldatatypes')(sri4node, commonResourceConfig),
+        require('./context/products')(sri4node, commonResourceConfig),
+        require('./context/packages')(sri4node, commonResourceConfig),
+        require('./context/relations')(sri4node, commonResourceConfig),
+        require('./context/personrelations')(sri4node, commonResourceConfig),
+        require('./context/cities')(sri4node, commonResourceConfig),
         require('./context/selfreferential')(commonResourceConfig),
-        require('./context/countries')(roa, commonResourceConfig),
-        require('./context/countries_with_prefix')(roa, commonResourceConfig),
-        require('./context/onlycustom')(roa, commonResourceConfig),
+        require('./context/countries')(sri4node, commonResourceConfig),
+        require('./context/countries_with_prefix')(sri4node, commonResourceConfig),
+        require('./context/onlycustom')(sri4node, commonResourceConfig),
       ],
 
       beforePhase: [  async (sriRequestMap, jobMap, pendingJobs) => {

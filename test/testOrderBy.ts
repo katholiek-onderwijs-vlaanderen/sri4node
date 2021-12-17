@@ -6,7 +6,11 @@ export = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
-    baseUrl: base
+    baseUrl: base,
+    retry: {
+      retries: 1,
+    },
+    timeout: 10000,
   }
   const api = sriclientFactory(sriClientConfig)
 

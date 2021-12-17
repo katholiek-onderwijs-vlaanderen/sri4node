@@ -1,4 +1,4 @@
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
   var ret = {

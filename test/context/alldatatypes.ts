@@ -1,12 +1,12 @@
 var common = require('../../js/common');
 const utils = require('../utils')(null);
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $s = roa.schemaUtils;
-  var $q = roa.queryUtils;
-  var $m = roa.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $q = sri4node.queryUtils;
+  var $m = sri4node.mapUtils;
 
   const checkRead = function( tx, sriRequest, elements ) {
 

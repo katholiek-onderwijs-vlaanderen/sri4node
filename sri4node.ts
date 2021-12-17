@@ -3,7 +3,9 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
+import { Application, Request, Response } from "express";
 import { Stream } from "stream";
+import { SriConfig } from "./js/typeDefinitions";
 
 
 // External dependencies.
@@ -409,9 +411,7 @@ const toArray = (resource, name) => {
 /* express.js application, configuration for roa4node */
 // export = // for typescript
 export = module.exports = {
-  configure: async function (app, config) {
-    'use strict';
-
+  configure: async function configure(app:Application, config:SriConfig) {
     let maxHeapUsage = 0;
 
     if (config.trackHeapMax === true) {
@@ -442,8 +442,8 @@ export = module.exports = {
       // initialize undefined global hooks with empty list
       ([ 'beforePhase', 'transformRequest', 'transformInternalRequest'])
         .forEach((name) => toArray(config, name))
-      config.beforePhase.push(regularResource.beforePhaseQueryByKey);
-      config.beforePhase.push(regularResource.beforePhaseInsertUpdate);
+      config.beforePhase?.push(regularResource.beforePhaseQueryByKey);
+      config.beforePhase?.push(regularResource.beforePhaseInsertUpdate);
 
       if (config.bodyParserLimit === undefined) {
         config.bodyParserLimit = '5mb'
@@ -453,14 +453,16 @@ export = module.exports = {
         if (!mapping.onlyCustom) {
           // In case query is not defied -> use defaultFilter
           if (mapping.query === undefined) {
-            mapping.query = { defaultFilter: $q.defaultFilter }
+            mapping.query = { defaultfilter: $q.defaultFilter }
           }
           // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
-          Object.keys(mapping.map).forEach( (key) => {
-            if (mapping.map[key].references !== undefined && mapping.query[key] === undefined) {
-              mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key)
-            }
-          })
+          if (mapping.map) {
+            Object.keys(mapping.map).forEach( (key) => {
+              if (mapping.map?.[key].references !== undefined && mapping.query && mapping.query?.[key] === undefined) {
+                mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key);
+              }
+            });
+          }
 
           //TODO: what with custom stuff ?
           //  e.g content-api with attachments / security/query
@@ -485,7 +487,7 @@ export = module.exports = {
             throw new Error(`Key type of resource ${mapping.type} unknown!`);
           }
           mapping.listResourceRegex = new RegExp(`^${mapping.type}(?:[?#]\\S*)?$`);
-          mapping.validateKey =  ajv.compile(mapping.schema.properties.key);
+          mapping.validateKey = ajv.compile(mapping.schema.properties.key);
         }
       })
 
@@ -565,22 +567,23 @@ export = module.exports = {
       }
 
       (global as any).sri4node_configuration.pgColumns = Object.fromEntries(
-            config.resources.map(resource => {
-                if (!resource.onlyCustom) {
-                    const type = resource.type;
-                    const table = tableFromMapping(typeToMapping(type));
-                    const columns = JSON.parse('[' + sqlColumnNames(typeToMapping(type)) + ']')
-                        .filter(cname => !cname.startsWith('$$meta.'));
-                    const ret:any = {}
-                    ret.insert = new pgp.helpers.ColumnSet(columns, { table });
+        config.resources
+          .filter((resource) => !resource.onlyCustom)
+          .map((resource) => {
+            const type = resource.type;
+            const table = tableFromMapping(typeToMapping(type));
+            const columns = JSON.parse('[' + sqlColumnNames(typeToMapping(type)) + ']')
+                .filter(cname => !cname.startsWith('$$meta.'));
+            const ret:any = {}
+            ret.insert = new pgp.helpers.ColumnSet(columns, { table });
 
-                    const dummyUpdateRow = transformObjectToRow({}, resource, false);
-                    ret.update = generatePgColumnSet([...new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])], type, table);
-                    ret.delete = generatePgColumnSet(["key", "$$meta.modified", "$$meta.deleted"], type, table);
+            const dummyUpdateRow = transformObjectToRow({}, resource, false);
+            ret.update = generatePgColumnSet([...new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])], type, table);
+            ret.delete = generatePgColumnSet(["key", "$$meta.modified", "$$meta.deleted"], type, table);
 
-                    return [table, ret];
-                }
-            }).filter( e => e !== undefined) );
+            return [table, ret];
+          })
+      );
 
 
       (global as any).sri4node_loaded_plugins = new Map();
@@ -614,8 +617,8 @@ export = module.exports = {
           next();
         } else {
           debug('overloadProtection', `DROPPED REQ`);
-          if (config.overloadProtection.retryAfter !== undefined) {
-            res.set('Retry-After', config.overloadProtection.retryAfter);
+          if (config.overloadProtection?.retryAfter !== undefined) {
+            res.set('Retry-After', config.overloadProtection?.retryAfter.toString() );
           }
           res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
         }
@@ -755,7 +758,7 @@ export = module.exports = {
 
 // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
 
-        mapping.customRoutes.forEach( cr => {
+        mapping.customRoutes?.forEach( cr => {
             const customMapping = _.cloneDeep(mapping);
             if (cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping)
@@ -782,6 +785,7 @@ export = module.exports = {
                   acc.push([ crudPath + cr.routePostfix, verb, handler, config, customMapping, streaming, likeMatches.readOnly, false ])
                 }
               } else if (cr.streamingHandler !== undefined) {
+                const streamingHandler = cr.streamingHandler;
                 acc.push( [ mapping.type + cr.routePostfix
                           , method.toUpperCase()
                           , async (phaseSyncer, tx, sriRequest, mapping) => {
@@ -843,7 +847,7 @@ export = module.exports = {
                               //  (on node 12, the 'close' event will do the job)
                               stream.on('end', () => streamEndEmitter.emit('done'));
 
-                              streamingHandlerPromise = cr.streamingHandler(tx, sriRequest, stream)
+                              streamingHandlerPromise = streamingHandler(tx, sriRequest, stream)
 
                               // Wait till busboy handler are in place (can be done in beforeStreamingHandler
                               // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
@@ -876,7 +880,8 @@ export = module.exports = {
                           , true
                           , cr.readOnly
                           , false ] )
-              } else {
+              } else if (cr.handler !== undefined) {
+                const handler = cr.handler;
                 acc.push( [ mapping.type + cr.routePostfix
                           , method.toUpperCase()
                           , async (phaseSyncer, tx, sriRequest, mapping) => {
@@ -885,7 +890,7 @@ export = module.exports = {
                                   await cr.beforeHandler(tx, sriRequest, customMapping)
                                 }
                                 await phaseSyncer.phase()
-                                const result = await cr.handler(tx, sriRequest, customMapping)
+                                const result = await handler(tx, sriRequest, customMapping)
                                 await phaseSyncer.phase()
                                 if (cr.afterHandler !== undefined) {
                                   await cr.afterHandler(tx, sriRequest, customMapping, result)
@@ -899,6 +904,8 @@ export = module.exports = {
                           , cr.readOnly
                           , false ] )
 
+              } else {
+                throw "No handlers defined";
               }
             })
           })
@@ -910,11 +917,13 @@ export = module.exports = {
         }
 
         return acc
-      }, [])
+      },
+      [] as any[],
+    )
 
 
       // register individual routes in express
-      batchHandlerMap.forEach( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
+      batchHandlerMap.forEach( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]:[string, string, any, any, any, boolean, boolean, boolean]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
         debug('general', `registering route ${path} - ${verb} - ${readOnly}`)
@@ -924,14 +933,14 @@ export = module.exports = {
 
       // transform map with 'routes' to be usable in batch (translate and group by verb)
       config.batchHandlerMap = _.groupBy(
-        batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
+        batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]:[string, string, any, any, any, boolean, boolean, boolean]) => {
           return { route: new route(path), verb, func, config, mapping, streaming, readOnly, isBatch}
         }),
         e => e.verb,
       );
 
 
-      app.get('/', (req, res) => res.redirect('/resources'))
+      app.get('/', (_req:Request, res:Response) => res.redirect('/resources'));
 
       (global as any).sri4node_internal_interface = async (internalReq) => {
         const match = batch.matchHref(internalReq.href, internalReq.verb);

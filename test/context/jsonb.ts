@@ -1,7 +1,7 @@
 var common = require('../../js/common');
-var roa = require('../../sri4node');
-var $m = roa.mapUtils;
-var $s = roa.schemaUtils;
+var sri4node = require('../../sri4node');
+var $m = sri4node.mapUtils;
+var $s = sri4node.schemaUtils;
 
 export = module.exports = function (extra) {
   'use strict';

@@ -1,10 +1,10 @@
 const common = require('../../js/common');
 // Messages relations
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $s = roa.schemaUtils;
-  var $q = roa.queryUtils;
+  var $s = sri4node.schemaUtils;
+  var $q = sri4node.queryUtils;
 
   var ret = {
     type: '/relations',

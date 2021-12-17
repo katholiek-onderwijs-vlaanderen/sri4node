@@ -1,10 +1,10 @@
 const common = require('../../js/common');
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $s = roa.schemaUtils;
-  var $m = roa.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $m = sri4node.mapUtils;
 
   var ret = {
     type: '/store/products',

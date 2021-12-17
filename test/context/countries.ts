@@ -1,8 +1,8 @@
 const common = require('../../js/common');
 
-export = module.exports = function (roa, extra) {
-  const $s = roa.schemaUtils;
-  const $m = roa.mapUtils;
+export = module.exports = function (sri4node, extra) {
+  const $s = sri4node.schemaUtils;
+  const $m = sri4node.mapUtils;
 
   const ret = {
     type: '/countries',

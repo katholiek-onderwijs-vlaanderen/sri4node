@@ -145,7 +145,7 @@ export = module.exports = {
         var paramCount = 1;
         if (values && values.length > 0) {
           for (var i = 0; i < values.length; i++) {
-            const index = text.indexOf(exports.parameterPattern);
+            const index = text.indexOf(module.exports.parameterPattern);
             if (index === -1) {
               var msg = 'Parameter count in query does not add up. Too few parameters in the query string';
               error('** ' + msg);
@@ -157,7 +157,7 @@ export = module.exports = {
               paramCount++;
             }
           }
-          const index = text.indexOf(exports.parameterPattern);
+          const index = text.indexOf(module.exports.parameterPattern);
           if (index !== -1) {
             var msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
             error('** ' + msg);

@@ -956,7 +956,8 @@ const sriConfig:SriConfig = {
           limit: {
             type: 'integer',
             minimum: 3,
-            exclusiveMaximum: 100,
+            // exclusiveMaximum: 100, // shouod be aboolean
+            maximum: 99, // =te same as exclusiveMaximum 100, so the test should keep working
           },
           descending: {
             type: 'boolean',

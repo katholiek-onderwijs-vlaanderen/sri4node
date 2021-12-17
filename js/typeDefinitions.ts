@@ -3,6 +3,10 @@
 // have  a type definition, so it'll be easier to use for developers.
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
+import { BusboyConfig } from "busboy";
+import { JSONSchema4 } from "json-schema";
+import { IDatabase } from "pg-promise";
+
 export type PluginConfig = {}
 
 // for example /llinkid/activityplanning, so should only start with a slash and maybe only lowercase etc???
@@ -17,13 +21,19 @@ export type HttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH'  | 'POST';
 export type ResourceDefinition = {
   type: UriPath,
   metaType: ResourceMetaType,
+
+  // these next lines are put onto the same object afterwards, not by the user
+  singleResourceRegex?: RegExp,
+  listResourceRegex?: RegExp,
+  validateKey?: (string) => boolean,
+
   listResultDefaultIncludeCount?: boolean,
   maxlimit?: number,
   defaultlimit?: number,
   defaultexpansion?: boolean,
   // THIS SHOULD BE A JSON SCHEMA SO MAYBE https://github.com/json-schema-tools/meta-schema
   // WILL HELP TO CORRECTLY TYPE JSON SCHEMA'S INISDE OUT CODE
-  schema: object,
+  schema: JSONSchema4,
   // {
   //   $schema: "http://json-schema.org/schema#",
   //   title: "activities on a plan",
@@ -99,9 +109,9 @@ export type ResourceDefinition = {
   //     "period"
   //   ]
   // },
-  beforeUpdate?: any[],
-  beforeInsert?: any[],
-  afterRead?: any[],
+  beforeUpdate?: ((any) => any)[],
+  beforeInsert?: ((any) => any)[],
+  afterRead?: ((any) => any)[],
   // current query
   query?: {
     defaultfilter: (arg0: any) => void
@@ -123,18 +133,40 @@ export type ResourceDefinition = {
   //   handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
   // },
   map?: { [k:string]: any },
+  onlyCustom?: boolean,
   customRoutes?: Array<
     {
       routePostfix: UriPath,
       httpMethods: HttpMethod[],
       readOnly?: boolean,
       busBoy?: boolean,
+      busBoyConfig?: BusboyConfig,
       binaryStream?: boolean,
+      alterMapping?: (any) => any,
+      transformRequest: ((any) => any)[],
+      transformResponse: ((any) => any)[],
+      like?: string,
+      query?: string,
+      beforeHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
+      handler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
+      afterHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any, result:any) => any,
+
+      beforeStreamingHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
+      streamingHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, stream:any) => any,
     }
   >
 };
 
 export type SriConfig = {
+  // these next lines are put onto the same object afterwards, not by the user
+  utils?: any,
+  db?: IDatabase<any>,
+  dbR?: IDatabase<any>,
+  dbW?: IDatabase<any>,
+  informationSchema?: any,
+  id?: any,
+
+  // the real properties !!!
   plugins?: PluginConfig[]
   enableGlobalBatch?: boolean,
   globalBatchRoutePrefix?: UriPath,
@@ -143,10 +175,18 @@ export type SriConfig = {
   logdebug?: DebugLevel,
   description?: string,
   bodyParserLimit?: string, // example 50mb
+  batchConcurrency?: number,
+  overloadProtection?: {
+    retryAfter?: number,
+  },
   dbConnectionInitSql?: string, // example "set random_page_cost = 1.1;",
 
   defaultlimit?: boolean,
+  trackHeapMax?: boolean,
+  batchHandlerMap?: any,
   resources: ResourceDefinition[],
+  beforePhase?: ((any) => any)[],
+
 };
 
 

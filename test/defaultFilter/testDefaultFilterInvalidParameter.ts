@@ -1,8 +1,8 @@
 // Utility methods for calling the SRI interface
 const assert = require('assert');
 const _ = require('lodash');
-const roa = require('../../sri4node');
-const alldatatypes = require('../context/alldatatypes')(roa, {});
+const sri4node = require('../../sri4node');
+const alldatatypes = require('../context/alldatatypes')(sri4node, {});
 
 export = module.exports = function (base) {
   'use strict';

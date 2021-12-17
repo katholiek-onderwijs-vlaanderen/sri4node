@@ -10,6 +10,8 @@ if (c9hostname) {
   cl('https://' + c9hostname);
 }
 
-var roa = require('../sri4node');
+const sri4node = require('../sri4node');
 var context = require('../test/context');
-context.serve(roa, port, true, false, false, true);
+context.serve(sri4node, port, true, false, false, true);
+
+export = module.exports = context.serve(sri4node, port, true, false, false, true);

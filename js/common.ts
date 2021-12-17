@@ -78,7 +78,6 @@ class SriError {
  * @param x 
  */
  function cl (x:any) {
-  'use strict';
   console.log(x); // eslint-disable-line
 }
 
@@ -185,9 +184,13 @@ function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = []) 
   } else if (jsonSchema.type === 'array') {
     // return Object.fromEntries(flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']);
     const retVal = {};
-    jsonSchema.items?.forEach((pSchema) => {
-      Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, '[*]']));
-    });
+    if (Array.isArray(jsonSchema.items)) {
+      jsonSchema.items?.forEach((pSchema) => {
+        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, '[*]']));
+      });
+    } else if (jsonSchema.items) {
+      Object.assign(retVal, flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']));
+    }
     return retVal;
   } else {
     const flattenedName = pathToCurrent.reduce((a, c) => {
@@ -351,6 +354,9 @@ function sortUrlQueryParamParseTree(parseTree:any[]) {
   ));
 }
 
+
+let hrefToParsedObjectFactoryThis:any = {};
+
 /**
  * This factory function will return a function that can parse an href
  * into an object containing the parseTree, and a normalizedUrl.
@@ -424,18 +430,18 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
 
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
-  if (this.sriConfig !== sriConfig) {
+  if (hrefToParsedObjectFactoryThis.sriConfig !== sriConfig) {
     try {
-      this.sriConfig = sriConfig;
-      this.mappingByPathMap = Object.fromEntries(
+      hrefToParsedObjectFactoryThis.sriConfig = sriConfig;
+      hrefToParsedObjectFactoryThis.mappingByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => [r.type, r])
       );
-      this.flattenedJsonSchemaByPathMap = Object.fromEntries(
+      hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => [r.type, flattenJsonSchema(r.schema)]),
       );
-      this.flatQueryStringParserByPathMap = Object.fromEntries(
+      hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => {
-          const grammar = generateFlatQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          const grammar = generateFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
           try {
             // console.log(`${r.type} GRAMMAR`);
             // console.log(`=================`);
@@ -463,9 +469,9 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
           }
         }),
       );
-      this.nonFlatQueryStringParserByPathMap = Object.fromEntries(
+      hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => {
-          const grammar = generateNonFlatQueryStringParserGrammar(this.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          const grammar = generateNonFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
           try {
             return [r.type, generateQueryStringParser(grammar)];
           } catch(e) {
@@ -475,7 +481,7 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
         }),
       );
     } catch(e) {
-      delete this.sriConfig;
+      delete hrefToParsedObjectFactoryThis.sriConfig;
       console.log('Uh oh, something went wrong while setting up flattenedJsonSchema and parsers');
       console.log(pegSyntaxErrorToErrorMessage(e));
       throw e;
@@ -487,7 +493,7 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
       const urlToWorkOn = new URL(`https://domain.com${href}`);
       const searchParamsToWorkOn = urlToWorkOn.searchParams;
   
-      const flatQueryStringParser = this.flatQueryStringParserByPathMap[urlToWorkOn.pathname];
+      const flatQueryStringParser = hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap[urlToWorkOn.pathname];
       try {
         const parseTree = {
           'NORMAL': () => flatQueryStringParser.parse(searchParamsToWorkOn.toString()),
@@ -501,7 +507,7 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
             }),
         }[parseQueryStringPartByPart]();
   
-        const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, this.mappingByPathMap[urlToWorkOn.pathname]);
+        const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, hrefToParsedObjectFactoryThis.mappingByPathMap[urlToWorkOn.pathname]);
   
         // validateQueryParam(
         //   '_LIMIT',
@@ -537,7 +543,7 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
     const urlToWorkOn = new URL(href, 'https://domain.com');
     const searchParamsToWorkOn = urlToWorkOn.searchParams;
 
-    const nonFlatQueryStringParser = this.nonFlatQueryStringParserByPathMap[urlToWorkOn.pathname];
+    const nonFlatQueryStringParser = hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap[urlToWorkOn.pathname];
     try {
       const parseTree = nonFlatQueryStringParser.parse(searchParamsToWorkOn.toString());
 
@@ -662,7 +668,7 @@ export = module.exports = {
       };
     }
     const pp = path.parse(u1);
-    if (exports.isUuid(pp.name)) {
+    if (module.exports.isUuid(pp.name)) {
       return {
         base: pp.dir,
         id: pp.name,
@@ -680,7 +686,6 @@ export = module.exports = {
 
 
   errorAsCode: (s:string) => {
-    'use strict';
     // return any string as code for REST API error object.
     var ret = s;
 
@@ -695,7 +700,6 @@ export = module.exports = {
 
   // Converts the configuration object for roa4node into an array per resource type.
   typeToConfig: function (config:any[]) {
-    'use strict';
     return config.reduce( (acc, c) => {
                 acc[c.type] = c
                 return acc
@@ -718,8 +722,6 @@ export = module.exports = {
 
   /* Merge all direct properties of object 'source' into object 'target'. */
   mergeObject: function (source, target) {
-    'use strict';
-    var key;
     Object.keys(source).forEach( key => target[key] = source[key] );
   },
 
@@ -866,7 +868,7 @@ export = module.exports = {
     } else {
       // arg is sri4node configuration object
       sri4nodeConfig = arg;
-      if (pgp === null) {
+      if (!pgp) {
         let pgpInitOptions:any = {}
         if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
           pgpInitOptions.connect = (client, dc, useCount) => {
@@ -1028,7 +1030,7 @@ export = module.exports = {
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
     } catch (err) {
       error('CAUGHT ERROR: ');
-      error(JSON.stringify(err));
+      error(JSON.stringify(err), err);
       throw new SriError({status: 503, errors: [{code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.'}]})
     }
   },
@@ -1185,13 +1187,13 @@ export = module.exports = {
             return err
           } else {
             error('____________________________ E R R O R (settleResultsToSriResults)_________________________')
-            error(exports.stringifyError(err))
+            error(module.exports.stringifyError(err))
             if (err && err.stack) {
                 error('STACK:')
                 error(err.stack)
             }
             error('___________________________________________________________________________________________')
-            return new SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${exports.stringifyError(err)}]`}]})
+            return new SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [$module.exports.stringifyError(err)}]`}]})
           }
         }
       });

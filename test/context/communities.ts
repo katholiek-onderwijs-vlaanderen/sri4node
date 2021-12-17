@@ -4,13 +4,13 @@ const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 
 
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $m = roa.mapUtils;
-  var $s = roa.schemaUtils;
-  var $q = roa.queryUtils;
-  var $u = roa.utils;
+  var $m = sri4node.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $q = sri4node.queryUtils;
+  var $u = sri4node.utils;
 
   async function invalidQueryParameter() {
     throw new SriError({status: 404, errors: [{code: 'invalid.query.parameter'}]})

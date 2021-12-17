@@ -1,13 +1,13 @@
 const { debug, mergeObject } = require('../../js/common');
 const utils = require('../utils')(null);
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $m = roa.mapUtils;
-  var $s = roa.schemaUtils;
-  var $q = roa.queryUtils;
-  var $u = roa.utils;
+  var $m = sri4node.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $q = sri4node.queryUtils;
+  var $u = sri4node.utils;
 
   async function messagesPostedSince(value, select) {
     select.sql(' and posted > ').param(value);

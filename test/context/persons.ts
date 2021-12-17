@@ -9,17 +9,17 @@ const debug = common.debug;
 const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
   var isHrefAPermalink = function (href) {
     return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };
 
-  var $m = roa.mapUtils;
-  var $s = roa.schemaUtils;
-  var $q = roa.queryUtils;
-  var $u = roa.utils;
+  var $m = sri4node.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $q = sri4node.queryUtils;
+  var $u = sri4node.utils;
 
   const checkMe = async function( tx, sriRequest, elements ) {
     if (sriRequest.userObject === undefined) {

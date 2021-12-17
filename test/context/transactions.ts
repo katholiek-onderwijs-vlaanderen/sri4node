@@ -3,12 +3,12 @@ const pMap = require('p-map');
 const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 
 
-export = module.exports = function (roa, extra) {
+export = module.exports = function (sri4node, extra) {
   'use strict';
 
-  var $m = roa.mapUtils;
-  var $s = roa.schemaUtils;
-  var $u = roa.utils;
+  var $m = sri4node.mapUtils;
+  var $s = sri4node.schemaUtils;
+  var $u = sri4node.utils;
 
   var ret = {
     type: '/transactions',
