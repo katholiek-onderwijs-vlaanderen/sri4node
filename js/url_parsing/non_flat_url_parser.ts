@@ -1,8 +1,11 @@
+import { FlattenedJsonSchema, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty, ResourceDefinition, SriConfig } from "../typeDefinitions";
+
+const { flattenJsonSchema } = require('../schemaUtils');
+const peggy = require("peggy");
+
 ////////////////////////////////////////////////////////////////////////////////
 // The following functions are needed as a helper inside the grammar
 ////////////////////////////////////////////////////////////////////////////////
-
-import { FlattenedJsonSchema, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty, ResourceDefinition, SriConfig } from "../typeDefinitions";
 
 /**
  * Used to sort an array of parseTree objects (column, row or listControl)
@@ -365,25 +368,23 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
 
       const flattenedJsonSchema = ${JSON.stringify(flattenedJsonSchema, null, 2)};
 
-      ${parseTreeSortFunction.toString()};
-
-      ${normalizeRowFilter.toString()};
-
-      ${normalizeColumnFilter.toString()};
-
-      ${convertValue.toString()};
-
-      ${translateValueType.toString()};
-
-      ${produceValue.toString()}
-
-      ${mergeArrays.toString()}
-
-      ${parsedQueryStringToParseTreeWithDefaults.toString()}
-
-      ${checkType.toString()}
-
-      ${generateExpectedType.toString()}
+      // Simply putting these functions in here by adding \${functionName.toString()}
+      // doesn't work well with typescript because then I get the compiled version
+      // which might have typescript specific dependencies that will then not be available
+      // when actually running the parser.
+      // So we have to pass them on every call to parse, in the options object
+      const {
+        parseTreeSortFunction,
+        normalizeRowFilter,
+        normalizeColumnFilter,
+        convertValue,
+        translateValueType,
+        produceValue,
+        mergeArrays,
+        parsedQueryStringToParseTreeWithDefaults,
+        checkType,
+        generateExpectedType,
+      } = options;
 
     } //////// END OF JAVASCRIPT FUNCTIONS BLOCK ////////
 
@@ -642,8 +643,43 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
   return grammar;
 }
 
+function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition, allowedStartRules:string[] | undefined = undefined): any {
+  const grammar = generateNonFlatQueryStringParserGrammar(flattenJsonSchema(sriConfigResourceDefinition?.schema || {}), sriConfigDefaults, sriConfigResourceDefinition);
+
+  const options = {
+    parseTreeSortFunction,
+    normalizeRowFilter,
+    normalizeColumnFilter,
+    convertValue,
+    translateValueType,
+    produceValue,
+    mergeArrays,
+    parsedQueryStringToParseTreeWithDefaults,
+    checkType,
+    generateExpectedType,
+  };
+
+  const pegConf = allowedStartRules
+    ? {
+      // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
+      allowedStartRules,
+      options,
+    }
+    : {};
+  const parser = peggy.generate(grammar, pegConf);
+
+  // I don't really like this, but it works (I'd love to be able to put them on the global pegConf)
+  // requiring external libraries from inside the grammar is too cumbersome for what I'm using
+  // and putting these functions inside the grammar I would have to write them in plain javascript
+  //AND without any code completion (because they are inside a string)
+  // which also makes them hard to test...
+  parser.origParse = parser.parse;
+  parser.parse = (input, moreOptions = {}) => parser.origParse(input, { ...moreOptions, ...options });
+  return parser;
+};
 
 
 export = module.exports = {
   generateNonFlatQueryStringParserGrammar,
+  generateNonFlatQueryStringParser,
 }

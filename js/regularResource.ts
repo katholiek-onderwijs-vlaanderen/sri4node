@@ -224,7 +224,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mappin
  * a PUT after patching.
  */
 /* eslint-disable */
-async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey:any = null) {
+async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey:any = undefined) {
   // 'use strict';
   const key = sriRequest.params.key;
   const obj = sriRequest.body

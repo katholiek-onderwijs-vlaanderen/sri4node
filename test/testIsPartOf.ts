@@ -114,7 +114,7 @@ export = module.exports = function (base) {
     });
 
     it('lists - match', async function () {
-      const r = await doPost('/countries/isPartOf', {  
+      const r = await doPost('/countries/isPartOf', {
                         "a": { "href": "/countries?nameRegEx=^be.*$" },
                         "b": { "hrefs": [ "/countries" ] }
                       }, authHdrObj);

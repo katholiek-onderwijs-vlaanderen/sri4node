@@ -114,7 +114,7 @@ export type ResourceDefinition = {
   afterRead?: ((any) => any)[],
   // current query
   query?: {
-    defaultfilter: (arg0: any) => void
+    defaultFilter: (arg0: any) => void
   },
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,
@@ -326,7 +326,7 @@ export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: strin
 //         null
 //       ],
 //       "query": {
-//         defaultfilter: function(x,y,z) {}
+//         defaultFilter: function(x,y,z) {}
 //       },
 //       // POSSIBLE_FUTURE_QUERY
 //       "customQueryParams": {

@@ -11,8 +11,7 @@ export = module.exports = {
 
   // Creates a config object for q node-postgres prepared statement.
   // It also adds some convenience functions for handling appending of SQL and parameters.
-  prepareSQL: function (name) {
-    'use strict';
+  prepareSQL: function (name = null) {
     return {
       name: name,
       text: '',

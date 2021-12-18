@@ -1,7 +1,7 @@
 /* Internal utilities for sri4node */
-import {JSONSchema4, JSONSchema4Type} from 'json-schema';
 import { URL } from 'url';
-import { FlattenedJsonSchema, ParseTree, ResourceDefinition, SriConfig, SriRequest } from './typeDefinitions';
+import { ResourceDefinition, SriConfig, SriRequest } from './typeDefinitions';
+const { flattenJsonSchema } = require('./schemaUtils');
 
 const _ = require('lodash')
 const url = require('url')
@@ -12,7 +12,7 @@ const { v4: uuidv4 } = require('uuid');
 const stream = require('stream');
 const peggy = require("peggy");
 const { generateFlatQueryStringParserGrammar } = require('./url_parsing/flat_url_parser')
-const { generateNonFlatQueryStringParserGrammar } = require('./url_parsing/non_flat_url_parser')
+const { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } = require('./url_parsing/non_flat_url_parser')
 
 const env = require('./env');
 
@@ -140,68 +140,6 @@ const error = function(...args) {
  *  @property {object} document
  *  @property {String} sriRequestID
  */
-
-/**
- * This will make sure we can easily find all possible dot-separated property names
- * by going through the keys in the object, because it will create a non-nested version
- * of the json schema where all the keys are dot-separated.
- * In case of a an array, the 'key' should become something like myobj.myarray[*] to indicate
- * all array elements, and thus myobj.myarray[*].arrayelementproperty if the array contains objects
- * (cfr. JSONPath)
- *
- * so
- * {
- *  type: 'object',
- *  properties: {
- *    a: {
- *      type: 'object',
- *      properties: {
- *        b: { type: 'string' }
- *        cs: { type: 'array', items: { type: 'number' } }
- *      }
- *    }
- *  }
- * }
- * would become:
- * {
- *  'a.b': { type: 'string' }
- *  'a.cs[*]': { type: 'number' }
- * }
- *
- * @param {object} jsonSchema
- * @param {Array<string>} pathToCurrent
- * @returns a version of the json schema where every property name if on the top-level but with dot notation
- */
-function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = []) {
-  if (jsonSchema.type === 'object') {
-    // old skool modification of an object is a bit easier to reason about in this case
-    const retVal = {};
-    Object.entries(jsonSchema.properties || {})
-      .forEach(([pName, pSchema]) => {
-        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
-      });
-    return retVal;
-  } else if (jsonSchema.type === 'array') {
-    // return Object.fromEntries(flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']);
-    const retVal = {};
-    if (Array.isArray(jsonSchema.items)) {
-      jsonSchema.items?.forEach((pSchema) => {
-        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, '[*]']));
-      });
-    } else if (jsonSchema.items) {
-      Object.assign(retVal, flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']));
-    }
-    return retVal;
-  } else {
-    const flattenedName = pathToCurrent.reduce((a, c) => {
-      if (c === '[*]') {
-        return `${a}${c}`;
-      }
-      return `${a}.${c}`;
-    });
-    return { [flattenedName]: jsonSchema };
-  }
-}
 
 /**
  * Given the generated grammar, generate and return the parser
@@ -471,11 +409,14 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
       );
       hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap = Object.fromEntries(
         sriConfig.resources.map((r) => {
-          const grammar = generateNonFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+          // const grammar = generateNonFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
           try {
-            return [r.type, generateQueryStringParser(grammar)];
+            // return [r.type, generateQueryStringParser(grammar)];
+            // sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition, allowedStartRules
+            return [r.type, generateNonFlatQueryStringParser(sriConfig, r)];
           } catch(e) {
-            console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+            // console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+            console.log(pegSyntaxErrorToErrorMessage(e));
             throw e;
           }
         }),
@@ -1482,8 +1423,6 @@ export = module.exports = {
   },
 
   hrefToParsedObjectFactory,
-
-  flattenJsonSchema,
 
   hrtimeToMilliseconds,
 

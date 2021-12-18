@@ -3,12 +3,12 @@ const pMap = require('p-map');
 const pFilter = require('p-filter'); 
 const url = require('url');
 
-const hooks = require('./hooks')
-const expand = require('./expand');
+import hooks = require('./hooks')
+import expand = require('./expand');
 const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
         transformRowToObject, tableFromMapping, pgExec, SriError, setServerTimingHdr } = require('./common');
-const queryobject = require('./queryObject');
-const queryUtils = require('./queryUtils');
+import queryobject = require('./queryObject');
+import queryUtils = require('./queryUtils');
 const prepare = queryobject.prepareSQL;
 
 
@@ -24,28 +24,28 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
 
   if (mapping.query) {
     await pMap(
-        _.keys(urlparameters),
-        async (key) => {
-            if (!standardParameters.includes(key)) {
-              if (mapping.query[key] || mapping.query.defaultFilter) {
-                // Execute the configured function that will apply this URL parameter
-                // to the SELECT statement
-                if (!mapping.query[key] && mapping.query.defaultFilter) {
-                  await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx)
-                } else {
-                  await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters)
-                }
-              } else {
-                throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
-              }          
-            } else if (key === 'hrefs' && urlparameters.hrefs) {
-              queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping)
-            } else if (key === 'modifiedSince') {
-              queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping)
+      Object.keys(urlparameters),
+      async (key) => {
+        if (!standardParameters.includes(key)) {
+          if (mapping.query[key] || mapping.query.defaultFilter) {
+            // Execute the configured function that will apply this URL parameter
+            // to the SELECT statement
+            if (!mapping.query[key] && mapping.query.defaultFilter) {
+              await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx)
+            } else {
+              await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters)
             }
-        },
-        {concurrency: 1}
-      )
+          } else {
+            throw new SriError({status: 404, errors: [{code: 'unknown.query.parameter', parameter: key}]}) // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
+          }
+        } else if (key === 'hrefs' && urlparameters.hrefs) {
+          queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping)
+        } else if (key === 'modifiedSince') {
+          queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping)
+        }
+      },
+      {concurrency: 1},
+    );
   }
 }
 
@@ -237,7 +237,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   if (results.length === parseInt(queryLimit) && results.length > 0) {  
     let lastElement = queryParams.expand && queryParams.expand.toLowerCase() === 'none' ? rows[queryLimit-1] : results[queryLimit-1]['$$expanded'];
     const keyOffset = orderKeys.map( k => {
-                                      const o =_.get(lastElement, k);
+                                      const o = _.get(lastElement, k);
                                       if (tableInformation[k].type === 'timestamp with time zone') {
                                         return encodeURIComponent(o);
                                       } else {
@@ -436,8 +436,8 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
 //=================
 
 
-export = module.exports = {
-  getListResource: getListResource,
-  getSQLFromListResource: getSQLFromListResource,
-  isPartOf: isPartOf
-}
+export /*= module.exports*/ = {
+  getListResource,
+  getSQLFromListResource,
+  isPartOf,
+};

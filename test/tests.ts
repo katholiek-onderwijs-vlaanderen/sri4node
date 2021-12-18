@@ -2,8 +2,8 @@ var sri4node = require('../sri4node');
 var context = require('./context');
 
 var port = 5000;
-// const logdebug = false;
-const logdebug = { channels: 'all' };
+const logdebug = false;
+// const logdebug = { channels: 'all' };
 
 var base = 'http://localhost:' + port;
 
@@ -69,50 +69,50 @@ describe('Sri4node testing', function () {
   });
 
   require('./testOrderBy')(base);
-  // require('./testAfterRead')(base);
-  // require('./testCTE')(base);
-  // require('./testListResource')(base);
-  // require('./testPublicResources')(base);
-  // require('./testRegularResource')(base);
-  // require('./testPutAndPatch')(base);
-  // require('./testDelete')(base);
-  // require('./testJSONB')(base);
+  require('./testAfterRead')(base);
+  require('./testCTE')(base);
+  require('./testListResource')(base);
+  require('./testPublicResources')(base);
+  require('./testRegularResource')(base);
+  require('./testPutAndPatch')(base);
+  require('./testDelete')(base);
+  require('./testJSONB')(base);
 
-  // require('./testQueryUtils')(base);
-  // require('./testModified')(base);
-  // require('./testResourceType')(base);
+  require('./testQueryUtils')(base);
+  require('./testModified')(base);
+  require('./testResourceType')(base);
 
-  // require('./testExpand')(base);
-  // require('./testErrorHandling')(base);
-  // require('./testCustomRoutes')(base);
-  // require('./testIsPartOf')(base);
-  // require('./testBatch')(base);
+  require('./testExpand')(base);
+  require('./testErrorHandling')(base);
+  require('./testCustomRoutes')(base);
+  require('./testIsPartOf')(base);
+  require('./testBatch')(base);
 
-  // require('./testInternalRequest')(base);
+  require('./testInternalRequest')(base);
 
-  // require('./defaultFilter/testDefaultFilterGreater')(base);
-  // require('./defaultFilter/testDefaultFilterCombination')(base);
-  // require('./defaultFilter/testDefaultFilterContains')(base);
-  // require('./defaultFilter/testDefaultFilterExact')(base);
-  // require('./defaultFilter/testDefaultFilterGreaterOrEqual')(base);
-  // require('./defaultFilter/testDefaultFilterIn')(base);
-  // require('./defaultFilter/testDefaultFilterLess')(base);
-  // require('./defaultFilter/testDefaultFilterLessOrEqual')(base);
-  // require('./defaultFilter/testDefaultFilterQ')(base);
-  // require('./defaultFilter/testDefaultFilterRegEx')(base);
-  // require('./defaultFilter/testDefaultFilterInvalidParameter')(base);
-  // require('./defaultFilter/testDefaultFilterOverlaps')(base);
+  require('./defaultFilter/testDefaultFilterGreater')(base);
+  require('./defaultFilter/testDefaultFilterCombination')(base);
+  require('./defaultFilter/testDefaultFilterContains')(base);
+  require('./defaultFilter/testDefaultFilterExact')(base);
+  require('./defaultFilter/testDefaultFilterGreaterOrEqual')(base);
+  require('./defaultFilter/testDefaultFilterIn')(base);
+  require('./defaultFilter/testDefaultFilterLess')(base);
+  require('./defaultFilter/testDefaultFilterLessOrEqual')(base);
+  require('./defaultFilter/testDefaultFilterQ')(base);
+  require('./defaultFilter/testDefaultFilterRegEx')(base);
+  require('./defaultFilter/testDefaultFilterInvalidParameter')(base);
+  require('./defaultFilter/testDefaultFilterOverlaps')(base);
 
-  // require('./relationsFilter/testRelationsFilterFromTypes')(base);
-  // require('./relationsFilter/testRelationsFilterToTypes')(base);
-  // require('./relationsFilter/testRelationsFilterNoType')(base);
+  require('./relationsFilter/testRelationsFilterFromTypes')(base);
+  require('./relationsFilter/testRelationsFilterToTypes')(base);
+  require('./relationsFilter/testRelationsFilterNoType')(base);
 
-  // require('./testServerTiming')(base);
-  // require('./testLogging')(base);
-  // require('./testSriType')(base);
+  require('./testServerTiming')(base);
+  require('./testLogging')(base);
+  require('./testSriType')(base);
 
-  // require('./testDocs')(base);
-  // require('./testInformationSchema')();
+  require('./testDocs')(base);
+  require('./testInformationSchema')();
 
 });
 

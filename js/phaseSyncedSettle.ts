@@ -66,8 +66,8 @@ export = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhase
     const ctrlEmitter = queue(new Emitter);
     const jobMap:Map<string, PhaseSyncer> = new Map(jobList.map(([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter))
         .map((phaseSyncer:PhaseSyncer) => [phaseSyncer.id, phaseSyncer]))
-    const pendingJobs = new Set(Object.keys(jobMap));
-    const sriRequestMap = new Map(Object.entries(jobMap).map(([id, phaseSyncer]:[string, PhaseSyncer]) =>
+    const pendingJobs = new Set(jobMap.keys());
+    const sriRequestMap = new Map([...jobMap.entries()].map(([id, phaseSyncer]:[string, PhaseSyncer]) =>
         [id, phaseSyncer.sriRequest]));
 
     const sriRequestIDToPhaseSyncerMap = new Map(Object.entries(jobMap).map(([_id, phaseSyncer]:[string, PhaseSyncer]) =>

@@ -1,7 +1,8 @@
 import { SriConfig } from "../../js/typeDefinitions";
 
 const { assert } = require('chai');
-const { hrefToParsedObjectFactory, flattenJsonSchema, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+const { flattenJsonSchema } = require('../../js/schemaUtils');
 
 const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
 
@@ -1085,7 +1086,7 @@ ${JSON.stringify(parsedUrl.parseTree[expectedSubTreeName], null, 2)}`,
 }
 
 describe('commons.js: flattenJsonSchema(...)', () => {
-  it('should produce a flattened json schem', () => {
+  it('should produce a flattened json schema', () => {
     assert.deepEqual(
       flattenJsonSchema(
         {

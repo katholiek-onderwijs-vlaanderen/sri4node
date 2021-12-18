@@ -39,7 +39,8 @@ const queryobject = require('./js/queryObject');
 const $q = require('./js/queryUtils');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle')
 const hooks = require('./js/hooks');
-const listResource = require('./js/listResource')
+// const listResource = require('./js/listResource')
+import listResource = require('./js/listResource');
 const regularResource = require('./js/regularResource')
 const batch = require('./js/batch')
 const utilLib = require('./js/utilLib')
@@ -412,6 +413,9 @@ const toArray = (resource, name) => {
 // export = // for typescript
 export = module.exports = {
   configure: async function configure(app:Application, config:SriConfig) {
+    // make sure no x-powered-by header is being sent
+    app.disable('x-powered-by');
+
     let maxHeapUsage = 0;
 
     if (config.trackHeapMax === true) {
@@ -453,7 +457,7 @@ export = module.exports = {
         if (!mapping.onlyCustom) {
           // In case query is not defied -> use defaultFilter
           if (mapping.query === undefined) {
-            mapping.query = { defaultfilter: $q.defaultFilter }
+            mapping.query = { defaultFilter: $q.defaultFilter }
           }
           // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
           if (mapping.map) {
