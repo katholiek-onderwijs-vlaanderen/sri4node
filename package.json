@@ -5,9 +5,10 @@
   "main": "sri4node.js",
   "scripts": {
     "start": "node index.js",
-    "test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/*.ts",
+    "test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
-    "test_common": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/common/*.ts",
+    "test_common": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick $(cd ./test && find ./common -iname '*')",
+    "test_test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick './common/test_hrefToNormalizedUrl' './testOrderBy'",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.js js test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"

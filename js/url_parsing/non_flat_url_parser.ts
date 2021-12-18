@@ -8,6 +8,24 @@ const peggy = require("peggy");
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+ * To be more stringent in adhering to RFC 3986 (which reserves !, ', (, ), and *),
+ * even though these characters have no formalized URI delimiting uses,
+ * the following function can be safely used instead of encodeURIComponent.
+ *
+ * cfr. https://datatracker.ietf.org/doc/html/rfc3986
+ *
+ * @param uriComp
+ * @returns an encoded URI component where ! ' ( ) * will also be percent-encoded
+ */
+function encodeURIComponentStrict(uriComp) {
+  return encodeURIComponent(uriComp).replace(
+    /[!'()*]/g,
+    (c) => '%' + c.charCodeAt(0).toString(16),
+  );
+}
+
+/**
  * Used to sort an array of parseTree objects (column, row or listControl)
  * 
  * @param {*} a 
@@ -550,8 +568,12 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
       // { return [v1, ...v23etc] }
 
     StringArray
-      = LeftParenthesis? result:( ( v:StringValue CommmaCharacter? { return v } )* ) RightParenthesis?
-        { return result }
+      = result:(
+          (LeftParenthesis @( ( @StringValue CommmaCharacter?)* ) RightParenthesis )
+          /
+            @( ( @StringValue CommmaCharacter? )*)
+        )
+        { console.log("TRANSLATED STRING ARRAY TO", JSON.stringify(result)); return result }
 
     IntegerArray
       = LeftParenthesis? result:( ( v:IntegerValue CommmaCharacter ? { return v } )* ) RightParenthesis?
@@ -597,7 +619,9 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
 
     // 1 string element from what can potentially be an array
     StringValue "string"
-      = s:( ! Comma ! LeftParenthesis ! RightParenthesis @( SpaceCharacter / BackslashEscapedCharacter / PercentEncodedCharacter / UnencodedCharacter ) )+ { return s.join('') }
+      = $( ! Comma ! LeftParenthesis ! RightParenthesis
+          @( SpaceCharacter / BackslashEscapedCharacter / PercentEncodedCharacter / UnencodedCharacter )
+        )+
 
     BooleanValue "boolean (true or false)"
       = "true" { return true }
@@ -615,23 +639,23 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
       = Backslash c:(PercentEncodedCharacter / UnencodedCharacter)
         { return c }
 
-    PercentEncodedCharacter = c:('%' [0-9A-F] [0-9A-F]) { return decodeURIComponent(c) }
+    PercentEncodedCharacter = c:$('%' [0-9A-F] [0-9A-F]) { return decodeURIComponent(c) }
 
-    Comma = c:"${encodeURIComponent(',')}" { return decodeURIComponent(c) }
+    Comma = c:( "${encodeURIComponentStrict(',')}" / "," ) { return ',' }
 
-    Dollar = c:"${encodeURIComponent('$')}" { return decodeURIComponent(c) }
+    Dollar = c:( "${encodeURIComponentStrict('$')}" / "$" ) { return '$' }
 
-    LeftParenthesis = c:"${encodeURIComponent('(')}" { return decodeURIComponent(c) }
+    LeftParenthesis = c:( "${encodeURIComponentStrict('(')}" / "(" ) { return '(' }
 
-    RightParenthesis = c:"${encodeURIComponent(')')}" { return decodeURIComponent(c) }
+    RightParenthesis = c:( "${encodeURIComponentStrict(')')}" / ")" ) { return ')' }
 
-    LeftSquareBracket = c:"${encodeURIComponent('[')}" { return decodeURIComponent(c) }
+    LeftSquareBracket = c:( "${encodeURIComponentStrict('[')}" / "[" ) { return '[' }
 
-    RightSquareBracket = c:"${encodeURIComponent(']')}" { return decodeURIComponent(c) }
+    RightSquareBracket = c:( "${encodeURIComponentStrict(']')}" / "]" ) { return ']' }
 
-    Backslash = c:"${encodeURIComponent('\\')}" { return decodeURIComponent(c) }
+    Backslash = c:( "${encodeURIComponentStrict('\\')}" / "\\\\" ) { return '\\\\'; }
 
-    CommmaCharacter = ( "," / "%2C" ) { return ',' } // { return decodeURIComponent(c) }
+    CommmaCharacter = ( "," / "%2C" ) { return ',' }
 
     SpaceCharacter = ( "+" / "%20" / " " ) { return ' ' }
 

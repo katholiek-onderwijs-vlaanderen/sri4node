@@ -1,11 +1,11 @@
-var sri4node = require('../sri4node');
-var context = require('./context');
+const sri4node = require('../sri4node');
+const context = require('./context');
 
-var port = 5000;
+const port = 5000;
 const logdebug = false;
 // const logdebug = { channels: 'all' };
 
-var base = 'http://localhost:' + port;
+const base = 'http://localhost:' + port;
 
 const { spawn } = require('child_process');
 
@@ -38,8 +38,35 @@ function asyncSpawn(command, args:string[] = []) {
   })
 }
 
+/**
+ * after --pick on the command line, list the names of test files you want to run
+ *
+ * makes it easier to filter out specific tests instead of running all of them al the times
+ *
+ * @param testFileName 
+ * @param args 
+ */
+function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined) {
+  const underscoresIndex = process.argv.indexOf('--pick');
+  const testsToRun = underscoresIndex >= 0 ? process.argv.slice(underscoresIndex + 1) : [];
+  if (underscoresIndex < 0 || testsToRun.includes(testFileName)) {
+    const t = require(testFileName);
+    if (args !== undefined) {
+      t(...args);
+    }
+  } else {
+    describe(`tests ${testFileName}`, () => {
+      it(`will not run because not found in ${testsToRun.join()}`, () => {});
+    });
+  }
+}
 
-describe('Sri4node testing', function () {
+describe('Sri4node PURE UNIT TESTS', function () {
+  runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
+});
+
+
+describe('Sri4node SERVER TESTS', function () {
   'use strict';
   this.timeout(0);
   let server:any = null;
@@ -68,51 +95,52 @@ describe('Sri4node testing', function () {
     console.log('Done.')
   });
 
-  require('./testOrderBy')(base);
-  require('./testAfterRead')(base);
-  require('./testCTE')(base);
-  require('./testListResource')(base);
-  require('./testPublicResources')(base);
-  require('./testRegularResource')(base);
-  require('./testPutAndPatch')(base);
-  require('./testDelete')(base);
-  require('./testJSONB')(base);
+  // require('./testOrderBy')(base);
+  runTestIfNeeded('./testOrderBy.ts', [base]);
+  runTestIfNeeded('./testAfterRead.ts', [base]);
+  runTestIfNeeded('./testCTE.ts', [base] );
+  runTestIfNeeded('./testListResource.ts', [base]);
+  runTestIfNeeded('./testPublicResources.ts', [base]);
+  runTestIfNeeded('./testRegularResource.ts', [base]);
+  runTestIfNeeded('./testPutAndPatch.ts', [base]);
+  runTestIfNeeded('./testDelete.ts', [base]);
+  runTestIfNeeded('./testJSONB.ts', [base]);
 
-  require('./testQueryUtils')(base);
-  require('./testModified')(base);
-  require('./testResourceType')(base);
+  runTestIfNeeded('./testQueryUtils.ts', [base]);
+  runTestIfNeeded('./testModified.ts', [base]);
+  runTestIfNeeded('./testResourceType.ts', [base]);
 
-  require('./testExpand')(base);
-  require('./testErrorHandling')(base);
-  require('./testCustomRoutes')(base);
-  require('./testIsPartOf')(base);
-  require('./testBatch')(base);
+  runTestIfNeeded('./testExpand.ts', [base]);
+  runTestIfNeeded('./testErrorHandling.ts', [base]);
+  runTestIfNeeded('./testCustomRoutes.ts', [base]);
+  runTestIfNeeded('./testIsPartOf.ts', [base]);
+  runTestIfNeeded('./testBatch.ts', [base]);
 
-  require('./testInternalRequest')(base);
+  runTestIfNeeded('./testInternalRequest.ts', [base]);
 
-  require('./defaultFilter/testDefaultFilterGreater')(base);
-  require('./defaultFilter/testDefaultFilterCombination')(base);
-  require('./defaultFilter/testDefaultFilterContains')(base);
-  require('./defaultFilter/testDefaultFilterExact')(base);
-  require('./defaultFilter/testDefaultFilterGreaterOrEqual')(base);
-  require('./defaultFilter/testDefaultFilterIn')(base);
-  require('./defaultFilter/testDefaultFilterLess')(base);
-  require('./defaultFilter/testDefaultFilterLessOrEqual')(base);
-  require('./defaultFilter/testDefaultFilterQ')(base);
-  require('./defaultFilter/testDefaultFilterRegEx')(base);
-  require('./defaultFilter/testDefaultFilterInvalidParameter')(base);
-  require('./defaultFilter/testDefaultFilterOverlaps')(base);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreater.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterCombination.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterContains.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterExact.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreaterOrEqual.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterIn.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLess.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLessOrEqual.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterQ.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterRegEx.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterInvalidParameter.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterOverlaps.ts', [base]);
 
-  require('./relationsFilter/testRelationsFilterFromTypes')(base);
-  require('./relationsFilter/testRelationsFilterToTypes')(base);
-  require('./relationsFilter/testRelationsFilterNoType')(base);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterFromTypes.ts', [base]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterToTypes.ts', [base]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterNoType.ts', [base]);
 
-  require('./testServerTiming')(base);
-  require('./testLogging')(base);
-  require('./testSriType')(base);
+  runTestIfNeeded('./testServerTiming.ts', [base]);
+  runTestIfNeeded('./testLogging.ts', [base]);
+  runTestIfNeeded('./testSriType.ts', [base]);
 
-  require('./testDocs')(base);
-  require('./testInformationSchema')();
+  runTestIfNeeded('./testDocs.ts', [base]);
+  runTestIfNeeded('./testInformationSchema.ts', []);
 
 });
 

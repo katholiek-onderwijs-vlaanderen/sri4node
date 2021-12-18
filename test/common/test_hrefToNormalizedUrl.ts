@@ -1,7 +1,9 @@
 import { SriConfig } from "../../js/typeDefinitions";
 
 const { assert } = require('chai');
-const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+// const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
+import common = require('../../js/common');
+const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = common;
 const { flattenJsonSchema } = require('../../js/schemaUtils');
 
 const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
@@ -975,6 +977,87 @@ const sriConfig:SriConfig = {
         },
       },
     },
+    {
+      type: '/propertieswithcomplexstructure',
+      metaType: 'PROPERTIESWITHCOMPLEXSTRUCTURE',
+      defaultlimit: 10,
+      maxlimit: 100,
+      // is there a thing like defaultexpansion ???
+      listResultDefaultIncludeCount: false,
+      schema: {
+        "type": "object",
+        "properties": {
+          "$$meta": {
+            "type": "object",
+            "properties": {
+              "permalink": {
+                "type": "string",
+                "pattern": "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+              },
+              "schema": {
+                "type": "string",
+                "description": "A link to the json schema for /persons.",
+                "pattern": "^/persons/schema$"
+              },
+              "created": {
+                "type": "string",
+                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                "description": "The timestamp on which this resource was created (or imported if it was created before the import)."
+              },
+              "modified": {
+                "type": "string",
+                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                "description": "The timestamp on which this resource was last modified (or imported if it was last modified before the import)."
+              },
+              "deleted": {
+                "type": "string",
+                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                "description": "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted."
+              },
+              "type": {
+                "enum": [
+                  "PERSON"
+                ]
+              }
+            }
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          simpleStringArray: {
+            type: "array",
+            minItems: 3,
+            items: { type: 'string' },
+          },
+          singleTuple: {
+            type: "array",
+            prefixItems: [
+              { type: "integer" },
+              { type: "string" },
+              { type: "boolan" },
+            ],
+            minItems: 3,
+            items: [],
+          },
+          tuples: {
+            "type": "array",
+            "items": [
+              {
+                "type": "array",
+                "prefixItems": [
+                  { "type": "integer" },
+                  { "type": "string" },
+                  { "type": "boolan" },
+                ],
+                "minItems": 3,
+                "items": false,
+              },
+            ],
+          },
+        },
+      },
+    },
   ],
 };
 
@@ -1636,7 +1719,91 @@ describe('non_flat_url_parser.ts', () => {
      *    OR does that mean firstName_IN=((John,Doe)) ???
      */
     it('should be able to handle comma-separated arrays as values', () => {
-      assert.fail('Test (& functionality) not implemented');
+      // assert.fail('Test (& functionality) not implemented');
+
+      checkHrefToNonFlatParsedObjectContains(
+        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5',
+        'rowFilters',
+        {
+          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
+          operator: { name: 'CONTAINS', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: [ '5' ],
+        },
+      );
+
+      checkHrefToNonFlatParsedObjectContains(
+        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5,hello',
+        'rowFilters',
+        {
+          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
+          operator: { name: 'CONTAINS', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: [ '5', 'hello' ],
+        },
+      );
+
+
+      checkHrefToNonFlatParsedObjectContains(
+        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D=5,hello,true',
+        'rowFilters',
+        {
+          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
+          operator: { name: 'IN', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: [ ['5', 'hello', 'true'] ],
+        },
+      );
+
+      checkHrefToNonFlatParsedObjectContains(
+        encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true)'),
+        'rowFilters',
+        {
+          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
+          operator: { name: 'IN', multiValued: true },
+          invertOperator: false,
+          caseInsensitive: true,
+          value: [ ['5', 'hello', 'true'] ],
+        },
+      );
+
+      // fail on unbalanced parenthesis
+      assert.throws(
+        () => hrefToNonFlatParsedObjectWrapped(
+          encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true'),
+        ),
+      );
+
+      // fail on unbalanced parenthesis
+      assert.throws(
+        () => hrefToNonFlatParsedObjectWrapped(
+          encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=5,hello,true)'),
+        ),
+      );
+      
+
+      // checkHrefToNonFlatParsedObjectContains(
+      //   '/propertieswithcomplexstructure?singleTuple=5,hello,true',
+      //   'rowFilter',
+      //   {
+      //     property: { name: 'singleTuple', type: '', multiValued: true },
+      //     operator: { name: 'IN', type: 'integer', multiValued: true },
+      //     value: [5, 'hello', true],
+      //   },
+      // );
+
+      // checkHrefToNonFlatParsedObjectContains(
+      //   '/propertieswithcomplexstructure?tuples=5',
+      //   'listControl',
+      //   {
+      //     operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
+      //     value: 30,
+      //   },
+      // );
+
     });
 
     /**
