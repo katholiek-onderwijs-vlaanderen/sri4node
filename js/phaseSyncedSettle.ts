@@ -70,7 +70,7 @@ export = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhase
     const sriRequestMap = new Map([...jobMap.entries()].map(([id, phaseSyncer]:[string, PhaseSyncer]) =>
         [id, phaseSyncer.sriRequest]));
 
-    const sriRequestIDToPhaseSyncerMap = new Map(Object.entries(jobMap).map(([_id, phaseSyncer]:[string, PhaseSyncer]) =>
+    const sriRequestIDToPhaseSyncerMap = new Map([...jobMap.entries()].map(([_id, phaseSyncer]:[string, PhaseSyncer]) =>
         [phaseSyncer.sriRequest.id, phaseSyncer]));
 
     let queuedJobs;
