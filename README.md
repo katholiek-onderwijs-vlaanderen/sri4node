@@ -127,9 +127,11 @@ For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make 
 
 All hooks are 'await'ed for (and the result is ignored). This makes that a hook can be a plain synchronous function or an asynchronous function. You could return a promise but this will not have any added value.
 
+### Global hooks
 
-### transformRequest
+Gobal hooks can be defined in the root of the sri4node config and are called for each request (unless an error occurs earlier in the request processing flow).
 
+#### transformRequest
 
 ```javascript
 transformRequest(expressRequest, sriRequest, tx)
@@ -137,7 +139,31 @@ transformRequest(expressRequest, sriRequest, tx)
 
 This function is called at the very start of each http request (i.e. for batch only once). Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe add the user's identity if it can be deducted from the headers).
 
-### beforeupdate, beforeinsert, beforedelete
+#### beforePhase
+
+New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see Batch execution order (#Batch-execution-order)).
+
+```javascript
+beforePhase(sriRequestMap, jobMap, pendingJobs)
+```
+
+* `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
+* `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
+* `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
+
+#### afterRequest
+
+New hook which will be called after the request is handled. At the moment this handler is called, the database task/transaction is already closed and the response is already sent to the client.
+
+```javascript
+afterRequest(sriRequest)
+```
+
+### Resource specific hooks
+
+Resource specific hooks can be defined in an element of the `resources` list in the sri4node config and are called for each matching request of the resource type for which it is specified (unless an error occurs earlier in the request processing flow).
+
+#### beforeupdate, beforeinsert, beforedelete
 
 These functions replace [validate](###validate) and [secure](###secure). They are called before any changes to a record on the database are performed. Since you get both the incoming version of the resource and the one currently stored in the DB here, you could do some validation here (for example if a certain property can not be altered once the resource has been created).
 
@@ -180,8 +206,7 @@ const validationHook = (tx, sriRequest, elements) => {  // can be used for befor
 }
 ```
 
-
-### afterread, afterupdate, afterinsert, afterdelete
+#### afterread, afterupdate, afterinsert, afterdelete
 
 The existing [afterread](#afterread), [afterupdate/afterinsert](###afterupdate/afterinsert) and [afterdelete](#afterdelete) functions will get a new signature, more in line with all the other functions (same parameters).
 
@@ -192,18 +217,7 @@ The existing [afterread](#afterread), [afterupdate/afterinsert](###afterupdate/a
  * `afterInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
  * `afterDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
-### fieldToColumn and columnToField(popertyName, value) 
-
-Individual properties can be transformed when going to or coming from the database.
-
-For example: an sri array of references could be stored as an array of permalinks on the DB, but should be transformed to `[ { href: "..." }, { href: "..." }, ... ]` in the API. These functions could do that mapping from API-to-DB and back. Also when storing dates as dates, but outputting them as strings in the API, this would be the place to do the transformation.
-
-These hooks replace the now obsolete [onread](###onread)/[oninsert/onupdate](###oninsert/onupdate)... and should be configured as part of the 'mapping' component in your sri config object.
- 
- * `fieldToColumn(propertyName, value)`
- * `columnToField(propertyName, value)`
-
-### transformResponse
+#### transformResponse
 
 This replaces handlelistqueryresult(rows).
 
@@ -221,25 +235,20 @@ The sriResult object has at least following properties:
 And optionally:
  * headers
 
-### afterRequest
+### Resource map specific hook
 
-New hook which will be called after the request is handled. At the moment this handler is called, the database task/transaction is already closed and the response is already sent to the client.
+Resource map specific hooks can be defined in a `field/column` object in the `map` object of an element of the `resources` list in the sri4node config. The mapping hooks are called when mapping database rows to/from sri objects of the resource type for which the are specified.
 
-```javascript
-afterRequest(sriRequest)
-```
+#### fieldToColumn and columnToField(popertyName, value) 
 
-### beforePhase
+Individual properties can be transformed when going to or coming from the database.
 
-New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see Batch execution order (#Batch-execution-order)).
+For example: an sri array of references could be stored as an array of permalinks on the DB, but should be transformed to `[ { href: "..." }, { href: "..." }, ... ]` in the API. These functions could do that mapping from API-to-DB and back. Also when storing dates as dates, but outputting them as strings in the API, this would be the place to do the transformation.
 
-```javascript
-beforePhase(sriRequestMap, jobMap, pendingJobs)
-```
-
-* `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
-* `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
-* `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
+These hooks replace the now obsolete [onread](###onread)/[oninsert/onupdate](###oninsert/onupdate)... and should be configured as part of the 'mapping' component in your sri config object.
+ 
+ * `fieldToColumn(propertyName, value)`
+ * `columnToField(propertyName, value)`
 
 ### Performance enhancements
 
