@@ -1,4 +1,4 @@
-import { FlattenedJsonSchema, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty, ResourceDefinition, SriConfig } from "../typeDefinitions";
+import { FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty, ResourceDefinition, SriConfig } from "../typeDefinitions";
 
 const { flattenJsonSchema } = require('../schemaUtils');
 const peggy = require("peggy");
@@ -659,7 +659,6 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
 
     SpaceCharacter = ( "+" / "%20" / " " ) { return ' ' }
 
-
   `;
 
   // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
@@ -681,6 +680,7 @@ function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: num
     parsedQueryStringToParseTreeWithDefaults,
     checkType,
     generateExpectedType,
+    cache: true,
   };
 
   const pegConf = allowedStartRules
@@ -688,6 +688,7 @@ function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: num
       // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
       allowedStartRules,
       options,
+      cache: true,
     }
     : {};
   const parser = peggy.generate(grammar, pegConf);
@@ -698,7 +699,7 @@ function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: num
   //AND without any code completion (because they are inside a string)
   // which also makes them hard to test...
   parser.origParse = parser.parse;
-  parser.parse = (input, moreOptions = {}) => parser.origParse(input, { ...moreOptions, ...options });
+  parser.parse = (input:string, moreOptions:any = {}):ParseTree => parser.origParse(input, { ...moreOptions, ...options });
   return parser;
 };
 
