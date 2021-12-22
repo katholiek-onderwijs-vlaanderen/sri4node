@@ -541,11 +541,11 @@ export = module.exports = {
             '\n\n\n------------------------------------------------------------------------------------------------------------------\n' +
             'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n' +
             'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n' +
-            'sri4node documentation for more details ). For now "general,trace,requests" is set as sensible default, but please\n' +
-            'specify the preferred channels for which logging is requested.\n' +
+            'sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, \n' +
+            'but please specify the preferred channels for which logging is requested.\n' +
             '------------------------------------------------------------------------------------------------------------------\n\n\n'
             )
-        return { channels: new Set(['general', 'trace', 'requests']) }
+        return { channels: new Set(['general', 'trace', 'requests', 'server-timing']) }
     } else if (logdebug === false) {
         return { channels: new Set() }
     } else {
