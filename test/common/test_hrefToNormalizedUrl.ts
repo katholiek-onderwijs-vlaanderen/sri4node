@@ -7,7 +7,7 @@ import common = require('../../js/common');
 const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = common;
 const { flattenJsonSchema } = require('../../js/schemaUtils');
 
-const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
+// const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
 
 const $u = require('../../js/schemaUtils');
 

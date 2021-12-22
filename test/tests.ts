@@ -106,6 +106,8 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testDelete.ts', [base]);
   runTestIfNeeded('./testJSONB.ts', [base]);
 
+  runTestIfNeeded('./testReqId.ts', [base]);
+
   runTestIfNeeded('./testQueryUtils.ts', [base]);
   runTestIfNeeded('./testModified.ts', [base]);
   runTestIfNeeded('./testResourceType.ts', [base]);

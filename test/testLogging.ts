@@ -16,7 +16,7 @@ export = module.exports = function (base) {
   const doGet = function (...args) { return api.getRaw(...args) };
   const doPost = function (...args) { return api.post(...args) };
 
-  const utils = require('./utils.js')(api);
+  const utils = require('./utils.ts')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
   const sriClientOptionsAuthSabine = {

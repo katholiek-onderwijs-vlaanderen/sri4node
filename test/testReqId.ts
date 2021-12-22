@@ -16,7 +16,7 @@ const setLogLvl = async (client, logdebug) => {
     , body: JSON.stringify(logdebug)
   });
 
-  const bufArr = []
+  const bufArr:any[] = []
   for await (const data of body) {
     bufArr.push(data);
   }
