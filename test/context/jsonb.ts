@@ -1,5 +1,5 @@
 var common = require('../../js/common');
-var sri4node = require('../../sri4node');
+var sri4node = require('../../');
 var $m = sri4node.mapUtils;
 var $s = sri4node.schemaUtils;
 

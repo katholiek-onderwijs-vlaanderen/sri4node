@@ -1,4 +1,4 @@
-const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../sri4node');
+const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../index');
 var common = require('../../js/common');
 var debug = common.debug;
 

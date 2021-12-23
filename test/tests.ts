@@ -1,4 +1,4 @@
-const sri4node = require('../sri4node');
+const sri4node = require('../');
 const context = require('./context');
 
 const port = 5000;

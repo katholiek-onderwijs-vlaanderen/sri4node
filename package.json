@@ -1,17 +1,24 @@
 {
   "name": "sri4node",
-  "version": "1.2.37",
+  "version": "1.3.0",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
-  "main": "sri4node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
   "scripts": {
-    "start": "node index.js",
+    "//start": "node index.js",
+    "prepare": "npm run build",
+    "prebuild": "npm run clean",
+    "build": "tsc --project .",
+    "clean": "rm -rf ./dist",
     "test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
     "test_common": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick $(cd ./test && find ./common -iname '*')",
-    "test_test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick './common/test_hrefToNormalizedUrl' './testOrderBy'",
     "createdb": "./createdb.sh",
-    "lint": "eslint sri4node.js js test",
-    "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.js"
+    "lint": "eslint sri4node.ts ts test",
+    "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.ts"
   },
   "dependencies": {
     "@types/chai": "^4.3.0",

@@ -10,7 +10,7 @@ if (c9hostname) {
   cl('https://' + c9hostname);
 }
 
-const sri4node = require('../sri4node');
+const sri4node = require('../');
 var context = require('../test/context');
 context.serve(sri4node, port, true, false, false, true);
 
