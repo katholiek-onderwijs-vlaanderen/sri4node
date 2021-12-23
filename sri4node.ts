@@ -45,7 +45,6 @@ const regularResource = require('./js/regularResource')
 const batch = require('./js/batch')
 const utilLib = require('./js/utilLib')
 const schemaUtils = require('./js/schemaUtils');
-const common = require('mocha/lib/interfaces/common');
 
 
 // Force https in production.
