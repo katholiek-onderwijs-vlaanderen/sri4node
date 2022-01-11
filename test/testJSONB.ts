@@ -1,7 +1,8 @@
 // Utility methods for calling the SRI interface
 var uuid = require('uuid');
 var assert = require('assert');
-const { debug } = require('../js/common');
+import common from '../js/common';
+const { debug } = common;
 
 export = module.exports = function (base) {
   'use strict';

@@ -1,4 +1,5 @@
-const pSettle = require('p-settle')
+// const pSettle = require('p-settle');
+import * as pSettle from 'p-settle';
 const pFinally = require('p-finally');
 const pEvent = require('p-event');
 const { v4: uuidv4 } = require('uuid');
@@ -6,7 +7,8 @@ const queue = require('emitter-queue');
 const Emitter = require('events')
 const _ = require('lodash')
 
-const { debug, SriError, getParentSriRequestFromRequestMap } = require('./common');
+import common from './common';
+const { debug, SriError, getParentSriRequestFromRequestMap } = common;
 const hooks = require('./hooks');
 
 const debug_log = (id, msg) => {
@@ -53,7 +55,7 @@ class PhaseSyncer {
         this.phaseCntr += 1
 
         const result = await pEvent(this.jobEmitter, ['sriError', 'ready'])
-        if (result instanceof SriError) {
+        if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
             throw result;
         }
     }
@@ -109,7 +111,7 @@ export = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhase
             try {
                 await fun(id, args);
             } catch (err) {
-                if (err instanceof SriError) {
+                if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
                     // If the SriError is generated in a beforePhaseHook (which is ran at 'global' level for all batch)
                     // we receive the id of the phaseSyncer who executed 'phase()' first, this is random and probably
                     // not the one which corresponds to the error.
@@ -190,7 +192,7 @@ export = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhase
         console.warn(err)
         console.warn(JSON.stringify(err));
         let sriError;
-        if (err instanceof SriError) {
+        if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
             sriError = err
         } else {
             sriError = new SriError({ status: 500, errors: [{ code: 'phase.synced.settle.failed', err: err.toString() }] })

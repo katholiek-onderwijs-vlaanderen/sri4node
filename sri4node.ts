@@ -13,7 +13,6 @@ const compression = require('compression');
 const bodyParser = require('body-parser');
 const express = require('express');
 const route = require('route-parser');
-const pathfinderUI = require('pathfinder-ui')
 const _ = require('lodash');
 const pMap = require('p-map');
 const Busboy = require('busboy');
@@ -31,10 +30,15 @@ const ajv = new Ajv({ coerceTypes: true }) // options can be passed, e.g. {allEr
 const addFormats = require("ajv-formats")
 addFormats(ajv)
 
-const { cl, debug, error, pgConnect, pgExec, typeToConfig, SriError, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-        mapColumnsToObject, executeOnFunctions, tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, setServerTimingHdr, jsonArrayStream, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
-        installEMT, emtReportToServerTiming, generateSriRequest, hrefToNormalizedUrl } = require('./js/common');
+import common from './js/common';
+const { SriError, cl, debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
+        tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
+        typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
+        installEMT, emtReportToServerTiming, generateSriRequest } = common;
+
+// import SriError from './js/common';
+// , cl, debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
+
 const queryobject = require('./js/queryObject');
 const $q = require('./js/queryUtils');
 const phaseSyncedSettle = require('./js/phaseSyncedSettle')
@@ -147,7 +151,7 @@ const handleRequest = async (sriRequest, func, mapping) => {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
 
     [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: (global as any).sri4node_configuration.beforePhase }));
-    if (result instanceof SriError) {
+    if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result
     }
 
@@ -193,7 +197,7 @@ const handleServerTiming = async (req, resp, sriRequest:SriRequest) => {
 
 const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
-    let t=null, endTask, resolveTx, rejectTx, readOnly;
+    let t:any = null, endTask, resolveTx, rejectTx, readOnly;
     const reqMsgStart = req.method + ' ' + req.path;
     debug('requests', `${reqMsgStart} starting.`);
 
@@ -367,7 +371,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
         // next(err)
         req.destroy()
       } else {
-        if (err instanceof SriError) {
+        if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
           if (err.status>0) {
               const reqId = httpContext.get('reqId')
               if (reqId!==undefined) {
@@ -413,10 +417,9 @@ const toArray = (resource, name) => {
 }
 
 
-
 /* express.js application, configuration for roa4node */
 // export = // for typescript
-export = module.exports = {
+module.exports = {
   configure: async function configure(app:Application, config:SriConfig) {
     // make sure no x-powered-by header is being sent
     app.disable('x-powered-by');
@@ -598,7 +601,7 @@ export = module.exports = {
       (global as any).sri4node_loaded_plugins = new Map();
 
       (global as any).sri4node_install_plugin = async (plugin) => {
-        const util=require('util');
+        const util = require('util');
         console.log(`Installing plugin ${util.inspect(plugin)}`)
         // load plugins with a uuid only once; backwards compatible with old system without uuid
         if ((plugin.uuid !== undefined) && (global as any).sri4node_loaded_plugins.has(plugin.uuid)) {
@@ -608,7 +611,7 @@ export = module.exports = {
         await plugin.install((global as any).sri4node_configuration, dbW);
 
         if (plugin.uuid !== undefined) {
-          debug('general', `Loaded plugin ${plugin.uuid}.`)
+          debug('general', `Loaded plugin ${plugin.uuid}.`);
           (global as any).sri4node_loaded_plugins.set(plugin.uuid, plugin);
         }
       }
@@ -643,12 +646,6 @@ export = module.exports = {
       app.use(emt.instrument(compression(), 'mw-compression'))
       app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true, strict: false}), 'mw-bodyparser'));
         //use option 'strict: false' to allow also valid JSON like a single boolean
-
-      app.use('/pathfinder', function(req, res, next){
-        pathfinderUI(app)
-        next()
-      }, pathfinderUI.router)
-
 
       //to parse html pages
       app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
@@ -835,7 +832,7 @@ export = module.exports = {
                                       sriRequest.setStatus(status)
                                     }
                                 } catch (err) {
-                                    if (err instanceof SriError) {
+                                    if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
                                         throw err;
                                     } else {
                                         throw new SriError({status: 500, errors: [ `${util.format(err)}`]});
@@ -989,18 +986,20 @@ export = module.exports = {
     }
   }, // configure
 
-  utils:
-      { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
+  utils: { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
         executeSQL: pgExec,
         prepareSQL: queryobject.prepareSQL,
-        hrefToNormalizedUrl,
         convertListResourceURLToSQL: listResource.getSQLFromListResource,
         addReferencingResources: utilLib.addReferencingResources,
-      },
+  },
   queryUtils: require('./js/queryUtils'),
   mapUtils: require('./js/mapUtils'),
   schemaUtils: require('./js/schemaUtils'),
-  SriError: SriError,
+  debug: debug,
+  error: error,
+  SriError,
   transformRowToObject: transformRowToObject,
   transformObjectToRow: transformObjectToRow,
 };
+
+export default module.exports;

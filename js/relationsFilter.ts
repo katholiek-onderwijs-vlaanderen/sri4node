@@ -1,6 +1,6 @@
 const _ = require('lodash');
 
-const { tableFromMapping } = require('./common');
+import common from './common';
 
 function fromTypesFilter(value, select, key, database, count, mapping) {
   var sql, fromCondition, whereCondition, table, fromTable, types;
@@ -11,7 +11,7 @@ function fromTypesFilter(value, select, key, database, count, mapping) {
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    const table = tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping)
     types = value.split(',').join('\',\'');
     fromTable = mapping.map.from.references.split('/')[mapping.map.from.references.split('/').length - 1];
 
@@ -33,7 +33,7 @@ function toTypesFilter(value, select, key, database, count, mapping) {
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    const table = tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping)
     types = value.split(',').join('\',\'');
     toTable = mapping.map.to.references.split('/')[mapping.map.to.references.split('/').length - 1];
 
@@ -49,7 +49,7 @@ function toTypesFilter(value, select, key, database, count, mapping) {
 function fromsFilter(value, select, key, database, count, mapping) {
   if (value) {
 
-    const table = tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping)
 
     const froms = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];
@@ -62,7 +62,7 @@ function fromsFilter(value, select, key, database, count, mapping) {
 function tosFilter(value, select, key, database, count, mapping) {
   if (value) {
 
-    const table = tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping)
 
     const tos = value.split(',').map(function(val) {
       return val.split('/')[val.split('/').length - 1];

@@ -5,8 +5,9 @@ const pMap = require('p-map');
 
 
 const hooks = require('./hooks')
-const { debug, cl, typeToConfig, sqlColumnNames, transformRowToObject, 
-        executeOnFunctions, tableFromMapping, pgExec, SriError } = require('./common');
+import common from './common';
+const { debug, typeToConfig, sqlColumnNames, transformRowToObject, 
+        tableFromMapping, pgExec, SriError } = common;
 const queryobject = require('./queryObject');
 const prepare = queryobject.prepareSQL; 
 

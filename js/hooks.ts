@@ -1,6 +1,7 @@
 const pMap = require('p-map'); 
 
-const { errorAsCode, debug, SriError, stringifyError, setServerTimingHdr } = require('./common')
+import common from './common';
+const { errorAsCode, debug, SriError, stringifyError, setServerTimingHdr } = common;
 
 export = module.exports = {
 
@@ -31,7 +32,7 @@ export = module.exports = {
             }
         }, {concurrency: 1})
       } catch(err) {
-        if (err instanceof SriError) {
+        if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
           throw err
         } else {
           console.log('_______________________ H O O K S - E R R O R _____________________________________________') 

@@ -10,7 +10,8 @@ const pEvent = require('p-event');
 const httpContext = require('express-http-context');
 const { v4: uuidv4 } = require('uuid');
 
-const { debug, cl, SriError, startTransaction, settleResultsToSriResults, generateSriRequest } = require('./common');
+import common from './common';
+const { debug, cl, SriError, startTransaction, settleResultsToSriResults, generateSriRequest } = common;
 const hooks = require('./hooks')
 const phaseSyncedSettle = require('./phaseSyncedSettle')
 
@@ -161,14 +162,14 @@ export = module.exports = {
                                                          beforePhaseHooks: (global as any).sri4node_configuration.beforePhase
                                                        } ));
 
-              if (results.some(e => e instanceof SriError) && sriRequest.readOnly === false) {
+              if (results.some(e => e instanceof SriError || e?.__proto__?.constructor?.name === 'SriError') && sriRequest.readOnly === false) {
                   batchFailed = true;
               }
 
               await pEachSeries( results
                            , async (res, idx) => {
                                 const [ _phaseSyncer, _tx, innerSriRequest, mapping ] = batchJobs[idx][1]
-                                if (! (res instanceof SriError)) {
+                                if (! (res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                                   await hooks.applyHooks('transform response'
                                                         , mapping.transformResponse
                                                         , f => f(tx, innerSriRequest, res))
@@ -261,14 +262,14 @@ export = module.exports = {
               const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, { concurrency: batchConcurrency
                                                                                             , beforePhaseHooks: (global as any).sri4node_configuration.beforePhase }))
 
-              if (results.some(e => e instanceof SriError)) {
+              if (results.some(e => e instanceof SriError || e?.__proto__?.constructor?.name === 'SriError')) {
                 batchFailed = true;
               }
 
               await pEachSeries( results
                            , async (res, idx) => {
                                 const [ _phaseSyncer, _tx, innerSriRequest, mapping ] = batchJobs[idx][1]
-                                if (! (res instanceof SriError)) {
+                                if (! (res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                                   await hooks.applyHooks('transform response'
                                                         , mapping.transformResponse
                                                         , f => f(tx, innerSriRequest, res))

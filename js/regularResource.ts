@@ -4,9 +4,10 @@ const addFormats = require("ajv-formats")
 const jsonPatch = require('fast-json-patch');
 const pMap = require('p-map');
 
+import common from './common'
 const { debug, error, cl, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, 
-        errorAsCode, executeOnFunctions, SriError, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
-        getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp } = require('./common');
+        errorAsCode, SriError, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
+        getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp } = common;
 const expand = require('./expand');
 const hooks = require('./hooks');
 const queryobject = require('./queryObject');
@@ -203,7 +204,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mappin
   try {
     // RFC6902 (with 'op' and 'path'), RFC7396 (just a sparse object) NOT currently supported
     sriRequest.body = jsonPatch.applyPatch(result.object, patch, true, false).newDocument;
-    debug(`Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
+    debug('trace', `Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
   } catch(e) {
     throw new SriError({status: 400, errors: [{code: 'patch.invalid', msg: 'The patch could not be applied.', error: e }]});
   }
@@ -302,7 +303,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
     await phaseSyncer.phase()
 
-    const newRow = transformObjectToRow(obj, mapping, true)
+    const newRow:any = transformObjectToRow(obj, mapping, true)
     newRow.key = key;
 
     const type = mapping.type;
@@ -500,13 +501,13 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
       // replace 202 error with an error to indicate in all related requests that we do
       // not know the cause.
     const parentSriRequest = getParentSriRequest(sriRequest);
-    if (parentSriRequest.multiInsertFailed && err instanceof SriError && err.status===202) {
+    if (parentSriRequest.multiInsertFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) === 'SriError' && err.status===202) {
         throw multiInsertError;
     }
-    if (parentSriRequest.multiUpdateFailed && err instanceof SriError && err.status===202) {
+    if (parentSriRequest.multiUpdateFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) && err.status===202) {
         throw multiUpdateError;
     }
-    if (parentSriRequest.multiDeleteFailed && err instanceof SriError && err.status===202) {
+    if (parentSriRequest.multiDeleteFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) && err.status===202) {
         throw multiDeleteError;
     }
 
@@ -517,7 +518,7 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
       console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
       throw new SriError({status: 409, errors: [{code: 'db.constraint.violation', msg: err.detail}]});
     } else {
-      if (!(err instanceof SriError)) {
+      if (!(err instanceof SriError || err?.__proto__?.constructor?.name)) {
         throw new SriError({status: 500, errors: [{code: 'sql.error', msg: err.message, err: err}]});
       }
       throw err;

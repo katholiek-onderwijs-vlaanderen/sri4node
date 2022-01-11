@@ -1,5 +1,6 @@
 /* External query utilities. use in the 'query' section of your sri4node configuration */
-const { SriError, tableFromMapping } = require('./common');
+import common from './common';
+const { SriError, tableFromMapping } = common;
 
 export = module.exports = {
   filterHrefs: function (value, query, key, database, count, mapping) {

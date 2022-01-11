@@ -1,4 +1,5 @@
-const { tableFromMapping, SriError } = require('./common');
+import common from './common';
+const { tableFromMapping, SriError } = common;
 
 // analyses parameter and return its parts (key, operator, prefix and postfix)
 function analyseParameter(parameter) {

@@ -1,4 +1,4 @@
-var common = require('../../js/common');
+import common from '../../js/common';
 const utils = require('../utils')(null);
 
 export = module.exports = function (sri4node, extra) {

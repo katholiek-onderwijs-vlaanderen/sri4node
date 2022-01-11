@@ -2,8 +2,7 @@ import { SriConfig } from "../../js/typeDefinitions";
 
 // const { assert } = require('chai');
 import { assert } from 'chai';
-// const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = require('../../js/common');
-import common = require('../../js/common');
+import common from '../../js/common';
 const { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } = common;
 const { flattenJsonSchema } = require('../../js/schemaUtils');
 

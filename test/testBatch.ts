@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-const pMap = require('p-map'); 
+const pMap = require('p-map');
 const assert = require('assert');
 const uuid = require('uuid');
 
@@ -30,13 +30,13 @@ export = module.exports = function (base) {
     baseUrl: base
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = function(...args) { return api.getRaw(...args) };
-  const doPut = function(...args) { return api.put(...args) };
-  const doPatch = function(...args) { return api.patch(...args) };
-  const doPost = function(...args) { return api.post(...args) };
-  const doDelete = function(...args) { return api.delete(...args) };
+  const doGet = function (...args) { return api.getRaw(...args) };
+  const doPut = function (...args) { return api.put(...args) };
+  const doPatch = function (...args) { return api.patch(...args) };
+  const doPost = function (...args) { return api.post(...args) };
+  const doDelete = function (...args) { return api.delete(...args) };
 
-  const utils =  require('./utils')(api);
+  const utils = require('./utils')(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
   const sriClientOptionsAuthSabine = {
@@ -99,8 +99,8 @@ export = module.exports = function (base) {
     };
   }
 
- function generateRandomCity() {
-    const key = Math.floor(10000 + Math.random()*90000)
+  function generateRandomCity() {
+    const key = Math.floor(10000 + Math.random() * 90000)
     return {
       key: key,
       nisCode: key,
@@ -116,13 +116,15 @@ export = module.exports = function (base) {
       const communityHref = '/communities/' + key;
       // create a batch array
       const batch = [
-          { "href": communityHref
+        {
+          "href": communityHref
           , "verb": "PUT"
           , "body": body
-          },
-          { "href": communityHref
-          , "verb": "DELETE" 
-          }
+        },
+        {
+          "href": communityHref
+          , "verb": "DELETE"
+        }
       ]
 
       await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
@@ -138,13 +140,15 @@ export = module.exports = function (base) {
       const body = generateRandomCommunity(key);
       // create a batch array
       const batch = [
-          [{ "href": '/communities/' + key
+        [{
+          "href": '/communities/' + key
           , "verb": "PUT"
           , "body": body
-          }],
-          [{ "href": '/communities/' + key
-          , "verb": "DELETE" 
-          }]
+        }],
+        [{
+          "href": '/communities/' + key
+          , "verb": "DELETE"
+        }]
       ]
       const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
       assert.equal(r[0].href, '/communities/' + key);
@@ -163,10 +167,11 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          { "href": personHref
+        {
+          "href": personHref
           , "verb": "PATCH"
-          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
-          },
+          , "body": [{ op: 'replace', path: '/streetnumber', value: newStreetNumber }]
+        },
       ]
 
       const r = await doPut('/persons/batch', batch, sriClientOptionsAuthSabine);
@@ -189,14 +194,16 @@ export = module.exports = function (base) {
       // create a batch array
       const batch = [
         [
-          { "href": personHref
-          , "verb": "PATCH"
-          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
+          {
+            "href": personHref
+            , "verb": "PATCH"
+            , "body": [{ op: 'replace', path: '/streetnumber', value: newStreetNumber }]
           },
         ], [
-          { "href": personHref
-          , "verb": "PATCH"
-          , "body": [ { op: 'add', path: '/streetbus', value: newStreetBus } ]
+          {
+            "href": personHref
+            , "verb": "PATCH"
+            , "body": [{ op: 'add', path: '/streetbus', value: newStreetBus }]
           },
         ]
       ]
@@ -223,19 +230,22 @@ export = module.exports = function (base) {
       // create a batch array
       const batch = [
         [
-          { "href": personHref
-          , "verb": "PUT"
-          , "body": body
+          {
+            "href": personHref
+            , "verb": "PUT"
+            , "body": body
           },
         ], [
-          { "href": personHref
-          , "verb": "PATCH"
-          , "body": [ { op: 'replace', path: '/streetnumber', value: newStreetNumber } ]
+          {
+            "href": personHref
+            , "verb": "PATCH"
+            , "body": [{ op: 'replace', path: '/streetnumber', value: newStreetNumber }]
           },
         ], [
-          { "href": personHref
-          , "verb": "PATCH"
-          , "body": [ { op: 'add', path: '/streetbus', value: newStreetBus } ]
+          {
+            "href": personHref
+            , "verb": "PATCH"
+            , "body": [{ op: 'add', path: '/streetbus', value: newStreetBus }]
           },
         ]
       ]
@@ -262,30 +272,32 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          { "href": '/communities/' + keyC1
+        {
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          },
-          { "href": '/communities/' + keyC2
+        },
+        {
+          "href": '/communities/' + keyC2
           , "verb": "PUT"
           , "body": bodyC2
-          }
+        }
       ]
       await utils.testForStatusCode(
         async () => {
           await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           // expected to fail because property 'name' is missing
-            assert.equal(error.status, 409);
+          assert.equal(error.status, 409);
         })
       await utils.testForStatusCode(
         async () => {
           await doGet('/communities/' + keyC1, null, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           // expected to fail because this resource should have been rollbacked
-            assert.equal(error.status, 404);
+          assert.equal(error.status, 404);
         })
     });
 
@@ -299,30 +311,32 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          [{ "href": '/communities/' + keyC1
+        [{
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          }],
-          [{ "href": '/communities/' + keyC2
+        }],
+        [{
+          "href": '/communities/' + keyC2
           , "verb": "PUT"
           , "body": bodyC2
-          }]
+        }]
       ]
       await utils.testForStatusCode(
         async () => {
           await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           // expected to fail: bodyC2 is missing required name
-            assert.equal(error.status, 409);
+          assert.equal(error.status, 409);
         })
       await utils.testForStatusCode(
         async () => {
           await doGet('/communities/' + keyC1, null, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           // expected to fail: should not be created but rollbacked
-            assert.equal(error.status, 404);
+          assert.equal(error.status, 404);
         })
     });
 
@@ -336,23 +350,25 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          [{ "href": '/communities/' + keyC1
+        [{
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          }],
-          [{ "href": '/communities/' + keyC2
+        }],
+        [{
+          "href": '/communities/' + keyC2
           , "body": bodyC2
-          }]
+        }]
       ]
       await utils.testForStatusCode(
         async () => {
           const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 400);
           assert.equal(error.body.errors[0].code, 'no.verb');
         })
-    });    
+    });
 
     it('cross boundary should result in error', async function () {
       const keyC1 = uuid.v4();
@@ -362,24 +378,26 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          [{ "href": '/communities/' + keyC1
+        [{
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          }],
-          [{ "href": '/messages/' + keyC2
-          , "verb": "PUT"          
+        }],
+        [{
+          "href": '/messages/' + keyC2
+          , "verb": "PUT"
           , "body": bodyC2
-          }]
+        }]
       ]
       await utils.testForStatusCode(
         async () => {
           const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 400);
           assert.equal(error.body.errors[0].code, 'href.across.boundary');
         })
-    });    
+    });
 
     it('error should result in cancellation of accompanying requests ', async function () {
       const keyC1 = uuid.v4();
@@ -390,25 +408,27 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          { "href": '/communities/' + keyC1
+        {
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          },
-          { "href": '/communities/' + keyC2
-          , "verb": "PUT"          
+        },
+        {
+          "href": '/communities/' + keyC2
+          , "verb": "PUT"
           , "body": bodyC2
-          }
+        }
       ]
       await utils.testForStatusCode(
         async () => {
           const r = await doPut('/communities/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 409);
           assert.equal(error.body[1].status, 202);
           assert.equal(error.body[1].body.errors[0].code, 'cancelled');
         })
-    });    
+    });
 
     it('no matching route should result in error', async function () {
       const keyC1 = uuid.v4();
@@ -418,23 +438,25 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          [{ "href": '/coMunities/' + keyC1
+        [{
+          "href": '/coMunities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          }],
-          [{ "href": '/communities/' + keyC2
+        }],
+        [{
+          "href": '/communities/' + keyC2
           , "body": bodyC2
-          }]
+        }]
       ]
       await utils.testForStatusCode(
         async () => {
           const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 404);
           assert.equal(error.body.errors[0].code, 'no.matching.route');
         })
-    });    
+    });
 
     // global batch (temporarily for samenscholing)
     it('global batch -- specific for samenscholing', async function () {
@@ -445,18 +467,20 @@ export = module.exports = function (base) {
 
       // create a batch array
       const batch = [
-          [{ "href": '/communities/' + keyC1
+        [{
+          "href": '/communities/' + keyC1
           , "verb": "PUT"
           , "body": bodyC1
-          }],
-          [{ "href": '/messages/' + keyC2
-          , "verb": "PUT"          
+        }],
+        [{
+          "href": '/messages/' + keyC2
+          , "verb": "PUT"
           , "body": bodyC2
-          }]
+        }]
       ]
 
       const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
-    });    
+    });
 
     it('\'big\' batch', async function () {
       // create a batch array
@@ -465,14 +489,15 @@ export = module.exports = function (base) {
         async (i) => {
           const keyC1 = uuid.v4();
           const bodyC1 = generateRandomCommunity(keyC1);
-          return { "href": '/communities/' + keyC1
-                 , "verb": "PUT"
-                 , "body": bodyC1
-                 }
+          return {
+            "href": '/communities/' + keyC1
+            , "verb": "PUT"
+            , "body": bodyC1
+          }
         })
 
       const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
-    });    
+    });
 
     it('\'big\' batch with sub-batches', async function () {
       // create a batch array
@@ -481,39 +506,43 @@ export = module.exports = function (base) {
         async (i) => {
           const keyC1 = uuid.v4();
           const bodyC1 = generateRandomCommunity(keyC1);
-          return [{ "href": '/communities/' + keyC1
-                 , "verb": "PUT"
-                 , "body": bodyC1
-                 }]
+          return [{
+            "href": '/communities/' + keyC1
+            , "verb": "PUT"
+            , "body": bodyC1
+          }]
         })
 
       const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
-    });    
+    });
 
     it('batch: combination of several identical updates and one real', async function () {
       const body1 = generateRandomCity();
       const body2 = generateRandomCity();
-      const body3 = generateRandomCity();      
+      const body3 = generateRandomCity();
       // create a batch array
       const batch = [
-          { "href": '/cities/' + body1.key
+        {
+          "href": '/cities/' + body1.key
           , "verb": "PUT"
           , "body": body1
-          },
-          { "href": '/cities/' + body2.key
+        },
+        {
+          "href": '/cities/' + body2.key
           , "verb": "PUT"
           , "body": body2
-          },
-          { "href": '/cities/' + body3.key
+        },
+        {
+          "href": '/cities/' + body3.key
           , "verb": "PUT"
           , "body": body3
-          }
+        }
       ]
-      await doPut('/cities/batch', batch,   sriClientOptionsAuthSabine);
+      await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
 
       batch[0].body.name = 'Foobar'
 
-      const r = await doPut('/cities/batch', batch,   sriClientOptionsAuthSabine);
+      const r = await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
       console.log(r)
       assert.equal(r[0].status, 200);
       assert.equal(r[1].status, 200);
@@ -521,445 +550,528 @@ export = module.exports = function (base) {
     });
 
     it('batch: when one requests fails, everything should rollbacked', async function () {
-        const body1 = generateRandomCity();
-        // create a batch array
-        const batch = [
-            { "href": '/cities/' + body1.key
-            , "verb": "PUT"
-            , "body": body1
-            },
-            { "href": '/cities/52074'
-            , "verb": "GET"
-            },
-            { "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
-            , "verb": "DELETE"  // will fail
-            },
-            { "href": '/cities/52074'
-            , "verb": "DELETE"
-            },
-        ]
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthIngrid);
-            }, 
-            async (error) => {
-              const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
-            });
-      });
+      const body1 = generateRandomCity();
+      // create a batch array
+      const batch = [
+        {
+          "href": '/cities/' + body1.key
+          , "verb": "PUT"
+          , "body": body1
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "GET"
+        },
+        {
+          "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
+          , "verb": "DELETE"  // will fail
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "DELETE"
+        },
+      ]
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthIngrid);
+        },
+        async (error) => {
+          const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
+        });
+    });
 
-      it('batch streaming: when one requests fails, everything should rollbacked', async function () {
-        const body1 = generateRandomCity();
-        // create a batch array
-        const batch = [
-            { "href": '/cities/' + body1.key
-            , "verb": "PUT"
-            , "body": body1
-            },
-            { "href": '/cities/52074'
-            , "verb": "GET"
-            },
-            { "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
-            , "verb": "DELETE"   // will fail
-            },
-            { "href": '/cities/52074'
-            , "verb": "DELETE"
-            },
-        ]
-        const r = await doPut('/batch_streaming', batch, sriClientOptionsAuthIngrid);
-        const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
-      });
+    it('batch streaming: when one requests fails, everything should rollbacked', async function () {
+      const body1 = generateRandomCity();
+      // create a batch array
+      const batch = [
+        {
+          "href": '/cities/' + body1.key
+          , "verb": "PUT"
+          , "body": body1
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "GET"
+        },
+        {
+          "href": '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a'
+          , "verb": "DELETE"   // will fail
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "DELETE"
+        },
+      ]
+      const r = await doPut('/batch_streaming', batch, sriClientOptionsAuthIngrid);
+      const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid)
+    });
 
-      it('batch: errors triggered in the global beforePhase should match the correct request', async function () {
-        const body1 = generateRandomCity();
-        const body2 = generateRandomCity();
-        const body3 = generateRandomCity();
-        const body4 = generateRandomCity();
-        const body5 = generateRandomCity();
-        const body6 = generateRandomCity();
-        const body7 = generateRandomCity();
-        const body8 = generateRandomCity();
-        const body9 = generateRandomCity();
-        const body10 = generateRandomCity();
-        const body11 = generateRandomCity();
-        const body12 = generateRandomCity();
-        const body13 = generateRandomCity();
-        const body14 = generateRandomCity();
-        const body15 = generateRandomCity();
-        const body16 = generateRandomCity();
-        const body17 = generateRandomCity();
-        const body18 = generateRandomCity();
-        const body19 = generateRandomCity();
-        const body20 = generateRandomCity();
-        // create a batch array
-        const batch = [
-            { "href": '/cities/' + body1.key
-            , "verb": "PUT"
-            , "body": body1
-            },
-            { "href": '/cities/' + body2.key
-            , "verb": "PUT"
-            , "body": body2
-            },
-            { "href": '/cities/' + body3.key
-            , "verb": "PUT"
-            , "body": body3
-            },
-            { "href": '/cities/100001'
-            , "verb": "PUT"
-            , "body": {
-                key: 100001,
-                nisCode: 100001,
-                name: "BadCity"
-              }
-            },
-            { "href": '/cities/' + body4.key
-            , "verb": "PUT"
-            , "body": body4
-            },
-            { "href": '/cities/' + body5.key
-            , "verb": "PUT"
-            , "body": body5
-            },
-            { "href": '/cities/' + body6.key
-            , "verb": "PUT"
-            , "body": body6
-            },
-            { "href": '/cities/' + body7.key
-            , "verb": "PUT"
-            , "body": body7
-            },
-            { "href": '/cities/' + body8.key
-            , "verb": "PUT"
-            , "body": body8
-            },
-            { "href": '/cities/' + body9.key
-            , "verb": "PUT"
-            , "body": body9
-            },
-            { "href": '/cities/' + body10.key
-            , "verb": "PUT"
-            , "body": body10
-            },
-            { "href": '/cities/' + body11.key
-            , "verb": "PUT"
-            , "body": body11
-            },
-            { "href": '/cities/' + body12.key
-            , "verb": "PUT"
-            , "body": body12
-            },
-            { "href": '/cities/' + body13.key
-            , "verb": "PUT"
-            , "body": body13
-            },
-            { "href": '/cities/' + body14.key
-            , "verb": "PUT"
-            , "body": body14
-            },
-            { "href": '/cities/' + body15.key
-            , "verb": "PUT"
-            , "body": body15
-            },
-            { "href": '/cities/' + body16.key
-            , "verb": "PUT"
-            , "body": body16
-            },
-            { "href": '/cities/' + body17.key
-            , "verb": "PUT"
-            , "body": body17
-            },
-            { "href": '/cities/' + body18.key
-            , "verb": "PUT"
-            , "body": body18
-            },
-            { "href": '/cities/' + body19.key
-            , "verb": "PUT"
-            , "body": body19
-            },
-            { "href": '/cities/' + body20.key
-            , "verb": "PUT"
-            , "body": body20
-            },
-        ]
+    it('batch: errors triggered in the global beforePhase should match the correct request', async function () {
+      const body1 = generateRandomCity();
+      const body2 = generateRandomCity();
+      const body3 = generateRandomCity();
+      const body4 = generateRandomCity();
+      const body5 = generateRandomCity();
+      const body6 = generateRandomCity();
+      const body7 = generateRandomCity();
+      const body8 = generateRandomCity();
+      const body9 = generateRandomCity();
+      const body10 = generateRandomCity();
+      const body11 = generateRandomCity();
+      const body12 = generateRandomCity();
+      const body13 = generateRandomCity();
+      const body14 = generateRandomCity();
+      const body15 = generateRandomCity();
+      const body16 = generateRandomCity();
+      const body17 = generateRandomCity();
+      const body18 = generateRandomCity();
+      const body19 = generateRandomCity();
+      const body20 = generateRandomCity();
+      // create a batch array
+      const batch = [
+        {
+          "href": '/cities/' + body1.key
+          , "verb": "PUT"
+          , "body": body1
+        },
+        {
+          "href": '/cities/' + body2.key
+          , "verb": "PUT"
+          , "body": body2
+        },
+        {
+          "href": '/cities/' + body3.key
+          , "verb": "PUT"
+          , "body": body3
+        },
+        {
+          "href": '/cities/100001'
+          , "verb": "PUT"
+          , "body": {
+            key: 100001,
+            nisCode: 100001,
+            name: "BadCity"
+          }
+        },
+        {
+          "href": '/cities/' + body4.key
+          , "verb": "PUT"
+          , "body": body4
+        },
+        {
+          "href": '/cities/' + body5.key
+          , "verb": "PUT"
+          , "body": body5
+        },
+        {
+          "href": '/cities/' + body6.key
+          , "verb": "PUT"
+          , "body": body6
+        },
+        {
+          "href": '/cities/' + body7.key
+          , "verb": "PUT"
+          , "body": body7
+        },
+        {
+          "href": '/cities/' + body8.key
+          , "verb": "PUT"
+          , "body": body8
+        },
+        {
+          "href": '/cities/' + body9.key
+          , "verb": "PUT"
+          , "body": body9
+        },
+        {
+          "href": '/cities/' + body10.key
+          , "verb": "PUT"
+          , "body": body10
+        },
+        {
+          "href": '/cities/' + body11.key
+          , "verb": "PUT"
+          , "body": body11
+        },
+        {
+          "href": '/cities/' + body12.key
+          , "verb": "PUT"
+          , "body": body12
+        },
+        {
+          "href": '/cities/' + body13.key
+          , "verb": "PUT"
+          , "body": body13
+        },
+        {
+          "href": '/cities/' + body14.key
+          , "verb": "PUT"
+          , "body": body14
+        },
+        {
+          "href": '/cities/' + body15.key
+          , "verb": "PUT"
+          , "body": body15
+        },
+        {
+          "href": '/cities/' + body16.key
+          , "verb": "PUT"
+          , "body": body16
+        },
+        {
+          "href": '/cities/' + body17.key
+          , "verb": "PUT"
+          , "body": body17
+        },
+        {
+          "href": '/cities/' + body18.key
+          , "verb": "PUT"
+          , "body": body18
+        },
+        {
+          "href": '/cities/' + body19.key
+          , "verb": "PUT"
+          , "body": body19
+        },
+        {
+          "href": '/cities/' + body20.key
+          , "verb": "PUT"
+          , "body": body20
+        },
+      ]
 
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-              assert.equal(error.body[3].status, 400);
-            });
-      });
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.equal(error.body[3].status, 400);
+        });
+    });
 
 
 
-      it('batch: check if phasesyncing is correctly aligned for al different kind of requests', async function () {
-        const body1 = generateRandomCity();
-        // create a batch array
-        const batch = [
-            { "href": '/countries/isPartOf'
-            , "verb": "POST"
-            , "body": {  
-                "a": { "href": "/countries/be" },
-                "b": { "hrefs": [ "/countries?nameRegEx=^be.*$" ] }
-              }
-            },
-            { "href": '/cities/52074'
-            , "verb": "GET"
-            },
-            { "href": '/cities/52074'
-            , "verb": "DELETE"
-            },
-            { "href": '/countries'
-            , "verb": "GET"
-            },
-            { "href": '/cities/' + body1.key
-            , "verb": "PUT"
-            , "body": body1
-            },
-            { "href": personSabine
-            , "verb": "PATCH"
-            , "body": [
-                { op: 'replace', path: '/streetnumber', value: '9999' },
-                { op: 'add', path: '/streetbus', value: 'Z' },
-              ]
-            },
-            { "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
-            , "verb": "GET"
-            },
-            { "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike'
-            , "verb": "GET"
-            },
-        ]
-        const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
-      });
+    it('batch: check if phasesyncing is correctly aligned for al different kind of requests', async function () {
+      const body1 = generateRandomCity();
+      // create a batch array
+      const batch = [
+        {
+          "href": '/countries/isPartOf'
+          , "verb": "POST"
+          , "body": {
+            "a": { "href": "/countries/be" },
+            "b": { "hrefs": ["/countries?nameRegEx=^be.*$"] }
+          }
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/52074'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/countries'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/' + body1.key
+          , "verb": "PUT"
+          , "body": body1
+        },
+        {
+          "href": personSabine
+          , "verb": "PATCH"
+          , "body": [
+            { op: 'replace', path: '/streetnumber', value: '9999' },
+            { op: 'add', path: '/streetbus', value: 'Z' },
+          ]
+        },
+        {
+          "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+          , "verb": "GET"
+        },
+        {
+          "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike'
+          , "verb": "GET"
+        },
+      ]
+      const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
+    });
 
 
 
 
     it('batch with multiple single inserts with one constraint error', async function () {
-        const keyp1 = uuid.v4();
-        const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
-        const keyp2 = uuid.v4();
-        const p2 = generateRandomPerson(keyp2, communityDendermonde);
-        // create a batch array
-        const batch = [
-            [ { "href": '/persons/' + keyp1
-            , "verb": "PUT"
-            , "body": p1
-            } ],
-            [ { "href": '/persons/' + keyp2
-            , "verb": "PUT"
-            , "body": p2
-            } ]
-        ]
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        [{
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        }],
+        [{
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        }]
+      ]
 
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-              assert.strictEqual(error.body[0].status, 409);
-              assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
-              assert.strictEqual(error.body[1].status, 202);
-            });
-      });
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
+          assert.strictEqual(error.body[1].status, 202);
+        });
+    });
 
 
-      it('batch with multi row insert and a constraint error', async function () {
-        const keyp1 = uuid.v4();
-        const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
-        const keyp2 = uuid.v4();
-        const p2 = generateRandomPerson(keyp2, communityDendermonde);
-        // create a batch array
-        const batch = [
-            { "href": '/persons/' + keyp1
-            , "verb": "PUT"
-            , "body": p1
-            },
-            { "href": '/persons/' + keyp2
-            , "verb": "PUT"
-            , "body": p2
-            }
-        ]
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-                assert.strictEqual(error.body[0].status, 409);
-                assert.strictEqual(error.body[1].status, 409);
-            });
+    it('batch with multi row insert and a constraint error', async function () {
+      const keyp1 = 'b554404b-8dec-48ae-839a-6b640f518e32';
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const keyp2 = '91823bdf-3b10-4a02-8cbb-94e3d3a2ff43';
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        }
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 202);
+        }
+      );
 
-      });
+      const batch2 = [
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        }
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch2, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 200);
+          assert.strictEqual(error.body[1].status, 409);
+        }
+      );
 
-      it('batch with multiple single updates with one constraint error', async function () {
-        const keyp1 = uuid.v4();
-        const p1 = generateRandomPerson(keyp1, communityDendermonde);
-        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
-        const keyp2 = uuid.v4();
-        const p2 = generateRandomPerson(keyp2, communityDendermonde);
-        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
-        p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
-        // create a batch array
-        const batch = [
-            [{ "href": '/persons/' + keyp1
-            , "verb": "PUT"
-            , "body": p1
-            }],
-            [{ "href": '/persons/' + keyp2
-            , "verb": "PUT"
-            , "body": p2
-            }]
-        ]
+    });
 
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-              assert.strictEqual(error.body[0].status, 409);
-              assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
-              assert.strictEqual(error.body[1].status, 202);
-            });
-      });
+    it('batch with multiple single updates with one constraint error', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityDendermonde);
+      await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+      // create a batch array
+      const batch = [
+        [{
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        }],
+        [{
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        }]
+      ]
 
-      it('batch with multi row update and a constraint error', async function () {
-        const keyp1 = uuid.v4();
-        const p1 = generateRandomPerson(keyp1, communityDendermonde);
-        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
-        const keyp2 = uuid.v4();
-        const p2 = generateRandomPerson(keyp2, communityDendermonde);
-        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
-        const keyp3 = uuid.v4();
-        const p3 = generateRandomPerson(keyp3, communityDendermonde);
-        await doPut('/persons/' + keyp3, p3, sriClientOptionsAuthSabine)
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[0].body.errors[0].code, 'db.constraint.violation');
+          assert.strictEqual(error.body[1].status, 202);
+        });
+    });
 
-        p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
-        p2.community.href = communityHamme;
-        // create a batch array
-        const batch = [
-            { "href": '/persons/' + keyp1
-            , "verb": "PUT"
-            , "body": p1
-            },
-            { "href": '/persons/' + keyp2
-            , "verb": "PUT"
-            , "body": p2
-            },
-            { "href": '/persons/' + keyp3
-            , "verb": "PUT"
-            , "body": p3
-            }
-        ]
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-                assert.strictEqual(error.body[0].status, 409);
-                assert.strictEqual(error.body[1].status, 409);
-                assert.strictEqual(error.body[2].status, 200);
-            });
+    it('batch with multi row update and a constraint error', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityDendermonde);
+      await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+      const keyp3 = uuid.v4();
+      const p3 = generateRandomPerson(keyp3, communityDendermonde);
+      await doPut('/persons/' + keyp3, p3, sriClientOptionsAuthSabine)
 
-      });
+      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+      p2.community.href = communityHamme;
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+        {
+          "href": '/persons/' + keyp3
+          , "verb": "PUT"
+          , "body": p3
+        }
+      ]
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.body[2].status, 200);
+        });
 
-      it('batch with multi delete', async function () {
-        const keyp1 = uuid.v4();
-        const p1 = generateRandomPerson(keyp1, communityDendermonde);
-        await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
-        const keyp2 = uuid.v4();
-        const p2 = generateRandomPerson(keyp2, communityDendermonde);
-        await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
+    });
 
-        // create a batch array
-        const batch = [
-            { "href": '/persons/' + keyp1
-            , "verb": "DELETE"
-            // , "body": p1
-            },
-            { "href": '/persons/' + keyp2
-            , "verb": "DELETE"
-            // , "body": p2
-            }
-        ]
-        await doPut('/batch', batch, sriClientOptionsAuthSabine);
+    it('batch with multi delete', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityDendermonde);
+      await doPut('/persons/' + keyp1, p1, sriClientOptionsAuthSabine)
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      await doPut('/persons/' + keyp2, p2, sriClientOptionsAuthSabine)
 
-      });
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "DELETE"
+          // , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "DELETE"
+          // , "body": p2
+        }
+      ]
+      await doPut('/batch', batch, sriClientOptionsAuthSabine);
+
+    });
 
     it('read-only batch with error should not be cancelled', async function () {
-        // create a batch array
-        const batch = [
-            { "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
-            , "verb": "GET"
-            },
-            { "href": '/cities/56001'
-            , "verb": "GET"
-            },
-            { "href": '/cities/38002'
-            , "verb": "GET"
-            },
-            { "href": '/cities/61003'
-            , "verb": "GET"
-            },
-            { "href": '/cities/92003'
-            , "verb": "GET"
-            },
-            { "href": '/cities/56001'
-            , "verb": "GET"
-            },
-        ]
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/56001'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/38002'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/61003'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/92003'
+          , "verb": "GET"
+        },
+        {
+          "href": '/cities/56001'
+          , "verb": "GET"
+        },
+      ]
 
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-              assert.strictEqual(error.body[0].status, 403);
-              assert.strictEqual(error.body[1].status, 200);
-              assert.strictEqual(error.body[2].status, 200);
-              assert.strictEqual(error.body[3].status, 200);
-              assert.strictEqual(error.body[4].status, 200);
-              assert.strictEqual(error.body[5].status, 200);
-            });
-      });
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 403);
+          assert.strictEqual(error.body[1].status, 200);
+          assert.strictEqual(error.body[2].status, 200);
+          assert.strictEqual(error.body[3].status, 200);
+          assert.strictEqual(error.body[4].status, 200);
+          assert.strictEqual(error.body[5].status, 200);
+        });
+    });
 
-      it('read-only batch (chunked) with error should not be cancelled', async function () {
-        // create a batch array
-        const batch = [
-            [{ "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
-            , "verb": "GET"
-            }],
-            [{ "href": '/cities/56001'
-            , "verb": "GET"
-            }],
-            [{ "href": '/cities/38002'
-            , "verb": "GET"
-            }],
-            [{ "href": '/cities/61003'
-            , "verb": "GET"
-            }],
-            [{ "href": '/cities/92003'
-            , "verb": "GET"
-            }],
-            [{ "href": '/cities/56001'
-            , "verb": "GET"
-            }],
-        ]
+    it('read-only batch (chunked) with error should not be cancelled', async function () {
+      // create a batch array
+      const batch = [
+        [{
+          "href": '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'
+          , "verb": "GET"
+        }],
+        [{
+          "href": '/cities/56001'
+          , "verb": "GET"
+        }],
+        [{
+          "href": '/cities/38002'
+          , "verb": "GET"
+        }],
+        [{
+          "href": '/cities/61003'
+          , "verb": "GET"
+        }],
+        [{
+          "href": '/cities/92003'
+          , "verb": "GET"
+        }],
+        [{
+          "href": '/cities/56001'
+          , "verb": "GET"
+        }],
+      ]
 
-        await utils.testForStatusCode(
-            async () => {
-                await doPut('/batch', batch, sriClientOptionsAuthSabine);
-            },
-            async (error) => {
-              assert.strictEqual(error.body[0].status, 403);
-              assert.strictEqual(error.body[1].status, 200);
-              assert.strictEqual(error.body[2].status, 200);
-              assert.strictEqual(error.body[3].status, 200);
-              assert.strictEqual(error.body[4].status, 200);
-              assert.strictEqual(error.body[5].status, 200);
-            });
-      });
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 403);
+          assert.strictEqual(error.body[1].status, 200);
+          assert.strictEqual(error.body[2].status, 200);
+          assert.strictEqual(error.body[3].status, 200);
+          assert.strictEqual(error.body[4].status, 200);
+          assert.strictEqual(error.body[5].status, 200);
+        });
+    });
 
   });
 };

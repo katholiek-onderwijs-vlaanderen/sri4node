@@ -1,4 +1,4 @@
-const common = require('../../js/common');
+import common from '../../js/common';
 
 export = module.exports = function (sri4node, extra) {
   'use strict';

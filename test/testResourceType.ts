@@ -116,7 +116,7 @@ export = module.exports = function (base) {
       });
     });
 
-    describe(' get docs', function () {
+    describe('get docs', function () {
       it('should succeed with correct documentation.', async function () {
         await doGet('/docs', authHdrObj)
       });

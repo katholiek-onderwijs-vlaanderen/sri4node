@@ -1,4 +1,4 @@
-const { debug, mergeObject } = require('../../js/common');
+import common from '../../js/common';
 const utils = require('../utils')(null);
 
 export = module.exports = function (sri4node, extra) {
@@ -17,7 +17,7 @@ export = module.exports = function (sri4node, extra) {
     return async function (tx, sriRequest, elements) {
       elements.forEach( ({ incoming }) => {
         if (incoming.amount <= max) {
-          debug('mocha', 'Should be more, or equal to ' + max);
+          common.debug('mocha', 'Should be more, or equal to ' + max);
           throw new sriRequest.SriError({status: 409, errors: [{code: 'not.enough'}]})
         }        
       } )
@@ -118,6 +118,6 @@ export = module.exports = function (sri4node, extra) {
     transformRequest: utils.lookForBasicAuthUser
   };
 
-  mergeObject(extra, ret);
+  common.mergeObject(extra, ret);
   return ret;
 };

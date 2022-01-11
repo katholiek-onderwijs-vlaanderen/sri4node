@@ -6,7 +6,10 @@ export = module.exports = function (base) {
   'use strict';
 
   const sriClientConfig = {
-    baseUrl: base
+    baseUrl: base,
+    retry: {
+      retries: 0,
+    },
   }
   const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
   const doGet = function(...args) { return api.getRaw(...args) };
@@ -111,7 +114,7 @@ export = module.exports = function (base) {
       it('should return 404 and the error message.', async function () {
         await utils.testForStatusCode(
           async () => {
-            await doGet('/communities?invalidQueryParameter=true')
+            await doGet('/communities?invalidQueryParameter=true');
           }, 
           (error) => {
             assert.equal(error.status, 404);

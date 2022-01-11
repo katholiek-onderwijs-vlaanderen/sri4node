@@ -15,13 +15,13 @@ if(type === 'text') {
 const _ = require('lodash');
 
 const qo = require('./queryObject');
-const { pgExec, tableFromMapping } = require('./common');
+import common from './common';
 
 let cache:any = null;
 
 export = module.exports = async function (db, configuration) {
     if (cache === null) {
-        const tableNames = _.uniq(configuration.resources.map(mapping => tableFromMapping(mapping)));
+        const tableNames = _.uniq(configuration.resources.map(mapping => common.tableFromMapping(mapping)));
         const query = qo.prepareSQL('information-schema');
         query.sql(`SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
                LEFT JOIN information_schema.element_types e
@@ -29,14 +29,14 @@ export = module.exports = async function (db, configuration) {
                            = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
                WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(process.env.POSTGRES_SCHEMA);
 
-        const rowsByTable = _.groupBy(await pgExec(db, query), r => r.table_name);
+        const rowsByTable = _.groupBy(await common.pgExec(db, query), r => r.table_name);
 
         cache = Object.fromEntries(
             configuration.resources
                 .filter(mapping => !mapping.onlyCustom)
                 .map(mapping => {
                     return [mapping.type, Object.fromEntries(
-                        rowsByTable[tableFromMapping(mapping)].map(c => [c.column_name, { type: c.data_type, element_type: c.element_type }])
+                        rowsByTable[common.tableFromMapping(mapping)].map(c => [c.column_name, { type: c.data_type, element_type: c.element_type }])
                     )];
                 }));
     }

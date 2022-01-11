@@ -33,19 +33,11 @@ let pgp:pgPromise.IMain; // will be initialized at pgConnect
 const logBuffer:{ [k:string]: string[]} = {};
 
 
-/**
- * @typedef {object} SriErrorConstructorObject
- *  @property {Number} status: the http status
- *  @property {Array<Error>} errors: the errors
- *  @property {Array<Header>} headers: the headers that should be sent
- *  @property {object} document
- *  @property {String} sriRequestID
- */
 
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
  */
-class SriError {
+/*export*/ class SriError {
   status: number;
   body: { errors: {}[]; status: number; document: any; };
   headers: {};
@@ -53,7 +45,7 @@ class SriError {
   /**
    * Contructs an sri error based on the given initialisation object
    *
-   * @param {SriErrorConstructorObject} value
+   * @param {Object} value
    */
   constructor({status = 500, errors = [], headers = {}, document = {}, sriRequestID=null}:{ status:number, errors:any[] | any, headers?:{[k:string]: string}, document?:any, sriRequestID?:string | null }) {
     this.status = status,
@@ -103,7 +95,15 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
  *  @property {parentSriRequest} SriRequest
  */
 
-const debug = (channel:string, x:(() => string) | string) => {
+type DebugChannel = 'server-timing' | 'requests' | 'trace' | 'db' | 'general' | 'overloadProtection' | 'batch' | 'sql' | 'hooks' | 'phaseSyncer' | 'mocha'
+
+/**
+ * Logging output (use the proper channel!)
+ * 
+ * @param channel 
+ * @param {String | () => String}
+ */
+const debug = (channel:DebugChannel, x:(() => string) | string) => {
   if ((global as any).sri4node_configuration===undefined ||
         ((global as any).sri4node_configuration.logdebug && (
           (global as any).sri4node_configuration.logdebug.channels==='all' ||
@@ -131,15 +131,6 @@ const error = function(...args) {
       console.error(...args);
   }
 };
-
-/**
- * @typedef {object} SriErrorConstructorObject
- *  @property {Number} status: the http status
- *  @property {Array<Error>} errors: the errors
- *  @property {Array<Header>} headers: the headers that should be sent
- *  @property {object} document
- *  @property {String} sriRequestID
- */
 
 /**
  * Given the generated grammar, generate and return the parser
@@ -514,8 +505,7 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
   }
 }
 
-
-export = module.exports = {
+const common = {
   cl,
 
   installEMT: (app:Application) => {
@@ -529,7 +519,7 @@ export = module.exports = {
       const timerLogs = Object.keys(report.timers).forEach(timer => {
         const duration = report.timers[timer]['took']
         if (duration > 0 && timer !== 'express-wrapper') {
-            module.exports.setServerTimingHdr(sriRequest, timer, duration);
+            common.setServerTimingHdr(sriRequest, timer, duration);
         }
       });
   },
@@ -609,7 +599,7 @@ export = module.exports = {
       };
     }
     const pp = path.parse(u1);
-    if (module.exports.isUuid(pp.name)) {
+    if (common.isUuid(pp.name)) {
       return {
         base: pp.dir,
         id: pp.name,
@@ -648,7 +638,7 @@ export = module.exports = {
   },
 
   typeToMapping: function (type:string) {
-      return module.exports.typeToConfig((global as any).sri4node_configuration.resources)[type]
+      return common.typeToConfig((global as any).sri4node_configuration.resources)[type]
   },
 
   sqlColumnNames: function (mapping, summary=false) {
@@ -714,7 +704,7 @@ export = module.exports = {
           throw new SriError({status: 409, errors: [{code: 'no.href.inside.reference', msg: 'No href found inside reference ' + key}]})
         }
         const expectedType = map[key].references
-        const { type: refType, key: refKey } = module.exports.urlToTypeAndKey(permalink)
+        const { type: refType, key: refKey } = common.urlToTypeAndKey(permalink)
         if (refType === expectedType) {
           row[key] = refKey;
         } else {
@@ -818,7 +808,7 @@ export = module.exports = {
                 }
             };
         }
-        module.exports.pgInit(pgpInitOptions);
+        common.pgInit(pgpInitOptions);
       }
       if (process.env.DATABASE_URL) {
         dbUrl = process.env.DATABASE_URL;
@@ -874,13 +864,13 @@ export = module.exports = {
   pgExec: async function (db, query, sriRequest=null) {
     const {sql, values} = query.toParameterizedSql()
 
-    module.exports.debug('sql', () => pgp.as.format(sql, values));
+    debug('sql', () => pgp.as.format(sql, values));
 
     const hrstart = process.hrtime();
     const result = await db.query(sql, values);
     const hrElapsed = process.hrtime(hrstart);
     if (sriRequest) {
-      module.exports.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
+      common.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
     }
 
     return result;
@@ -895,7 +885,7 @@ export = module.exports = {
     const result = await db.result(sql, values)
     const hrElapsed = process.hrtime(hrstart);
     if (sriRequest) {
-        module.exports.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
+        common.setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
     }
 
     return result;
@@ -965,7 +955,7 @@ export = module.exports = {
 
       const hrElapsed = process.hrtime(hrstart);
       if (sriRequest) {
-          module.exports.setServerTimingHdr(sriRequest, 'db-starttx', hrtimeToMilliseconds(hrElapsed));
+          common.setServerTimingHdr(sriRequest, 'db-starttx', hrtimeToMilliseconds(hrElapsed));
       }
 
       return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') })
@@ -1020,7 +1010,7 @@ export = module.exports = {
       }
       const hrElapsed = process.hrtime(hrstart);
       if (sriRequest) {
-          module.exports.setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsed));
+          common.setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsed));
       }
 
       return ({ t, endTask: endTask })
@@ -1078,7 +1068,7 @@ export = module.exports = {
   },
 
   getCountResult: async (tx, countquery, sriRequest) => {
-    const [{count}] = await module.exports.pgExec(tx, countquery, sriRequest);
+    const [{count}] = await common.pgExec(tx, countquery, sriRequest);
     return parseInt(count, 10);
   },
 
@@ -1124,17 +1114,17 @@ export = module.exports = {
           return res.value
         } else {
           const err = res.reason
-          if (err instanceof SriError) {
+          if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
             return err
           } else {
             error('____________________________ E R R O R (settleResultsToSriResults)_________________________')
-            error(module.exports.stringifyError(err))
+            error(common.stringifyError(err))
             if (err && err.stack) {
                 error('STACK:')
                 error(err.stack)
             }
             error('___________________________________________________________________________________________')
-            return new SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [$module.exports.stringifyError(err)}]`}]})
+            return new SriError({status: 500, errors: [{code: 'internal.server.error', msg: `Internal Server Error. [${common.stringifyError(err)}}]`}]})
           }
         }
       });
@@ -1152,7 +1142,7 @@ export = module.exports = {
   },
 
   setServerTimingHdr: (sriRequest, property, value) => {
-    const parentSriRequest = module.exports.getParentSriRequest(sriRequest);
+    const parentSriRequest = common.getParentSriRequest(sriRequest);
     if (parentSriRequest.serverTiming === undefined) {
         parentSriRequest.serverTiming = {}
     }
@@ -1168,7 +1158,7 @@ export = module.exports = {
   },
   getParentSriRequestFromRequestMap: (sriRequestMap) => {
     const sriRequest = Array.from(sriRequestMap.values())[0];
-    return module.exports.getParentSriRequest(sriRequest);
+    return common.getParentSriRequest(sriRequest);
   },
 
   getPgp: () => pgp,
@@ -1428,3 +1418,5 @@ export = module.exports = {
 
   sortUrlQueryParamParseTree,
 }
+
+export default common

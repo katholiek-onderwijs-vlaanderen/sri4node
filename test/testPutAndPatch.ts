@@ -1,7 +1,8 @@
 // Utility methods for calling the SRI interface
 const pMap = require('p-map'); 
 const assert = require('assert');
-const { debug } = require('../js/common');
+import common from '../js/common';
+const { debug } = common;
 const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
 const uuid = require('uuid');
 

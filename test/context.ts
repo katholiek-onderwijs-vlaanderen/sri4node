@@ -10,12 +10,11 @@ context.serve();
 // var express = require('express');
 import * as express from 'express';
 
-var common = require('../js/common');
-var cl = common.cl;
+import common from '../js/common';
 const utils = require('./utils')(null);
 
 var $u;
-var configCache:any = null;
+var configCache: any = null;
 
 export = module.exports = {
   serve: async function (sri4node, port, logdebug) {
@@ -32,10 +31,10 @@ export = module.exports = {
     try {
       const port = app.get('port');
       const server = await app.listen(port);
-      cl('Node app is running at localhost:' + app.get('port'));
+      common.cl('Node app is running at localhost:' + app.get('port'));
       return server;
     } catch (error) {
-      cl('Node app failed to initialize: ' + error);
+      common.cl('Node app failed to initialize: ' + error);
       process.exit(1);
     }
   },
@@ -52,7 +51,7 @@ export = module.exports = {
   config: function (sri4node, port, logdebug) {
     'use strict';
     if (configCache !== null) {
-      cl('config cached');
+      common.cl('config cached');
       return configCache;
     }
 
@@ -85,21 +84,24 @@ export = module.exports = {
         require('./context/onlycustom')(sri4node, commonResourceConfig),
       ],
 
-      beforePhase: [  async (sriRequestMap, jobMap, pendingJobs) => {
-            Array.from(sriRequestMap)
-            .forEach( ([psId, sriRequest]) => {
-                if (pendingJobs.has(psId)) {
-                    if (sriRequest.generateError === true) {
-                        sriRequest.generateError = false;
-                        throw new common.SriError({status: 400, errors: [{code: 'foo'}], sriRequestID: sriRequest.id});
-                    }
+      beforePhase: [
+        async (sriRequestMap, jobMap, pendingJobs) => {
+          (Array.from(sriRequestMap) as Array<[string, any]>)
+            .forEach(([psId, sriRequest]) => {
+            // .forEach((keyValueTuple:any) => {
+            //   const [psId, sriRequest] = keyValueTuple;
+              if (pendingJobs.has(psId)) {
+                if (sriRequest.generateError === true) {
+                  sriRequest.generateError = false;
+                  throw new common.SriError({ status: 400, errors: [{ code: 'foo' }], sriRequestID: sriRequest.id });
                 }
+              }
             });
         }
       ],
 
-      transformRequest: [ utils.lookForBasicAuthUser ],
-      transformInternalRequest: [ utils.copyUserInfo ],
+      transformRequest: [utils.lookForBasicAuthUser],
+      transformInternalRequest: [utils.copyUserInfo],
 
       // temporarily global batch for samenscholing
       enableGlobalBatch: true

@@ -4,7 +4,7 @@ const sleep = require('await-sleep');
 const fs = require('fs');
 const streamEqual = require('stream-equal').default;
 
-const common = require('../../js/common');
+import common from '../../js/common';
 const debug = common.debug;
 const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 
@@ -85,7 +85,7 @@ export = module.exports = function (sri4node, extra) {
           debug('mocha', '** restrictReadPersons resolves.');
         } else {
           debug('mocha', 'row.count = ' + row.count);
-          debug('mocha', '** security method restrictedReadPersons denies access.', key, myCommunityKey);
+          debug('mocha', `** security method restrictedReadPersons denies access. ${key} ${myCommunityKey}`);
           throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
         }
        

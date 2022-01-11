@@ -5,8 +5,9 @@ const url = require('url');
 
 import hooks = require('./hooks')
 import expand = require('./expand');
-const { typeToConfig, typeToMapping, debug, cl, sqlColumnNames, getCountResult, typeFromUrl,
-        transformRowToObject, tableFromMapping, pgExec, SriError, setServerTimingHdr } = require('./common');
+import common from './common';
+const { debug, cl, sqlColumnNames, getCountResult,
+        transformRowToObject, tableFromMapping, pgExec, SriError } = common;
 import queryobject = require('./queryObject');
 import queryUtils = require('./queryUtils');
 const prepare = queryobject.prepareSQL;
@@ -278,7 +279,7 @@ async function getListResource(phaseSyncer, tx, sriRequest, mapping) {
 
   debug('trace', 'listResource - GET list resource starting' + type);
 
-  let count = null;
+  let count:any = null;
   let rows;
   let orderKeys;
   try {

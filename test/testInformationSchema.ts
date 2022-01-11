@@ -1,5 +1,6 @@
 const assert = require('assert');
-const { debug, pgConnect } = require('../js/common');
+import common from '../js/common';
+const { debug, pgConnect } = common;
 const context = require('./context');
 
 export = module.exports = function () {
