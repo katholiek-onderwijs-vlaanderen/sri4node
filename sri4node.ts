@@ -995,11 +995,19 @@ module.exports = {
   queryUtils: require('./js/queryUtils'),
   mapUtils: require('./js/mapUtils'),
   schemaUtils: require('./js/schemaUtils'),
-  debug: debug,
-  error: error,
+  // internalUtils: common,
+  internalUtils: {
+    typeToMapping: common.typeToMapping,
+    getPersonFromSriRequest: common.getPersonFromSriRequest,
+    tableFromMapping: common.tableFromMapping,
+    urlToTypeAndKey: common.urlToTypeAndKey,
+    parseResource: common.parseResource,
+  },
+  debug,
+  error,
   SriError,
-  transformRowToObject: transformRowToObject,
-  transformObjectToRow: transformObjectToRow,
+  transformRowToObject,
+  transformObjectToRow,
 };
 
 export default module.exports;
