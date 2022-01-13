@@ -859,7 +859,12 @@ exports = module.exports = {
                                 const JsonStreamStringify = require('json-stream-stringify');
                                 const JsonStream = new JsonStreamStringify(stream);
                                 JsonStream.pipe(sriRequest.outStream);
-                                keepAliveTimer = setInterval(() => { sriRequest.outStream.write(' ') }, 20000)
+                                keepAliveTimer = setInterval(() => {
+                                  sriRequest.outStream.write(' ');
+                                  // flush outstream, otherwise an intermediate layer such as gzip compression
+                                  // might keep the keep-alive write in buffer and break the keep-alive mechanism
+                                  sriRequest.outStream.flush();
+                                }, 20000)
                               }
 
                               sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));

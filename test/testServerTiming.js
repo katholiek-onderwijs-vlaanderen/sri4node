@@ -6,7 +6,7 @@ const sleep = require('await-sleep')
 exports = module.exports = function (base) {
   'use strict';
 
-  const client = new Client(`http://localhost:5000`);
+  const client = new Client(base);
 
   const utils =  require('./utils.js')(null);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
