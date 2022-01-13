@@ -80,6 +80,7 @@ exports = module.exports = {
         require('./context/countries.js')(roa, commonResourceConfig),
         require('./context/countries_with_prefix.js')(roa, commonResourceConfig),
         require('./context/onlycustom.js')(roa, commonResourceConfig),
+        require('./context/customStreaming.js')(roa, commonResourceConfig),
       ],
 
       beforePhase: [  async (sriRequestMap, jobMap, pendingJobs) => {
