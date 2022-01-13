@@ -608,7 +608,7 @@ module.exports = {
           return
         }
 
-        await plugin.install((global as any).sri4node_configuration, dbW);
+        await plugin.install((global as any).sri4node_configuration, dbW, module.exports);
 
         if (plugin.uuid !== undefined) {
           debug('general', `Loaded plugin ${plugin.uuid}.`);
