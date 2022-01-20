@@ -1,5 +1,6 @@
 // Utility methods for calling the SRI interface
 const assert = require('assert');
+const { performance } = require('perf_hooks');
 const request = require('request');
 const sleep = require('await-sleep');
 const pEvent = require('p-event');
@@ -7,10 +8,15 @@ const JSONStream = require('JSONStream');
 const fs = require('fs');
 const streamEqual = require('stream-equal').default;
 const util = require('util');
+const expect = require('expect.js');
+const zlib = require('zlib')
+
+const { Client } = require('undici');
+
 
 export = module.exports = function (base) {
   'use strict';
-
+  const client = new Client(base);
   const sriClientConfig = {
     baseUrl: base
   }
@@ -167,6 +173,48 @@ export = module.exports = function (base) {
     it('onlyCustom should work', async function () {
         const response = await doGet('/onlyCustom', null,  authHdrObj)
         assert.equal(response.bar, 'foo');
+    });
+
+    it('custom streaming - test keep-alive mechanism', async function () {
+      const { body } = await client.request({ path: '/customStreaming', method: 'GET' });
+
+      let maxIntervalWithoutData = 0;
+      let lastRcv = performance.now();
+      let bufArr:string[] = []
+      for await (const data of body) {
+          let curTime = performance.now()
+          let duration = curTime - lastRcv;
+          if (duration > maxIntervalWithoutData) {
+            maxIntervalWithoutData = duration
+          }
+          bufArr.push(data.toString());
+          lastRcv = curTime;
+      }
+      expect(maxIntervalWithoutData).to.be.below(20500);
+      assert.deepEqual(JSON.parse(bufArr.join('')), [ "f","o","o","b","a","r","!" ]);
+    });
+
+    it('custom streaming - test keep-alive mechanism with gzip compression enabled', async function () {
+      const { body } = await client.request({
+                    path: '/customStreaming?superslowstart',
+                    method: 'GET',
+                    headers: { 'Accept-Encoding': 'gzip' } });
+      let maxIntervalWithoutData = 0;
+      let lastRcv = performance.now();
+      let bufArr:any[] = []
+      for await (const data of body) {
+          let curTime = performance.now()
+          let duration = curTime - lastRcv;
+          if (duration > maxIntervalWithoutData) {
+            maxIntervalWithoutData = duration
+          }
+          bufArr.push(data);
+          lastRcv = curTime;
+      }
+      expect(maxIntervalWithoutData).to.be.below(20500);
+
+      const jsonTxt = zlib.gunzipSync(Buffer.concat(bufArr));
+      assert.deepEqual(JSON.parse(jsonTxt), [ "foo" ]);
     });
 
   });
