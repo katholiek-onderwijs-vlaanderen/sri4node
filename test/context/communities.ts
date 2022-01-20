@@ -168,7 +168,7 @@ export = module.exports = function (sri4node, extra) {
                 body: ''
               };
 
-              return (global as any).sri4node_internal_interface(getRequest);
+              return global.sri4node_internal_interface(getRequest);
             }
         },
       ],

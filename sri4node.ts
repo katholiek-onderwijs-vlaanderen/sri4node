@@ -76,14 +76,14 @@ function getSchema(req, resp) {
 /* Handle GET /docs and /{type}/docs */
 function getDocs(req, resp) {
   'use strict';
-  const typeToMappingMap = typeToConfig((global as any).sri4node_configuration.resources);
+  const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   if (type in typeToMappingMap) {
     const mapping = typeToMappingMap[type];
     resp.locals.path = req._parsedUrl.pathname;
     resp.render('resource', {resource: mapping, queryUtils: module.exports.queryUtils});
   } else if (req.route.path === '/docs') {
-    resp.render('index', {config: (global as any).sri4node_configuration});
+    resp.render('index', {config: global.sri4node_configuration});
   } else {
     resp.status(404).send('Not Found');
   }
@@ -92,7 +92,7 @@ function getDocs(req, resp) {
 const getResourcesOverview = (req, resp) => {
   resp.set('Content-Type', 'application/json');
   const resourcesToSend = {};
-  (global as any).sri4node_configuration.resources.forEach( (resource) => {
+  global.sri4node_configuration.resources.forEach( (resource) => {
     const resourceName = resource.type.substring(1) // strip leading slash
     resourcesToSend[resourceName] = {
       docs: resource.type + '/docs',
@@ -150,7 +150,7 @@ const handleRequest = async (sriRequest, func, mapping) => {
   } else {
     const jobs = [ [func, [t, sriRequest, mapping]] ];
 
-    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: (global as any).sri4node_configuration.beforePhase }));
+    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }));
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result
     }
@@ -229,7 +229,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
       } else {
         readOnly = readOnly0
       }
-      (global as any).overloadProtection.startPipeline();
+      global.overloadProtection.startPipeline();
 
         const reqId = httpContext.get('reqId')
         if (reqId!==undefined) {
@@ -342,7 +342,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
           , f => f(sriRequest)
           , sriRequest)
         }
-        if ((global as any).sri4node_configuration.logdebug.statuses !== undefined) {
+        if (global.sri4node_configuration.logdebug.statuses !== undefined) {
             setImmediate(() => {
                 // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
                 handleRequestDebugLog(result.status);
@@ -389,7 +389,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
           resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
         }
       }
-      if ((global as any).sri4node_configuration.logdebug.statuses !== undefined) {
+      if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         setImmediate(() => {
             // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
             console.log('GOING TO CALL handleRequestDebugLog' )
@@ -397,7 +397,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
         })
       }
     } finally {
-      (global as any).overloadProtection.endPipeline();
+      global.overloadProtection.endPipeline();
     }
   }
 }
@@ -520,7 +520,7 @@ module.exports = {
         config.logdebug  = createDebugLogConfigObject(config.logdebug);
       }
 
-      (global as any).sri4node_configuration = config // share configuration with other modules
+      global.sri4node_configuration = config // share configuration with other modules
 
       let dbR, dbW;
       if (config.db !== undefined) {
@@ -544,7 +544,7 @@ module.exports = {
         }, { concurrency: 1 }
       );
 
-      (global as any).sri4node_configuration.informationSchema = await require('./js/informationSchema')(dbR, config)
+      global.sri4node_configuration.informationSchema = await require('./js/informationSchema')(dbR, config)
 
       // Prepare pg-promise columnsets for multi insert/update & delete
       const pgp = getPgp();
@@ -560,8 +560,8 @@ module.exports = {
                         return c.source[cname]
                     }
                 }
-                const cType = (global as any).sri4node_configuration.informationSchema[type][cname].type;
-                const cElementType = (global as any).sri4node_configuration.informationSchema[type][cname].element_type;
+                const cType = global.sri4node_configuration.informationSchema[type][cname].type;
+                const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
                 if (cType !== 'text') {
                     if (cType === 'ARRAY') {
                         col.cast = `${cElementType}[]`;
@@ -578,7 +578,7 @@ module.exports = {
             return new pgp.helpers.ColumnSet(columns, { table });
       }
 
-      (global as any).sri4node_configuration.pgColumns = Object.fromEntries(
+      global.sri4node_configuration.pgColumns = Object.fromEntries(
         config.resources
           .filter((resource) => !resource.onlyCustom)
           .map((resource) => {
@@ -598,34 +598,34 @@ module.exports = {
       );
 
 
-      (global as any).sri4node_loaded_plugins = new Map();
+      global.sri4node_loaded_plugins = new Map();
 
-      (global as any).sri4node_install_plugin = async (plugin) => {
+      global.sri4node_install_plugin = async (plugin) => {
         const util = require('util');
         console.log(`Installing plugin ${util.inspect(plugin)}`)
         // load plugins with a uuid only once; backwards compatible with old system without uuid
-        if ((plugin.uuid !== undefined) && (global as any).sri4node_loaded_plugins.has(plugin.uuid)) {
+        if ((plugin.uuid !== undefined) && global.sri4node_loaded_plugins.has(plugin.uuid)) {
           return
         }
 
-        await plugin.install((global as any).sri4node_configuration, dbW, module.exports);
+        await plugin.install(global.sri4node_configuration, dbW, module.exports);
 
         if (plugin.uuid !== undefined) {
           debug('general', `Loaded plugin ${plugin.uuid}.`);
-          (global as any).sri4node_loaded_plugins.set(plugin.uuid, plugin);
+          global.sri4node_loaded_plugins.set(plugin.uuid, plugin);
         }
       }
 
       if (config.plugins !== undefined) {
         await pMap(config.plugins, async (plugin) => {
-          await (global as any).sri4node_install_plugin(plugin)
+          await global.sri4node_install_plugin(plugin)
         }, {concurrency: 1} )
       }
 
       // set the overload protection as first middleware to drop requests as soon as possible
-      (global as any).overloadProtection = require('./js/overloadProtection')(config.overloadProtection);
+      global.overloadProtection = require('./js/overloadProtection')(config.overloadProtection);
       app.use(async function(req, res, next) {
-        if ( (global as any).overloadProtection.canAccept() ) {
+        if ( global.overloadProtection.canAccept() ) {
           next();
         } else {
           debug('overloadProtection', `DROPPED REQ`);
@@ -638,7 +638,7 @@ module.exports = {
 
       const emt = installEMT(app)
 
-      if ((global as any).sri4node_configuration.forceSecureSockets) {
+      if (global.sri4node_configuration.forceSecureSockets) {
         // All URLs force SSL and allow cross origin access.
         app.use(forceSecureSockets);
       }
@@ -664,7 +664,7 @@ module.exports = {
       app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
       app.post('/setlogdebug', function (req, resp, next) {
-        (global as any).sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
+        global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
         resp.send('OK')
       });
 
@@ -960,7 +960,7 @@ module.exports = {
 
       app.get('/', (_req:Request, res:Response) => res.redirect('/resources'));
 
-      (global as any).sri4node_internal_interface = async (internalReq) => {
+      global.sri4node_internal_interface = async (internalReq) => {
         const match = batch.matchHref(internalReq.href, internalReq.verb);
 
         const sriRequest = generateSriRequest(undefined, undefined, undefined, match, internalReq);

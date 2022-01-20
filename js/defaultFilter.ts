@@ -549,7 +549,7 @@ export = module.exports = (valueEnc, query, parameter, mapping, database) => {
   const filter = analyseParameter(parameter);
 
   // 2) Find data type on database from information schema;
-  const informationSchema = (global as any).sri4node_configuration.informationSchema
+  const informationSchema = global.sri4node_configuration.informationSchema
   const idx = mapping.type;
   const field = informationSchema[idx][filter.key];
 

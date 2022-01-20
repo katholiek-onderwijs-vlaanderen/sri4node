@@ -180,7 +180,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   const queryParams = sriRequest.query
 
   const table = tableFromMapping(mapping);
-  const tableInformation = (global as any).sri4node_configuration.informationSchema[mapping.type];
+  const tableInformation = global.sri4node_configuration.informationSchema[mapping.type];
 
   // const elements = [];
   rows.forEach( (currentrow) => {

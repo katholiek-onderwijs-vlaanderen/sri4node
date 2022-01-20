@@ -158,7 +158,7 @@ export = module.exports = {
     executeExpansion: async (db, sriRequest, elements, mapping) => { // eslint-disable-line
     const expand = sriRequest.query.expand
 
-    const resources = (global as any).sri4node_configuration.resources
+    const resources = global.sri4node_configuration.resources
 
     debug('trace', 'expand - executeExpansion()');
     if (expand) {

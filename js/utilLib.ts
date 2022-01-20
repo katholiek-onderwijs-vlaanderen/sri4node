@@ -20,7 +20,7 @@ export = module.exports = {
 
 
     return async function (tx, sriRequest, elements) {
-      const resources = (global as any).sri4node_configuration.resources
+      const resources = global.sri4node_configuration.resources
       const typeToMapping = typeToConfig(resources);
       const mapping = typeToMapping[type];
       const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : 'full';

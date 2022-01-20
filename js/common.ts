@@ -104,15 +104,15 @@ type DebugChannel = 'server-timing' | 'requests' | 'trace' | 'db' | 'general' | 
  * @param {String | () => String}
  */
 const debug = (channel:DebugChannel, x:(() => string) | string) => {
-  if ((global as any).sri4node_configuration===undefined ||
-        ((global as any).sri4node_configuration.logdebug && (
-          (global as any).sri4node_configuration.logdebug.channels==='all' ||
-          (global as any).sri4node_configuration.logdebug.channels.has(channel)) ) )
+  if (global.sri4node_configuration===undefined ||
+        (global.sri4node_configuration.logdebug && (
+          global.sri4node_configuration.logdebug.channels==='all' ||
+          global.sri4node_configuration.logdebug.channels.has(channel)) ) )
   {
     const reqId:string = httpContext.get('reqId');
     const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof x === 'function' ? x() : x}`
     if (reqId !== undefined) {
-        if ((global as any).sri4node_configuration.logdebug.statuses !== undefined) {
+        if (global.sri4node_configuration.logdebug.statuses !== undefined) {
           logBuffer[reqId] ? logBuffer[reqId].push(msg) : logBuffer[reqId] = [ msg ];
         } else {
           console.log(msg);
@@ -549,7 +549,7 @@ const common = {
 
   handleRequestDebugLog: (status:number) => {
       const reqId = httpContext.get('reqId');
-      if ((global as any).sri4node_configuration.logdebug.statuses.has(status)) {
+      if (global.sri4node_configuration.logdebug.statuses.has(status)) {
         logBuffer[reqId].forEach( e => console.log(e) );
       }
       delete logBuffer[reqId];
@@ -638,7 +638,7 @@ const common = {
   },
 
   typeToMapping: function (type:string) {
-      return common.typeToConfig((global as any).sri4node_configuration.resources)[type]
+      return common.typeToConfig(global.sri4node_configuration.resources)[type]
   },
 
   sqlColumnNames: function (mapping, summary=false) {
@@ -725,7 +725,7 @@ const common = {
         map[key]['fieldToColumn'].forEach( f => f(key, row, isNewResource) );
       }
 
-      const fieldTypeDb = (global as any).sri4node_configuration.informationSchema[resourceMapping.type][key].type
+      const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type
       const fieldTypeObject = resourceMapping.schema.properties[key]
                                   ? resourceMapping.schema.properties[key].type
                                   : null
@@ -753,7 +753,7 @@ const common = {
       monitor.attach(pgpInitOptions);
     }
 
-    if ((global as any).sri4node_configuration && (global as any).sri4node_configuration.pgMonitor===true) {
+    if (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true) {
         const monitor = require('pg-monitor');
         monitor.attach(pgpInitOptions);
     };
@@ -1084,8 +1084,8 @@ const common = {
         return (new Date(val)).getTime();
       }
 
-      if ((global as any).sri4node_configuration.informationSchema[mapping.type][key]
-            && (global as any).sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
+      if (global.sri4node_configuration.informationSchema[mapping.type][key]
+            && global.sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
         return BigInt(val)
       }
     }

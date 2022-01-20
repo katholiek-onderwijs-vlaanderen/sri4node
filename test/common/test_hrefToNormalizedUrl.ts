@@ -1880,7 +1880,7 @@ describe('non_flat_url_parser.ts', () => {
 
       assert.isAtMost(
         averageExecutionTime,
-        0.8,
+        1.5,
         'Parsing is too slow on average!',
       );
     });

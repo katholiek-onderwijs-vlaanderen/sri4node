@@ -97,7 +97,7 @@ export = module.exports = {
     const queryParams = parsedUrl.query;
     const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
 
-    const matches = (global as any).sri4node_configuration.batchHandlerMap[verb]
+    const matches = global.sri4node_configuration.batchHandlerMap[verb]
       .map( handler => ({ handler, match: handler.route.match(path)}) )
       .filter( ({ match }) => match !== false );
 
@@ -116,8 +116,8 @@ export = module.exports = {
   batchOperation: async (sriRequest) => {
     'use strict';
     const reqBody = sriRequest.body
-    const batchConcurrency = (global as any).overloadProtection.startPipeline(
-                                Math.min(maxSubListLen(reqBody), (global as any).sri4node_configuration.batchConcurrency));
+    const batchConcurrency = global.overloadProtection.startPipeline(
+                                Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
     try {
       const contextInsideBatch = {};
       let batchFailed = false;
@@ -159,7 +159,7 @@ export = module.exports = {
 
               const results = settleResultsToSriResults(
                     await phaseSyncedSettle(batchJobs, { concurrency: batchConcurrency,
-                                                         beforePhaseHooks: (global as any).sri4node_configuration.beforePhase
+                                                         beforePhaseHooks: global.sri4node_configuration.beforePhase
                                                        } ));
 
               if (results.some(e => e instanceof SriError || e?.__proto__?.constructor?.name === 'SriError') && sriRequest.readOnly === false) {
@@ -203,7 +203,7 @@ export = module.exports = {
 
       return { status: status, body: batchResults }
     } finally {
-      (global as any).overloadProtection.endPipeline(batchConcurrency);
+      global.overloadProtection.endPipeline(batchConcurrency);
     }
   },
 
@@ -212,8 +212,8 @@ export = module.exports = {
     let keepAliveTimer:NodeJS.Timer | null = null;
     const stream = null;
     const reqBody = sriRequest.body
-    const batchConcurrency = (global as any).overloadProtection.startPipeline(
-                                Math.min(maxSubListLen(reqBody), (global as any).sri4node_configuration.batchConcurrency));
+    const batchConcurrency = global.overloadProtection.startPipeline(
+                                Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency));
     try {
       const context = {};
       let batchFailed = false;
@@ -260,7 +260,7 @@ export = module.exports = {
               }, {concurrency: 1})
 
               const results = settleResultsToSriResults( await phaseSyncedSettle(batchJobs, { concurrency: batchConcurrency
-                                                                                            , beforePhaseHooks: (global as any).sri4node_configuration.beforePhase }))
+                                                                                            , beforePhaseHooks: global.sri4node_configuration.beforePhase }))
 
               if (results.some(e => e instanceof SriError || e?.__proto__?.constructor?.name === 'SriError')) {
                 batchFailed = true;
@@ -340,7 +340,7 @@ export = module.exports = {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer)
       }
-      (global as any).overloadProtection.endPipeline(batchConcurrency);
+      global.overloadProtection.endPipeline(batchConcurrency);
     }
   }
 }

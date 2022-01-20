@@ -83,7 +83,7 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
             const table = tableFromMapping(typeToMapping(type));
             const columns = sqlColumnNames(typeToMapping(type));
             const query = prepare('select-rows-by-key-from-' + table);
-            const keyDbType = (global as any).sri4node_configuration.informationSchema[type].key.type;
+            const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
             query.sql(`SELECT ${columns}
                        FROM UNNEST(`)
                  .param(keys)
@@ -368,7 +368,7 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
         await pMap(types, async (type) => {
             const rows = sriRequest.PutRowsToInsert[type];
             const table = tableFromMapping(typeToMapping(type));
-            const cs = (global as any).sri4node_configuration.pgColumns[table]['insert'];
+            const cs = global.sri4node_configuration.pgColumns[table]['insert'];
 
             // generating a multi-row insert query:
             const query = pgp.helpers.insert(rows, cs);
@@ -391,8 +391,8 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
             const rows = sriRequest.PutRowsToUpdate[type];
 
             const table = tableFromMapping(typeToMapping(type));
-            const cs = (global as any).sri4node_configuration.pgColumns[table]['update'];
-            const keyDbType = (global as any).sri4node_configuration.informationSchema[type].key.type;
+            const cs = global.sri4node_configuration.pgColumns[table]['update'];
+            const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
             const update = pgp.helpers.update(rows, cs) + ` WHERE "$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
 
             try {
@@ -414,8 +414,8 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
             const rows = sriRequest.rowsToDelete[type];
 
             const table = tableFromMapping(typeToMapping(type));
-            const cs = (global as any).sri4node_configuration.pgColumns[table]['delete'];
-            const keyDbType = (global as any).sri4node_configuration.informationSchema[type].key.type;
+            const cs = global.sri4node_configuration.pgColumns[table]['delete'];
+            const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
             const update = pgp.helpers.update(rows, cs) + ` WHERE t."$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
 
             try {
