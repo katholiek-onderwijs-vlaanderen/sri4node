@@ -83,6 +83,7 @@ export = module.exports = {
         require('./context/countries_with_prefix')(sri4node, commonResourceConfig),
         require('./context/onlycustom')(sri4node, commonResourceConfig),
         require('./context/customStreaming')(sri4node, commonResourceConfig),
+        require('./context/foos')(sri4node, commonResourceConfig),
       ],
 
       beforePhase: [

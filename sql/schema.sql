@@ -187,6 +187,14 @@ CREATE TABLE "personrelations" (
   "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
+CREATE TABLE "foos" (
+  "key" uuid primary key,
+  "bar" int,
+  "$$meta.deleted" boolean default false CHECK ("$$meta.deleted" != true),
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
 CREATE TABLE "cities" (
   "key" int4 unique,
   "name" text,

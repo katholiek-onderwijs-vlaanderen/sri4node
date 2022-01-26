@@ -18,7 +18,7 @@ const ajv = new Ajv({ coerceTypes: true }) // options can be passed, e.g. {allEr
 addFormats(ajv)
 
 
-const makeMultiError = (type) => new SriError({status: 409, errors: [{code: `multi.${type}.failed`, 
+const makeMultiError = (type) => () => new SriError({status: 409, errors: [{code: `multi.${type}.failed`, 
 msg: `An error occurred during multi row ${type}. There is no indication which request(s)/row(s) caused the error, `
      + `to find out more information retry with individual ${type}s.`}]});
 
@@ -314,7 +314,11 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     if (parentSriRequest.PutRowsToInsert[type] === undefined) {
         parentSriRequest.PutRowsToInsert[type] = [];
     }
+    if (parentSriRequest.PutRowsToInsertIDs === undefined) {
+      parentSriRequest.PutRowsToInsertIDs = [];
+    }
     parentSriRequest.PutRowsToInsert[type].push(newRow);
+    parentSriRequest.PutRowsToInsertIDs.push(sriRequest.id);
 
     return { opType: 'insert', obj, permalink };
   } else {
@@ -346,7 +350,11 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     if (parentSriRequest.PutRowsToUpdate[type] === undefined) {
         parentSriRequest.PutRowsToUpdate[type] = [];
     }
+    if (parentSriRequest.PutRowsToUpdateIDs === undefined) {
+      parentSriRequest.PutRowsToUpdateIDs = [];
+    }
     parentSriRequest.PutRowsToUpdate[type].push(updateRow);
+    parentSriRequest.PutRowsToUpdateIDs.push(sriRequest.id);
 
     return { opType: 'update', obj, prevObj, permalink };
   }
@@ -442,7 +450,7 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
                 delete parentSriRequest.multiInsertFailed;
                 throw err;
             } else {
-                throw multiInsertError;
+                throw multiInsertError();
             }
         }
 
@@ -464,7 +472,7 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
                 delete parentSriRequest.multiUpdateFailed;
                 throw err;
             } else {
-                throw multiUpdateError;
+                throw multiUpdateError();
             }
         }
 
@@ -497,25 +505,9 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
     const retVal = await handlePutResult(phaseSyncer, sriRequest, mapping, state);
     return retVal;
   } catch (err) {
-      // In case of a multi error where the cause is not clear, check for such error and 
-      // replace 202 error with an error to indicate in all related requests that we do
-      // not know the cause.
-    const parentSriRequest = getParentSriRequest(sriRequest);
-    if (parentSriRequest.multiInsertFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) === 'SriError' && err.status===202) {
-        throw multiInsertError;
-    }
-    if (parentSriRequest.multiUpdateFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) && err.status===202) {
-        throw multiUpdateError;
-    }
-    if (parentSriRequest.multiDeleteFailed && (err instanceof SriError || err?.__proto__?.constructor?.name) && err.status===202) {
-        throw multiDeleteError;
-    }
 
     // intercept db constraint violation errors and return 409 error
     if ( err.constraint !== undefined ) {
-      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-      console.log(err)
-      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
       throw new SriError({status: 409, errors: [{code: 'db.constraint.violation', msg: err.detail}]});
     } else {
       if (!(err instanceof SriError || err?.__proto__?.constructor?.name)) {
@@ -553,70 +545,82 @@ async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
 async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   // 'use strict';
-
-  await phaseSyncer.phase()
-
-  debug('trace', 'sri4node DELETE invoked');
-  const key = sriRequest.params.key;
-
-  queryByKeyRequestKey(sriRequest, mapping, key);
-
-  await phaseSyncer.phase();
-
-  const result = queryByKeyGetResult(sriRequest, mapping, key,
-                                            sriRequest.query['$$meta.deleted'] === 'true'
-                                                   || sriRequest.query['$$meta.deleted'] === 'any');
-
-  if (result.code != 'found') {
-    debug('trace', 'No row affected - the resource is already gone');
-  } else {
-    const table = tableFromMapping(mapping);
-    sriRequest.containsDeleted = false;
-
-    const prevObj = result.object
-    await hooks.applyHooks('before delete'
-                          , mapping.beforeDelete
-                          , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
-                          , sriRequest)
-
-    const deleteRow = {
-        key,
-        "$$meta.modified": new Date(),
-        "$$meta.deleted":  true,
-    }
-
-    const type = mapping.type;
-    const parentSriRequest = getParentSriRequest(sriRequest);
-    if (parentSriRequest.rowsToDelete === undefined) {
-        parentSriRequest.rowsToDelete = {};
-    }
-    if (parentSriRequest.rowsToDelete[type] === undefined) {
-        parentSriRequest.rowsToDelete[type] = [];
-    }
-    parentSriRequest.rowsToDelete[type].push(deleteRow);
-
-    await phaseSyncer.phase() // at beginning of this phase deletes will be executed in one request for all concurrent batch deletes
-
-    if (parentSriRequest.multiDeleteFailed) {
-        if (parentSriRequest.multiDeleteError !== undefined) {
-            const err = parentSriRequest.multiDeleteError;
-            delete parentSriRequest.multiDeleteError;
-            delete parentSriRequest.multiDeleteFailed;
-            throw err;
-        } else {
-            throw multiDeleteError;
-        }
-    }
-
+  try {
     await phaseSyncer.phase()
 
-    await hooks.applyHooks('after delete'
-                          , mapping.afterDelete
-                          , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
-                          , sriRequest)
+    debug('trace', 'sri4node DELETE invoked');
+    const key = sriRequest.params.key;
+
+    queryByKeyRequestKey(sriRequest, mapping, key);
+
+    await phaseSyncer.phase();
+
+    const result = queryByKeyGetResult(sriRequest, mapping, key,
+                                              sriRequest.query['$$meta.deleted'] === 'true'
+                                                     || sriRequest.query['$$meta.deleted'] === 'any');
+
+    if (result.code != 'found') {
+      debug('trace', 'No row affected - the resource is already gone');
+    } else {
+      const table = tableFromMapping(mapping);
+      sriRequest.containsDeleted = false;
+
+      const prevObj = result.object
+      await hooks.applyHooks('before delete'
+                            , mapping.beforeDelete
+                            , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
+                            , sriRequest)
+
+      const deleteRow = {
+          key,
+          "$$meta.modified": new Date(),
+          "$$meta.deleted":  true,
+      }
+
+      const type = mapping.type;
+      const parentSriRequest = getParentSriRequest(sriRequest);
+      if (parentSriRequest.rowsToDelete === undefined) {
+          parentSriRequest.rowsToDelete = {};
+      }
+      if (parentSriRequest.rowsToDelete[type] === undefined) {
+          parentSriRequest.rowsToDelete[type] = [];
+      }
+      if (parentSriRequest.rowsToDeleteIDs === undefined) {
+        parentSriRequest.rowsToDeleteIDs = [];
+      }
+      parentSriRequest.rowsToDelete[type].push(deleteRow);
+      parentSriRequest.rowsToDeleteIDs.push(sriRequest.id);
+
+      await phaseSyncer.phase() // at beginning of this phase deletes will be executed in one request for all concurrent batch deletes
+
+      if (parentSriRequest.multiDeleteFailed) {
+          if (parentSriRequest.multiDeleteError !== undefined) {
+              const err = parentSriRequest.multiDeleteError;
+              delete parentSriRequest.multiDeleteError;
+              delete parentSriRequest.multiDeleteFailed;
+              throw err;
+          } else {
+              throw multiDeleteError();
+          }
+      }
+
+      await phaseSyncer.phase()
+
+      await hooks.applyHooks('after delete'
+                            , mapping.afterDelete
+                            , f => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj}])
+                            , sriRequest)
+    }
+    await phaseSyncer.phase();
+    return { status: 200 }
+  } catch (err) {
+    // intercept db constraint violation errors and return 409 error
+    if ( err.constraint !== undefined ) {
+      throw new SriError({status: 409, errors: [{code: 'db.constraint.violation', msg: err.detail}]})
+    } else {
+      throw err
+    }
   }
-  await phaseSyncer.phase();
-  return { status: 200 }
 }
 
 

@@ -2,6 +2,7 @@
 import * as pSettle from 'p-settle';
 const pFinally = require('p-finally');
 const pEvent = require('p-event');
+const pMap = require('p-map');
 const { v4: uuidv4 } = require('uuid');
 const queue = require('emitter-queue');
 const Emitter = require('events')
@@ -175,12 +176,29 @@ export = module.exports = async (jobList, { maxNrConcurrentJobs = 1, beforePhase
                 }
             } else {
                 if (!failureHasBeenBroadcasted) {
+                    const parent = getParentSriRequestFromRequestMap(sriRequestMap);
                     failureHasBeenBroadcasted = true;
                     // failure of one job in batch leads to failure of the complete batch
-                    //  --> notify the other jobs of the failure
-                    pendingJobs.forEach(id => jobMap.get(id)?.jobEmitter.queue(
-                        'sriError',
-                        new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })));
+                    //  --> notify the other jobs of the failure (only if they are not part
+                    //      of a failed multi* operation)
+                    pMap(pendingJobs, async id => {
+                      const job = jobMap.get(id);
+                      if ( !(parent.multiInsertFailed && parent.PutRowsToInsertIDs?.includes(job?.sriRequest.id))
+                        && !(parent.multiUpdateFailed && parent.PutRowsToUpdateIDs?.includes(job?.sriRequest.id))
+                        && !(parent.multiDeleteFailed && parent.rowsToDeleteIDs?.includes(job?.sriRequest.id)) )
+                      {
+                        job?.jobEmitter.queue(
+                          'sriError',
+                          new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })
+                        )
+                      } else {
+                        if (phasePendingJobs.size === 0) {
+                          await startNewPhase()
+                        } else {
+                            startQueuedJob()
+                        }
+                      }
+                    });
                 }
             }
         }));

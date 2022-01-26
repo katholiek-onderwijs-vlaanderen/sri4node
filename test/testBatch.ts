@@ -2,6 +2,8 @@
 const pMap = require('p-map');
 const assert = require('assert');
 const uuid = require('uuid');
+const _ = require('lodash');
+const expect = require('expect.js');
 
 /**
  * BATCH should work like this (and now it works the other way around):
@@ -543,7 +545,6 @@ export = module.exports = function (base) {
       batch[0].body.name = 'Foobar'
 
       const r = await doPut('/cities/batch', batch, sriClientOptionsAuthSabine);
-      console.log(r)
       assert.equal(r[0].status, 200);
       assert.equal(r[1].status, 200);
       assert.equal(r[2].status, 200);
@@ -835,9 +836,9 @@ export = module.exports = function (base) {
 
 
     it('batch with multi row insert and a constraint error', async function () {
-      const keyp1 = 'b554404b-8dec-48ae-839a-6b640f518e32';
+      const keyp1 = uuid.v4();
       const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
-      const keyp2 = '91823bdf-3b10-4a02-8cbb-94e3d3a2ff43';
+      const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -850,7 +851,11 @@ export = module.exports = function (base) {
           "href": '/persons/' + keyp2
           , "verb": "PUT"
           , "body": p2
-        }
+        },
+        {
+          "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+          , "verb": "GET"
+        },
       ];
       await utils.testForStatusCode(
         async () => {
@@ -858,11 +863,25 @@ export = module.exports = function (base) {
         },
         async (error) => {
           assert.strictEqual(error.body[0].status, 409);
-          assert.strictEqual(error.body[1].status, 202);
+          assert.strictEqual(error.body[1].status, 409);
+          expect([200, 202]).to.contain(error.body[2].status);
+          assert.strictEqual(error.body[0].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[1].href, '/persons/' + keyp2);
+          assert.strictEqual(error.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
         }
       );
+    });
 
+    it('batch with multi row insert and a constraint error (reverse order)', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
       const batch2 = [
+        {
+          "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+          , "verb": "GET"
+        },
         {
           "href": '/persons/' + keyp2
           , "verb": "PUT"
@@ -879,11 +898,260 @@ export = module.exports = function (base) {
           await doPut('/batch', batch2, sriClientOptionsAuthSabine);
         },
         async (error) => {
-          assert.strictEqual(error.body[0].status, 200);
+          expect([200, 202]).to.contain(error.body[0].status);
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.body[0].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
+          assert.strictEqual(error.body[1].href, '/persons/' + keyp2);
+          assert.strictEqual(error.body[2].href, '/persons/' + keyp1);
+        }
+      );
+    });
+
+    it('batch with multi row update and a constraint error', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityHamme);
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+      ];
+      await doPut('/batch', batch, sriClientOptionsAuthSabine);
+      const updateBatch = _.cloneDeep(batch);
+      updateBatch[0].body.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+      updateBatch[1].body.streetnumber = 18;
+      updateBatch[2] = {
+        "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+        , "verb": "GET"
+      },
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', updateBatch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 409);
+          expect([200, 202]).to.contain(error.body[2].status);
+          assert.strictEqual(error.body[0].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[1].href, '/persons/' + keyp2);
+          assert.strictEqual(error.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
         }
       );
 
+    });
+
+    it('batch with multi row delete and a constraint error', async function () {
+      const batch = [
+        {
+          "href": '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple'
+          , "verb": "GET"
+        },
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 409);
+          expect([200, 202]).to.contain(error.body[2].status);
+          assert.strictEqual(error.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
+          assert.strictEqual(error.body[1].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
+          assert.strictEqual(error.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
+        }
+      );
+    });
+
+    it('batch with multi row delete and a constraint error + multi insert ', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityHamme);
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+        {
+          "href": '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d'
+          , "verb": "DELETE"
+        },
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          expect([200, 202]).to.contain(error.body[0].status);
+          expect([200, 202]).to.contain(error.body[1].status);
+          assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.body[3].status, 409);
+          assert.strictEqual(error.body[0].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[1].href, '/persons/' + keyp2);
+          assert.strictEqual(error.body[2].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
+          assert.strictEqual(error.body[3].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
+        }
+      );
+    });
+
+    it('batch with multi row delete and a constraint error + multi insert (reverse order)', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityHamme);
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 409);
+          expect([200, 202]).to.contain(error.body[2].status);
+          expect([200, 202]).to.contain(error.body[3].status);
+          assert.strictEqual(error.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
+          assert.strictEqual(error.body[1].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
+          assert.strictEqual(error.body[2].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[3].href, '/persons/' + keyp2);
+        }
+      );
+    });
+
+   
+
+    it('batch with multi row insert and a constraint error + multi delete', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+        {
+          "href": '/cities/61003'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/cities/73001'
+          , "verb": "DELETE"
+        },
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.body[1].status, 409);
+          expect([200, 202]).to.contain(error.body[2].status);
+          expect([200, 202]).to.contain(error.body[3].status);
+          assert.strictEqual(error.body[0].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[1].href, '/persons/' + keyp2);
+          assert.strictEqual(error.body[2].href, '/cities/61003');
+          assert.strictEqual(error.body[3].href, '/cities/73001');
+        }
+      );
+    });
+
+    it('batch with multi row insert and a constraint error + multi delete (reverse order)', async function () {
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      // create a batch array
+      const batch = [
+        {
+          "href": '/cities/61003'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/cities/73001'
+          , "verb": "DELETE"
+        },
+        {
+          "href": '/persons/' + keyp1
+          , "verb": "PUT"
+          , "body": p1
+        },
+        {
+          "href": '/persons/' + keyp2
+          , "verb": "PUT"
+          , "body": p2
+        },
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          expect([200, 202]).to.contain(error.body[0].status);
+          expect([200, 202]).to.contain(error.body[1].status);
+          assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.body[3].status, 409);
+          assert.strictEqual(error.body[0].href, '/cities/61003');
+          assert.strictEqual(error.body[1].href, '/cities/73001');
+          assert.strictEqual(error.body[2].href, '/persons/' + keyp1);
+          assert.strictEqual(error.body[3].href, '/persons/' + keyp2);
+        }
+      );
     });
 
     it('batch with multiple single updates with one constraint error', async function () {
