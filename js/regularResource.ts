@@ -5,7 +5,7 @@ const jsonPatch = require('fast-json-patch');
 const pMap = require('p-map');
 
 import common from './common'
-const { debug, error, cl, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, 
+const { debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow, 
         errorAsCode, SriError, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
         getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp } = common;
 const expand = require('./expand');
@@ -163,12 +163,12 @@ function getSchemaValidationErrors(json, schema) {
   const validate = ajv.compile(schema)
   const valid = validate(json)
   if (!valid) {
-    cl('Schema validation revealed errors.');
-    cl(validate.errors);
-    cl('JSON schema was : ');
-    cl(schema);
-    cl('Document was : ');
-    cl(json);
+    console.log('Schema validation revealed errors.');
+    console.log(validate.errors);
+    console.log('JSON schema was : ');
+    console.log(schema);
+    console.log('Document was : ');
+    console.log(json);
     return validate.errors.map( e => ({ code: errorAsCode(e.message), err: e}) );
   } else {
     return null;

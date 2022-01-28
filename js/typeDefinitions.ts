@@ -4,22 +4,32 @@
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
 import { BusboyConfig } from "busboy";
+import { IncomingHttpHeaders } from "http2";
 import { JSONSchema4 } from "json-schema";
-import { IDatabase } from "pg-promise";
+import { IDatabase, IConnectionOptions, IInitOptions, ValidSchema } from "pg-promise";
+import { IConnectionParameters } from "pg-promise/typescript/pg-subset";
+// import * as pgPromise from 'pg-promise';
+
 
 export type PluginConfig = {}
 
 // for example /llinkid/activityplanning, so should only start with a slash and maybe only lowercase etc???
-export type UriPath = string
+export type TUriPath = string
 
-export type DebugLevel = 'general' | 'something else';
+export type TDebugChannel = 'general' | 'db'| 'sql' | 'requests' | 'hooks' | 'server-timing'| 'batch'
+                        | 'trace'| 'phaseSyncer' | 'overloadProtection'| 'mocha';
+
+export type TLogDebug = {
+  channels: 'all' | TDebugChannel[],
+  statuses?: Number[],
+}
 
 export type ResourceMetaType = Uppercase<string>;
 
-export type HttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH'  | 'POST';
+export type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH'  | 'POST';
 
 export type ResourceDefinition = {
-  type: UriPath,
+  type: TUriPath,
   metaType: ResourceMetaType,
 
   // these next lines are put onto the same object afterwards, not by the user
@@ -136,8 +146,8 @@ export type ResourceDefinition = {
   onlyCustom?: boolean,
   customRoutes?: Array<
     {
-      routePostfix: UriPath,
-      httpMethods: HttpMethod[],
+      routePostfix: TUriPath,
+      httpMethods: THttpMethod[],
       readOnly?: boolean,
       busBoy?: boolean,
       busBoyConfig?: BusboyConfig,
@@ -157,6 +167,27 @@ export type ResourceDefinition = {
   >
 };
 
+/**
+ * I believe schema should be set on the cionnection level and not the library level
+ * so I am supporting it here already...
+ * 
+ * Also adding an option here to run some sql when getting a new connection.
+ * That option used to be in the root of SriConfig and used to be called dbConnectionInitSql
+ * EXAMPLE: "set random_page_cost = 1.1;"
+ */
+export interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
+  schema?: ValidSchema | ((dc: any) => ValidSchema),
+  // will be run
+  connectionInitSql?: string, // example "set random_page_cost = 1.1;",
+}
+
+export interface IExtendedDatabaseInitOptions extends IInitOptions {
+  /**
+   * Do we attach the pgMonitor plugin?
+   */
+  pgMonitor?: boolean,
+}
+
 export type SriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: any,
@@ -169,29 +200,124 @@ export type SriConfig = {
   // the real properties !!!
   plugins?: PluginConfig[]
   enableGlobalBatch?: boolean,
-  globalBatchRoutePrefix?: UriPath,
-  logrequests?: boolean,
-  logsql?: boolean,
-  logdebug?: DebugLevel,
+  globalBatchRoutePrefix?: TUriPath,
+  // logrequests?: boolean,
+  // logsql?: boolean,
+  logdebug?: TLogDebug,
   description?: string,
   bodyParserLimit?: string, // example 50mb
   batchConcurrency?: number,
   overloadProtection?: {
     retryAfter?: number,
   },
-  dbConnectionInitSql?: string, // example "set random_page_cost = 1.1;",
-
+  
   defaultlimit?: boolean,
   trackHeapMax?: boolean,
-  batchHandlerMap?: any,
+  batchHandlerMap?: TBatchHandlerRecord,
   resources: ResourceDefinition[],
-  beforePhase?: ((any) => any)[],
+  beforePhase?: ((sriRequestMap:any, jobMap:any, pendingJobs:any) => any)[],
+
+  transformRequest?: any,
+  afterRequest?: any,
+
+  transformInternalRequest?: Array<(dbT:any, internalSriRequest:TInternalSriRequest, parentSriRequest:SriRequest) => void>,
+
+  /**
+   * @deprecated
+   */
+  defaultdatabaseurl?: string,
+
+  /**
+   * @deprecated
+   */
+  dbConnectionInitSql?: string, // example "set random_page_cost = 1.1;",
+
+  /**
+   * @deprecated
+   */
+  maxConnections?: string,
+
+  // cfr. https://github.com/vitaly-t/pg-promise/blob/master/typescript/pg-subset.d.ts
+  databaseConnectionParameters: IExtendedDatabaseConnectionParameters, // IConnectionOptions<IClient> do I need this type param?
+  // cfr. https://github.com/vitaly-t/pg-promise/blob/master/typescript/pg-promise.d.ts
+  // OPTIONAL, but useful if you want to enable pgMonitor or enable some lifecycle hooks
+  databaseLibraryInitOptions?: IExtendedDatabaseInitOptions,
+
+  /**
+   * When streaming a response, even if it takes a long time to send the next chunk,
+   * we'll make sure something (a space character) is being sent to the client
+   * to avoid anything in the middle to kill the connection.
+   * 
+   * DEFAULT: 20_000 (20 seconds)
+   */
+  streamingKeepAliveTimeoutMillis?: number,
+};
+
+// TODO make more strict
+export type SriRequest = {
+  id: string,
+  parentSriRequest?: SriRequest | TInternalSriRequest,
+
+  href?: string,
+  verb?: THttpMethod,
+  httpMethod?: THttpMethod,
+
+  originalUrl?: string,
+
+  path: TUriPath,
+  query: any, //batchHandlerAndParams.queryParams,
+  params: any, //batchHandlerAndParams.routeParams,
+
+  sriType: string, //batchHandlerAndParams.handler.mapping.type,
+  isBatchRequest?: boolean,
+  readOnly?: boolean,
+  reqCancelled?: boolean,
+
+  headers?: { [key:string] : string } | IncomingHttpHeaders,
+  body?: string,
+  dbT: any, // db transaction
+  inStream?: any,
+  outStream?: any,
+  setHeader?: (key: string, value: string) => void,
+  setStatus?: (statusCode:number) => void,
+  streamStarted?: () => boolean,
+ 
+  protocol: '_internal_' | 'http' | 'https' | string | undefined,
+  isBatchPart?: boolean,
+
+  serverTiming: any,
+};
+
+export type TInternalSriRequest = {
+  href: string,
+  verb: THttpMethod,
+  dbT: any, // transaction or task object of pg promise
+  parentSriRequest: SriRequest,
+  headers?: { [key:string] : string } | IncomingHttpHeaders,
+  body?: string,
+
+  // In case of a streaming request, following fields are also required:
+
+  inStream?: any,
+  outStream?: any,
+  setHeader?: (key: string, value: string) => void,
+  setStatus?: (statusCode:number) => void,
+  streamStarted?: () => boolean,
 
 };
 
+export type TBatchHandlerRecord = {
+  route: any,
+  verb: THttpMethod,
+  func: TSriRequestHandler,
+  config: SriConfig,
+  mapping: ResourceDefinition,
+  streaming: boolean,
+  readOnly: boolean,
+  isBatch: boolean,
+}
 
-// TODO make more strict
-export type SriRequest = any;
+export type TSriRequestHandler = (SriRequest) => any
 
 export type ParseTreeType = 'string' | 'number' | 'integer' | 'boolean';
 

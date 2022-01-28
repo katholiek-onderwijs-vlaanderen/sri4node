@@ -5,7 +5,7 @@
 
 import { Application, Request, Response } from "express";
 import { Stream } from "stream";
-import { SriConfig, SriRequest } from "./js/typeDefinitions";
+import { ResourceDefinition, SriConfig, SriRequest, TInternalSriRequest, TSriRequestHandler } from "./js/typeDefinitions";
 
 
 // External dependencies.
@@ -31,13 +31,13 @@ const addFormats = require("ajv-formats")
 addFormats(ajv)
 
 import common from './js/common';
-const { SriError, cl, debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-        tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-        typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
-        installEMT, emtReportToServerTiming, generateSriRequest } = common;
+const { SriError, debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
+  tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
+  typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
+  installEMT, emtReportToServerTiming, generateSriRequest } = common;
 
 // import SriError from './js/common';
-// , cl, debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
+// , debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
 
 const queryobject = require('./js/queryObject');
 const $q = require('./js/queryUtils');
@@ -46,7 +46,8 @@ const hooks = require('./js/hooks');
 // const listResource = require('./js/listResource')
 import listResource = require('./js/listResource');
 const regularResource = require('./js/regularResource')
-const batch = require('./js/batch')
+import batch from './js/batch';
+import { config } from "process";
 const utilLib = require('./js/utilLib')
 const schemaUtils = require('./js/schemaUtils');
 
@@ -81,9 +82,9 @@ function getDocs(req, resp) {
   if (type in typeToMappingMap) {
     const mapping = typeToMappingMap[type];
     resp.locals.path = req._parsedUrl.pathname;
-    resp.render('resource', {resource: mapping, queryUtils: module.exports.queryUtils});
+    resp.render('resource', { resource: mapping, queryUtils: module.exports.queryUtils });
   } else if (req.route.path === '/docs') {
-    resp.render('index', {config: global.sri4node_configuration});
+    resp.render('index', { config: global.sri4node_configuration });
   } else {
     resp.status(404).send('Not Found');
   }
@@ -92,7 +93,7 @@ function getDocs(req, resp) {
 const getResourcesOverview = (req, resp) => {
   resp.set('Content-Type', 'application/json');
   const resourcesToSend = {};
-  global.sri4node_configuration.resources.forEach( (resource) => {
+  global.sri4node_configuration.resources.forEach((resource) => {
     const resourceName = resource.type.substring(1) // strip leading slash
     resourcesToSend[resourceName] = {
       docs: resource.type + '/docs',
@@ -116,7 +117,7 @@ function checkRequiredFields(mapping, information) {
     throw new Error(`Table '${table}' seems to be missing in the database.`);
   }
   const mandatoryFields = ['key', '$$meta.created', '$$meta.modified', '$$meta.deleted'];
-  mandatoryFields.forEach( (field:string) => {
+  mandatoryFields.forEach((field: string) => {
     if (!(field in information[idx])) {
       throw new Error(`Mapping '${mapping.type}' lacks mandatory field '${field}'`);
     }
@@ -125,51 +126,51 @@ function checkRequiredFields(mapping, information) {
 
 const middlewareErrorWrapper = (fun) => {
   return async (req, resp) => {
-      try {
-        await fun(req, resp)
-      } catch (err) {
-        error('____________________________ E R R O R (middlewareErrorWrapper) ___________________________')
-        error(err)
-        error('STACK:')
-        error(err.stack)
-        error('___________________________________________________________________________________________')
-        resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-      }
+    try {
+      await fun(req, resp)
+    } catch (err) {
+      error('____________________________ E R R O R (middlewareErrorWrapper) ___________________________')
+      error(err)
+      error('STACK:')
+      error(err.stack)
+      error('___________________________________________________________________________________________')
+      resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
     }
+  }
 }
 
 
 process.on("unhandledRejection", function (err) { console.log(err); throw err; })
 
 
-const handleRequest = async (sriRequest, func, mapping) => {
+const handleRequest = async (sriRequest, func:TSriRequestHandler, mapping) => {
   const t = sriRequest.dbT;
   let result;
   if (sriRequest.isBatchRequest) {
     result = await func(sriRequest);
   } else {
-    const jobs = [ [func, [t, sriRequest, mapping]] ];
+    const jobs = [[func, [t, sriRequest, mapping]]];
 
-    [ result ] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }));
+    [result] = settleResultsToSriResults(await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }));
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result
     }
 
-    if (sriRequest.streamStarted === undefined || ! sriRequest.streamStarted()) {
+    if (sriRequest.streamStarted === undefined || !sriRequest.streamStarted()) {
       await hooks.applyHooks('transform response'
-                            , mapping.transformResponse
-                            , f => f(t, sriRequest, result)
-                            , sriRequest
-                            )
+        , mapping.transformResponse
+        , f => f(t, sriRequest, result)
+        , sriRequest
+      )
     }
   }
   return result;
 }
 
-const handleServerTiming = async (req, resp, sriRequest:SriRequest) => {
+const handleServerTiming = async (req, resp, sriRequest: SriRequest) => {
   const logEnabled = global.sri4node_configuration.logdebug.channels === 'all'
-                      || global.sri4node_configuration.logdebug.channels.has('server-timing');
-  const hdrEnable = sriRequest['headers']['request-server-timing'] !== undefined;
+    || global.sri4node_configuration.logdebug.channels.has('server-timing');
+  const hdrEnable = sriRequest.headers?.['request-server-timing'] !== undefined;
   let serverTiming = ''
   if ((logEnabled || hdrEnable) && (sriRequest.serverTiming !== undefined)) {
     emtReportToServerTiming(req, resp, sriRequest);
@@ -195,16 +196,16 @@ const handleServerTiming = async (req, resp, sriRequest:SriRequest) => {
   }
 }
 
-const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isBatchRequest, readOnly0) => {
+const expressWrapper = (dbR, dbW, func:TSriRequestHandler, config:SriConfig, mapping:ResourceDefinition | null, isStreamingRequest:boolean, isBatchRequest:boolean, readOnly0:boolean) => {
   return async function (req, resp, next) {
-    let t:any = null, endTask, resolveTx, rejectTx, readOnly;
+    let t: any = null, endTask, resolveTx, rejectTx, readOnly;
     const reqMsgStart = req.method + ' ' + req.path;
     debug('requests', `${reqMsgStart} starting.`);
 
     const hrstart = process.hrtime();
     resp.on('finish', function () {
-        const hrend = process.hrtime(hrstart);
-        debug('requests', `${reqMsgStart} took ${hrend[0]*1000 + hrend[1] / 1000000} ms`);
+      const hrend = process.hrtime(hrstart);
+      debug('requests', `${reqMsgStart} took ${hrend[0] * 1000 + hrend[1] / 1000000} ms`);
     });
     debug('trace', 'Starting express wrapper');
     try {
@@ -216,10 +217,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
         const hrstart = process.hrtime();
         batch.matchBatch(req);
         const hrend = process.hrtime(hrstart);
-        batchRoutingDuration = hrend[0]*1000 + hrend[1] / 1000000;
+        batchRoutingDuration = hrend[0] * 1000 + hrend[1] / 1000000;
 
         const mapReadOnly = (a) => {
-          if ( Array.isArray(a) ) {
+          if (Array.isArray(a)) {
             return a.map(mapReadOnly);
           } else {
             return a.match.handler.readOnly;
@@ -231,127 +232,127 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
       }
       global.overloadProtection.startPipeline();
 
-        const reqId = httpContext.get('reqId')
-        if (reqId!==undefined) {
-          resp.set('vsko-req-id', reqId);
-        }
+      const reqId = httpContext.get('reqId')
+      if (reqId !== undefined) {
+        resp.set('vsko-req-id', reqId);
+      }
 
-        const sriRequest = generateSriRequest(req, resp, { isBatchRequest, readOnly, mapping, isStreamingRequest: isStreamingRequest })
+      const sriRequest = generateSriRequest(req, resp, { isBatchRequest, readOnly, mapping, isStreamingRequest: isStreamingRequest })
 
-        // After creating the inital SriRequest object, we still need to add the task/transaction !!!
+      // After creating the inital SriRequest object, we still need to add the task/transaction !!!
+      if (readOnly === true) {
+        ({ t, endTask } = await startTask(dbR, sriRequest))
+      } else {
+        ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW, sriRequest))
+      }
+      sriRequest.dbT = t;
+
+      req.sriRequest = sriRequest;
+
+      req.on('close', function (err) {
+        sriRequest.reqCancelled = true;
+      });
+
+
+      await hooks.applyHooks('transform request'
+        , config.transformRequest
+        , f => f(req, sriRequest, t)
+        , sriRequest
+      )
+
+      setServerTimingHdr(sriRequest, 'batch-routing', batchRoutingDuration);
+
+      const result = await handleRequest(sriRequest, func, mapping);
+
+      const terminateDb = async (error, readOnly) => {
         if (readOnly === true) {
-          ({t, endTask} = await startTask(dbR, sriRequest))
+          debug('db', '++ Processing went OK. Closing database task. ++');
+          await endTask()
         } else {
-          ({tx:t, resolveTx, rejectTx} = await startTransaction(dbW, sriRequest))
-        }
-        sriRequest.dbT = t;
-
-        req.sriRequest = sriRequest;
-
-        req.on('close', function (err){
-            sriRequest.reqCancelled = true;
-         });
-
-
-        await hooks.applyHooks('transform request'
-            , config.transformRequest
-            , f => f(req, sriRequest, t)
-            , sriRequest
-        )
-
-        setServerTimingHdr(sriRequest, 'batch-routing', batchRoutingDuration);
-
-        const result = await handleRequest(sriRequest, func, mapping);
-
-        const terminateDb = async (error, readOnly) => {
-          if (readOnly===true) {
-            debug('db', '++ Processing went OK. Closing database task. ++');
-            await endTask()
+          if (error) {
+            if (req.query.dryRun === 'true') {
+              debug('db', '++ Error during processing in dryRun mode. Rolling back database transaction.');
+            } else {
+              debug('db', '++ Error during processing. Rolling back database transaction.');
+            }
+            await rejectTx()
           } else {
-            if (error) {
-              if (req.query.dryRun === 'true') {
-                debug('db', '++ Error during processing in dryRun mode. Rolling back database transaction.');
-              } else {
-                debug('db', '++ Error during processing. Rolling back database transaction.');
-              }
+            if (req.query.dryRun === 'true') {
+              debug('db', '++ Processing went OK in dryRun mode. Rolling back database transaction.');
               await rejectTx()
             } else {
-              if (req.query.dryRun === 'true') {
-                debug('db', '++ Processing went OK in dryRun mode. Rolling back database transaction.');
-                await rejectTx()
-              } else {
-                debug('db', '++ Processing went OK. Committing database transaction.');
-                await resolveTx()
-              }
+              debug('db', '++ Processing went OK. Committing database transaction.');
+              await resolveTx()
             }
           }
         }
+      }
 
-        if (resp.headersSent) {
-          // we are in streaming mode
-          if (result.status < 300) {
-            await terminateDb(false, readOnly);
-          } else {
-            await terminateDb(true, readOnly);
-          }
-          await handleServerTiming(req, resp, sriRequest);
-          sriRequest.outStream.end();
+      if (resp.headersSent) {
+        // we are in streaming mode
+        if (result.status < 300) {
+          await terminateDb(false, readOnly);
         } else {
-          if (result.status < 300) {
-            await terminateDb(false, readOnly);
-          } else {
-            await terminateDb(true, readOnly);
-          }
+          await terminateDb(true, readOnly);
+        }
+        await handleServerTiming(req, resp, sriRequest);
+        sriRequest.outStream.end();
+      } else {
+        if (result.status < 300) {
+          await terminateDb(false, readOnly);
+        } else {
+          await terminateDb(true, readOnly);
+        }
 
-          await handleServerTiming(req, resp, sriRequest);
-          if (result.headers) {
-            resp.set(result.headers)
-          }
-          // resp.status(result.status).send(result.body) // OLD VERSION, now streaming JSON stringify for list resources
-          resp.status(result.status)
-          // now stream result.body to the express response
-          // TODO: fix bad test to know if it's a list resource, but the code below that also adds
-          // all other fields besides $$meta and results, should avoid that this is a disaster
-          if (result.body && Array.isArray(result.body.results)) {
-            resp.setHeader('Content-Type', 'application/json; charset=utf-8')
-            // VERSION WITH JSON STREAM
-            // const writableJsonsStream = JSONStream.stringify(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results":\n`, ',', '\n}');
-            // writableJsonsStream.pipe(resp);
-            // writableJsonsStream.write(result.body.results);
-            // writableJsonsStream.end();
+        await handleServerTiming(req, resp, sriRequest);
+        if (result.headers) {
+          resp.set(result.headers)
+        }
+        // resp.status(result.status).send(result.body) // OLD VERSION, now streaming JSON stringify for list resources
+        resp.status(result.status)
+        // now stream result.body to the express response
+        // TODO: fix bad test to know if it's a list resource, but the code below that also adds
+        // all other fields besides $$meta and results, should avoid that this is a disaster
+        if (result.body && Array.isArray(result.body.results)) {
+          resp.setHeader('Content-Type', 'application/json; charset=utf-8')
+          // VERSION WITH JSON STREAM
+          // const writableJsonsStream = JSONStream.stringify(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results":\n`, ',', '\n}');
+          // writableJsonsStream.pipe(resp);
+          // writableJsonsStream.write(result.body.results);
+          // writableJsonsStream.end();
 
-            // VERSION WHERE I SIMPLY PUT EACH ARRAY ITEM ON THE STREAM MYSELF (is this faster than JSONStream.striingify which seems slow looking at my first tests)
-            resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [\n`);
-            const total = result.body.results.length;
-            result.body.results.forEach(
-              (record, index) => resp.write(`${JSON.stringify(record)}${index + 1 < total ? ',':''}\n`)
-            );
-            resp.write(']');
-            // if result.body contains other properties, add them to the response as well
-            Object.entries(result.body)
-              .filter(([key]) => !['$$meta', 'results'].includes(key))
-              .forEach(([key, value]) => resp.write(`,\n"${key}": ${JSON.stringify(value)}`));
-            resp.write('\n}');
-            resp.end();
-          } else {
-            resp.send(result.body);
-          }
+          // VERSION WHERE I SIMPLY PUT EACH ARRAY ITEM ON THE STREAM MYSELF (is this faster than JSONStream.striingify which seems slow looking at my first tests)
+          resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [\n`);
+          const total = result.body.results.length;
+          result.body.results.forEach(
+            (record, index) => resp.write(`${JSON.stringify(record)}${index + 1 < total ? ',' : ''}\n`)
+          );
+          resp.write(']');
+          // if result.body contains other properties, add them to the response as well
+          Object.entries(result.body)
+            .filter(([key]) => !['$$meta', 'results'].includes(key))
+            .forEach(([key, value]) => resp.write(`,\n"${key}": ${JSON.stringify(value)}`));
+          resp.write('\n}');
+          resp.end();
+        } else {
+          resp.send(result.body);
+        }
 
-          await hooks.applyHooks('afterRequest'
+        await hooks.applyHooks('afterRequest'
           , config.afterRequest
           , f => f(sriRequest)
           , sriRequest)
-        }
-        if (global.sri4node_configuration.logdebug.statuses !== undefined) {
-            setImmediate(() => {
-                // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
-                handleRequestDebugLog(result.status);
-            })
-        }
+      }
+      if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+        setImmediate(() => {
+          // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
+          handleRequestDebugLog(result.status);
+        })
+      }
     } catch (err) {
       //TODO: what with streaming errors
-      if (t!=null) { // t will be null in case of error during startTask/startTransaction
-        if (readOnly===true) {
+      if (t != null) { // t will be null in case of error during startTask/startTransaction
+        if (readOnly === true) {
           debug('db', '++ Exception caught. Closing database task. ++');
           await endTask();
         } else {
@@ -372,13 +373,13 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
         req.destroy()
       } else {
         if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
-          if (err.status>0) {
-              const reqId = httpContext.get('reqId')
-              if (reqId!==undefined) {
-                err.body.vskoReqId = reqId;
-                err.headers['vsko-req-id'] = reqId;
-              }
-              resp.set(err.headers).status(err.status).send(err.body);
+          if (err.status > 0) {
+            const reqId = httpContext.get('reqId')
+            if (reqId !== undefined) {
+              err.body.vskoReqId = reqId;
+              err.headers['vsko-req-id'] = reqId;
+            }
+            resp.set(err.headers).status(err.status).send(err.body);
           }
         } else {
           error('____________________________ E R R O R (expressWrapper)____________________________________')
@@ -391,9 +392,9 @@ const expressWrapper = (dbR, dbW, func, config, mapping, isStreamingRequest, isB
       }
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         setImmediate(() => {
-            // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
-            console.log('GOING TO CALL handleRequestDebugLog' )
-            handleRequestDebugLog(err.status ? err.status : 500);
+          // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
+          console.log('GOING TO CALL handleRequestDebugLog')
+          handleRequestDebugLog(err.status ? err.status : 500);
         })
       }
     } finally {
@@ -412,7 +413,7 @@ const toArray = (resource, name) => {
     console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`)
     resource[name] = []
   } else if (!Array.isArray(resource[name])) {
-    resource[name] = [ resource[name] ]
+    resource[name] = [resource[name]]
   }
 }
 
@@ -420,48 +421,48 @@ const toArray = (resource, name) => {
 /* express.js application, configuration for roa4node */
 // export = // for typescript
 module.exports = {
-  configure: async function configure(app:Application, config:SriConfig) {
+  configure: async function configure(app: Application, sriConfig: SriConfig) {
     // make sure no x-powered-by header is being sent
     app.disable('x-powered-by');
 
     let maxHeapUsage = 0;
 
-    if (config.trackHeapMax === true) {
-        var gc = (require('gc-stats'))();
-        gc.on('stats', function (stats) {
-          const heapUsage =  (stats.before.usedHeapSize  / 1024 / 1024);
-          if (heapUsage > maxHeapUsage) {
-            maxHeapUsage = heapUsage;
-          }
-        });
+    if (sriConfig.trackHeapMax === true) {
+      var gc = (require('gc-stats'))();
+      gc.on('stats', function (stats) {
+        const heapUsage = (stats.before.usedHeapSize / 1024 / 1024);
+        if (heapUsage > maxHeapUsage) {
+          maxHeapUsage = heapUsage;
+        }
+      });
     }
 
 
 
     try {
-      config.resources.forEach( (resource) => {
-          // initialize undefined hooks in all resources with empty list
-          [ 'beforeRead', 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert',
-            'afterInsert', 'beforeDelete', 'afterDelete', , 'customRoutes', 'transformResponse' ]
-              .forEach((name) => toArray(resource, name))
-          // for backwards compability set listResultDefaultIncludeCount default to true
-          if (resource.listResultDefaultIncludeCount === undefined) {
-            resource.listResultDefaultIncludeCount = true
-          }
+      sriConfig.resources.forEach((resource) => {
+        // initialize undefined hooks in all resources with empty list
+        ['beforeRead', 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert',
+          'afterInsert', 'beforeDelete', 'afterDelete', , 'customRoutes', 'transformResponse']
+          .forEach((name) => toArray(resource, name))
+        // for backwards compability set listResultDefaultIncludeCount default to true
+        if (resource.listResultDefaultIncludeCount === undefined) {
+          resource.listResultDefaultIncludeCount = true
         }
+      }
       );
 
       // initialize undefined global hooks with empty list
-      ([ 'beforePhase', 'transformRequest', 'transformInternalRequest'])
-        .forEach((name) => toArray(config, name))
-      config.beforePhase?.push(regularResource.beforePhaseQueryByKey);
-      config.beforePhase?.push(regularResource.beforePhaseInsertUpdate);
+      (['beforePhase', 'transformRequest', 'transformInternalRequest'])
+        .forEach((name) => toArray(sriConfig, name))
+      sriConfig.beforePhase?.push(regularResource.beforePhaseQueryByKey);
+      sriConfig.beforePhase?.push(regularResource.beforePhaseInsertUpdate);
 
-      if (config.bodyParserLimit === undefined) {
-        config.bodyParserLimit = '5mb'
+      if (sriConfig.bodyParserLimit === undefined) {
+        sriConfig.bodyParserLimit = '5mb'
       }
 
-      config.resources.forEach( (mapping) => {
+      sriConfig.resources.forEach((mapping) => {
         if (!mapping.onlyCustom) {
           // In case query is not defied -> use defaultFilter
           if (mapping.query === undefined) {
@@ -469,7 +470,7 @@ module.exports = {
           }
           // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
           if (mapping.map) {
-            Object.keys(mapping.map).forEach( (key) => {
+            Object.keys(mapping.map).forEach((key) => {
               if (mapping.map?.[key].references !== undefined && mapping.query && mapping.query?.[key] === undefined) {
                 mapping.query[key] = $q.filterReferencedType(mapping.map[key].references, key);
               }
@@ -495,7 +496,7 @@ module.exports = {
             mapping.singleResourceRegex = new RegExp(`^${mapping.type}/([0-9]+)$`);
           } else if (mapping.schema.properties.key.type === schemaUtils.string('foo').type) {
             mapping.singleResourceRegex = new RegExp(`^${mapping.type}/(\\w+)$`);
-          }  else {
+          } else {
             throw new Error(`Key type of resource ${mapping.type} unknown!`);
           }
           mapping.listResourceRegex = new RegExp(`^${mapping.type}(?:[?#]\\S*)?$`);
@@ -503,90 +504,94 @@ module.exports = {
         }
       })
 
-      config.resources.forEach( (mapping) => {
-          if (mapping.metaType === undefined) {
-            error(`WARNING: metaType missing for resource ${mapping.type}`)
-            mapping.metaType = 'not specified'
-          }
+      sriConfig.resources.forEach((mapping) => {
+        if (mapping.metaType === undefined) {
+          error(`WARNING: metaType missing for resource ${mapping.type}`)
+          mapping.metaType = 'not specified'
+        }
       });
 
-      config.utils = module.exports.utils
+      sriConfig.utils = module.exports.utils
 
-      if (config.batchConcurrency === undefined) {
-        config.batchConcurrency = 4;
+      if (sriConfig.batchConcurrency === undefined) {
+        sriConfig.batchConcurrency = 4;
       }
 
-      if (config.logdebug !== undefined) {
-        config.logdebug  = createDebugLogConfigObject(config.logdebug);
+      if (sriConfig.logdebug !== undefined) {
+        sriConfig.logdebug = createDebugLogConfigObject(sriConfig.logdebug);
       }
 
-      global.sri4node_configuration = config // share configuration with other modules
+      global.sri4node_configuration = sriConfig // share configuration with other modules
 
       let dbR, dbW;
-      if (config.db !== undefined) {
-        dbR = config.db;
-        dbW = config.db;
-      } else if (config.dbR !== undefined && config.dbW !== undefined) {
-        dbR = config.dbR;
-        dbW = config.dbW;
+      if (sriConfig.db !== undefined) {
+        dbR = sriConfig.db;
+        dbW = sriConfig.db;
+      } else if (sriConfig.dbR !== undefined && sriConfig.dbW !== undefined) {
+        dbR = sriConfig.dbR;
+        dbW = sriConfig.dbW;
       } else {
-        const db = await pgConnect(config);
+        const db = await pgConnect(sriConfig);
         dbR = db;
         dbW = db;
       }
 
       await pMap(
-        config.resources,
+        sriConfig.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
-            await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping));
+            const schema = sriConfig.databaseConnectionParameters?.schema || sriConfig.databaseLibraryInitOptions?.schema;
+            const schemaName = Array.isArray(schema)
+              ? schema[0]
+              : schema?.toString();
+            await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
           }
         }, { concurrency: 1 }
       );
 
-      global.sri4node_configuration.informationSchema = await require('./js/informationSchema')(dbR, config)
+      global.sri4node_configuration.informationSchema = await require('./js/informationSchema')(dbR, sriConfig)
 
       // Prepare pg-promise columnsets for multi insert/update & delete
       const pgp = getPgp();
 
       const generatePgColumnSet = (columnNames, type, table) => {
-            const columns = columnNames.map(cname => {
-                const col:any = { name: cname };
-                if (cname.includes('.')) {
-                    // popertynames with dot like $$meta.* are problematic with default pg-promise
-                    // see https://github.com/vitaly-t/pg-promise/issues/494  ==> workaround with .init() fun
-                    col.prop = `_${cname.replace(/\./g, '_')}`; // if prop is not unique multiple $$meta.* will get the same value!
-                    col.init = c => {
-                        return c.source[cname]
-                    }
-                }
-                const cType = global.sri4node_configuration.informationSchema[type][cname].type;
-                const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
-                if (cType !== 'text') {
-                    if (cType === 'ARRAY') {
-                        col.cast = `${cElementType}[]`;
-                    } else {
-                        col.cast = cType;
-                    }
-                }
-                if (cname === 'key') {
-                    col.cnd = true;
-                }
-                return col;
-            });
+        const columns = columnNames.map(cname => {
+          const col: any = { name: cname };
+          if (cname.includes('.')) {
+            // popertynames with dot like $$meta.* are problematic with default pg-promise
+            // see https://github.com/vitaly-t/pg-promise/issues/494  ==> workaround with .init() fun
+            col.prop = `_${cname.replace(/\./g, '_')}`; // if prop is not unique multiple $$meta.* will get the same value!
+            col.init = c => {
+              return c.source[cname]
+            }
+          }
+          const cType = global.sri4node_configuration.informationSchema[type][cname].type;
+          const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
+          if (cType !== 'text') {
+            if (cType === 'ARRAY') {
+              col.cast = `${cElementType}[]`;
+            } else {
+              col.cast = cType;
+            }
+          }
+          if (cname === 'key') {
+            col.cnd = true;
+          }
+          return col;
+        });
 
-            return new pgp.helpers.ColumnSet(columns, { table });
+        return new pgp.helpers.ColumnSet(columns, { table });
       }
 
       global.sri4node_configuration.pgColumns = Object.fromEntries(
-        config.resources
+        sriConfig.resources
           .filter((resource) => !resource.onlyCustom)
           .map((resource) => {
             const type = resource.type;
             const table = tableFromMapping(typeToMapping(type));
             const columns = JSON.parse('[' + sqlColumnNames(typeToMapping(type)) + ']')
-                .filter(cname => !cname.startsWith('$$meta.'));
-            const ret:any = {}
+              .filter(cname => !cname.startsWith('$$meta.'));
+            const ret: any = {}
             ret.insert = new pgp.helpers.ColumnSet(columns, { table });
 
             const dummyUpdateRow = transformObjectToRow({}, resource, false);
@@ -608,6 +613,7 @@ module.exports = {
           return
         }
 
+        // await plugin.install(pluginConfig, global.sri4node_configuration, dbW, module.exports);
         await plugin.install(global.sri4node_configuration, dbW, module.exports);
 
         if (plugin.uuid !== undefined) {
@@ -616,23 +622,23 @@ module.exports = {
         }
       }
 
-      if (config.plugins !== undefined) {
-        await pMap(config.plugins, async (plugin) => {
+      if (sriConfig.plugins !== undefined) {
+        await pMap(sriConfig.plugins, async (plugin) => {
           await global.sri4node_install_plugin(plugin)
-        }, {concurrency: 1} )
+        }, { concurrency: 1 })
       }
 
       // set the overload protection as first middleware to drop requests as soon as possible
-      global.overloadProtection = require('./js/overloadProtection')(config.overloadProtection);
-      app.use(async function(req, res, next) {
-        if ( global.overloadProtection.canAccept() ) {
+      global.overloadProtection = require('./js/overloadProtection')(sriConfig.overloadProtection);
+      app.use(async function (req, res, next) {
+        if (global.overloadProtection.canAccept()) {
           next();
         } else {
           debug('overloadProtection', `DROPPED REQ`);
-          if (config.overloadProtection?.retryAfter !== undefined) {
-            res.set('Retry-After', config.overloadProtection?.retryAfter.toString() );
+          if (sriConfig.overloadProtection?.retryAfter !== undefined) {
+            res.set('Retry-After', sriConfig.overloadProtection?.retryAfter.toString());
           }
-          res.status(503).send([{code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.'}]);
+          res.status(503).send([{ code: 'too.busy', msg: 'The request could not be processed as the server is too busy right now. Try again later.' }]);
         }
       });
 
@@ -644,8 +650,8 @@ module.exports = {
       }
 
       app.use(emt.instrument(compression(), 'mw-compression'))
-      app.use(emt.instrument(bodyParser.json({limit: config.bodyParserLimit, extended: true, strict: false}), 'mw-bodyparser'));
-        //use option 'strict: false' to allow also valid JSON like a single boolean
+      app.use(emt.instrument(bodyParser.json({ limit: sriConfig.bodyParserLimit, extended: true, strict: false }), 'mw-bodyparser'));
+      //use option 'strict: false' to allow also valid JSON like a single boolean
 
       //to parse html pages
       app.use('/docs/static', express.static(__dirname + '/js/docs/static'));
@@ -655,8 +661,8 @@ module.exports = {
 
       app.put('/log', middlewareErrorWrapper(function (req, resp) {
         const err = req.body;
-        cl('Client side error :');
-        err.stack.split('\n').forEach( (line) => cl(line) )
+        console.log('Client side error :');
+        err.stack.split('\n').forEach((line) => console.log(line))
         resp.end();
       }));
 
@@ -670,35 +676,35 @@ module.exports = {
 
       app.use(httpContext.middleware);
       // Run the context for each request. Assign a unique identifier to each request
-      app.use(function(req, res, next) {
-          httpContext.ns.bindEmitter(req);
-          httpContext.ns.bindEmitter(res);
-          let reqId;
-          if (req.headers['x-request-id']!==undefined) {
-            // if present use the id provided by heroku
-            reqId = req.headers['x-request-id'];
-          } else if (req.headers['x-amz-cf-id']!==undefined) {
-            // if present use the id provided by cloudfront
-            reqId = req.headers['x-amz-cf-id']
-          } else {
-            reqId = shortid.generate();
-          }
-          if (config.id!==undefined) {
-              reqId = `${config.id}#${reqId}`;
-          }
-          httpContext.set('reqId', reqId);
-          next();
+      app.use(function (req, res, next) {
+        httpContext.ns.bindEmitter(req);
+        httpContext.ns.bindEmitter(res);
+        let reqId;
+        if (req.headers['x-request-id'] !== undefined) {
+          // if present use the id provided by heroku
+          reqId = req.headers['x-request-id'];
+        } else if (req.headers['x-amz-cf-id'] !== undefined) {
+          // if present use the id provided by cloudfront
+          reqId = req.headers['x-amz-cf-id']
+        } else {
+          reqId = shortid.generate();
+        }
+        if (sriConfig.id !== undefined) {
+          reqId = `${sriConfig.id}#${reqId}`;
+        }
+        httpContext.set('reqId', reqId);
+        next();
       });
 
 
       await pMap(
-        config.resources,
+        sriConfig.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
             if (mapping.map['key'] === undefined) {
               mapping.map['key'] = {} // add key if missing, needed for key offset paging
             }
-            checkRequiredFields(mapping, config.informationSchema);
+            checkRequiredFields(mapping, sriConfig.informationSchema);
 
             // append relation filters if auto-detected a relation resource
             if (mapping.map.from && mapping.map.to) {
@@ -723,18 +729,18 @@ module.exports = {
             app.get(mapping.type + '/docs', middlewareErrorWrapper(getDocs));
             app.use(mapping.type + '/docs/static', express.static(__dirname + '/js/docs/static'));
           }
-        }, {concurrency: 1})
+        }, { concurrency: 1 })
 
       // temporarilty allow a global /batch via config option for samenscholing
-      if (config.enableGlobalBatch) {
-        const globalBatchPath = ((config.globalBatchRoutePrefix !== undefined) ? config.globalBatchRoutePrefix : '') + '/batch';
+      if (sriConfig.enableGlobalBatch) {
+        const globalBatchPath = ((sriConfig.globalBatchRoutePrefix !== undefined) ? sriConfig.globalBatchRoutePrefix : '') + '/batch';
         debug('general', `registering route ${globalBatchPath} - PUT/POST`)
         debug('general', `registering route ${globalBatchPath + '_streaming'} - PUT/POST`)
-        app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
-        app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, config, null, false, true, false));
+        app.put(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, sriConfig, null, false, true, false));
+        app.post(globalBatchPath, expressWrapper(dbR, dbW, batch.batchOperation, sriConfig, null, false, true, false));
 
-        app.put(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, config, null, true, true, false));
-        app.post(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, config, null, true, true, false));
+        app.put(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, sriConfig, null, true, true, false));
+        app.post(globalBatchPath + '_streaming', expressWrapper(dbR, dbW, batch.batchOperationStreaming, sriConfig, null, true, true, false));
       }
 
       /**
@@ -751,182 +757,182 @@ module.exports = {
        *  {boolean} isBatch,
        * ]
        */
-      const batchHandlerMap = config.resources.reduce( (acc, mapping) => {
+      const batchHandlerMap = sriConfig.resources.reduce((acc, mapping) => {
 
         // [path, verb, func, mapping, streaming, readOnly, isBatch]
         const crudRoutes =
-          [ [ mapping.type + '/:key', 'GET', regularResource.getRegularResource, config, mapping, false, true, false]
-          , [ mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, config, mapping, false, false, false]
-          , [ mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, config, mapping, false, false, false]
-          , [ mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, config, mapping, false, false, false]
-          , [ mapping.type, 'GET', listResource.getListResource, config, mapping, false, true, false]
-          // a check operation to determine wether lists A is part of list B
-          , [ mapping.type + '/isPartOf', 'POST', listResource.isPartOf, config, mapping, false, true, false]
+          [[mapping.type + '/:key', 'GET', regularResource.getRegularResource, sriConfig, mapping, false, true, false]
+            , [mapping.type + '/:key', 'PUT', regularResource.createOrUpdateRegularResource, sriConfig, mapping, false, false, false]
+            , [mapping.type + '/:key', 'PATCH', regularResource.patchRegularResource, sriConfig, mapping, false, false, false]
+            , [mapping.type + '/:key', 'DELETE', regularResource.deleteRegularResource, sriConfig, mapping, false, false, false]
+            , [mapping.type, 'GET', listResource.getListResource, sriConfig, mapping, false, true, false]
+            // a check operation to determine wether lists A is part of list B
+            , [mapping.type + '/isPartOf', 'POST', listResource.isPartOf, sriConfig, mapping, false, true, false]
           ]
 
         const batchRoutes =
-          [ [ mapping.type + '/batch', 'PUT', batch.batchOperation, config, mapping, false, false, true]
-          , [ mapping.type + '/batch', 'POST', batch.batchOperation, config, mapping, false, false, true]
-          , [ mapping.type + '/batch_streaming', 'PUT', batch.batchOperationStreaming, config, mapping, true, false, true]
-          , [ mapping.type + '/batch_streaming', 'POST', batch.batchOperationStreaming, config, mapping, true, false, true]
+          [[mapping.type + '/batch', 'PUT', batch.batchOperation, sriConfig, mapping, false, false, true]
+            , [mapping.type + '/batch', 'POST', batch.batchOperation, sriConfig, mapping, false, false, true]
+            , [mapping.type + '/batch_streaming', 'PUT', batch.batchOperationStreaming, sriConfig, mapping, true, false, true]
+            , [mapping.type + '/batch_streaming', 'POST', batch.batchOperationStreaming, sriConfig, mapping, true, false, true]
           ]
 
-// TODO: check customRoutes have required fields and make sense ==> use json schema for validation
+        // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
 
-        mapping.customRoutes?.forEach( cr => {
-            const customMapping = _.cloneDeep(mapping);
-            if (cr.alterMapping !== undefined) {
-              cr.alterMapping(customMapping)
+        mapping.customRoutes?.forEach(cr => {
+          const customMapping = _.cloneDeep(mapping);
+          if (cr.alterMapping !== undefined) {
+            cr.alterMapping(customMapping)
+          }
+          else {
+            if (cr.transformRequest !== undefined) {
+              customMapping.transformRequest.push(cr.transformRequest)
             }
-            else {
-              if (cr.transformRequest !== undefined) {
-                customMapping.transformRequest.push(cr.transformRequest)
-              }
-              if (cr.transformResponse !== undefined) {
-                customMapping.transformResponse.push(cr.transformResponse)
-              }
+            if (cr.transformResponse !== undefined) {
+              customMapping.transformResponse.push(cr.transformResponse)
             }
+          }
 
-            cr.httpMethods.forEach( method => {
-              if (cr.like !== undefined) {
-                const crudPath = mapping.type + cr.like;
-                Object.assign(customMapping.query, cr.query);
+          cr.httpMethods.forEach(method => {
+            if (cr.like !== undefined) {
+              const crudPath = mapping.type + cr.like;
+              Object.assign(customMapping.query, cr.query);
 
-                const likeMatches:any = crudRoutes.filter( ([path, verb]) => (path === crudPath && verb === method.toUpperCase()) )
-                if (likeMatches.length === 0) {
-                  console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`)
-                } else {
-                  const [path, verb, handler, _mapping, streaming] = likeMatches[0]
-                  acc.push([ crudPath + cr.routePostfix, verb, handler, config, customMapping, streaming, likeMatches.readOnly, false ])
-                }
-              } else if (cr.streamingHandler !== undefined) {
-                const streamingHandler = cr.streamingHandler;
-                acc.push( [ mapping.type + cr.routePostfix
-                          , method.toUpperCase()
-                          , async (phaseSyncer, tx, sriRequest, mapping) => {
-                              await phaseSyncer.phase()
-                              if ( sriRequest.isBatchPart ) {
-                                throw new SriError({status: 400, errors: [{code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.'}]})
-                              }
-                              await phaseSyncer.phase()
-                              if (cr.busBoy) {
-                                try {
-                                  let busBoyConfig:any = {}
-                                  if (cr.busBoyConfig) {
-                                    busBoyConfig = _.cloneDeep(cr.busBoyConfig)
-                                  }
-                                  busBoyConfig.headers = sriRequest.headers;
-                                  const busBoy = new Busboy(busBoyConfig);
-                                  sriRequest.busBoy = busBoy
-                                } catch (err) {
-                                    throw new SriError({status: 400, errors: [{code: 'error.initialising.busboy', msg: 'Error during initialisation of busboy: ' + err}]})
-                                }
-                              }
-
-                              if (cr.beforeStreamingHandler !== undefined) {
-                                try {
-                                    const result = await cr.beforeStreamingHandler(tx, sriRequest, customMapping)
-                                    if (result !== undefined) {
-                                      const {status, headers} = result
-                                      headers.forEach( ([k, v]) => sriRequest.setHeader(k, v) )
-                                      sriRequest.setStatus(status)
-                                    }
-                                } catch (err) {
-                                    if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
-                                        throw err;
-                                    } else {
-                                        throw new SriError({status: 500, errors: [ `${util.format(err)}`]});
-                                    }
-                                }
-                              }
-                              await phaseSyncer.phase()
-
-                              let keepAliveTimer:NodeJS.Timer | null = null;
-                              let streamingHandlerPromise;
-                              let stream;
-                              const streamEndEmitter = new EventEmitter()
-                              const streamDonePromise = pEvent(streamEndEmitter, 'done')
-
-                              if (cr.binaryStream) {
-                                stream = sriRequest.outStream;
-                              } else {
-                                sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
-                                stream = new Stream.Readable({objectMode: true});
-                                stream._read = function () {};
-                                const JsonStreamStringify = require('json-stream-stringify');
-                                const JsonStream = new JsonStreamStringify(stream);
-                                JsonStream.pipe(sriRequest.outStream);
-                                keepAliveTimer = setInterval(() => {
-                                  sriRequest.outStream.write(' ');
-                                  // flush outstream, otherwise an intermediate layer such as gzip compression
-                                  // might keep the keep-alive write in buffer and break the keep-alive mechanism
-                                  sriRequest.outStream.flush();
-                                }, 20000)
-                              }
-
-                              sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));
-
-                              streamingHandlerPromise = streamingHandler(tx, sriRequest, stream)
-
-                              // Wait till busboy handler are in place (can be done in beforeStreamingHandler
-                              // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
-                              if (cr.busBoy) {
-                                sriRequest.inStream.pipe(sriRequest.busBoy);
-                              }
-
-                              try {
-                                await streamingHandlerPromise;
-                              } finally {
-                                if (keepAliveTimer !== null) {
-                                  clearInterval(keepAliveTimer)
-                                }
-                              }
-
-                              if (cr.binaryStream) {
-                                stream.end();
-                              } else {
-                                stream.push(null)
-                              }
-
-                              // wait until stream is ended
-                              await streamDonePromise;
-
-                              return { status: 200 }
-                            }
-                          , config
-                          , customMapping
-                          , true
-                          , cr.readOnly
-                          , false ] )
-              } else if (cr.handler !== undefined) {
-                const handler = cr.handler;
-                acc.push( [ mapping.type + cr.routePostfix
-                          , method.toUpperCase()
-                          , async (phaseSyncer, tx, sriRequest, mapping) => {
-                                await phaseSyncer.phase()
-                                if (cr.beforeHandler !== undefined) {
-                                  await cr.beforeHandler(tx, sriRequest, customMapping)
-                                }
-                                await phaseSyncer.phase()
-                                const result = await handler(tx, sriRequest, customMapping)
-                                await phaseSyncer.phase()
-                                if (cr.afterHandler !== undefined) {
-                                  await cr.afterHandler(tx, sriRequest, customMapping, result)
-                                }
-                                await phaseSyncer.phase()
-                                return result
-                              }
-                          , config
-                          , customMapping
-                          , false
-                          , cr.readOnly
-                          , false ] )
-
+              const likeMatches: any = crudRoutes.filter(([path, verb]) => (path === crudPath && verb === method.toUpperCase()))
+              if (likeMatches.length === 0) {
+                console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`)
               } else {
-                throw "No handlers defined";
+                const [path, verb, handler, _mapping, streaming] = likeMatches[0]
+                acc.push([crudPath + cr.routePostfix, verb, handler, sriConfig, customMapping, streaming, likeMatches.readOnly, false])
               }
-            })
+            } else if (cr.streamingHandler !== undefined) {
+              const streamingHandler = cr.streamingHandler;
+              acc.push([mapping.type + cr.routePostfix
+                , method.toUpperCase()
+                , async (phaseSyncer, tx, sriRequest, mapping) => {
+                  await phaseSyncer.phase()
+                  if (sriRequest.isBatchPart) {
+                    throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] })
+                  }
+                  await phaseSyncer.phase()
+                  if (cr.busBoy) {
+                    try {
+                      let busBoyConfig: any = {}
+                      if (cr.busBoyConfig) {
+                        busBoyConfig = _.cloneDeep(cr.busBoyConfig)
+                      }
+                      busBoyConfig.headers = sriRequest.headers;
+                      const busBoy = new Busboy(busBoyConfig);
+                      sriRequest.busBoy = busBoy
+                    } catch (err) {
+                      throw new SriError({ status: 400, errors: [{ code: 'error.initialising.busboy', msg: 'Error during initialisation of busboy: ' + err }] })
+                    }
+                  }
+
+                  if (cr.beforeStreamingHandler !== undefined) {
+                    try {
+                      const result = await cr.beforeStreamingHandler(tx, sriRequest, customMapping)
+                      if (result !== undefined) {
+                        const { status, headers } = result
+                        headers.forEach(([k, v]) => sriRequest.setHeader(k, v))
+                        sriRequest.setStatus(status)
+                      }
+                    } catch (err) {
+                      if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
+                        throw err;
+                      } else {
+                        throw new SriError({ status: 500, errors: [`${util.format(err)}`] });
+                      }
+                    }
+                  }
+                  await phaseSyncer.phase()
+
+                  let keepAliveTimer: NodeJS.Timer | null = null;
+                  let streamingHandlerPromise;
+                  let stream;
+                  const streamEndEmitter = new EventEmitter()
+                  const streamDonePromise = pEvent(streamEndEmitter, 'done')
+
+                  if (cr.binaryStream) {
+                    stream = sriRequest.outStream;
+                  } else {
+                    sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8')
+                    stream = new Stream.Readable({ objectMode: true });
+                    stream._read = function () { };
+                    const JsonStreamStringify = require('json-stream-stringify');
+                    const JsonStream = new JsonStreamStringify(stream);
+                    JsonStream.pipe(sriRequest.outStream);
+                    keepAliveTimer = setInterval(() => {
+                      sriRequest.outStream.write(' ');
+                      // flush outstream, otherwise an intermediate layer such as gzip compression
+                      // might keep the keep-alive write in buffer and break the keep-alive mechanism
+                      sriRequest.outStream.flush();
+                    }, sriConfig.streamingKeepAliveTimeoutMillis || 20000);
+                  }
+
+                  sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));
+
+                  streamingHandlerPromise = streamingHandler(tx, sriRequest, stream)
+
+                  // Wait till busboy handler are in place (can be done in beforeStreamingHandler
+                  // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
+                  if (cr.busBoy) {
+                    sriRequest.inStream.pipe(sriRequest.busBoy);
+                  }
+
+                  try {
+                    await streamingHandlerPromise;
+                  } finally {
+                    if (keepAliveTimer !== null) {
+                      clearInterval(keepAliveTimer)
+                    }
+                  }
+
+                  if (cr.binaryStream) {
+                    stream.end();
+                  } else {
+                    stream.push(null)
+                  }
+
+                  // wait until stream is ended
+                  await streamDonePromise;
+
+                  return { status: 200 }
+                }
+                , sriConfig
+                , customMapping
+                , true
+                , cr.readOnly
+                , false])
+            } else if (cr.handler !== undefined) {
+              const handler = cr.handler;
+              acc.push([mapping.type + cr.routePostfix
+                , method.toUpperCase()
+                , async (phaseSyncer, tx, sriRequest, mapping) => {
+                  await phaseSyncer.phase()
+                  if (cr.beforeHandler !== undefined) {
+                    await cr.beforeHandler(tx, sriRequest, customMapping)
+                  }
+                  await phaseSyncer.phase()
+                  const result = await handler(tx, sriRequest, customMapping)
+                  await phaseSyncer.phase()
+                  if (cr.afterHandler !== undefined) {
+                    await cr.afterHandler(tx, sriRequest, customMapping, result)
+                  }
+                  await phaseSyncer.phase()
+                  return result
+                }
+                , sriConfig
+                , customMapping
+                , false
+                , cr.readOnly
+                , false])
+
+            } else {
+              throw "No handlers defined";
+            }
           })
+        })
 
         acc.push(...batchRoutes);
 
@@ -936,50 +942,60 @@ module.exports = {
 
         return acc
       },
-      [] as any[],
-    )
+        [] as any[],
+      )
 
 
       // register individual routes in express
-      batchHandlerMap.forEach( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]:[string, string, any, any, any, boolean, boolean, boolean]) => {
+      batchHandlerMap.forEach(([path, verb, func, config, mapping, streaming, readOnly, isBatch]: [string, string, any, any, any, boolean, boolean, boolean]) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
         debug('general', `registering route ${path} - ${verb} - ${readOnly}`)
-        app[verb.toLowerCase()]( path,
-                                 emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'express-wrapper') )
+        app[verb.toLowerCase()](path,
+          emt.instrument(expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly), 'express-wrapper'))
       })
 
       // transform map with 'routes' to be usable in batch (translate and group by verb)
-      config.batchHandlerMap = _.groupBy(
-        batchHandlerMap.map( ([path, verb, func, config, mapping, streaming, readOnly, isBatch]:[string, string, any, any, any, boolean, boolean, boolean]) => {
-          return { route: new route(path), verb, func, config, mapping, streaming, readOnly, isBatch}
+      sriConfig.batchHandlerMap = _.groupBy(
+        batchHandlerMap.map(([path, verb, func, config, mapping, streaming, readOnly, isBatch]) => {
+          return { route: new route(path), verb, func, config, mapping, streaming, readOnly, isBatch }
         }),
         e => e.verb,
       );
 
 
-      app.get('/', (_req:Request, res:Response) => res.redirect('/resources'));
+      app.get('/', (_req: Request, res: Response) => res.redirect('/resources'));
 
-      global.sri4node_internal_interface = async (internalReq) => {
+      /**
+       * Sometimes one wants to do sri4node operations on its own API, but within the state
+       * of the current transaction. Internal requests can be used for this purpose.
+       * You provide similar input as a http request in a javascript object with the the
+       * database transaction to execute it on. The internal calls follow the same code path
+       * as http requests (inclusive plugins like for example security checks or version tracking).
+       * 
+       * @param internalReq 
+       * @returns 
+       */
+      global.sri4node_internal_interface = async (internalReq: TInternalSriRequest) => {
         const match = batch.matchHref(internalReq.href, internalReq.verb);
 
-        const sriRequest = generateSriRequest(undefined, undefined, undefined, match, internalReq);
+        const sriRequest = generateSriRequest(undefined, undefined, undefined, match, undefined, undefined, internalReq);
 
         await hooks.applyHooks('transform internal sriRequest'
-                            , match.handler.config.transformInternalRequest
-                            , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
-                            , sriRequest)
+          , match.handler.config.transformInternalRequest
+          , f => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest)
+          , sriRequest)
 
         const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
         // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
         // in string format instead of Date objects
-        return  JSON.parse( JSON.stringify(result) );
+        return JSON.parse(JSON.stringify(result));
       }
 
-      if (config.trackHeapMax === true) {
+      if (sriConfig.trackHeapMax === true) {
         app.get('/heap_max', (req, res) => {
-            res.set('Content-Type', 'application/json');
-            res.send({ maxHeapUsage: maxHeapUsage });
+          res.set('Content-Type', 'application/json');
+          res.send({ maxHeapUsage: maxHeapUsage });
         });
       }
 
@@ -992,10 +1008,10 @@ module.exports = {
   }, // configure
 
   utils: { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
-        executeSQL: pgExec,
-        prepareSQL: queryobject.prepareSQL,
-        convertListResourceURLToSQL: listResource.getSQLFromListResource,
-        addReferencingResources: utilLib.addReferencingResources,
+    executeSQL: pgExec,
+    prepareSQL: queryobject.prepareSQL,
+    convertListResourceURLToSQL: listResource.getSQLFromListResource,
+    addReferencingResources: utilLib.addReferencingResources,
   },
   queryUtils: require('./js/queryUtils'),
   mapUtils: require('./js/mapUtils'),

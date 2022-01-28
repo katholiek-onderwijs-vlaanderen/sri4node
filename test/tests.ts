@@ -114,7 +114,6 @@ describe('Sri4node SERVER TESTS', function () {
 
   runTestIfNeeded('./testExpand.ts', [base]);
   runTestIfNeeded('./testErrorHandling.ts', [base]);
-  runTestIfNeeded('./testCustomRoutes.ts', [base]);
   runTestIfNeeded('./testIsPartOf.ts', [base]);
   runTestIfNeeded('./testBatch.ts', [base]);
 
@@ -144,6 +143,7 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testDocs.ts', [base]);
   runTestIfNeeded('./testInformationSchema.ts', []);
 
+  runTestIfNeeded('./testCustomRoutes.ts', [base]);
 });
 
 export = module.exports = {};

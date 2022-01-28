@@ -39,13 +39,13 @@ export = module.exports = (api) => ({
     sriRequest.userObject = parentSriRequest.userObject;
     sriRequest.authException = parentSriRequest.authException;
   },
-  testForStatusCode: async (func, assertFunc) => {
+  testForStatusCode: async (func:() => any, assertFunc:(any) => any) => {
     try {
-      await func()
-      throw "Func() execution did not raise any error, but an error was expected."
+      const resp = await func();
+      throw "Func() execution did not raise any error, but an error was expected.";
     } catch (error) {
       if (error.status && error.body && error.headers) { // error instanceof SriClientError) {
-        await assertFunc(error)
+        await assertFunc(error);
       } else {
         assert.fail('ERROR: ' + error.toString());
       }

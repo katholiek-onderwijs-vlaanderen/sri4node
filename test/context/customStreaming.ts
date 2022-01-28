@@ -9,23 +9,26 @@ exports = module.exports = function (roa, extra) {
       { routePostfix: ''
       , httpMethods: ['GET']
       , streamingHandler: async (tx, sriRequest, stream) => {
-          if (sriRequest.query['superslowstart'] !== undefined) {
-            await sleep(70000);
+        if (sriRequest.query['slowstart'] !== undefined) {
+          await sleep(5_000);
+          stream.push("foo");
+        } else if (sriRequest.query['superslowstart'] !== undefined) {
+            await sleep(70_000);
             stream.push("foo");
           } else {
-            await sleep(5000);
+            await sleep(5_000);
             stream.push("f");
-            await sleep(10000);
+            await sleep(2_000);
             stream.push("o");
-            await sleep(20000);
+            await sleep(20_000);
             stream.push("o");
-            await sleep(20000);
+            await sleep(10_000);
             stream.push("b");
-            await sleep(20000);
+            await sleep(5_000);
             stream.push("a");
-            await sleep(20000);
+            await sleep(5_000);
             stream.push("r");
-            await sleep(20000);
+            await sleep(5_000);
             stream.push("!");
           }
         }

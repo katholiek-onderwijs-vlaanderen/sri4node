@@ -9,7 +9,7 @@ const fs = require('fs');
 const streamEqual = require('stream-equal').default;
 const util = require('util');
 const expect = require('expect.js');
-const zlib = require('zlib')
+const zlib = require('zlib');
 
 const { Client } = require('undici');
 
@@ -151,7 +151,6 @@ export = module.exports = function (base) {
     });
 
     it('streaming file upload (multipart form) should work', async function () {
-
       const response = await util.promisify(request.post)(base + '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a/upStream', {formData: {
           image: fs.createReadStream('test/files/test.jpg'),
           pdf: fs.createReadStream('test/files/test.pdf')
@@ -175,47 +174,51 @@ export = module.exports = function (base) {
         assert.equal(response.bar, 'foo');
     });
 
-    it('custom streaming - test keep-alive mechanism', async function () {
-      const { body } = await client.request({ path: '/customStreaming', method: 'GET' });
+    describe('keep-alive mechanism (send something on a regular interval to keep the connection alive)', () => {
+      const streamingKeepAliveTimeoutMillis = 3_000; //cfr. ./context.js should be the same value !!!
 
-      let maxIntervalWithoutData = 0;
-      let lastRcv = performance.now();
-      let bufArr:string[] = []
-      for await (const data of body) {
-          let curTime = performance.now()
-          let duration = curTime - lastRcv;
-          if (duration > maxIntervalWithoutData) {
-            maxIntervalWithoutData = duration
-          }
-          bufArr.push(data.toString());
-          lastRcv = curTime;
-      }
-      expect(maxIntervalWithoutData).to.be.below(20500);
-      assert.deepEqual(JSON.parse(bufArr.join('')), [ "f","o","o","b","a","r","!" ]);
+      it('should kick in when there are huge time gaps within the stream', async function () {
+        const { body } = await client.request({ path: '/customStreaming', method: 'GET' });
+
+        let maxIntervalWithoutData = 0;
+        let lastRcv = performance.now();
+        let bufArr:string[] = []
+        for await (const data of body) {
+            let curTime = performance.now()
+            let duration = curTime - lastRcv;
+            if (duration > maxIntervalWithoutData) {
+              maxIntervalWithoutData = duration
+            }
+            bufArr.push(data.toString());
+            lastRcv = curTime;
+        }
+        expect(maxIntervalWithoutData).to.be.below(streamingKeepAliveTimeoutMillis + 500);
+        assert.deepEqual(JSON.parse(bufArr.join('')), [ "f","o","o","b","a","r","!" ]);
+      });
+
+      it('should kick in when there are huge time gaps within the stream with gzip compression enabled', async function () {
+        const { body } = await client.request({
+                      path: '/customStreaming?slowstart',
+                      method: 'GET',
+                      headers: { 'Accept-Encoding': 'gzip' } });
+        let maxIntervalWithoutData = 0;
+        let lastRcv = performance.now();
+        let bufArr:any[] = []
+        for await (const data of body) {
+            let curTime = performance.now()
+            let duration = curTime - lastRcv;
+            if (duration > maxIntervalWithoutData) {
+              maxIntervalWithoutData = duration
+            }
+            bufArr.push(data);
+            lastRcv = curTime;
+        }
+        // make sure context.ts sets streamingKeepAliveTimeoutMillis to 3_000 seconds
+        expect(maxIntervalWithoutData).to.be.below(streamingKeepAliveTimeoutMillis + 500);
+
+        const jsonTxt = zlib.gunzipSync(Buffer.concat(bufArr));
+        assert.deepEqual(JSON.parse(jsonTxt), [ "foo" ]);
+      });
     });
-
-    it('custom streaming - test keep-alive mechanism with gzip compression enabled', async function () {
-      const { body } = await client.request({
-                    path: '/customStreaming?superslowstart',
-                    method: 'GET',
-                    headers: { 'Accept-Encoding': 'gzip' } });
-      let maxIntervalWithoutData = 0;
-      let lastRcv = performance.now();
-      let bufArr:any[] = []
-      for await (const data of body) {
-          let curTime = performance.now()
-          let duration = curTime - lastRcv;
-          if (duration > maxIntervalWithoutData) {
-            maxIntervalWithoutData = duration
-          }
-          bufArr.push(data);
-          lastRcv = curTime;
-      }
-      expect(maxIntervalWithoutData).to.be.below(20500);
-
-      const jsonTxt = zlib.gunzipSync(Buffer.concat(bufArr));
-      assert.deepEqual(JSON.parse(jsonTxt), [ "foo" ]);
-    });
-
   });
 };

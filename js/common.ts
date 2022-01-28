@@ -1,6 +1,10 @@
 /* Internal utilities for sri4node */
 import { URL } from 'url';
-import { ResourceDefinition, SriConfig, SriRequest } from './typeDefinitions';
+import { ResourceDefinition, SriConfig, SriRequest, IExtendedDatabaseConnectionParameters, TDebugChannel, TInternalSriRequest, THttpMethod } from './typeDefinitions';
+import { IInitOptions } from "pg-promise";
+
+import * as Express from 'express';
+
 const { flattenJsonSchema } = require('./schemaUtils');
 
 const _ = require('lodash')
@@ -13,8 +17,6 @@ const stream = require('stream');
 const peggy = require("peggy");
 const { generateFlatQueryStringParserGrammar } = require('./url_parsing/flat_url_parser')
 const { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } = require('./url_parsing/non_flat_url_parser')
-
-const env = require('./env');
 
 const { Readable } = require('stream')
 const httpContext = require('express-http-context');
@@ -64,15 +66,6 @@ const logBuffer:{ [k:string]: string[]} = {};
   }
 };
 
-
-/**
- * Short for console.log, what's the use of this ???
- * @param x 
- */
- function cl (x:any) {
-  console.log(x); // eslint-disable-line
-}
-
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
  *
@@ -84,26 +77,12 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
 }
 
 /**
- * @typedef {object} SriRequest
- *  @property {string} id
- *  @property {parentSriRequest} SriRequest
- */
-
-/**
- * @typedef {object} SriRequest
- *  @property {string} id
- *  @property {parentSriRequest} SriRequest
- */
-
-type DebugChannel = 'server-timing' | 'requests' | 'trace' | 'db' | 'general' | 'overloadProtection' | 'batch' | 'sql' | 'hooks' | 'phaseSyncer' | 'mocha'
-
-/**
  * Logging output (use the proper channel!)
  * 
  * @param channel 
  * @param {String | () => String}
  */
-const debug = (channel:DebugChannel, x:(() => string) | string) => {
+const debug = (channel:TDebugChannel, x:(() => string) | string) => {
   if (global.sri4node_configuration===undefined ||
         (global.sri4node_configuration.logdebug && (
           global.sri4node_configuration.logdebug.channels==='all' ||
@@ -354,7 +333,7 @@ let hrefToParsedObjectFactoryThis:any = {};
  * @param {object} sri4nodeConfigObject: the sri4node config (and mainly the mapping section) holds most info we need to know
  * @param {boolean} flat: if true, will generate a 'flat' parseTree, otherwise a non-flat parseTree (filters grouped per type) will be generated
  */
-function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat = false) {
+function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false) {
   let parseQueryStringPartByPart:'NORMAL' | 'PART_BY_PART' | 'VALUES_APART' = 'PART_BY_PART'; //'PARTBYPART';
 
   // assuming sriConfig will always be the same, we optimize with
@@ -506,8 +485,6 @@ function hrefToParsedObjectFactory(sriConfig:SriConfig = { resources: [] }, flat
 }
 
 const common = {
-  cl,
-
   installEMT: (app:Application) => {
     app.use(emt.init(function emtReporter(req:Express.Request, res:Express.Response) {
     }));
@@ -709,7 +686,7 @@ const common = {
           row[key] = refKey;
         } else {
           const msg = `Faulty reference detected [${permalink}], detected [${refType}] expected [${expectedType}].`
-          cl(msg);
+          console.log(msg);
           throw new SriError({status: 409, errors: [{code: 'faulty.reference', msg: msg}]})
         }
       } else {
@@ -741,22 +718,43 @@ const common = {
   },
 
 
-  pgInit: async function (pgpInitOptionsIn = {}) {
-    const pgpInitOptions = {
-        schema: process.env.POSTGRES_SCHEMA,
-        ...pgpInitOptionsIn,
-    };
+  /**
+   * Here we initalize the instance of the pgPromise LIBRARY.
+   * 
+   * For some reason, setting the default schema is done on the library level
+   * instead of the connection level...
+   * 
+   * @param pgpInitOptions
+   * @param extraOptions
+   */
+  pgInit: async function (
+    pgpInitOptions:IInitOptions = {},
+    extraOptions: { schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined, connectionInitSql?: string, monitor: boolean },
+  ) {
 
-    pgp = pgPromise(pgpInitOptions);
-    if (process.env.PGP_MONITOR === 'true') {
+    let pgpInitOptionsUpdated:IInitOptions = {
+      schema: extraOptions.schema,
+      ...pgpInitOptions,
+    };
+    if (extraOptions.connectionInitSql !== undefined) {
+      const existingConnect = pgpInitOptions.connect;
+      pgpInitOptions.connect = (client, dc, useCount) => {
+        if (useCount === 0) {
+          client.query(extraOptions.connectionInitSql);
+        }
+        if (existingConnect) {
+          existingConnect(client, dc, useCount);
+        }
+      };
+    }
+
+    pgp = pgPromise(pgpInitOptionsUpdated);
+
+    // const pgMonitor = process.env.PGP_MONITOR === 'true' || (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true);
+    if (extraOptions.monitor) {
       const monitor = require('pg-monitor');
       monitor.attach(pgpInitOptions);
     }
-
-    if (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true) {
-        const monitor = require('pg-monitor');
-        monitor.attach(pgpInitOptions);
-    };
 
     // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
     //   (a deliberate choice, see https://github.com/brianc/node-postgres/issues/429)
@@ -789,63 +787,84 @@ const common = {
     }
   },
 
-  pgConnect: async function (arg) {
-    // pgConnect can be called with the database url as argument of the sri4configuration object
-    let dbUrl:string, ssl:ISSLConfig | boolean, sri4nodeConfig;
-
-    if (typeof arg === 'string') {
-      // arg is the connection string
-      dbUrl = arg;
-    } else {
-      // arg is sri4node configuration object
-      sri4nodeConfig = arg;
-      if (!pgp) {
-        let pgpInitOptions:any = {}
-        if (sri4nodeConfig.dbConnectionInitSql !== undefined) {
-          pgpInitOptions.connect = (client, dc, useCount) => {
-                if (useCount===0) {
-                  client.query(sri4nodeConfig.dbConnectionInitSql);
-                }
-            };
-        }
-        common.pgInit(pgpInitOptions);
-      }
-      if (process.env.DATABASE_URL) {
-        dbUrl = process.env.DATABASE_URL;
-      } else {
-        dbUrl = sri4nodeConfig.defaultdatabaseurl;
-      }
+  /**
+   * The mechanism to know how to connect to the DB used to be messy,
+   * with one config property called defaultdatabaseurl,
+   * next to another mechanism that read the databaseurl from the environment variables
+   * but the only way to pass a schema being through environment variables.
+   *
+   * We want a single mechanism to configure sri4node, and that is through a json-object.
+   *
+   * Also: sri4node only supported a connection string, whereas the underlying node-postgres
+   * library also supports a connection object.
+   *
+   * So the new mechanism will simply pass the section about the database from the config-object
+   * (maybe filling in a few defaults where properties are missing) to the pg library.
+   * This way we not only support a connection string but also other ways of connecting to the database.
+   *
+   * What about schema? Shouldn't that simply be running 'set search_path=...'
+   * on any new connection before handing it over to someone to use it?
+   *
+   * @param sriConfig sriConfig object
+   * @returns {pgPromise.IDatabase} the database connection
+   */
+  pgConnect: async function (sri4nodeConfig:SriConfig) {
+    // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
+    if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
+      console.warn('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
+      // throw new Error('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
+    }
+    if (sri4nodeConfig.maxConnections ) {
+      // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
+      console.warn('maxConnections config property has been deprecated, use databaseConnectionParameters.max instead');
+    }
+    if (sri4nodeConfig.dbConnectionInitSql ) {
+      // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
+      console.warn('dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead');
+    }
+    if (process.env.PGP_MONITOR) {
+      // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
+      console.warn('environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead');
     }
 
-    if (dbUrl === undefined) {
-        error('FATAL: database configuration is missing !');
-        process.exit(1)
+
+
+    // FIRST INITIALIZE THE LIBRARY IF IT HASN'T BEEN INITIALIZED BEFORE
+    if (!pgp) {
+      const extraOptions = {
+        schema: sri4nodeConfig.databaseConnectionParameters.schema,
+        monitor: sri4nodeConfig.databaseLibraryInitOptions?.pgMonitor === true,
+        connectionInitSql: sri4nodeConfig.databaseConnectionParameters.connectionInitSql,
+      }
+      common.pgInit(sri4nodeConfig.databaseLibraryInitOptions, extraOptions);
     }
 
+    // this should ideally be be a simple clone of sri4nodeConfig.databaseConnectionParameters but
+    // there is a bit of messing about going on afterwards to turn it into the actual connection object
+    let cn:IExtendedDatabaseConnectionParameters = {
+      // first some defaults, but override them with whatever is in the config
+      max: 16,
+      connectionTimeoutMillis: 2_000, // 2 seconds
+      idleTimeoutMillis: 14_400_000, // 4 hours
+      ...sri4nodeConfig.databaseConnectionParameters,
+    };
 
     // ssl=true is required for heruko.com
     // ssl=false is required for development on local postgres (Cloud9)
-    if (dbUrl.indexOf('ssl=false') === -1) {
-      ssl = { rejectUnauthorized: false }
+    if (cn.connectionString?.indexOf('ssl=false') || 0 >= 0) {
+      const cs = cn.connectionString || '';
+      cn.connectionString = cs
+        .replace('ssl=false', '').replace(/\?$/, '');
+      cn.ssl = false;
+    } else {
+      cn.ssl = { rejectUnauthorized: false }
       // recent pg 8 deprecates implicit disabling of certificate verification
-      //   and heroku does not provide for their  CA files or certificate for your Heroku Postgres server
+      //   and heroku does not provide for their CA files or certificate for your Heroku Postgres server
       //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
       //   ==> need for explicit disabling of rejectUnauthorized
-    } else {
-      dbUrl = dbUrl.replace('ssl=false', '').replace(/\?$/, '');
-      ssl = false
     }
 
-    let cn = {
-       connectionString: dbUrl,
-       ssl: ssl,
-       // TODO: get these values from sriConfig instead of environment !!!
-       connectionTimeoutMillis: parseInt(process.env.PGP_CONN_TIMEOUT || '2000'),
-       idleTimeoutMillis: parseInt(process.env.PGP_IDLE_TIMEOUT || '14400000'), // 4 hours
-       max: process.env.PGP_POOL_SIZE || (sri4nodeConfig !== undefined && sri4nodeConfig.maxConnections) || 16,
-    }
-
-    cl('Using database connection object : [' + JSON.stringify(cn) + ']');
+    console.log('Using database connection object : [' + JSON.stringify(cn) + ']');
 
     return pgp(cn);
   },
@@ -891,7 +910,7 @@ const common = {
     return result;
   },
 
-  startTransaction: async (db, sriRequest=null, mode = new pgp.txMode.TransactionMode()) => {
+  startTransaction: async (db, sriRequest:SriRequest | undefined = undefined, mode = new pgp.txMode.TransactionMode()) => {
     const hrstart = process.hrtime();
     debug('db', '++ Starting database transaction.');
 
@@ -967,7 +986,7 @@ const common = {
   },
 
 
-  startTask: async (db, sriRequest=null) => {
+  startTask: async (db, sriRequest:SriRequest | undefined) => {
     const hrstart = process.hrtime();
     debug('db', '++ Starting database task.');
 
@@ -1021,9 +1040,9 @@ const common = {
     }
   },
 
-  installVersionIncTriggerOnTable: async function(db, tableName) {
+  installVersionIncTriggerOnTable: async function(db, tableName:string, schemaName?:string) {
 
-    const tgname = `vsko_resource_version_trigger_${( env.postgresSchema !== undefined ? env.postgresSchema : '' )}_${tableName}`
+    const tgname = `vsko_resource_version_trigger_${( schemaName !== undefined ? schemaName : '' )}_${tableName}`
 
     const plpgsql = `
       DO $___$
@@ -1034,8 +1053,8 @@ const common = {
           FROM information_schema.columns
           WHERE table_name = '${tableName}'
             AND column_name = '$$meta.version'
-            ${( env.postgresSchema !== undefined
-              ? `AND table_schema = '${env.postgresSchema}'`
+            ${( schemaName !== undefined
+              ? `AND table_schema = '${schemaName}'`
               : '' )}
         ) THEN
           ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
@@ -1044,11 +1063,11 @@ const common = {
         -- 2. create func vsko_resource_version_inc_function if not yet present
         IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                         WHERE proname = 'vsko_resource_version_inc_function'
-                        ${( env.postgresSchema !== undefined
-                          ? `AND nspname = '${env.postgresSchema}'`
+                        ${( schemaName !== undefined
+                          ? `AND nspname = '${schemaName}'`
                           : `AND nspname = 'public'` )}
                       ) THEN
-          CREATE FUNCTION ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+          CREATE FUNCTION ${( schemaName !== undefined ? schemaName : 'public' )}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
           BEGIN
             NEW."$$meta.version" := OLD."$$meta.version" + 1;
             RETURN NEW;
@@ -1058,7 +1077,7 @@ const common = {
         -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
         IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
             CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
-            FOR EACH ROW EXECUTE PROCEDURE ${( env.postgresSchema !== undefined ? env.postgresSchema : 'public' )}.vsko_resource_version_inc_function();
+            FOR EACH ROW EXECUTE PROCEDURE ${( schemaName !== undefined ? schemaName : 'public' )}.vsko_resource_version_inc_function();
         END IF;
       END
       $___$
@@ -1183,19 +1202,20 @@ const common = {
    * @param {object} expressRequest: needed for creating a basic SriRequest object
    * @param {object} expressResponse: needed for creating a basic SriRequest object (if streaming mode = true)
    * @param {object} config: needed for creating a basic SriRequest object, of the form {isBatchRequest: boolean, readOnly: boolean, mapping: <single element from sri4node config 'mappings' section>}
-   * @param {object} batchHandlerAndParams: an object as returned by bath/matchHref of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
-   * @param {SriRequest} parentSriRequest: needed when inside a batch or when called as sri4node_internal_onterface
+   * @param {object} batchHandlerAndParams: an object as returned by batch/matchHref of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
+   * @param {SriRequest} parentSriRequest: needed when inside a batch or when called as sri4node_internal_interface
    * @param {BatchElement} batchElement: needed when creating a 'virtual' SriRequest that represents 1 request from inside a batch
    *
    * @returns {SriRequest}
    */
   generateSriRequest: function generateSriRequest(
-                                  expressRequest:Express.Request | SriRequest | undefined = undefined,
+                                  expressRequest:Express.Request | undefined = undefined,
                                   expressResponse:Express.Response | any | undefined = undefined,
                                   basicConfig:any = undefined,
                                   batchHandlerAndParams:any = undefined,
                                   parentSriRequest:SriRequest | undefined = undefined,
-                                  batchElement:any = undefined
+                                  batchElement:any = undefined,
+                                  internalSriRequest:TInternalSriRequest | undefined = undefined,
                                 ):SriRequest {
     const baseSriRequest = {
       id: uuidv4(),
@@ -1203,7 +1223,7 @@ const common = {
       logError: error,
       SriError,
       context: {},
-      parentSriRequest,
+      parentSriRequest: parentSriRequest || internalSriRequest?.parentSriRequest,
 
       path: undefined,
       query: undefined,
@@ -1229,13 +1249,15 @@ const common = {
       serverTiming: undefined,
     }
 
-    if (parentSriRequest && !batchElement) { // internal interface
+    if (internalSriRequest && !batchElement) { // internal interface
       // const batchHandlerAndParams = batch.matchHref(parentSriRequest.href, parentSriRequest.verb);
 
       return {
         ...baseSriRequest,
 
-        originalUrl: parentSriRequest.href,
+        // parentSriRequest: parentSriRequest,
+
+        originalUrl: internalSriRequest.href,
 
         path: batchHandlerAndParams.path,
         query: batchHandlerAndParams.queryParams,
@@ -1245,20 +1267,20 @@ const common = {
         isBatchRequest: batchHandlerAndParams.handler.isBatch,
         readOnly: batchHandlerAndParams.handler.readOnly,
 
-        httpMethod: parentSriRequest.verb,
-        headers: parentSriRequest.headers ? parentSriRequest.headers : {},
-        body: parentSriRequest.body,
-        dbT: parentSriRequest.dbT,
-        inStream: parentSriRequest.inStream,
-        outStream: parentSriRequest.outStream,
-        setHeader: parentSriRequest.setHeader,
-        setStatus: parentSriRequest.setStatus,
-        streamStarted: parentSriRequest.streamStarted,
+        httpMethod: internalSriRequest.verb,
+        headers: internalSriRequest.headers ? internalSriRequest.headers : {},
+        body: internalSriRequest.body,
+        dbT: internalSriRequest.dbT,
+        inStream: internalSriRequest.inStream,
+        outStream: internalSriRequest.outStream,
+        setHeader: internalSriRequest.setHeader,
+        setStatus: internalSriRequest.setStatus,
+        streamStarted: internalSriRequest.streamStarted,
 
         protocol: '_internal_',
         isBatchPart: false,
 
-        parentSriRequest: parentSriRequest.parentSriRequest //??? || parentSriRequest,
+        parentSriRequest: internalSriRequest.parentSriRequest,
       };
     } else if (parentSriRequest && batchElement) { // batch item
       // const batchHandlerAndParams = batchElement.match;
@@ -1286,7 +1308,7 @@ const common = {
         originalUrl: expressRequest.originalUrl,
         query: expressRequest.query,
         params: expressRequest.params,
-        httpMethod: expressRequest.method,
+        httpMethod: expressRequest.method as THttpMethod,
 
         headers: expressRequest.headers,
         protocol: expressRequest.protocol,
@@ -1369,47 +1391,9 @@ const common = {
         sriType: batchHandlerAndParams.handler.mapping.type,
         isBatchPart: true,
       };
-    } else { // a 'normal' request
-      let generatedSriRequest:SriRequest = {
-        ...baseSriRequest,
-
-        path: expressRequest.path,
-        originalUrl: expressRequest.originalUrl,
-        query: expressRequest.query,
-        params: expressRequest.params,
-        httpMethod: expressRequest.method,
-
-        headers: expressRequest.headers,
-        protocol: expressRequest.protocol,
-        body: expressRequest.body,
-        isBatchPart: false,
-        isBatchRequest: basicConfig.isBatchRequest,
-        readOnly: basicConfig.readOnly,
-
-        // the batch code will set sriType for batch elements
-        sriType: !basicConfig.isBatchRequest ? basicConfig.mapping.type : undefined,
-      };
-
-      // adding sriRequest.dbT should still be done in code after this function
-      // because for the normal case it is asynchronous, and I wanted to keep
-      // this function synchronous as long as possible
-      // ======================================================================
-
-      if (basicConfig.isStreamingRequest) {
-        if (!expressResponse) {
-          throw Error('[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing')
-        }
-        // use passthrough streams to avoid passing req and resp in sriRequest
-        const inStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
-        const outStream = new stream.PassThrough({allowHalfOpen: false, emitClose: true});
-        generatedSriRequest.inStream = expressRequest.pipe(inStream);
-        generatedSriRequest.outStream = outStream.pipe(expressResponse);
-        generatedSriRequest.setHeader = ((k, v) => expressResponse.set(k, v));
-        generatedSriRequest.setStatus = ((s) => expressResponse.status(s));
-        generatedSriRequest.streamStarted = (() => expressResponse.headersSent);
-      }
-      return generatedSriRequest;
     }
+
+    throw Error('[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters');
   },
 
   hrefToParsedObjectFactory,

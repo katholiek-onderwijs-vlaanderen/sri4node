@@ -11,7 +11,8 @@ const httpContext = require('express-http-context');
 const { v4: uuidv4 } = require('uuid');
 
 import common from './common';
-const { debug, cl, SriError, startTransaction, settleResultsToSriResults, generateSriRequest } = common;
+import { THttpMethod } from "./typeDefinitions";
+const { debug, SriError, startTransaction, settleResultsToSriResults, generateSriRequest } = common;
 const hooks = require('./hooks')
 const phaseSyncedSettle = require('./phaseSyncedSettle')
 
@@ -29,8 +30,42 @@ const maxSubListLen = (a) =>
 
 
 
+  /**
+   * Tries to find the proper record in the global batchHandlerMap
+   * and then returns the handler found + some extras
+   * like path, routeParams (example /resources/:id) and queryParams (?key=value)
+   *
+   * @param {String} href
+   * @param {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb: GET,PUT,PATCH,DELETE,POST
+   * @returns an object of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
+   */
+   function matchHref(href:string, verb:THttpMethod) {
+    if (!verb) {
+      console.log(`No VERB stated for ${href}.`)
+      throw new SriError({status: 400, errors: [{code: 'no.verb', msg: `No VERB stated for ${href}.`}]})
+    }
+    const parsedUrl = url.parse(href, true);
+    const queryParams = parsedUrl.query;
+    const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
 
-export = module.exports = {
+    const matches = global.sri4node_configuration.batchHandlerMap[verb]
+      .map( handler => ({ handler, match: handler.route.match(path)}) )
+      .filter( ({ match }) => match !== false );
+
+    if (matches.length > 1) {
+      console.log(`WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`)
+    } else if (matches.length === 0) {
+      throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${verb} on ${path}.`}]})
+    }
+
+    const handler = _.first(matches).handler;
+    const routeParams = _.first(matches).match;
+
+    return { handler, path, routeParams, queryParams }
+  }
+
+
+export default {
 
   /**
    * This will add a 'match' property to every batch element that already contains
@@ -56,7 +91,7 @@ export = module.exports = {
           batch.forEach(handleBatchForMatchBatch);
         } else if ( batch.every(element => (typeof(element) === 'object') && (!Array.isArray(element)) )) {
           batch.forEach(element => {
-            const match = module.exports.matchHref(element.href, element.verb)
+            const match = matchHref(element.href, element.verb)
 
             if (match.handler.isBatch === 'true') {
               throw new SriError({status: 400, errors: [{code: 'batch.not.allowed.in.batch', msg: 'Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON.'}]}) 
@@ -88,30 +123,7 @@ export = module.exports = {
    * @param {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb: GET,PUT,PATCH,DELETE,POST
    * @returns an object of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
    */
-  matchHref: (href, verb) => {
-    if (!verb) {
-      console.log(`No VERB stated for ${href}.`)
-      throw new SriError({status: 400, errors: [{code: 'no.verb', msg: `No VERB stated for ${href}.`}]})
-    }
-    const parsedUrl = url.parse(href, true);
-    const queryParams = parsedUrl.query;
-    const path = parsedUrl.pathname.replace(/\/$/, '') // replace eventual trailing slash
-
-    const matches = global.sri4node_configuration.batchHandlerMap[verb]
-      .map( handler => ({ handler, match: handler.route.match(path)}) )
-      .filter( ({ match }) => match !== false );
-
-    if (matches.length > 1) {
-      cl(`WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`)
-    } else if (matches.length === 0) {
-      throw new SriError({status: 404, errors: [{code: 'no.matching.route', msg: `No route found for ${verb} on ${path}.`}]})
-    }
-
-    const handler = _.first(matches).handler;
-    const routeParams = _.first(matches).match;
-
-    return { handler, path, routeParams, queryParams }
-  },
+  matchHref,
 
   batchOperation: async (sriRequest) => {
     'use strict';

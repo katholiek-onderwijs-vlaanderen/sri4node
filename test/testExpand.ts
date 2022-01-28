@@ -85,9 +85,7 @@ export = module.exports = function (base) {
 
       it('should fail due to secure function on expanded resource', async function () {
         await utils.testForStatusCode(
-          async () => {
-            await doGet('/messages/7f5f646c-8f0b-4ce6-97ce-8549b8b78234?expand=person', null, authHdrObj)
-          }, 
+          async () => doGet('/messages/7f5f646c-8f0b-4ce6-97ce-8549b8b78234?expand=person', null, authHdrObj),
           (error) => {
             assert.equal(error.status, 403);
           })
@@ -97,11 +95,13 @@ export = module.exports = function (base) {
         await doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person', null, authHdrObjKevin)
       });
 
-      it('should fail since the expanded chained resource is restricted', async function () {
+      /**
+       * in context/communities.js, an afterRead function will disallow getting 1 single community
+       * which is why this test should fail.
+       */
+      it('should fail since 1 of the expandeded chained resources will throw due to an afterRead function in communities', async function () {
         await utils.testForStatusCode(
-          async () => {
-            await doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community', null, authHdrObjKevin)
-          }, 
+          async () => doGet('/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community', null, authHdrObjKevin),
           (error) => {
             assert.equal(error.status, 403);
           })
@@ -125,9 +125,7 @@ export = module.exports = function (base) {
 
       it('should fail due to secure function on expanded resource', async function () {
         await utils.testForStatusCode(
-          async () => {
-            await doGet('/messages?expand=results.person', null, authHdrObj)
-          }, 
+          async () => doGet('/messages?expand=results.person', null, authHdrObj), 
           (error) => {
             assert.equal(error.status, 403);
           })
@@ -137,11 +135,9 @@ export = module.exports = function (base) {
         await doGet('/messages?titleContains=Vervoer&expand=results.person', null, authHdrObjKevin)
       });
 
-      it('should fail since the expanded chained resource is restricted', async function () {
+      it('should fail since 1 of the expandeded chained resources will throw due to an afterRead function in communities', async function () {
         await utils.testForStatusCode(
-          async () => {
-            await doGet('/messages?titleContains=Vervoer&expand=results.person.community', null, authHdrObjKevin)
-          }, 
+          async () => doGet('/messages?titleContains=Vervoer&expand=results.person.community', null, authHdrObjKevin),
           (error) => {
             assert.equal(error.status, 403);
           })
@@ -152,9 +148,7 @@ export = module.exports = function (base) {
     describe('with invalid', function () {
       it('should say \'not found\'.', async function () {
         await utils.testForStatusCode(
-          async () => {
-            await doGet('/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid', null, authHdrObj)
-          }, 
+          async () => doGet('/messages/ad9ff799-7727-4193-a34a-09f3819c3479?expand=invalid', null, authHdrObj), 
           (error) => {
             assert.equal(error.status, 404);
           })

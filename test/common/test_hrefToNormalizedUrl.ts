@@ -1074,6 +1074,8 @@ const sriConfig:SriConfig = {
       },
     },
   ],
+
+  databaseConnectionParameters: {},
 };
 
 

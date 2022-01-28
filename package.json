@@ -1,6 +1,6 @@
 {
   "name": "sri4node",
-  "version": "1.3.0",
+  "version": "2.3.0",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,9 +15,9 @@
     "postbuild": "cp -r ./js/docs ./dist/js",
     "clean": "rm -rf ./dist",
     "pretest": "npm run clean && mkdir -p ./dist/js && npm run postbuild",
-    "test": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts",
+    "test": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
-    "test_common": "POSTGRES_SCHEMA=\"sri4node\" ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick $(cd ./test && find ./common -iname '*')",
+    "test_common": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick $(cd ./test && find ./common -iname '*')",
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.ts ts test",
     "dev": "env $(cat .env) nodemon --debug --watch ./js js/server.ts"

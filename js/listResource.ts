@@ -6,7 +6,7 @@ const url = require('url');
 import hooks = require('./hooks')
 import expand = require('./expand');
 import common from './common';
-const { debug, cl, sqlColumnNames, getCountResult,
+const { debug, sqlColumnNames, getCountResult,
         transformRowToObject, tableFromMapping, pgExec, SriError } = common;
 import queryobject = require('./queryObject');
 import queryUtils = require('./queryUtils');

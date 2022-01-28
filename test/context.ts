@@ -11,6 +11,7 @@ context.serve();
 import * as express from 'express';
 
 import common from '../js/common';
+import { SriConfig } from '../js/typeDefinitions';
 const utils = require('./utils')(null);
 
 var $u;
@@ -19,7 +20,7 @@ var configCache: any = null;
 export = module.exports = {
   serve: async function (sri4node, port, logdebug) {
     'use strict';
-    var config = module.exports.config(sri4node, port, logdebug);
+    const config = module.exports.config(sri4node, port, logdebug);
 
     // Need to pass in express.js and node-postgress as dependencies.
     var app = express();
@@ -31,10 +32,10 @@ export = module.exports = {
     try {
       const port = app.get('port');
       const server = await app.listen(port);
-      common.cl('Node app is running at localhost:' + app.get('port'));
+      console.log('Node app is running at localhost:' + app.get('port'));
       return server;
     } catch (error) {
-      common.cl('Node app failed to initialize: ' + error);
+      console.log('Node app failed to initialize: ' + error);
       process.exit(1);
     }
   },
@@ -51,7 +52,7 @@ export = module.exports = {
   config: function (sri4node, port, logdebug) {
     'use strict';
     if (configCache !== null) {
-      common.cl('config cached');
+      console.log('config cached');
       return configCache;
     }
 
@@ -60,10 +61,14 @@ export = module.exports = {
     var commonResourceConfig = {
     };
 
-    var config = {
+    const config:SriConfig = {
       // For debugging SQL can be logged.
       logdebug: logdebug,
-      defaultdatabaseurl: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
+      databaseConnectionParameters: {
+        connectionString: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
+        // ssl: false,
+        schema: 'sri4node',
+      },
 
       resources: [
         require('./context/persons')(sri4node, commonResourceConfig),
@@ -106,7 +111,11 @@ export = module.exports = {
       transformInternalRequest: [utils.copyUserInfo],
 
       // temporarily global batch for samenscholing
-      enableGlobalBatch: true
+      enableGlobalBatch: true,
+
+      // send keep alive characters every 3 seconds, so we can more quickly test
+      // if this mechanism works
+      streamingKeepAliveTimeoutMillis: 3_000,
     };
 
     configCache = config;
