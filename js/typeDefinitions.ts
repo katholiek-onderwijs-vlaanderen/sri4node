@@ -268,7 +268,7 @@ export type SriRequest = {
   query: any, //batchHandlerAndParams.queryParams,
   params: any, //batchHandlerAndParams.routeParams,
 
-  sriType: string, //batchHandlerAndParams.handler.mapping.type,
+  sriType?: string, //batchHandlerAndParams.handler.mapping.type,
   isBatchRequest?: boolean,
   readOnly?: boolean,
   reqCancelled?: boolean,

@@ -237,7 +237,7 @@ const expressWrapper = (dbR, dbW, func:TSriRequestHandler, config:SriConfig, map
         resp.set('vsko-req-id', reqId);
       }
 
-      const sriRequest = generateSriRequest(req, resp, { isBatchRequest, readOnly, mapping, isStreamingRequest: isStreamingRequest })
+      const sriRequest = generateSriRequest(req, resp, { isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest: isStreamingRequest })
 
       // After creating the inital SriRequest object, we still need to add the task/transaction !!!
       if (readOnly === true) {

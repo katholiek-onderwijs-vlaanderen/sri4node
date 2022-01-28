@@ -1,6 +1,6 @@
 /* Internal utilities for sri4node */
 import { URL } from 'url';
-import { ResourceDefinition, SriConfig, SriRequest, IExtendedDatabaseConnectionParameters, TDebugChannel, TInternalSriRequest, THttpMethod } from './typeDefinitions';
+import { ResourceDefinition, SriConfig, SriRequest, IExtendedDatabaseConnectionParameters, TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord } from './typeDefinitions';
 import { IInitOptions } from "pg-promise";
 
 import * as Express from 'express';
@@ -1211,7 +1211,7 @@ const common = {
   generateSriRequest: function generateSriRequest(
                                   expressRequest:Express.Request | undefined = undefined,
                                   expressResponse:Express.Response | any | undefined = undefined,
-                                  basicConfig:any = undefined,
+                                  basicConfig:{ isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean, mapping?:ResourceDefinition } | undefined = undefined,
                                   batchHandlerAndParams:any = undefined,
                                   parentSriRequest:SriRequest | undefined = undefined,
                                   batchElement:any = undefined,
@@ -1314,11 +1314,11 @@ const common = {
         protocol: expressRequest.protocol,
         body: expressRequest.body,
         isBatchPart: false,
-        isBatchRequest: basicConfig.isBatchRequest,
-        readOnly: basicConfig.readOnly,
+        isBatchRequest: basicConfig?.isBatchRequest,
+        readOnly: basicConfig?.readOnly,
 
         // the batch code will set sriType for batch elements
-        sriType: !basicConfig.isBatchRequest ? basicConfig.mapping.type : undefined,
+        sriType: !basicConfig?.isBatchRequest ? basicConfig?.mapping?.type : undefined,
       };
 
       // adding sriRequest.dbT should still be done in code after this function
@@ -1326,7 +1326,7 @@ const common = {
       // this function synchronous as long as possible
       // ======================================================================
 
-      if (basicConfig.isStreamingRequest) {
+      if (basicConfig?.isStreamingRequest) {
         if (!expressResponse) {
           throw Error('[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing')
         }
