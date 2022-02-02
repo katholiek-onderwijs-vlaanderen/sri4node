@@ -14,7 +14,7 @@ export = module.exports = {
    * column : the database column that contains the foreign key.
    * key : the name of the key to add to the retrieved elements.
    */  
-   //TODO: refactor in v2.1 together with the whole expand story
+   // TODO: refactor in v2.1 together with the whole expand story
   addReferencingResources: function (type, column, targetkey, excludeOnExpand) {
     'use strict';
 

@@ -289,6 +289,8 @@ function generateExpectedType({ property, operator }:{ property:ParseTreePropert
  *  // unless that is part of the config)?
  *  propertyMapping: [] // OMIT/PROPERTYNAME_IN but also expansion could belong here ????
  *  listControl: [] // _LIST_META_INCLUDE=count/_LIST_LIMIT/_LIST_ORDER_BY/_LIST_ORDER_DESCENDING etc.
+ *                  // _LIST_RESPONSE_STYLE: single/results/line-by-line GET /persons/<key> === /persons?key=<key> === /persons?keyIn=<key>
+ *                  // _LIST_LISTEN=true (can only be combined with line-by-line???)
  * }
  * 
  * WHAT WITH EXPAND=NONE,FULL,... is this listControl, or propertyMapping, or yet another category?
