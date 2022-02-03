@@ -1,6 +1,6 @@
 /* Internal utilities for sri4node */
 import { URL } from 'url';
-import { ResourceDefinition, SriConfig, SriRequest, IExtendedDatabaseConnectionParameters, TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord } from './typeDefinitions';
+import { ResourceDefinition, SriConfig, SriRequest, IExtendedDatabaseConnectionParameters, TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction, TErrorLogFunction, SriError } from './typeDefinitions';
 import { IInitOptions } from "pg-promise";
 
 import * as Express from 'express';
@@ -39,32 +39,6 @@ const logBuffer:{ [k:string]: string[]} = {};
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
  */
-/*export*/ class SriError {
-  status: number;
-  body: { errors: {}[]; status: number; document: any; };
-  headers: {};
-  sriRequestID: string | null;
-  /**
-   * Contructs an sri error based on the given initialisation object
-   *
-   * @param {Object} value
-   */
-  constructor({status = 500, errors = [], headers = {}, document = {}, sriRequestID=null}:{ status:number, errors:any[] | any, headers?:{[k:string]: string}, document?:any, sriRequestID?:string | null }) {
-    this.status = status,
-    this.body = {
-      errors: errors.map( (e:any) => {
-                  if (e.type == undefined) {
-                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
-                  }
-                  return e
-                }),
-      status: status,
-      document,
-    },
-    this.headers = headers,
-    this.sriRequestID = sriRequestID
-  }
-};
 
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
@@ -82,7 +56,7 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
  * @param channel 
  * @param {String | () => String}
  */
-const debug = (channel:TDebugChannel, x:(() => string) | string) => {
+const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
   if (global.sri4node_configuration===undefined ||
         (global.sri4node_configuration.logdebug && (
           global.sri4node_configuration.logdebug.channels==='all' ||
@@ -102,7 +76,7 @@ const debug = (channel:TDebugChannel, x:(() => string) | string) => {
   }
 };
 
-const error = function(...args) {
+const error:TErrorLogFunction = function(...args) {
   const reqId = httpContext.get('reqId');
   if (reqId) {
       console.error(`[reqId:${reqId}]`, ...args);
@@ -1217,15 +1191,15 @@ const common = {
                                   batchElement:any = undefined,
                                   internalSriRequest:TInternalSriRequest | undefined = undefined,
                                 ):SriRequest {
-    const baseSriRequest = {
+    const baseSriRequest:SriRequest = {
       id: uuidv4(),
       logDebug: debug,
       logError: error,
       SriError,
-      context: {},
+      // context: {},
       parentSriRequest: parentSriRequest || internalSriRequest?.parentSriRequest,
 
-      path: undefined,
+      path: '',
       query: undefined,
       params: undefined,
       sriType: undefined,

@@ -350,7 +350,7 @@ const expressWrapper = (dbR, dbW, func:TSriRequestHandler, config:SriConfig, map
         })
       }
     } catch (err) {
-      //TODO: what with streaming errors
+      // TODO: what with streaming errors
       if (t != null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly === true) {
           debug('db', '++ Exception caught. Closing database task. ++');
@@ -477,9 +477,9 @@ module.exports = {
             });
           }
 
-          //TODO: what with custom stuff ?
+          // TODO: what with custom stuff ?
           //  e.g content-api with attachments / security/query
-          //TODO: implement a better way to determine key type!!
+          // TODO: implement a better way to determine key type!!
           if (mapping.schema === undefined) {
             throw new Error(`Schema definition is missing for '${mapping.type}' !`);
           }
@@ -613,8 +613,7 @@ module.exports = {
           return
         }
 
-        // await plugin.install(pluginConfig, global.sri4node_configuration, dbW, module.exports);
-        await plugin.install(global.sri4node_configuration, dbW, module.exports);
+        await plugin.install(global.sri4node_configuration, dbW);
 
         if (plugin.uuid !== undefined) {
           debug('general', `Loaded plugin ${plugin.uuid}.`);

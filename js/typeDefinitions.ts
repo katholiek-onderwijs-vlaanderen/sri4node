@@ -253,10 +253,46 @@ export type SriConfig = {
   streamingKeepAliveTimeoutMillis?: number,
 };
 
+export type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
+
+export type TErrorLogFunction = (...any) => void;
+
+export class SriError {
+  status: number;
+  body: { errors: {}[]; status: number; document: any; };
+  headers: {};
+  sriRequestID: string | null;
+  /**
+   * Contructs an sri error based on the given initialisation object
+   *
+   * @param {Object} value
+   */
+  constructor({status = 500, errors = [], headers = {}, document = {}, sriRequestID=null}:{ status:number, errors:any[] | any, headers?:{[k:string]: string}, document?:any, sriRequestID?:string | null }) {
+    this.status = status,
+    this.body = {
+      errors: errors.map( (e:any) => {
+                  if (e.type == undefined) {
+                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
+                  }
+                  return e
+                }),
+      status: status,
+      document,
+    },
+    this.headers = headers,
+    this.sriRequestID = sriRequestID
+  }
+};
+
 // TODO make more strict
 export type SriRequest = {
   id: string,
   parentSriRequest?: SriRequest | TInternalSriRequest,
+
+  logDebug: TDebugLogFunction,
+  logError: TErrorLogFunction,
+  SriError: typeof SriError, // we expose the SriError class itself, not an object of this class
+  // context: Object,
 
   href?: string,
   verb?: THttpMethod,

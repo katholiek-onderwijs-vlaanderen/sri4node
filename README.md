@@ -87,21 +87,39 @@ A valid patch is in [RFC6902 format][https://tools.ietf.org/html/rfc6902].
 
 ## Plugins
 
-You have one array of plugins, that will be smart enough to add themselves to the express app.
+## How to use plugins
+
+The sri4node config object contains a single array of plugins, that must be smart enough to make the necessary changes to the configuration object.
 
 This means that you don't need to set hooks to functions from plugins anymore (no more `onread: myplugin.onread` etc.), but that a plugin will add the proper hooks itself.
 
+You should check the readme of the plugin itself for information how it should be instantiated.
+Often they will require some dependency to be handed to them, and so they will export a factory
+function that gets the current sri4node library, and some configuration object as input.
+
+Example:
 ```javascript
 sri4node.configure( app,
-    {
-            // add some sri4node plugins
-            plugins : [ require( 'my-plugin' )( ... ) ],
-    ...
+  {
+    // add some sri4node plugins
+    plugins : [
+      require( 'my-plugin' )({ sri4node, prop: value, ... })
+    ],
+  ...
 ```
 
-On top of that: if a plugin needs another plugin to work, it should be smart enough to automatically add that other plugin also to the list of plugins, so no more 'plugin A doesn't work because it needs plugin B' (cfr. AccessControl needing OAuth, including AccessControl should suffice).
+On top of that: if a plugin needs another plugin to work, it should be smart enough to automatically add that other plugin also to the list of plugins, so no more 'plugin A doesn't work because it needs plugin B' (cfr. AccessControl needing OAuth, including AccessControl should suffice). Alternatively,
+the plugin should define a peer dependency, making sure that npm install will inform you if another
+plugin that it depends on is not installed or an incompatible version.
 
 The plugins work plug and play (an 'install' function is called by sri4node during initialization with sriConfig object and the plugin will manipulate it to insert its hooks).
+
+### How to write plugins
+
+A valid plugin consists of an object, exposing an install(SriConfig, dbW) method that will be called
+when sri4node starts.
+
+
 
 ## Throwing errors (the http response code)
 

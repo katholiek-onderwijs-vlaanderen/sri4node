@@ -288,9 +288,10 @@ function generateExpectedType({ property, operator }:{ property:ParseTreePropert
  *  // (I mean hard to know whether a customfilter is a propertyFilter or a resultMapping filter
  *  // unless that is part of the config)?
  *  propertyMapping: [] // OMIT/PROPERTYNAME_IN but also expansion could belong here ????
- *  listControl: [] // _LIST_META_INCLUDE=count/_LIST_LIMIT/_LIST_ORDER_BY/_LIST_ORDER_DESCENDING etc.
+ *  listControl: [] // _LIST_META_INCLUDE=count / _LIST_LIMIT / _LIST_ORDER_BY / _LIST_ORDER_DESCENDING etc.
+ *                  // other ideas
  *                  // _LIST_RESPONSE_STYLE: single/results/line-by-line GET /persons/<key> === /persons?key=<key> === /persons?keyIn=<key>
- *                  // _LIST_LISTEN=true (can only be combined with line-by-line???)
+ *                  // _LIST_LISTEN=true (to keep connected and listening for changes on the list later on can only be combined with line-by-line???)
  * }
  * 
  * WHAT WITH EXPAND=NONE,FULL,... is this listControl, or propertyMapping, or yet another category?
