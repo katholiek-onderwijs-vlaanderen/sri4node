@@ -1,4 +1,4 @@
-import common from './common';
+import * as common from './common';
 
 export = module.exports = (config) => {
   let usedPipelines = 0;

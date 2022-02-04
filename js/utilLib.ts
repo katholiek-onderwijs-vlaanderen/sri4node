@@ -1,7 +1,5 @@
+import { typeToConfig, pgExec, transformRowToObject } from './common';
 const pMap = require('p-map');
-
-import common from './common';
-const { typeToConfig, pgExec, transformRowToObject } = common;
 const queryobject = require('./queryObject');
 const prepare = queryobject.prepareSQL; 
 const expand = require('./expand');

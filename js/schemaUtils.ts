@@ -1,5 +1,5 @@
-import { JSONSchema4 } from "json-schema";
-import { FlattenedJsonSchema } from "./typeDefinitions";
+import { JSONSchema4 } from 'json-schema';
+import { FlattenedJsonSchema } from './typeDefinitions';
 
 /**
  * This will make sure we can easily find all possible dot-separated property names
@@ -30,9 +30,11 @@ import { FlattenedJsonSchema } from "./typeDefinitions";
  *
  * @param {object} jsonSchema
  * @param {Array<string>} pathToCurrent
- * @returns a version of the json schema where every property name if on the top-level but with dot notation
+ * @returns a version of the json schema where every property name if on the top-level
+ *          but with dot notation
  */
- function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = []):FlattenedJsonSchema {
+export function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
+:FlattenedJsonSchema {
   if (jsonSchema.type === 'object') {
     // old skool modification of an object is a bit easier to reason about in this case
     const retVal = {};
@@ -41,7 +43,8 @@ import { FlattenedJsonSchema } from "./typeDefinitions";
         Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
       });
     return retVal;
-  } else if (jsonSchema.type === 'array') {
+  }
+  if (jsonSchema.type === 'array') {
     // return Object.fromEntries(flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']);
     const retVal = {};
     if (Array.isArray(jsonSchema.items)) {
@@ -52,165 +55,147 @@ import { FlattenedJsonSchema } from "./typeDefinitions";
       Object.assign(retVal, flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']));
     }
     return retVal;
-  } else {
-    const flattenedName = pathToCurrent.reduce((a, c) => {
-      if (c === '[*]') {
-        return `${a}${c}`;
-      }
-      return `${a}.${c}`;
-    });
-    return { [flattenedName]: jsonSchema };
   }
+  const flattenedName = pathToCurrent.reduce((a, c) => {
+    if (c === '[*]') {
+      return `${a}${c}`;
+    }
+    return `${a}.${c}`;
+  });
+  return { [flattenedName]: jsonSchema };
 }
 
+export function permalink(type, description) {
+  const name = type.substring(1);
 
-
-export = module.exports = {
-
-  permalink: function (type, description) {
-    'use strict';
-    var name = type.substring(1);
-
-    return {
-      type: 'object',
-      properties: {
-        href: {
-          type: 'string',
-          pattern: '^\/' + name + '\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
-          description: description
-        }
+  return {
+    type: 'object',
+    properties: {
+      href: {
+        type: 'string',
+        pattern: `^/${name}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`,
+        description,
       },
-      required: ['href']
-    };
-  },
+    },
+    required: ['href'],
+  };
+}
 
-  string: function (description, min, max) {
-    'use strict';
-    var ret:any = {
-      type: 'string',
-      description: description
-    };
-    if (min) {
-      ret.minLength = min;
-    }
-    if (max) {
-      ret.maxLength = max;
-    }
+export function string(description, min?:number, max?:number) {
+  const ret:any = {
+    type: 'string',
+    description,
+  };
+  if (min) {
+    ret.minLength = min;
+  }
+  if (max) {
+    ret.maxLength = max;
+  }
 
-    return ret;
-  },
+  return ret;
+}
 
-  numeric: function (description, min, max) {
-    'use strict';
-    const ret:any = {
-      type: 'number',
-      description: description
-    };
-    if (min || min == 0) {
-      ret.minimum = min;
-    }
-    if (max) {
-      ret.maximum = max;
-    }
+export function numeric(description, min?:number, max?:number) {
+  const ret:any = {
+    type: 'number',
+    description,
+  };
+  if (min || min === 0) {
+    ret.minimum = min;
+  }
+  if (max) {
+    ret.maximum = max;
+  }
 
-    return ret;
-  },
+  return ret;
+}
 
-  email: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      format: 'email',
-      minLength: 1,
-      maxLength: 254,
-      description: description
-    };
-  },
+export function email(description) {
+  return {
+    type: 'string',
+    format: 'email',
+    minLength: 1,
+    maxLength: 254,
+    description,
+  };
+}
 
-  url: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      minLength: 1,
-      maxLength: 2000,
-      format: 'uri',
-      description: description
-    };
-  },
+export function url(description) {
+  return {
+    type: 'string',
+    minLength: 1,
+    maxLength: 2000,
+    format: 'uri',
+    description,
+  };
+}
 
-  belgianzipcode: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      pattern: '^[0-9][0-9][0-9][0-9]$',
-      description: description
-    };
-  },
+export function belgianzipcode(description) {
+  return {
+    type: 'string',
+    pattern: '^[0-9][0-9][0-9][0-9]$',
+    description,
+  };
+}
 
-  phone: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      pattern: '^[0-9]*$',
-      minLength: 9,
-      maxLength: 10,
-      description: description
-    };
-  },
+export function phone(description) {
+  return {
+    type: 'string',
+    pattern: '^[0-9]*$',
+    minLength: 9,
+    maxLength: 10,
+    description,
+  };
+}
 
-  guid: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      description: description,
-      pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+export function guid(description) {
+  return {
+    type: 'string',
+    description,
+    pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
 
-    };
-  },
+  };
+}
 
-  timestamp: function (description) {
-    'use strict';
-    return {
-      type: 'string',
-      format: 'date-time',
-      description: description
-    };
-  },
+export function timestamp(description) {
+  return {
+    type: 'string',
+    format: 'date-time',
+    description,
+  };
+}
 
-  'boolean': function (description) { //eslint-disable-line
-    return {
-      type: 'boolean',
-      description: description
-    };
-  },
+export function boolean(description) {
+  return {
+    type: 'boolean',
+    description,
+  };
+}
 
-  array: function (description) {
-    'use strict';
-    var ret = {
-      type: 'array',
-      description: description
-    };
-    return ret;
-  },
-
-  patchSchemaToDisallowAdditionalProperties: function patchSchemaToDisallowAdditionalProperties(schema) {
-    'use strict';
-    const patchedSchema = { ...schema };
-    if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
-      patchedSchema.additionalProperties = false;
-      patchedSchema.properties = {}
-      Object.entries(schema.properties)
-          .forEach(e => patchedSchema.properties[e[0]] = patchSchemaToDisallowAdditionalProperties(e[1]))
-
-      /* from NodeJS 12 and up could be something like
-      patchedSchema.properties = Object.fromEntries(
-        Object.entries(patchedSchema.properties)
-          .map(e => [e[0], patchSchemaToDisallowAdditionalProperties(e[1])])
-      );
-      */
-    }
-    return patchedSchema;
-  },
-
-  flattenJsonSchema,
+export function array(description) {
+  const ret = {
+    type: 'array',
+    description,
+  };
+  return ret;
 };
+
+export function patchSchemaToDisallowAdditionalProperties(schema) {
+  const patchedSchema = { ...schema };
+  if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
+    patchedSchema.additionalProperties = false;
+    // patchedSchema.properties = {};
+    // Object.entries(schema.properties)
+    //   .forEach((e) => {
+    //     patchedSchema.properties[e[0]] = patchSchemaToDisallowAdditionalProperties(e[1])
+    //   });
+
+    // from NodeJS 12 and up could be something like
+    patchedSchema.properties = Object.fromEntries(
+      Object.entries(patchedSchema.properties)
+        .map((e) => [e[0], patchSchemaToDisallowAdditionalProperties(e[1])]),
+    );
+  }
+  return patchedSchema;
+}

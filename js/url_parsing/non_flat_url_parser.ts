@@ -1,11 +1,14 @@
-import { FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty, ResourceDefinition, SriConfig } from "../typeDefinitions";
+import * as peggy from 'peggy';
+import { flattenJsonSchema } from '../schemaUtils';
+import {
+  FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty,
+  ResourceDefinition,
+  SriConfig,
+} from '../typeDefinitions';
 
-const { flattenJsonSchema } = require('../schemaUtils');
-const peggy = require("peggy");
-
-////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////
 // The following functions are needed as a helper inside the grammar
-////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////
 
 /**
  * From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
@@ -21,15 +24,15 @@ const peggy = require("peggy");
 function encodeURIComponentStrict(uriComp) {
   return encodeURIComponent(uriComp).replace(
     /[!'()*]/g,
-    (c) => '%' + c.charCodeAt(0).toString(16),
+    (c) => `%${c.charCodeAt(0).toString(16)}`,
   );
 }
 
 /**
  * Used to sort an array of parseTree objects (column, row or listControl)
- * 
- * @param {*} a 
- * @param {*} b 
+ *
+ * @param {*} a
+ * @param {*} b
  * @returns -1 if a should be before b, 1 if b should be before a, 0 if they are equivalent
  */
 function parseTreeSortFunction(a: ParseTreeFilter, b: ParseTreeFilter) {
@@ -43,29 +46,30 @@ function parseTreeSortFunction(a: ParseTreeFilter, b: ParseTreeFilter) {
     [() => a.operator && b.operator && a.operator.name > b.operator.name, 1],
     [() => a.operator && b.operator && a.operator.name < b.operator.name, -1],
   ] as [() => boolean, number][]).reduce(
-    (acc, [test, response]) => acc !== null || !test() ? acc : response,
+    (acc, [test, response]) => (acc !== null || !test() ? acc : response),
     0, // we consider them 'equal' (don't change the order)
   );
 }
 
 /**
  * Should turn EQ into IN, but also NOT_LT into GTE etc. ???
- * And then also translate the value from an array into a single value sometimes or the other way around?
+ * And then also translate the value from an array into a single value sometimes
+ * or the other way around?
  */
 function normalizeRowFilter(rowFilter:ParseTreeFilter) {
-  let retVal = { ...rowFilter };
+  const retVal = { ...rowFilter };
   if (rowFilter.operator.name === 'EQ') {
     // translate EQ to IN
     retVal.operator = { ...rowFilter.operator, name: 'IN', multiValued: true };
-    retVal.value = [ rowFilter.value ];
+    retVal.value = [rowFilter.value];
   } else if (rowFilter.invertOperator) {
     // translate some inverted operators to their non-inverted equivalent
     const invertedOperatorMap:{ [key: string]: string } = {
-      'LT': 'GTE',
-      'GT': 'LTE',
-      'LTE': 'GT',
-      'GTE': 'LT',
-    }
+      LT: 'GTE',
+      GT: 'LTE',
+      LTE: 'GT',
+      GTE: 'LT',
+    };
 
     const invertedOperatorName = invertedOperatorMap[rowFilter.operator.name];
     if (invertedOperatorName) {
@@ -77,12 +81,11 @@ function normalizeRowFilter(rowFilter:ParseTreeFilter) {
   return retVal;
 }
 
-
 /**
  * Should turn OMIT into the opposite to list exactly all the fields required fields.
  */
 function normalizeColumnFilter(columnFilter:ParseTreeFilter) {
-  let retVal = { ...columnFilter };
+  const retVal = { ...columnFilter };
   // if (columnFilter.operator.name === 'EQ') {
   //   // translate EQ to IN
   //   retVal.operator = { ...columnFilter.operator, name: 'IN', multiValued: true };
@@ -106,7 +109,6 @@ function normalizeColumnFilter(columnFilter:ParseTreeFilter) {
   return retVal;
 }
 
-
 /**
  * Makes sure the input string is propery converted to an actual JSON type.
  *
@@ -119,18 +121,22 @@ function normalizeColumnFilter(columnFilter:ParseTreeFilter) {
  * convertValue('false', 'boolean') => false
  * convertValue('hello', 'boolean') => true
  */
-function convertValue(value:any, type = 'string') {
+function convertValue(value:string, type = 'string') {
   if (type === 'boolean') {
-    return value === 'false' ? false : true;
-  } else if (type === 'integer') {
-    return parseInt(value);
-  } else if (type === 'number') {
+    return value !== 'false';
+  } if (type === 'integer') {
+    return parseInt(value, 10);
+  } if (type === 'number') {
     return Number(value);
   }
   return value;
 }
 
-function translateValueType(property:ParseTreeProperty | { type?: never } = { }, operator:ParseTreeOperator | { type?: never } = {}, value:any) {
+function translateValueType(
+  property:ParseTreeProperty | { type?: never } = { },
+  operator:ParseTreeOperator | { type?: never } = {},
+  value,
+) {
   // console.log('translateValueType(', property, operator, value, ')');
   return convertValue(value, operator.type || property.type);
 }
@@ -139,7 +145,11 @@ function translateValueType(property:ParseTreeProperty | { type?: never } = { },
  * based on whether it is a multivalued property and if the operator is single- or multi-valued
  *
  */
-function produceValue(property:ParseTreeProperty | { multiValued?: never, type?: never } = {}, operator:ParseTreeOperator | { multiValued?: never, type?: never } = {}, escapedUnparsedValue:string) {
+function produceValue(
+  property:ParseTreeProperty | { multiValued?: never, type?: never } = {},
+  operator:ParseTreeOperator | { multiValued?: never, type?: never } = {},
+  escapedUnparsedValue:string,
+) {
   const value = decodeURIComponent(escapedUnparsedValue.replace(/\\+/g, ' '));
   // console.log('[produceValue]', JSON.stringify(property), JSON.stringify(operator), escapedUnparsedValue);
   const safeProperty = property || null;
@@ -148,16 +158,15 @@ function produceValue(property:ParseTreeProperty | { multiValued?: never, type?:
   const outputShouldBeArray = inputShouldBeArray;
   const parsedValue = inputShouldBeArray ? value.split(',') : value;
   if (outputShouldBeArray) {
-    return Array.isArray(parsedValue) 
-      ? parsedValue.map(v => translateValueType(safeProperty, safeOperator, v)) 
+    return Array.isArray(parsedValue)
+      ? parsedValue.map((v) => translateValueType(safeProperty, safeOperator, v))
       : [translateValueType(safeProperty, safeOperator, parsedValue)];
-  } else {
-    return translateValueType(
-      safeProperty,
-      safeOperator,
-      Array.isArray(parsedValue) ? value : parsedValue,
-    );
   }
+  return translateValueType(
+    safeProperty,
+    safeOperator,
+    Array.isArray(parsedValue) ? value : parsedValue,
+  );
 }
 
 /**
@@ -166,7 +175,7 @@ function produceValue(property:ParseTreeProperty | { multiValued?: never, type?:
  * Elements will always be taken from the first array, unless the element is
  * missing from the first array, in which case the element from the second array
  * will be returned.
- * 
+ *
  * Example:
  *  * mergeArrays([1, 2], [2, 3]) => [1, 2, 3]
  *  * mergeArrays(
@@ -174,17 +183,22 @@ function produceValue(property:ParseTreeProperty | { multiValued?: never, type?:
  *      [ { id: 2, comment: 'TWO' }, { id: 3, comment: 'THREE' } ],
  *      (a,b) => a.id === b.id
  *    ) => [ { id: 1, comment: 'one' }, { id: 2, comment: 'two' }, { id: 3, comment: 'THREE' } ],
- * 
+ *
  * @param {*} mainArray the array whose results will be returned
- * @param {*} backupArray the array whose elements will be added to the output ONLY when mainArray doesn't contain that element
- * @param {*} compareFunction 
+ * @param {*} backupArray the array whose elements will be added to the output ONLY when mainArray
+ *                        doesn't contain that element
+ * @param {*} compareFunction
  */
-function mergeArrays(mainArray: any[], backupArray: any[], compareFunction:(a:any, b:any) => boolean = (a, b) => a === b) {
-  const retVal =  backupArray.reduce(
+function mergeArrays(
+  mainArray: any[],
+  backupArray: any[],
+  compareFunction:(a, b) => boolean = (a, b) => a === b,
+) {
+  const retVal = backupArray.reduce(
     (acc, cur) => {
       // only add the element from the default tree if none like it is present
-      const found = acc.findIndex( (item:any) => compareFunction(item, cur)) >= 0;
-      return found ? acc : [ ...acc, cur ];
+      const found = acc.findIndex((item) => compareFunction(item, cur)) >= 0;
+      return found ? acc : [...acc, cur];
     },
     mainArray,
   );
@@ -195,31 +209,34 @@ function mergeArrays(mainArray: any[], backupArray: any[], compareFunction:(a:an
 /**
  * Will take the parseTree and return a new one where all the missing defaults
  * as specified in the second argument will be applied.
- * 
+ *
  * @param {*} flatParseTree
- * @param {*} defaultParseTree 
- * @returns 
+ * @param {*} defaultParseTree
+ * @returns
  */
-function parsedQueryStringToParseTreeWithDefaults(flatParseTree:{ [k:string]: any }, defaultParseTree:{ [k:string]: any } = {}) {
-//   console.log(`[parsedQueryStringToParseTreeWithDefaults] current parseTree:
-// ${JSON.stringify(parseTree, null, 2)}
-// default parseTree:
-// ${JSON.stringify(defaultParseTree, null, 2)}`
-//   );
+function parsedQueryStringToParseTreeWithDefaults(
+  flatParseTree:{ [k:string]: object },
+  defaultParseTree:{ [k:string]: any } = {},
+) {
+  //   console.log(`[parsedQueryStringToParseTreeWithDefaults] current parseTree:
+  // ${JSON.stringify(parseTree, null, 2)}
+  // default parseTree:
+  // ${JSON.stringify(defaultParseTree, null, 2)}`
+  //   );
   const typeToSubTreeNameMap = {
-    'ROW_FILTER': 'rowFilters',
-    'COLUMN_FILTER': 'columnFilters',
-    'LIST_CONTROL': 'listControl',
-  }
+    ROW_FILTER: 'rowFilters',
+    COLUMN_FILTER: 'columnFilters',
+    LIST_CONTROL: 'listControl',
+  };
 
   // as a first step, simply copy all the defaults
-  let retVal = { ...defaultParseTree };
+  const retVal = { ...defaultParseTree };
   // then for each subtree, take everything from parsed, and add all defaults that are missing
   Object.entries(typeToSubTreeNameMap).forEach(([type, subTreeName]) => {
-    const flatParseTreeOfCurrentType = flatParseTree
-      .filter((item:any) => item.type === type)
-      .map((item:any) => {
-        const { type, ...restOfTheItem } = item;
+    const flatParseTreeOfCurrentType = Object.values(flatParseTree)
+      .filter((item) => (item as any).type === type)
+      .map((item) => {
+        const { type: itemType, ...restOfTheItem } = item as any;
         return restOfTheItem;
       });
     retVal[subTreeName] = mergeArrays(
@@ -230,15 +247,18 @@ function parsedQueryStringToParseTreeWithDefaults(flatParseTree:{ [k:string]: an
   });
 
   return retVal;
-};
+}
 
 /**
- * 
- * @param {*} parseTreeObject can contain property and operator objects that define what to expect behind the = sign
- * @param {*} typeDescription something like boolean[] or string or integer[] to express single values or an array of a certain data type
- * 
+ *
+ * @param {*} parseTreeObject can contain property and operator objects that define what to expect
+ *                            behind the = sign
+ * @param {*} typeDescription something like boolean[] or string or integer[] to express single
+ *                            values or an array of a certain data type
+ *
  */
-function checkType({ property, operator }:{ property:ParseTreeProperty, operator: ParseTreeOperator }, typeDescription:string) {
+function checkType({ property, operator }
+:{ property:ParseTreeProperty, operator: ParseTreeOperator }, typeDescription:string) {
   const safeProperty = property || {};
   const safeOperator = operator || {};
   const parseTreeExpectsArray = safeProperty.multiValued || safeOperator.multiValued;
@@ -257,17 +277,21 @@ function checkType({ property, operator }:{ property:ParseTreeProperty, operator
 }
 
 /**
- * Given a parseTreeObject (which can contain property and operator objects that define what to expect behind the = sign)
+ * Given a parseTreeObject (which can contain property and operator objects that define what to
+ * expect behind the = sign)
  * will generate a string like 'boolean', 'integer[]', etc.
- * 
+ *
  * Should probably later on also be smart enough (and thus schema-aware) to
  * return if it's expecting an enum on the right side, so that we can properly parse
  * if an inexistent value is given to an enum field filter.
- * 
- * @param {*} parseTreeObject can contain property and operator objects that define what to expect behind the = sign
+ *
+ * @param {*} parseTreeObject can contain property and operator objects that define
+ *                            what to expect behind the = sign
  * @returns a string expressing the expected type like 'boolean', 'integer[]', ...
  */
-function generateExpectedType({ property, operator }:{ property:ParseTreeProperty, operator: ParseTreeOperator }) {
+function generateExpectedType(
+  { property, operator }:{ property:ParseTreeProperty, operator: ParseTreeOperator },
+) {
   const safeProperty = property || {};
   const safeOperator = operator || {};
   const parseTreeExpectsArray = safeProperty.multiValued || safeOperator.multiValued;
@@ -293,9 +317,9 @@ function generateExpectedType({ property, operator }:{ property:ParseTreePropert
  *                  // _LIST_RESPONSE_STYLE: single/results/line-by-line GET /persons/<key> === /persons?key=<key> === /persons?keyIn=<key>
  *                  // _LIST_LISTEN=true (to keep connected and listening for changes on the list later on can only be combined with line-by-line???)
  * }
- * 
+ *
  * WHAT WITH EXPAND=NONE,FULL,... is this listControl, or propertyMapping, or yet another category?
- * 
+ *
  * Also: all propertyFilters should start with the name of a property and then some operator,
  * all other filters should start with and underscore to distinguish them from the propertyFilters
  * all listControl filters should start with _LIST_ (like _LIST_LIMIT, _LIST_ORDER_BY, ...)
@@ -317,11 +341,13 @@ function generateExpectedType({ property, operator }:{ property:ParseTreePropert
  * @param {SriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
-function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJsonSchema, sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition) {
+export function generateNonFlatQueryStringParserGrammar(
+  flattenedJsonSchema:FlattenedJsonSchema,
+  sriConfigDefaults?:SriConfig,
+  sriConfigResourceDefinition?:ResourceDefinition,
+) {
   const allPropertyNamesSorted = Object.keys(flattenedJsonSchema).sort();
   const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
-
-
 
   /**
    * If not overwritten by actual query params, this should be the default parseTree
@@ -334,7 +360,7 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
     // do we need to split defaultFilters and customFilters, because customFilters can be anything
     // (I mean hard to know whether a customfilter is a propertyFilter or a resultMapping filter
     // unless that is part of the config)?
-    
+
     // * related to COLUMNS: resourceConditions/resourceMapping/columnFilters (EXPANSION also part of this I guess??)
     // if we call it columnFilters, can we assume sri4node's configuration complete enough to
     // know which expansions are possible? Because in that case any expansion of related resources
@@ -378,8 +404,8 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
       { operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false }, value: sriConfigDefaults?.defaultlimit || (sriConfigResourceDefinition?.maxlimit ? Math.min(30, sriConfigResourceDefinition.maxlimit) : 30) }, // not count
       { operator: { name: 'LIST_ORDER_BY', type: 'string', multiValued: true }, value: ['$$meta.created', 'key'] },
       { operator: { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false }, value: false },
-    ] // _LIST_META_INCLUDE=count/_LIST_LIMIT/_LIST_ORDER_BY/_LIST_ORDER_DESCENDING etc.
-  }
+    ], // _LIST_META_INCLUDE=count/_LIST_LIMIT/_LIST_ORDER_BY/_LIST_ORDER_DESCENDING etc.
+  };
 
   // const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
   const grammar = `
@@ -598,27 +624,27 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
 
     // only allow old-school notation like limit or expand when no such properties exist on the resource !!!
     ListControlOperator = 
-      ( "_LIST_LIMIT" ${ !allPropertyNamesSorted.includes('limit') ? '/ "limit"' : '' } ) { return { name: 'LIST_LIMIT', type: 'integer', multiValued: false } }
-      / ( "_EXPANSION" ${ !allPropertyNamesSorted.includes('expand') ? '/ "expand"' : '' } ) { return { name: 'EXPANSION', type: 'string', multiValued: true } }
-      / ( "_LIST_OFFSET" ${ !allPropertyNamesSorted.includes('offset') ? '/ "offset"' : '' } ) { return { name: 'LIST_OFFSET', type: 'integer', multiValued: false } }
-      / ( "_LIST_KEYOFFSET" ${ !allPropertyNamesSorted.includes('keyOffset') ? '/ "keyOffset"' : '' } )  { return { name: 'LIST_KEY_OFFSET', type: 'string', multiValued: true } }
-      / ( "_LIST_META_INCLUDE" ${ !allPropertyNamesSorted.includes('%24%24includeCount') ? '/ "%24%24includeCount"' : '' } ) { return { name: 'LIST_META_INCLUDE_COUNT', type: 'boolean', multiValued: false } }
+      ( "_LIST_LIMIT" ${!allPropertyNamesSorted.includes('limit') ? '/ "limit"' : ''} ) { return { name: 'LIST_LIMIT', type: 'integer', multiValued: false } }
+      / ( "_EXPANSION" ${!allPropertyNamesSorted.includes('expand') ? '/ "expand"' : ''} ) { return { name: 'EXPANSION', type: 'string', multiValued: true } }
+      / ( "_LIST_OFFSET" ${!allPropertyNamesSorted.includes('offset') ? '/ "offset"' : ''} ) { return { name: 'LIST_OFFSET', type: 'integer', multiValued: false } }
+      / ( "_LIST_KEYOFFSET" ${!allPropertyNamesSorted.includes('keyOffset') ? '/ "keyOffset"' : ''} )  { return { name: 'LIST_KEY_OFFSET', type: 'string', multiValued: true } }
+      / ( "_LIST_META_INCLUDE" ${!allPropertyNamesSorted.includes('%24%24includeCount') ? '/ "%24%24includeCount"' : ''} ) { return { name: 'LIST_META_INCLUDE_COUNT', type: 'boolean', multiValued: false } }
       // _LIST_PROPERTY_EXCLUDE or OMIT ??? This could replace expand=none and list_meta_include (to include or exclude the count)
       // the frustrating thing is we want to exclude the count by default and include the expanded results by default
       // of course, if we would change that default (not expanding by default) we wouldn't have a problem
-      // / ( "_LIST_PROPERTY_EXCLUDE" ${ !allPropertyNamesSorted.includes('omit') ? '/ "omit"' : '' } ) { return { name: 'LIST_PROPERTY_EXCLUDE', type: 'boolean', multiValued: false } }
-      / ( "_LIST_ORDER_BY" ${ !allPropertyNamesSorted.includes('orderBy') ? '/ "orderBy"' : '' } ) { return { name: 'LIST_ORDER_BY', type: 'string', multiValued: true } }
-      / ( "_LIST_ORDER_DESCENDING" ${ !allPropertyNamesSorted.includes('descending') ? '/ "descending"' : '' } ) { return { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false } }
+      // / ( "_LIST_PROPERTY_EXCLUDE" ${!allPropertyNamesSorted.includes('omit') ? '/ "omit"' : ''} ) { return { name: 'LIST_PROPERTY_EXCLUDE', type: 'boolean', multiValued: false } }
+      / ( "_LIST_ORDER_BY" ${!allPropertyNamesSorted.includes('orderBy') ? '/ "orderBy"' : ''} ) { return { name: 'LIST_ORDER_BY', type: 'string', multiValued: true } }
+      / ( "_LIST_ORDER_DESCENDING" ${!allPropertyNamesSorted.includes('descending') ? '/ "descending"' : ''} ) { return { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false } }
 
     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
     // example: "firstNameCapital" / "firstName" / "lastName"
     Property = ${
-        allPropertyNamesSortedInReverse.map(n => {
-          const type = flattenedJsonSchema[n].type || 'string';
-          return `p:"${encodeURIComponent(n)}" { return { name: '${decodeURIComponent(n)}', type: '${type}', multiValued: ${n.endsWith('[*]')} } }`;
-        })
-        .join(' / ')
-      }
+  allPropertyNamesSortedInReverse.map((n) => {
+    const type = flattenedJsonSchema[n].type || 'string';
+    return `p:"${encodeURIComponent(n)}" { return { name: '${decodeURIComponent(n)}', type: '${type}', multiValued: ${n.endsWith('[*]')} } }`;
+  })
+    .join(' / ')
+}
 
     // 1 string element from what can potentially be an array
     StringValue "string"
@@ -669,8 +695,20 @@ function generateNonFlatQueryStringParserGrammar(flattenedJsonSchema:FlattenedJs
   return grammar;
 }
 
-function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition, allowedStartRules:string[] | undefined = undefined): any {
-  const grammar = generateNonFlatQueryStringParserGrammar(flattenJsonSchema(sriConfigResourceDefinition?.schema || {}), sriConfigDefaults, sriConfigResourceDefinition);
+export interface SriParser extends peggy.Parser {
+  origParse: typeof peggy.parser.parse,
+}
+
+export function generateNonFlatQueryStringParser(
+  sriConfigDefaults?:SriConfig,
+  sriConfigResourceDefinition?:ResourceDefinition,
+  allowedStartRules:string[] | undefined = undefined,
+):SriParser {
+  const grammar = generateNonFlatQueryStringParserGrammar(
+    flattenJsonSchema(sriConfigResourceDefinition?.schema || {}),
+    sriConfigDefaults,
+    sriConfigResourceDefinition,
+  );
 
   const options = {
     parseTreeSortFunction,
@@ -688,7 +726,8 @@ function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: num
 
   const pegConf = allowedStartRules
     ? {
-      // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
+      // Array of rules the parser will be allowed to start parsing from
+      // (default: the first rule in the grammar).
       allowedStartRules,
       options,
       cache: true,
@@ -699,15 +738,18 @@ function generateNonFlatQueryStringParser(sriConfigDefaults?:{ defaultlimit: num
   // I don't really like this, but it works (I'd love to be able to put them on the global pegConf)
   // requiring external libraries from inside the grammar is too cumbersome for what I'm using
   // and putting these functions inside the grammar I would have to write them in plain javascript
-  //AND without any code completion (because they are inside a string)
+  // AND without any code completion (because they are inside a string)
   // which also makes them hard to test...
-  parser.origParse = parser.parse;
-  parser.parse = (input:string, moreOptions:any = {}):ParseTree => parser.origParse(input, { ...moreOptions, ...options });
-  return parser;
-};
 
-
-export = module.exports = {
-  generateNonFlatQueryStringParserGrammar,
-  generateNonFlatQueryStringParser,
+  // parser.origParse = parser.parse;
+  // parser.parse = (input:string, moreOptions:object = {}):ParseTree => parser.origParse(
+  //   input, { ...moreOptions, ...options },
+  // );
+  return {
+    ...parser,
+    origParse: parser.parse,
+    parse: (input:string, moreOptions:object = {}):ParseTree => parser.parse(
+      input, { ...moreOptions, ...options },
+    ),
+  };
 }

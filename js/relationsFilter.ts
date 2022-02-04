@@ -1,12 +1,11 @@
-const _ = require('lodash');
+import * as common from './common';
 
-import common from './common';
+import _ = require('lodash');
 
 function fromTypesFilter(value, select, key, database, count, mapping) {
   var sql, fromCondition, whereCondition, table, fromTable, types;
 
   if (value && mapping.map.from && mapping.map.from.references) {
-
     fromCondition = select.text.split(' from')[1];
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
@@ -74,8 +73,8 @@ function tosFilter(value, select, key, database, count, mapping) {
 
 
 export = module.exports = {
-    fromTypes: fromTypesFilter,
-    toTypes: toTypesFilter,
-    tos: tosFilter,
-    froms: fromsFilter
-  };
+  fromTypes: fromTypesFilter,
+  toTypes: toTypesFilter,
+  tos: tosFilter,
+  froms: fromsFilter,
+};

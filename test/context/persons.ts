@@ -4,8 +4,7 @@ const sleep = require('await-sleep');
 const fs = require('fs');
 const streamEqual = require('stream-equal').default;
 
-import common from '../../js/common';
-const debug = common.debug;
+import { debug, mergeObject, pgExec } from '../../js/common';
 const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 
 
@@ -80,7 +79,7 @@ export = module.exports = function (sri4node, extra) {
         const query = prepare('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
           .param(key).sql(' and community = ').param(myCommunityKey);
-        const [ row ] = await common.pgExec(tx, query)
+        const [ row ] = await pgExec(tx, query)
         if (parseInt(row.count, 10) === 1) {
           debug('mocha', '** restrictReadPersons resolves.');
         } else {
@@ -119,7 +118,7 @@ export = module.exports = function (sri4node, extra) {
   async function simpleOutput(tx, sriRequest, customMapping) {
     const query =prepare('get-simple-person');
     query.sql('select firstname, lastname from persons where key = ').param(sriRequest.params.key);
-    const rows = await common.pgExec(tx, query)
+    const rows = await pgExec(tx, query);
     if (rows.length === 0) {
       throw 'NOT FOUND'  // not an SriError to test getting error 500 in such a case
     } else if (rows.length === 1) {
@@ -345,7 +344,6 @@ export = module.exports = function (sri4node, extra) {
 
   };
 
-  common.mergeObject(extra, ret);
+  mergeObject(extra, ret);
   return ret;
 };
-

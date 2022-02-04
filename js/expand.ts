@@ -1,13 +1,13 @@
 /* Handles the ?expand parameter */
-
+import { debug, typeToConfig, sqlColumnNames, transformRowToObject,
+  tableFromMapping, pgExec} from './common';
+import { SriError } from './typeDefinitions';
+  
 const _ = require('lodash')
 const pMap = require('p-map');
 
 
 const hooks = require('./hooks')
-import common from './common';
-const { debug, typeToConfig, sqlColumnNames, transformRowToObject, 
-        tableFromMapping, pgExec, SriError } = common;
 const queryobject = require('./queryObject');
 const prepare = queryobject.prepareSQL; 
 

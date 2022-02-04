@@ -1,5 +1,5 @@
-import common from './common';
-const { tableFromMapping, SriError } = common;
+import { tableFromMapping } from './common';
+import { SriError } from './typeDefinitions';
 
 // analyses parameter and return its parts (key, operator, prefix and postfix)
 function analyseParameter(parameter) {

@@ -1,7 +1,7 @@
-import common from '../../js/common';
-var sri4node = require('../../');
-var $m = sri4node.mapUtils;
-var $s = sri4node.schemaUtils;
+import * as common from '../../js/common';
+const sri4node = require('../../');
+const $m = sri4node.mapUtils;
+const $s = sri4node.schemaUtils;
 
 export = module.exports = function (extra) {
   'use strict';

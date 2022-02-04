@@ -1,45 +1,43 @@
+import * as common from '../../js/common';
+import { SriError } from '../../js/typeDefinitions';
+
 const pMap = require('p-map');
-import common from '../../js/common';
 // const { debug, SriError, mergeObject, pgExec } = common;
 const queryobject = require('../../js/queryObject');
-const prepare = queryobject.prepareSQL; 
 
+const prepare = queryobject.prepareSQL;
 
 export = module.exports = function (sri4node, extra) {
-  'use strict';
-
-  var $m = sri4node.mapUtils;
-  var $s = sri4node.schemaUtils;
-  var $q = sri4node.queryUtils;
-  var $u = sri4node.utils;
+  const $m = sri4node.mapUtils;
+  const $s = sri4node.schemaUtils;
+  const $q = sri4node.queryUtils;
+  const $u = sri4node.utils;
 
   async function invalidQueryParameter() {
-    throw new common.SriError({status: 404, errors: [{code: 'invalid.query.parameter'}]})
+    throw new SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
   }
 
   function disallowOneCommunity(forbiddenKey) {
-    return async function ( tx, sriRequest, elements ) {
+    return async function (tx, sriRequest, elements) {
       if (sriRequest.httpMethod === 'GET') {
-        await pMap( elements, async (e) => {
-          if ( sriRequest.path === '/communities/' + forbiddenKey ||
-                (sriRequest.query.expand !== undefined && e.permalink === '/communities/' + forbiddenKey) ) {
-
-            common.debug('mocha', 'security method disallowedOneCommunity for ' + forbiddenKey + ' denies access');
-            throw new sriRequest.SriError({status: 403, errors: [{code: 'forbidden'}]})
+        await pMap(elements, async (e) => {
+          if (sriRequest.path === `/communities/${forbiddenKey}`
+                || (sriRequest.query.expand !== undefined && e.permalink === `/communities/${forbiddenKey}`)) {
+            common.debug('mocha', `security method disallowedOneCommunity for ${forbiddenKey} denies access`);
+            throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
           }
-        }, {concurrency: 1})
-      } 
-    } 
+        }, { concurrency: 1 });
+      }
+    };
   }
-
 
   // Don't really need the extra parameters when using CTE.
   async function parameterWithExtraQuery(value, select, param, tx, count) {
     if (count) {
       const query = prepare('create-allcommunitykeys');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query)
-      
+      await common.pgExec(tx, query);
+
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
     } else {
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
@@ -50,7 +48,7 @@ export = module.exports = function (sri4node, extra) {
     if (count) {
       const query = prepare('create-allcommunitykeys2');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query)
+      await common.pgExec(tx, query);
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
     } else {
@@ -58,8 +56,7 @@ export = module.exports = function (sri4node, extra) {
     }
   }
 
-
-  async function addMessageCountToCommunities( tx, sriRequest, elements ) {
+  async function addMessageCountToCommunities(tx, sriRequest, elements) {
     common.debug('mocha', 'addMessageCountToCommunities');
     common.debug('mocha', elements);
 
@@ -69,28 +66,28 @@ export = module.exports = function (sri4node, extra) {
       // e.g. select community,count(*) from messages group by community having
       // community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
       const keyToElement = {};
-      const keys = elements.map( ({ permalink, stored }) => {
-        const key = permalink.split('/')[2]
+      const keys = elements.map(({ permalink, stored }) => {
+        const key = permalink.split('/')[2];
         keyToElement[key] = stored;
         return key;
-      })
+      });
 
       const query = prepare();
       query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
       query.array(keys);
       query.sql(')');
-      const rows = await common.pgExec(tx, query)
-      rows.forEach( row => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10) )
+      const rows = await common.pgExec(tx, query);
+      rows.forEach((row) => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10));
     }
   }
 
-  var ret = {
+  const ret = {
     type: '/communities',
     metaType: 'SRI4NODE_COMMUNITY',
     'public': false, // eslint-disable-line
     cache: {
       ttl: 0,
-      type: 'local'
+      type: 'local',
     },
     schema: {
       $schema: 'http://json-schema.org/schema#',
@@ -109,17 +106,17 @@ export = module.exports = function (sri4node, extra) {
         adminpassword: $s.string('Administrative password for the group.'),
         website: $s.url('Website URL for the group.'),
         facebook: $s.url('URL to the facebook page of the group.'),
-        currencyname: $s.string('Name of the local currency for the group.')
+        currencyname: $s.string('Name of the local currency for the group.'),
       },
       required: ['name', 'street', 'streetnumber', 'zipcode',
-                 'city', 'phone', 'email', 'currencyname']
+        'city', 'phone', 'email', 'currencyname'],
     },
     map: {
       name: {},
       street: {},
       streetnumber: {},
       streetbus: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       zipcode: {},
       city: {},
@@ -127,26 +124,26 @@ export = module.exports = function (sri4node, extra) {
       // I made adminpassword NOT REQUIRED, but then with every PUT it would disappear if it weren't there
       // So with these kind of resources (where output differs from input) only PATCH really makes sense
       adminpassword: {
-        columnToField: [ $m.remove ]
+        columnToField: [$m.remove],
       },
       phone: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       email: {},
       facebook: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       website: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
-      currencyname: {}
+      currencyname: {},
     },
     query: {
-      invalidQueryParameter: invalidQueryParameter,
-      parameterWithExtraQuery: parameterWithExtraQuery,
-      parameterWithExtraQuery2: parameterWithExtraQuery2,
+      invalidQueryParameter,
+      parameterWithExtraQuery,
+      parameterWithExtraQuery2,
       hrefs: $q.filterHrefs,
-      defaultFilter: $q.defaultFilter
+      defaultFilter: $q.defaultFilter,
     },
     afterRead: [
       // Add the result of a select query to the outgoing resource
@@ -154,24 +151,25 @@ export = module.exports = function (sri4node, extra) {
       // For example :
       // $$messagecount: 17
       addMessageCountToCommunities,
-      disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c')
+      disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c'),
     ],
     customRoutes: [
-        { routePostfix: '/customroute_via_internal_interface'
-        , httpMethods: ['GET']
-        , handler: async (tx, sriRequest, customMapping) => {
-              const getRequest = {
-                href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
-                verb: 'GET',
-                dbT: tx,
-                parentSriRequest: sriRequest,
-                body: ''
-              };
+      {
+        routePostfix: '/customroute_via_internal_interface',
+        httpMethods: ['GET'],
+        handler: async (tx, sriRequest, customMapping) => {
+          const getRequest = {
+            href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
+            verb: 'GET',
+            dbT: tx,
+            parentSriRequest: sriRequest,
+            body: '',
+          };
 
-              return global.sri4node_internal_interface(getRequest);
-            }
+          return global.sri4node_internal_interface(getRequest);
         },
-      ],
+      },
+    ],
   };
 
   common.mergeObject(extra, ret);

@@ -20,15 +20,17 @@
  * @param {SriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
- function generateFlatQueryStringParserGrammar(flattenedJsonSchema, sriConfig = {}) {
+export function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
     .filter(([k, v]) => k.endsWith('[*]'))
     .map(([k, v]) => encodeURIComponent(k))
-    .sort().reverse();
+    .sort()
+    .reverse();
   const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
     .filter(([k, v]) => !k.endsWith('[*]'))
     .map(([k, v]) => encodeURIComponent(k))
-    .sort().reverse();
+    .sort()
+    .reverse();
   const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
     .map(([k, v]) => encodeURIComponent(k))
     .sort().reverse();
@@ -41,11 +43,11 @@
   const propertyNameToOtherThanStringTypeMap = {
     ...Object.fromEntries(
       Object.entries(flattenedJsonSchema)
-      .filter(([k, v]:[string, any]) => !v.enum && v.type !== 'string')
-      .map(([k, v]:[string, any]) => [k, v.type])
+        .filter(([k, v]:[string, Record<string, unknown>]) => !v.enum && v.type !== 'string')
+        .map(([k, v]:[string, Record<string, unknown>]) => [k, v.type]),
     ),
-    ['$$meta.deleted']: 'boolean',
-    ['$$meta.version']: 'integer',
+    '$$meta.deleted': 'boolean',
+    '$$meta.version': 'integer',
     // [encodeURIComponent('$$meta.modified')]: 'string',
   };
 
@@ -70,7 +72,7 @@
         return !o ? false : multiValuedNormalizedOperators.has(normalizeOperator(o));
       }
 
-      const multiValuedProperties = new Set([${allMultiValuedPropertyNamesSortedInReverse.map(n => `'${n}'`).join()}]);
+      const multiValuedProperties = new Set([${allMultiValuedPropertyNamesSortedInReverse.map((n) => `'${n}'`).join()}]);
       function propertyIsMultiValued(property) {
         return multiValuedProperties.has(property);
       }
@@ -250,16 +252,16 @@
 
     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
     // example: "firstNameCapital" / "firstName" / "lastName"
-    Property = ${allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ')}
+    Property = ${allPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ')}
 
     // if there are no multi-valued properties (simple 'non-object' arrays) we'll match on '\' because it should not be in any url
     // this keeps things simpler (as in: the grammar always has MultiValuedProperty defined but it should never match anything in real life)
     // WARNING:by splitting them up into MultiValuedProperty and SingleValuedProperty we could potentially get invalid matches
     //    if for example "data" would be a MultiValuedProperty and "database" a SingleValuedProperty
     //    the MultiValuedProperty would match first (the way it's currently written)
-    MultiValuedProperty = ${ hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
+    MultiValuedProperty = ${hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ') : '"\\\\"'}
 
-    SingleValuedProperty = ${ hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') : '"\\\\"' }
+    SingleValuedProperty = ${hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ') : '"\\\\"'}
   `;
 
   // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
@@ -267,7 +269,6 @@
   return grammar;
 }
 
-
-module.exports = {
-  generateFlatQueryStringParserGrammar,
-}
+// module.exports = {
+//  generateFlatQueryStringParserGrammar
+// }

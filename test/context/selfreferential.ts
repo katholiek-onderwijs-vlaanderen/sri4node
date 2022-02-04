@@ -1,5 +1,5 @@
 const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../index');
-import common from '../../js/common';
+import * as common from '../../js/common';
 var debug = common.debug;
 
 

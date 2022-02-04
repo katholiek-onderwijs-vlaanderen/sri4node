@@ -15,7 +15,7 @@ if(type === 'text') {
 const _ = require('lodash');
 
 const qo = require('./queryObject');
-import common from './common';
+import * as common from './common';
 import { SriConfig } from './typeDefinitions';
 
 let cache: any = null;

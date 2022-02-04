@@ -3,30 +3,133 @@
 // have  a type definition, so it'll be easier to use for developers.
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
-import { BusboyConfig } from "busboy";
-import { IncomingHttpHeaders } from "http2";
-import { JSONSchema4 } from "json-schema";
-import { IDatabase, IConnectionOptions, IInitOptions, ValidSchema } from "pg-promise";
-import { IConnectionParameters } from "pg-promise/typescript/pg-subset";
+import { BusboyConfig } from 'busboy';
+import { IncomingHttpHeaders } from 'http2';
+import { JSONSchema4 } from 'json-schema';
+import {
+  IDatabase, IInitOptions, ValidSchema,
+} from 'pg-promise';
+import { IConnectionParameters } from 'pg-promise/typescript/pg-subset';
 // import * as pgPromise from 'pg-promise';
-
 
 export type PluginConfig = {}
 
-// for example /llinkid/activityplanning, so should only start with a slash and maybe only lowercase etc???
+// for example /llinkid/activityplanning, so should only start with a slash
+// and maybe only lowercase etc???
 export type TUriPath = string
+
+export type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH' | 'POST';
 
 export type TDebugChannel = 'general' | 'db'| 'sql' | 'requests' | 'hooks' | 'server-timing'| 'batch'
                         | 'trace'| 'phaseSyncer' | 'overloadProtection'| 'mocha';
 
 export type TLogDebug = {
-  channels: 'all' | TDebugChannel[],
-  statuses?: Number[],
+  channels: Set<TDebugChannel> | TDebugChannel[] | 'all',
+  statuses?: Set<number> | Array<number>,
 }
 
-export type ResourceMetaType = Uppercase<string>;
+export type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
 
-export type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH'  | 'POST';
+export type TErrorLogFunction = (...unknown) => void;
+
+export class SriError {
+  status: number;
+
+  body: { errors: unknown[]; status: number; document: { [key:string]: unknown }; };
+
+  headers: { [key:string]: string };
+
+  sriRequestID: string | null;
+
+  /**
+   * Contructs an sri error based on the given initialisation object
+   *
+   * @param {Object} value
+   */
+  constructor({
+    status = 500, errors = [], headers = {}, document = {}, sriRequestID = null,
+  }:{
+    status:number, errors:unknown[], headers?:{ [k:string]: string },
+    document?:{ [k:string]: unknown }, sriRequestID?:string | null,
+  }) {
+    this.status = status;
+    this.body = {
+      errors: errors.map((e:{ [key:string]: unknown }) => {
+        if (e.type === undefined) {
+          e.type = 'ERROR'; // if no type is specified, set to 'ERROR'
+        }
+        return e;
+      }),
+      status,
+      document,
+    };
+    this.headers = headers;
+    this.sriRequestID = sriRequestID;
+  }
+}
+
+// TODO make more strict
+export type TSriRequest = {
+  id: string,
+  parentSriRequest?: TSriRequest | TInternalSriRequest,
+
+  logDebug: TDebugLogFunction,
+  logError: TErrorLogFunction,
+  SriError: typeof SriError, // we expose the SriError class itself, not an object of this class
+  // context: Object,
+
+  href?: string,
+  verb?: THttpMethod,
+  httpMethod?: THttpMethod,
+
+  originalUrl?: string,
+
+  path: TUriPath,
+  query: Record<string, string>, // batchHandlerAndParams.queryParams,
+  params: Record<string, string>, // batchHandlerAndParams.routeParams,
+
+  sriType?: string, // batchHandlerAndParams.handler.mapping.type,
+  isBatchRequest?: boolean,
+  readOnly?: boolean,
+  reqCancelled?: boolean,
+
+  headers: { [key:string] : string } | IncomingHttpHeaders,
+  body?: Array<{ href: string, verb: string, body: Record<string, unknown> }>,
+  dbT: unknown, // db transaction
+  inStream?: any,
+  outStream?: any,
+  setHeader?: (key: string, value: string) => void,
+  setStatus?: (statusCode:number) => void,
+  streamStarted?: () => boolean,
+
+  protocol: '_internal_' | 'http' | 'https' | string | undefined,
+  isBatchPart?: boolean,
+
+  serverTiming: { [key:string]: unknown },
+
+  containsDeleted?: boolean,
+  generateError?: boolean,
+
+  busBoy?: unknown,
+};
+
+export type TInternalSriRequest = {
+  href: string,
+  verb: THttpMethod,
+  dbT: unknown, // transaction or task object of pg promise
+  parentSriRequest: TSriRequest,
+  headers?: { [key:string] : string } | IncomingHttpHeaders,
+  body?: Array<{ href: string, verb: string, body: Record<string, unknown> }>,
+
+  // In case of a streaming request, following fields are also required:
+  inStream?: any,
+  outStream?: any,
+  setHeader?: (key: string, value: string) => void,
+  setStatus?: (statusCode:number) => void,
+  streamStarted?: () => boolean,
+};
+
+export type ResourceMetaType = Uppercase<string>;
 
 export type ResourceDefinition = {
   type: TUriPath,
@@ -35,7 +138,7 @@ export type ResourceDefinition = {
   // these next lines are put onto the same object afterwards, not by the user
   singleResourceRegex?: RegExp,
   listResourceRegex?: RegExp,
-  validateKey?: (string) => boolean,
+  validateKey?: (key:string) => boolean,
 
   listResultDefaultIncludeCount?: boolean,
   maxlimit?: number,
@@ -73,7 +176,7 @@ export type ResourceDefinition = {
   //     },
   //     "description": {
   //       "type": "string",
-  //       "description": "short description of the entire activity (over all weeks/the entire period of the activity)."
+  //       "description": "short description of the entire activity (the entire period of the activity)."
   //     },
   //     "period": {
   //       "type": "object",
@@ -119,12 +222,13 @@ export type ResourceDefinition = {
   //     "period"
   //   ]
   // },
-  beforeUpdate?: ((any) => any)[],
-  beforeInsert?: ((any) => any)[],
-  afterRead?: ((any) => any)[],
+  beforeUpdate?: ((p:unknown) => unknown)[],
+  beforeInsert?: ((p:unknown) => unknown)[],
+  beforeRead?: ((p:unknown) => unknown)[],
+  afterRead?: ((p:unknown) => unknown)[],
   // current query
   query?: {
-    defaultFilter: (arg0: any) => void
+    defaultFilter?: (arg0:unknown) => void
   },
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,
@@ -142,7 +246,12 @@ export type ResourceDefinition = {
   //   // option 1: the handlet to produce the SQL gets all the custom filters as input
   //   handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
   // },
-  map?: { [k:string]: any },
+  map?: {
+    [k:string]: {
+      columnToField: Array<(key:string, element:Record<string, unknown>) => void>,
+      [k:string]: unknown,
+    }
+  },
   onlyCustom?: boolean,
   customRoutes?: Array<
     {
@@ -152,31 +261,51 @@ export type ResourceDefinition = {
       busBoy?: boolean,
       busBoyConfig?: BusboyConfig,
       binaryStream?: boolean,
-      alterMapping?: (any) => any,
-      transformRequest: ((any) => any)[],
-      transformResponse: ((any) => any)[],
+      alterMapping?: (unknown) => unknown,
+      transformRequest: ((unknown) => unknown)[],
+      transformResponse: ((unknown) => unknown)[],
       like?: string,
       query?: string,
-      beforeHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
-      handler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
-      afterHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any, result:any) => any,
-
-      beforeStreamingHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, customMapping:any) => any,
-      streamingHandler?: (tx:IDatabase<any>, sriRequest:SriRequest, stream:any) => any,
+      beforeHandler?:
+        (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown) => unknown,
+      handler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown) => unknown,
+      afterHandler?: (
+          tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown, result:unknown
+        ) => unknown,
+      beforeStreamingHandler?:
+        (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown)
+          => { status: number, headers: Array<[key:string, value:string]> },
+      streamingHandler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream:unknown) => unknown,
     }
   >
 };
 
+export type TSriRequestHandler = ((sriRequest:TSriRequest) => unknown)
+  | ((phaseSyncer:Record<string, any>, tx:IDatabase<unknown>,
+    sriRequest:TSriRequest, mapping:unknown) => unknown);
+
+export type TBatchHandlerRecord = {
+  route: unknown,
+  verb: THttpMethod,
+  func: TSriRequestHandler,
+  // eslint-disable-next-line no-use-before-define
+  config: SriConfig,
+  mapping: ResourceDefinition,
+  streaming: boolean,
+  readOnly: boolean,
+  isBatch: boolean,
+}
+
 /**
  * I believe schema should be set on the cionnection level and not the library level
  * so I am supporting it here already...
- * 
+ *
  * Also adding an option here to run some sql when getting a new connection.
  * That option used to be in the root of SriConfig and used to be called dbConnectionInitSql
  * EXAMPLE: "set random_page_cost = 1.1;"
  */
 export interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
-  schema?: ValidSchema | ((dc: any) => ValidSchema),
+  schema?: ValidSchema | ((dc: unknown) => ValidSchema),
   // will be run
   connectionInitSql?: string, // example "set random_page_cost = 1.1;",
 }
@@ -190,12 +319,12 @@ export interface IExtendedDatabaseInitOptions extends IInitOptions {
 
 export type SriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
-  utils?: any,
-  db?: IDatabase<any>,
-  dbR?: IDatabase<any>,
-  dbW?: IDatabase<any>,
-  informationSchema?: any,
-  id?: any,
+  utils?: unknown,
+  db?: IDatabase<unknown>,
+  dbR?: IDatabase<unknown>,
+  dbW?: IDatabase<unknown>,
+  informationSchema?: unknown,
+  id?: unknown,
 
   // the real properties !!!
   plugins?: PluginConfig[]
@@ -210,17 +339,20 @@ export type SriConfig = {
   overloadProtection?: {
     retryAfter?: number,
   },
-  
+
   defaultlimit?: boolean,
   trackHeapMax?: boolean,
   batchHandlerMap?: TBatchHandlerRecord,
   resources: ResourceDefinition[],
-  beforePhase?: ((sriRequestMap:any, jobMap:any, pendingJobs:any) => any)[],
+  beforePhase?:
+    Array<
+      (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>) => unknown
+    >,
 
-  transformRequest?: any,
-  afterRequest?: any,
+  transformRequest?: unknown,
+  afterRequest?: unknown,
 
-  transformInternalRequest?: Array<(dbT:any, internalSriRequest:TInternalSriRequest, parentSriRequest:SriRequest) => void>,
+  transformInternalRequest?: Array<(dbT:unknown, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest) => void>,
 
   /**
    * @deprecated
@@ -247,113 +379,11 @@ export type SriConfig = {
    * When streaming a response, even if it takes a long time to send the next chunk,
    * we'll make sure something (a space character) is being sent to the client
    * to avoid anything in the middle to kill the connection.
-   * 
+   *
    * DEFAULT: 20_000 (20 seconds)
    */
   streamingKeepAliveTimeoutMillis?: number,
 };
-
-export type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
-
-export type TErrorLogFunction = (...any) => void;
-
-export class SriError {
-  status: number;
-  body: { errors: {}[]; status: number; document: any; };
-  headers: {};
-  sriRequestID: string | null;
-  /**
-   * Contructs an sri error based on the given initialisation object
-   *
-   * @param {Object} value
-   */
-  constructor({status = 500, errors = [], headers = {}, document = {}, sriRequestID=null}:{ status:number, errors:any[] | any, headers?:{[k:string]: string}, document?:any, sriRequestID?:string | null }) {
-    this.status = status,
-    this.body = {
-      errors: errors.map( (e:any) => {
-                  if (e.type == undefined) {
-                    e.type = 'ERROR' // if no type is specified, set to 'ERROR'
-                  }
-                  return e
-                }),
-      status: status,
-      document,
-    },
-    this.headers = headers,
-    this.sriRequestID = sriRequestID
-  }
-};
-
-// TODO make more strict
-export type SriRequest = {
-  id: string,
-  parentSriRequest?: SriRequest | TInternalSriRequest,
-
-  logDebug: TDebugLogFunction,
-  logError: TErrorLogFunction,
-  SriError: typeof SriError, // we expose the SriError class itself, not an object of this class
-  // context: Object,
-
-  href?: string,
-  verb?: THttpMethod,
-  httpMethod?: THttpMethod,
-
-  originalUrl?: string,
-
-  path: TUriPath,
-  query: any, //batchHandlerAndParams.queryParams,
-  params: any, //batchHandlerAndParams.routeParams,
-
-  sriType?: string, //batchHandlerAndParams.handler.mapping.type,
-  isBatchRequest?: boolean,
-  readOnly?: boolean,
-  reqCancelled?: boolean,
-
-  headers?: { [key:string] : string } | IncomingHttpHeaders,
-  body?: string,
-  dbT: any, // db transaction
-  inStream?: any,
-  outStream?: any,
-  setHeader?: (key: string, value: string) => void,
-  setStatus?: (statusCode:number) => void,
-  streamStarted?: () => boolean,
- 
-  protocol: '_internal_' | 'http' | 'https' | string | undefined,
-  isBatchPart?: boolean,
-
-  serverTiming: any,
-};
-
-export type TInternalSriRequest = {
-  href: string,
-  verb: THttpMethod,
-  dbT: any, // transaction or task object of pg promise
-  parentSriRequest: SriRequest,
-  headers?: { [key:string] : string } | IncomingHttpHeaders,
-  body?: string,
-
-  // In case of a streaming request, following fields are also required:
-
-  inStream?: any,
-  outStream?: any,
-  setHeader?: (key: string, value: string) => void,
-  setStatus?: (statusCode:number) => void,
-  streamStarted?: () => boolean,
-
-};
-
-export type TBatchHandlerRecord = {
-  route: any,
-  verb: THttpMethod,
-  func: TSriRequestHandler,
-  config: SriConfig,
-  mapping: ResourceDefinition,
-  streaming: boolean,
-  readOnly: boolean,
-  isBatch: boolean,
-}
-
-export type TSriRequestHandler = (SriRequest) => any
 
 export type ParseTreeType = 'string' | 'number' | 'integer' | 'boolean';
 
@@ -366,7 +396,7 @@ export type ParseTreeFilter = {
   operator: ParseTreeOperator,
   invertOperator: boolean,
   caseInsensitive: boolean,
-  value: any,
+  value: unknown,
 }
 
 export type ParseTree = {
@@ -378,7 +408,7 @@ export type ParseTree = {
 }
 
 // can be improved and made a lot more strict (cfr. @types/json-schema), but for now...
-export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: any } }
+export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: unknown } }
 
 // const sriConfig = {
 //   "plugins": [

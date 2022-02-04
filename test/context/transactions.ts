@@ -1,4 +1,4 @@
-import common from '../../js/common';
+import * as common from '../../js/common';
 const pMap = require('p-map'); 
 const queryobject = require('../../js/queryObject');
 const prepare = queryobject.prepareSQL; 

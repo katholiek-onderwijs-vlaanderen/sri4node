@@ -10,15 +10,14 @@ context.serve();
 // var express = require('express');
 import * as express from 'express';
 
-import common from '../js/common';
-import { SriConfig } from '../js/typeDefinitions';
+import { SriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
 const utils = require('./utils')(null);
 
 var $u;
 var configCache: any = null;
 
 export = module.exports = {
-  serve: async function (sri4node, port, logdebug) {
+  async serve (sri4node, port, logdebug) {
     'use strict';
     const config = module.exports.config(sri4node, port, logdebug);
 
@@ -40,7 +39,7 @@ export = module.exports = {
     }
   },
 
-  getConfiguration: function () {
+  getConfiguration () {
     'use strict';
     if (configCache === null) {
       throw new Error('please first configure the context');
@@ -49,8 +48,9 @@ export = module.exports = {
     return configCache;
   },
 
-  config: function (sri4node, port, logdebug) {
+  config (sri4node, port, logdebug) {
     'use strict';
+
     if (configCache !== null) {
       console.log('config cached');
       return configCache;
@@ -63,7 +63,7 @@ export = module.exports = {
 
     const config:SriConfig = {
       // For debugging SQL can be logged.
-      logdebug: logdebug,
+      logdebug,
       databaseConnectionParameters: {
         connectionString: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
         // ssl: false,
@@ -93,14 +93,14 @@ export = module.exports = {
 
       beforePhase: [
         async (sriRequestMap, jobMap, pendingJobs) => {
-          (Array.from(sriRequestMap) as Array<[string, any]>)
+          (Array.from(sriRequestMap) as Array<[string, TSriRequest]>)
             .forEach(([psId, sriRequest]) => {
             // .forEach((keyValueTuple:any) => {
             //   const [psId, sriRequest] = keyValueTuple;
               if (pendingJobs.has(psId)) {
                 if (sriRequest.generateError === true) {
                   sriRequest.generateError = false;
-                  throw new common.SriError({ status: 400, errors: [{ code: 'foo' }], sriRequestID: sriRequest.id });
+                  throw new SriError({ status: 400, errors: [{ code: 'foo' }], sriRequestID: sriRequest.id });
                 }
               }
             });

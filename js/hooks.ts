@@ -1,7 +1,8 @@
+import { errorAsCode, debug, stringifyError, setServerTimingHdr } from './common';
+import { SriError } from './typeDefinitions';
+
 const pMap = require('p-map'); 
 
-import common from './common';
-const { errorAsCode, debug, SriError, stringifyError, setServerTimingHdr } = common;
 
 export = module.exports = {
 

@@ -1,7 +1,6 @@
 // Utility methods for calling the SRI interface
 const assert = require('assert');
-import common from '../js/common';
-const debug = common.debug;
+import { debug } from '../js/common';
 
 export = module.exports = function (base) {
   'use strict';

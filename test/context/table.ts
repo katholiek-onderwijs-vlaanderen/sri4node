@@ -1,4 +1,4 @@
-import common from '../../js/common';
+import * as common from '../../js/common';
 
 export = module.exports = function (sri4node, extra) {
   'use strict';
