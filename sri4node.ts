@@ -9,9 +9,10 @@ import * as _ from 'lodash';
 import {
   ResourceDefinition, SriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError, TBatchHandlerRecord, THttpMethod,
 } from './js/typeDefinitions';
-import { v4 as uuidv4 } from 'uuid';
 
-import { config } from 'process';
+// needed for express-middleware-timer to actually do something !!!
+process.env.TIMER = 'true';
+
 import * as batch from './js/batch';
 import {
   debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
@@ -823,7 +824,7 @@ module.exports = {
               // [`${mapping.type}/isPartOf`, 'POST', listResource.isPartOf, sriConfig, mapping, false, true, false],
               {
                 route: `${mapping.type}/isPartOf`,
-                verb: 'GET',
+                verb: 'POST',
                 func: listResource.isPartOf,
                 config: sriConfig,
                 mapping,

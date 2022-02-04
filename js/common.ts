@@ -29,8 +29,6 @@ import peggy = require('peggy');
 import httpContext = require('express-http-context');
 import emt = require('express-middleware-timer');
 
-process.env.TIMER = 'true'; //eslint-disable-line
-
 let pgp:pgPromise.IMain; // will be initialized at pgConnect
 
 const logBuffer:{ [k:string]: string[]} = {};
@@ -494,6 +492,7 @@ export function emtReportToServerTiming(req:Request, res:Response, sriRequest:TS
     });
   } catch (err) {
     error('[emtReportToServerTiming] it does not work anymore but why???');
+    throw err;
   }
 }
 
