@@ -1,14 +1,14 @@
-// const pSettle = require('p-settle');
+// import * as pSettle from 'p-settle';
 import { debug, getParentSriRequestFromRequestMap } from './common';
 import { SriError } from './typeDefinitions';
 import * as pSettle from 'p-settle';
-const pFinally = require('p-finally');
-const pEvent = require('p-event');
-const pMap = require('p-map');
+import * as pFinally from 'p-finally';
+import * as pEvent from 'p-event';
+import * as pMap from 'p-map';
 const { v4: uuidv4 } = require('uuid');
-const queue = require('emitter-queue');
-const Emitter = require('events')
-const _ = require('lodash')
+import * as queue from 'emitter-queue';
+import * as Emitter from 'events';
+import * as _ from 'lodash';
 
 const hooks = require('./hooks');
 
@@ -55,7 +55,7 @@ class PhaseSyncer {
     }
     this.phaseCntr += 1
 
-    const result = await pEvent(this.jobEmitter, ['sriError', 'ready'])
+    const result:any = await pEvent(this.jobEmitter, ['sriError', 'ready'])
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result;
     }

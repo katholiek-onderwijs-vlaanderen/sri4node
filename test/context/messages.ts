@@ -1,5 +1,6 @@
 import * as common from '../../js/common';
-const utils = require('../utils')(null);
+import utilsFactory from '../utils';
+const utils = utilsFactory(null);
 
 export = module.exports = function (sri4node, extra) {
   'use strict';

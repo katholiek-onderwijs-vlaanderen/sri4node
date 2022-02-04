@@ -1,4 +1,4 @@
-import { SriConfig } from "../../js/typeDefinitions";
+import { TSriConfig } from "../../js/typeDefinitions";
 
 // const { assert } = require('chai');
 import { assert } from 'chai';
@@ -9,7 +9,7 @@ const { flattenJsonSchema } = require('../../js/schemaUtils');
 
 const $u = require('../../js/schemaUtils');
 
-const sriConfig:SriConfig = {
+const sriConfig:TSriConfig = {
   resources: [
     {
       type: '/persons',

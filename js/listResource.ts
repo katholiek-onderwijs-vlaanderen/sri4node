@@ -2,19 +2,17 @@ import {
   debug, sqlColumnNames, getCountResult,
   transformRowToObject, tableFromMapping, pgExec,
 } from './common';
-import { ResourceDefinition, SriError, TSriRequest } from './typeDefinitions';
+import { TResourceDefinition, SriError, TSriRequest } from './typeDefinitions';
+import prepareSQL from './queryObject';
 
 import hooks = require('./hooks')
 import expand = require('./expand');
-import queryobject = require('./queryObject');
 import queryUtils = require('./queryUtils');
 
-const _ = require('lodash');
-const pMap = require('p-map');
-const pFilter = require('p-filter');
-const url = require('url');
-
-const prepare = queryobject.prepareSQL;
+import * as _ from 'lodash';
+import * as pMap from 'p-map';
+import * as pFilter from 'p-filter';
+import * as url from 'url';
 
 // Constants
 const DEFAULT_LIMIT = 30;
@@ -268,7 +266,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   return output;
 };
 
-async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:ResourceDefinition) {
+async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:TResourceDefinition) {
   const queryParams = sriRequest.query;
   const { type } = mapping;
 
@@ -301,13 +299,13 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
     }
     const startTime = Date.now();
     if (includeCount) {
-      const countquery = prepare();
+      const countquery = prepareSQL();
       await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
       debug('trace', 'listResource - executing SELECT COUNT query on tx');
       count = await getCountResult(tx, countquery, sriRequest);
     }
 
-    const query = prepare();
+    const query = prepareSQL();
     await getSQLFromListResource(mapping, queryParams, false, tx, query);
     orderKeys = applyOrderAndPagingParameters(
       query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset,
@@ -398,7 +396,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
   const urlA = sriRequest.body.a.href;
   const typeA = matchUrl(urlA, mapping);
 
-  const resultList = await pFilter(sriRequest.body.b.hrefs, async (urlB) => {
+  const resultList = await pFilter(sriRequest.body.b.hrefs, async (urlB:string) => {
     const typeB = matchUrl(urlB, mapping);
 
     if (typeB.type === 'single') {
@@ -408,7 +406,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
       return false;
     }
     const { query: paramsB } = url.parse(urlB, true);
-    const queryB = prepare();
+    const queryB = prepareSQL();
     try {
       await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
     } catch (err) {
@@ -417,13 +415,13 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
     const sqlB = queryB.text;
     const valuesB = queryB.params;
 
-    const query = prepare();
+    const query = prepareSQL();
     if (typeA.type === 'single') {
       query.sql(`SELECT EXISTS ( SELECT key from (${sqlB}) as temp WHERE key='${typeA.key}' )  as result;`);
       query.params.push(...valuesB);
     } else {
       const { query: paramsA } = url.parse(urlA, true);
-      const queryA = prepare();
+      const queryA = prepareSQL();
       try {
         await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
       } catch (err) {

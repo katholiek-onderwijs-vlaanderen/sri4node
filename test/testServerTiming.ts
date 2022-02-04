@@ -1,12 +1,11 @@
-const assert = require('assert');
+import * as assert from 'assert';
 const { Client } = require('undici');
-
-const sleep = require('await-sleep');
+import utilsFactory from './utils';
 
 export = module.exports = function (base) {
   const client = new Client(base);
 
-  const utils = require('./utils')(null);
+  const utils = utilsFactory(null);
   const { makeBasicAuthHeader } = utils;
 
   describe('ServerTiming', () => {

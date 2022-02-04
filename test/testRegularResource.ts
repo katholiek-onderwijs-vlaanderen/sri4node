@@ -1,6 +1,7 @@
 // Utility methods for calling the SRI interface
-const assert = require('assert');
-const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
+import * as assert from 'assert';
+import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
+import utilsFactory from './utils';
 
 const makeAuthHeader = (user, pw) => 
   'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
@@ -22,7 +23,7 @@ export = module.exports = function (base) {
   const apiLoggedIn = sriclientFactory(sriClientConfigLoggedIn)
   const doLoggedInGet = function(...args) { return apiLoggedIn.getRaw(...args) };
 
-  const utils =  require('./utils')(api);
+  const utils =  utilsFactory(api);
 
 
   describe('GET public regular resource', function () {

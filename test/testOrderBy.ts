@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 var assert = require('assert');
-const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
+import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
 
 export = module.exports = function (base) {
   'use strict';

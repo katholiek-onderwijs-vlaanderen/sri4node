@@ -10,8 +10,10 @@ context.serve();
 // var express = require('express');
 import * as express from 'express';
 
-import { SriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
-const utils = require('./utils')(null);
+import { TSriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
+import utilsFactory from './utils';
+
+const utils = utilsFactory(null);
 
 var $u;
 var configCache: any = null;
@@ -61,7 +63,7 @@ export = module.exports = {
     var commonResourceConfig = {
     };
 
-    const config:SriConfig = {
+    const config:TSriConfig = {
       // For debugging SQL can be logged.
       logdebug,
       databaseConnectionParameters: {

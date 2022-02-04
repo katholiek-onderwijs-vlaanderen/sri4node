@@ -5,17 +5,16 @@ import {
 } from './common';
 import { SriError, TSriRequest } from './typeDefinitions';
 
-const _ = require('lodash');
-const Ajv = require('ajv');
-const addFormats = require('ajv-formats');
-const jsonPatch = require('fast-json-patch');
-const pMap = require('p-map');
+import * as _ from 'lodash';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import * as jsonPatch from 'fast-json-patch';
+import * as pMap from 'p-map';
+import { Operation } from 'fast-json-patch';
+import prepareSQL from './queryObject';
 
 const expand = require('./expand');
 const hooks = require('./hooks');
-const queryobject = require('./queryObject');
-
-const prepare = queryobject.prepareSQL;
 const schemaUtils = require('./schemaUtils');
 
 const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
@@ -90,7 +89,7 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
       const keys = sriRequest.queryByKeyFetchList[type];
       const table = tableFromMapping(typeToMapping(type));
       const columns = sqlColumnNames(typeToMapping(type));
-      const query = prepare(`select-rows-by-key-from-${table}`);
+      const query = prepareSQL(`select-rows-by-key-from-${table}`);
       const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
       query.sql(`SELECT ${columns}
                        FROM UNNEST(`)
@@ -172,7 +171,7 @@ function getSchemaValidationErrors(json, schema) {
     console.log(schema);
     console.log('Document was : ');
     console.log(json);
-    return validate.errors.map((e) => ({ code: errorAsCode(e.message), err: e }));
+    return (validate.errors || []).map((e) => ({ code: errorAsCode(e.message || ''), err: e }));
   }
   return null;
 }
@@ -189,7 +188,8 @@ function getSchemaValidationErrors(json, schema) {
 async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
   // 'use strict';
   const { key } = sriRequest.params;
-  const patch = sriRequest.body;
+  const patch = (sriRequest.body || []) as Operation[];
+  // const patch:Operation[] = sriRequest.body?.map((b) => b.body as unknown as Operation) || [];
 
   debug('trace', `PATCH processing starting key ${key}`);
 
@@ -197,7 +197,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriReq
   await phaseSyncer.phase();
   const result = queryByKeyGetResult(sriRequest, mapping, key, false);
 
-  if (result.code != 'found') {
+  if (result.code !== 'found') {
     // it wouldn't make sense to PATCH a deleted resource I guess?
     throw new SriError({ status: 410, errors: [{ code: 'resource.gone', msg: 'Resource is gone' }] });
   }
@@ -280,7 +280,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     //  -> treat this as a new CREATE
     //  -> remove old resource from DATABASE and then continue the "insert" code path
 
-    const deleteQ = prepare('delete-' + table);
+    const deleteQ = prepareSQL('delete-' + table);
     deleteQ.sql(`delete from "${table}" where "key" = `).param(key);
 
     const deleteRes = await pgResult(tx, deleteQ, sriRequest);

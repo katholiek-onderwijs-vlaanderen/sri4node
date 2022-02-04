@@ -2,8 +2,8 @@ import * as peggy from 'peggy';
 import { flattenJsonSchema } from '../schemaUtils';
 import {
   FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty,
-  ResourceDefinition,
-  SriConfig,
+  TResourceDefinition,
+  TSriConfig,
 } from '../typeDefinitions';
 
 /// /////////////////////////////////////////////////////////////////////////////
@@ -338,13 +338,13 @@ function generateExpectedType(
  * what the sri-query spec explains).
  *
  * @param {Array<string>} existingProperties: a list of allowed properties
- * @param {SriConfig} sriConfig
+ * @param {TSriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
 export function generateNonFlatQueryStringParserGrammar(
   flattenedJsonSchema:FlattenedJsonSchema,
-  sriConfigDefaults?:SriConfig,
-  sriConfigResourceDefinition?:ResourceDefinition,
+  sriConfigDefaults?:TSriConfig,
+  sriConfigResourceDefinition?:TResourceDefinition,
 ) {
   const allPropertyNamesSorted = Object.keys(flattenedJsonSchema).sort();
   const allPropertyNamesSortedInReverse = Object.keys(flattenedJsonSchema).sort().reverse();
@@ -700,8 +700,8 @@ export interface SriParser extends peggy.Parser {
 }
 
 export function generateNonFlatQueryStringParser(
-  sriConfigDefaults?:SriConfig,
-  sriConfigResourceDefinition?:ResourceDefinition,
+  sriConfigDefaults?:TSriConfig,
+  sriConfigResourceDefinition?:TResourceDefinition,
   allowedStartRules:string[] | undefined = undefined,
 ):SriParser {
   const grammar = generateNonFlatQueryStringParserGrammar(

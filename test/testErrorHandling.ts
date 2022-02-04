@@ -1,22 +1,24 @@
 // Utility methods for calling the SRI interface
-const assert = require('assert');
-const uuid = require('uuid');
+import * as assert from 'assert';
+import * as uuid from 'uuid';
+import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
+import utilsFactory from './utils';
 
 export = module.exports = function (base) {
-  'use strict';
-
   const sriClientConfig = {
-    baseUrl: base
-  }
-  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = function(...args) { return api.getRaw(...args) };
-  const doPut = function(...args) { return api.put(...args) };
-  const doDelete = function(...args) { return api.delete(...args) };
+    baseUrl: base,
+  };
 
-  const utils =  require('./utils')(api);
-  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const api = sriClientFactory(sriClientConfig);
 
-  var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
+  const doGet = function (...args) { return api.getRaw(...args); };
+  const doPut = function (...args) { return api.put(...args); };
+  const doDelete = function (...args) { return api.delete(...args); };
+
+  const utils = utilsFactory(api);
+  const { makeBasicAuthHeader } = utils;
+
+  const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
 
   function generateRandomPerson(key, communityPermalink) {
     return {
@@ -27,137 +29,137 @@ export = module.exports = function (base) {
       zipcode: '9280',
       city: 'Lebbeke',
       phone: '0492882277',
-      email: key + '@email.com',
+      email: `${key}@email.com`,
       balance: 0,
       mail4elas: 'weekly',
       community: {
-        href: communityPermalink
-      }
+        href: communityPermalink,
+      },
     };
   }
 
-  describe('Error handling', function () {
+  describe('Error handling', () => {
+    const key = uuid.v4();
+    const p = generateRandomPerson(key, communityDendermonde);
 
-    var key = uuid.v4();
-    var p = generateRandomPerson(key, communityDendermonde);
-
-    describe('After Read', function () {
-      it('should return 500 (server error) when rejecting without an error object', async function () {
+    describe('After Read', () => {
+      it('should return 500 (server error) when rejecting without an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
-            await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null,  { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd');
+            await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 500);
-          })
+          },
+        );
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', async function () {
+      it('should return 403 (forbidden) when rejecting with an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
-            await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null,  { headers: { authorization: auth } })
-          }, 
+            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd');
+            await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null, { headers: { authorization: auth } });
+          },
           (error) => {
             assert.equal(error.status, 403);
-          })
-
+          },
+        );
       });
     });
 
-    describe('After Insert', function () {
-
-      it('should return 500 (server error) when rejecting without an error object', async function () {
+    describe('After Insert', () => {
+      it('should return 500 (server error) when rejecting without an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
-            await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd');
+            await doPut(`/persons/${key}`, p, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 500);
-          })
+          },
+        );
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', async function () {
+      it('should return 403 (forbidden) when rejecting with an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
-            await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd');
+            await doPut(`/persons/${key}`, p, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 403);
-          })
-
+          },
+        );
       });
     });
 
-    describe('After Update', function () {
-
-      before(async function () {
-        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-        await doPut('/persons/' + key, p,  { headers: { authorization: auth }})
+    describe('After Update', () => {
+      before(async () => {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd');
+        await doPut(`/persons/${key}`, p, { headers: { authorization: auth } });
       });
 
-      it('should return 500 (server error) when rejecting without an error object', async function () {
+      it('should return 500 (server error) when rejecting without an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
-            await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd');
+            await doPut(`/persons/${key}`, p, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 500);
-          })
+          },
+        );
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', async function () {
+      it('should return 403 (forbidden) when rejecting with an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
-            await doPut('/persons/' + key, p,  { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd');
+            await doPut(`/persons/${key}`, p, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 403);
-          })
+          },
+        );
       });
     });
 
-
-    describe('After Delete', function () {
-
+    describe('After Delete', () => {
       const key2 = uuid.v4();
       const p2 = generateRandomPerson(key2, communityDendermonde);
 
-      before(async function () {
-        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-        await doPut('/persons/' + key2, p2,  { headers: { authorization: auth }})
+      before(async () => {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd');
+        await doPut(`/persons/${key2}`, p2, { headers: { authorization: auth } });
       });
 
-      it('should return 500 (server error) when rejecting without an error object', async function () {
+      it('should return 500 (server error) when rejecting without an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd')
-            await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('daniella@email.be', 'pwd');
+            await doDelete(`/persons/${key2}`, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 500);
-          })
+          },
+        );
       });
 
-      it('should return 403 (forbidden) when rejecting with an error object', async function () {
+      it('should return 403 (forbidden) when rejecting with an error object', async () => {
         await utils.testForStatusCode(
           async () => {
-            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd')
-            await doDelete('/persons/' + key2, { headers: { authorization: auth }, maxAttempts: 1 })
-          }, 
+            const auth = makeBasicAuthHeader('ingrid@email.be', 'pwd');
+            await doDelete(`/persons/${key2}`, { headers: { authorization: auth }, maxAttempts: 1 });
+          },
           (error) => {
             assert.equal(error.status, 403);
-          })
+          },
+        );
       });
     });
 
-
-    // TODO: find another way to trigger an SQL error as duplicates generate now a 409 conflict 
+    // TODO: find another way to trigger an SQL error as duplicates generate now a 409 conflict
     // describe('SQL error ', function () {
 
     //   const key = uuid.v4();
@@ -169,7 +171,7 @@ export = module.exports = function (base) {
     //       async () => {
     //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
     //         await doPut('/persons/' + key, p, { headers: { authorization: auth }, maxAttempts: 1  });
-    //       }, 
+    //       },
     //       (error) => {
     //         assert.equal(error.status, 500);
     //       })
@@ -181,19 +183,17 @@ export = module.exports = function (base) {
     //         , "verb": "PUT"
     //         , "body": p
     //         }]
-        
+
     //     await utils.testForStatusCode(
     //       async () => {
     //         const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
     //         await doPut('/batch', batch, { headers: { authorization: auth }, maxAttempts: 1 });
-    //       }, 
+    //       },
     //       (error) => {
     //         assert.equal(error.status, 500);
     //       })
     //   });
 
     // });
-
-
   });
 };

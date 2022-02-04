@@ -1,32 +1,29 @@
+import * as pMap from 'p-map';
 import * as common from '../../js/common';
-const pMap = require('p-map'); 
-const queryobject = require('../../js/queryObject');
-const prepare = queryobject.prepareSQL; 
+import prepareSQL from '../../js/queryObject';
 
 export = module.exports = function (sri4node, extra) {
-  'use strict';
+  const $m = sri4node.mapUtils;
+  const $s = sri4node.schemaUtils;
+  const $u = sri4node.utils;
 
-  var $m = sri4node.mapUtils;
-  var $s = sri4node.schemaUtils;
-  var $u = sri4node.utils;
-
-  var ret = {
+  const ret = {
     type: '/transactions',
     metaType: 'SRI4NODE_TRANSACTION',
     'public': false, // eslint-disable-line
     map: {
       key: {},
       transactiontimestamp: {
-        fieldToColumn: [ $m.now ]
+        fieldToColumn: [$m.now],
       },
       fromperson: {
-        references: '/persons'
+        references: '/persons',
       },
       toperson: {
-        references: '/persons'
+        references: '/persons',
       },
       description: {},
-      amount: {}
+      amount: {},
     },
     schema: {
       $schema: 'http://json-schema.org/schema#',
@@ -38,43 +35,43 @@ export = module.exports = function (sri4node, extra) {
         fromperson: $s.permalink('/persons', 'A permalink to the person that sent currency.'),
         toperson: $s.permalink('/persons', 'A permalink to the person that received currency.'),
         description: $s.string('A description, entered by the person sending, of the transaction.'),
-        amount: $s.numeric('The amount of currency sent. ' +
-                           'This unit is expressed as 20 units/hour, ' +
-                           'irrelevant of the group\'s currency settings.')
+        amount: $s.numeric('The amount of currency sent. '
+                           + 'This unit is expressed as 20 units/hour, '
+                           + 'irrelevant of the group\'s currency settings.'),
       },
-      required: ['fromperson', 'toperson', 'description', 'amount']
+      required: ['fromperson', 'toperson', 'description', 'amount'],
     },
     afterInsert: [
       async function (tx, sriRequest, elements) {
-        await pMap(elements, async ({incoming}) => {
-          const amount = incoming.amount;
+        await pMap(elements, async ({ incoming }) => {
+          const { amount } = incoming;
           const tokey = incoming.toperson.href.split('/')[2];
 
-          const query = prepare();
+          const query = prepareSQL();
           query.sql('update persons set balance = (balance + ')
             .param(amount).sql(') where key = ').param(tokey);
 
-          await common.pgExec(tx, query)
-        }, {concurrency: 1})
+          await common.pgExec(tx, query);
+        }, { concurrency: 1 });
       },
       async function (tx, sriRequest, elements) {
-        await pMap(elements, async ({incoming}) => {
-          const amount = incoming.amount;
+        await pMap(elements, async ({ incoming }) => {
+          const { amount } = incoming;
           const fromkey = incoming.fromperson.href.split('/')[2];
 
-          const query = prepare();
+          const query = prepareSQL();
           query.sql('update persons set balance = (balance - ')
             .param(amount).sql(') where key = ').param(fromkey);
 
-          await common.pgExec(tx, query)
-        }, {concurrency: 1})
-      }
+          await common.pgExec(tx, query);
+        }, { concurrency: 1 });
+      },
     ],
     afterUpdate: [
-      function ( tx, sriRequest, elements ) {
-        throw new sriRequest.SriError({status: 401, errors: [{code: 'update.on.transactions.not.allowed'}]})
-      }
-    ]
+      function (tx, sriRequest, elements) {
+        throw new sriRequest.SriError({ status: 401, errors: [{ code: 'update.on.transactions.not.allowed' }] });
+      },
+    ],
   };
 
   common.mergeObject(extra, ret);

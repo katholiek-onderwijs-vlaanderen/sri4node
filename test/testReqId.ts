@@ -1,4 +1,4 @@
-const assert = require('assert');
+import * as assert from 'assert';
 const { Client } = require('undici');
 const { stdout } = require('test-console');
 

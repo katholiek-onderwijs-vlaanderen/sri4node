@@ -2,16 +2,16 @@ import { Stream } from 'stream';
 import {
   debug, startTransaction, settleResultsToSriResults, generateSriRequest,
 } from './common';
-import { THttpMethod, SriError } from './typeDefinitions';
+import { THttpMethod, SriError, TInternalSriRequest, TSriConfig, TBatchHandlerRecord, TSriRequestHandler, TResourceDefinition, TSriRequest, TSriRequestBody, TSriBatchElement, TSriBatchArray } from './typeDefinitions';
 
-const _ = require('lodash');
-const pMap = require('p-map');
-const pEachSeries = require('p-each-series');
-const url = require('url');
-const JSONStream = require('JSONStream');
-const EventEmitter = require('events');
-const pEvent = require('p-event');
-const httpContext = require('express-http-context');
+import * as _ from 'lodash';
+import * as pMap from 'p-map';
+import * as pEachSeries from 'p-each-series';
+import * as url from 'url';
+import * as JSONStream from 'JSONStream';
+import * as EventEmitter from 'events';
+import * as pEvent from 'p-event';
+import * as httpContext from 'express-http-context';
 const { v4: uuidv4 } = require('uuid');
 
 const hooks = require('./hooks');
@@ -27,6 +27,13 @@ const maxSubListLen = (a) =>
     return Math.max(arr.length, max);
   }, 0);
 
+type TMatchedHref = {
+  path: string,
+  routeParams: any,
+  queryParams: any,
+  handler: TBatchHandlerRecord,
+}
+
 /**
  * Tries to find the proper record in the global batchHandlerMap
  * and then returns the handler found + some extras
@@ -36,14 +43,14 @@ const maxSubListLen = (a) =>
  * @param {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb: GET,PUT,PATCH,DELETE,POST
  * @returns an object of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
  */
-export function matchHref(href:string, verb:THttpMethod) {
+export function matchHref(href:string, verb:THttpMethod):TMatchedHref {
   if (!verb) {
     console.log(`No VERB stated for ${href}.`);
     throw new SriError({ status: 400, errors: [{ code: 'no.verb', msg: `No VERB stated for ${href}.` }] });
   }
   const parsedUrl = url.parse(href, true);
   const queryParams = parsedUrl.query;
-  const path = parsedUrl.pathname.replace(/\/$/, ''); // replace eventual trailing slash
+  const path = (parsedUrl.pathname || '').replace(/\/$/, ''); // replace eventual trailing slash
 
   const matches = global.sri4node_configuration.batchHandlerMap[verb]
     .map((handler) => ({ handler, match: handler.route.match(path) }))
@@ -95,12 +102,13 @@ export function matchBatch(req) {
       batch.forEach((element) => {
         const match = matchHref(element.href, element.verb);
 
-        if (match.handler.isBatch === 'true') {
+        if (match.handler.isBatch === true) {
           throw new SriError({ status: 400, errors: [{ code: 'batch.not.allowed.in.batch', msg: 'Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON.' }] });
         }
 
-        // only allow batch operations within the same resource (will be extended later with 'boundaries')
-        if (!match.path.startsWith(batchBase)) {
+        // only allow batch operations within the same resource
+        // (will be extended later with 'boundaries')
+        if (!match.path?.startsWith(batchBase)) {
           throw new SriError({ status: 400, errors: [{ code: 'href.across.boundary', msg: 'Only requests within (sub) path of /batch request are allowed.' }] });
         }
 
@@ -116,8 +124,8 @@ export function matchBatch(req) {
   handleBatchForMatchBatch(reqBody);
 }
 
-export async function batchOperation(sriRequest) {
-  const reqBody = sriRequest.body;
+export async function batchOperation(sriRequest:TSriRequest) {
+  const reqBody:Array<TSriBatchElement> = sriRequest.body as Array<TSriBatchElement> || [];
   const batchConcurrency = global.overloadProtection.startPipeline(
     Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency),
   );
@@ -125,13 +133,13 @@ export async function batchOperation(sriRequest) {
     const contextInsideBatch = {};
     let batchFailed = false;
 
-    const handleBatchInBatchOperation = async (batch, tx) => {
+    const handleBatchInBatchOperation = async (batch:Array<TSriBatchElement>, tx) => {
       if (batch.every((element) => Array.isArray(element))) {
         debug('batch', '┌──────────────────────────────────────────────────────────────────────────────');
         debug('batch', '| Handling batch list');
         debug('batch', '└──────────────────────────────────────────────────────────────────────────────');
-        return await pMap(batch,
-          async (element) => {
+        return pMap(batch as unknown as Array<Array<TSriBatchElement>>,
+          async (element:Array<TSriBatchElement>) => {
             const { tx: tx1, resolveTx, rejectTx } = await startTransaction(tx);
             const result = await handleBatchInBatchOperation(element, tx1);
             if (result.every((e) => e.status < 300)) {
@@ -144,7 +152,7 @@ export async function batchOperation(sriRequest) {
           { concurrency: 1 });
       } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
-          const batchJobs = await pMap(batch, async (batchElement) => {
+          const batchJobs = await pMap(batch, async (batchElement:TSriBatchElement) => {
             if (!batchElement.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
             }
@@ -154,7 +162,9 @@ export async function batchOperation(sriRequest) {
 
             const { match } = batchElement;
 
-            const innerSriRequest = generateSriRequest(undefined, undefined, undefined, match, sriRequest, batchElement);
+            const innerSriRequest = generateSriRequest(
+              undefined, undefined, undefined, match, sriRequest, batchElement,
+            );
 
             return [match.handler.func, [tx, innerSriRequest, match.handler.mapping]];
           }, { concurrency: 1 });
@@ -171,7 +181,7 @@ export async function batchOperation(sriRequest) {
           }
 
           await pEachSeries(results,
-            async (res, idx) => {
+            async (res:any, idx) => {
               const [_phaseSyncer, _tx, innerSriRequest, mapping] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await hooks.applyHooks('transform response',
@@ -196,9 +206,9 @@ export async function batchOperation(sriRequest) {
 
     const batchResults = _.flatten(await handleBatchInBatchOperation(reqBody, sriRequest.dbT));
 
-    // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside
-    // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the
-    // server MUST respond with 403 Forbidden.
+    // spec: The HTTP status code of the response must be the highest values of the responses
+    // of the operations inside of the original batch, unless at least one 403 Forbidden response
+    // is present in the batch response, then the server MUST respond with 403 Forbidden.
     const status = batchResults.some((e) => (e.status === 403))
       ? 403
       : Math.max(200, ...batchResults.map((e) => e.status));
@@ -209,9 +219,8 @@ export async function batchOperation(sriRequest) {
   }
 }
 
-export async function batchOperationStreaming(sriRequest) {
+export async function batchOperationStreaming(sriRequest:TSriRequest) {
   let keepAliveTimer:NodeJS.Timer | null = null;
-  const stream = null;
   const reqBody = sriRequest.body;
   const batchConcurrency = global.overloadProtection.startPipeline(
     Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency),
@@ -220,20 +229,22 @@ export async function batchOperationStreaming(sriRequest) {
     const context = {};
     let batchFailed = false;
 
-    const handleBatchStreaming = async (batch, tx) => {
+    const handleBatchStreaming = async (batch:TSriBatchArray, tx) => {
       if (batch.every((element) => Array.isArray(element))) {
         debug('batch', '┌──────────────────────────────────────────────────────────────────────────────');
         debug('batch', '| Handling batch list');
         debug('batch', '└──────────────────────────────────────────────────────────────────────────────');
-        return await pMap(batch,
+        return pMap(batch,
           async (element) => {
-            const result = await handleBatchStreaming(element, tx);
+            const result = await handleBatchStreaming(
+              element as Array<TSriBatchElement>, tx,
+            );
             return result;
           },
           { concurrency: 1 });
       } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
-          const batchJobs = await pMap(batch, async (element) => {
+          const batchJobs = await pMap(batch, async (element:TSriBatchElement) => {
             if (!element.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
             }
@@ -251,7 +262,10 @@ export async function batchOperationStreaming(sriRequest) {
               query: match.queryParams,
               params: match.routeParams,
               httpMethod: element.verb,
-              body: (element.body == null ? null : _.isObject(element.body) ? element.body : JSON.parse(element.body)),
+              body: element.body,
+                // element.body === undefined || _.isObject(element.body)
+                //   ? element.body
+                //   : JSON.parse(element.body),
               sriType: match.handler.mapping.type,
               isBatchPart: true,
               context,
@@ -270,7 +284,7 @@ export async function batchOperationStreaming(sriRequest) {
           }
 
           await pEachSeries(results,
-            async (res, idx) => {
+            async (res:any, idx) => {
               const [_phaseSyncer, _tx, innerSriRequest, mapping] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await hooks.applyHooks('transform response',
@@ -296,14 +310,16 @@ export async function batchOperationStreaming(sriRequest) {
       throw new SriError({ status: 400, errors: [{ code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.' }] });
     };
 
-    const reqId = httpContext.get('reqId');
-    if (reqId !== undefined) {
-      sriRequest.setHeader('vsko-req-id', reqId);
+    if (sriRequest.setHeader) {
+      const reqId = httpContext.get('reqId');
+      if (reqId !== undefined) {
+        sriRequest.setHeader('vsko-req-id', reqId);
+      }
+      if (sriRequest.headers['request-server-timing']) {
+        sriRequest.setHeader('Trailer', 'Server-Timing');
+      }
+      sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
-    if (sriRequest.headers['request-server-timing']) {
-      sriRequest.setHeader('Trailer', 'Server-Timing');
-    }
-    sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
     const stream2 = new Stream.Readable({ objectMode: true });
     stream2._read = function () {};
     stream2.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, { end: false });
@@ -317,7 +333,9 @@ export async function batchOperationStreaming(sriRequest) {
     sriRequest.outStream.write('{');
     sriRequest.outStream.write('"results":');
 
-    const batchResults = _.flatten(await handleBatchStreaming(reqBody, sriRequest.dbT));
+    const batchResults = _.flatten(
+      await handleBatchStreaming(reqBody as TSriBatchArray, sriRequest.dbT),
+    );
 
     // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside
     // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the

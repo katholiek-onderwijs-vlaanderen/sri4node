@@ -4,6 +4,7 @@
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
 import { BusboyConfig } from 'busboy';
+import { Operation } from 'fast-json-patch';
 import { IncomingHttpHeaders } from 'http2';
 import { JSONSchema4 } from 'json-schema';
 import {
@@ -68,6 +69,21 @@ export class SriError {
   }
 }
 
+export type TSriBatchElement = {
+  href: string,
+  verb: string,
+  body: Record<string, unknown>,
+  match?: any, // should it be here???
+}
+
+export type TSriBatchArray =
+  Array<TSriBatchElement | Array<TSriBatchElement>>
+
+export type TSriRequestBody =
+  TSriBatchArray
+  |
+  Array<Operation> // json patch
+
 // TODO make more strict
 export type TSriRequest = {
   id: string,
@@ -94,7 +110,7 @@ export type TSriRequest = {
   reqCancelled?: boolean,
 
   headers: { [key:string] : string } | IncomingHttpHeaders,
-  body?: Array<{ href: string, verb: string, body: Record<string, unknown> }>,
+  body?: TSriRequestBody,
   dbT: unknown, // db transaction
   inStream?: any,
   outStream?: any,
@@ -129,11 +145,11 @@ export type TInternalSriRequest = {
   streamStarted?: () => boolean,
 };
 
-export type ResourceMetaType = Uppercase<string>;
+export type TResourceMetaType = Uppercase<string>;
 
-export type ResourceDefinition = {
+export type TResourceDefinition = {
   type: TUriPath,
-  metaType: ResourceMetaType,
+  metaType: TResourceMetaType,
 
   // these next lines are put onto the same object afterwards, not by the user
   singleResourceRegex?: RegExp,
@@ -289,8 +305,8 @@ export type TBatchHandlerRecord = {
   verb: THttpMethod,
   func: TSriRequestHandler,
   // eslint-disable-next-line no-use-before-define
-  config: SriConfig,
-  mapping: ResourceDefinition,
+  config: TSriConfig,
+  mapping: TResourceDefinition,
   streaming: boolean,
   readOnly: boolean,
   isBatch: boolean,
@@ -301,7 +317,7 @@ export type TBatchHandlerRecord = {
  * so I am supporting it here already...
  *
  * Also adding an option here to run some sql when getting a new connection.
- * That option used to be in the root of SriConfig and used to be called dbConnectionInitSql
+ * That option used to be in the root of TSriConfig and used to be called dbConnectionInitSql
  * EXAMPLE: "set random_page_cost = 1.1;"
  */
 export interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
@@ -317,7 +333,7 @@ export interface IExtendedDatabaseInitOptions extends IInitOptions {
   pgMonitor?: boolean,
 }
 
-export type SriConfig = {
+export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: unknown,
   db?: IDatabase<unknown>,
@@ -343,7 +359,7 @@ export type SriConfig = {
   defaultlimit?: boolean,
   trackHeapMax?: boolean,
   batchHandlerMap?: TBatchHandlerRecord,
-  resources: ResourceDefinition[],
+  resources: TResourceDefinition[],
   beforePhase?:
     Array<
       (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>) => unknown

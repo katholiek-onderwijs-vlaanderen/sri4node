@@ -12,28 +12,28 @@ if(type === 'text') {
   // do something.
 }
 */
-const _ = require('lodash');
+import * as _ from 'lodash';
 
-const qo = require('./queryObject');
+import prepareSQL from './queryObject';
 import * as common from './common';
-import { SriConfig } from './typeDefinitions';
+import { TSriConfig } from './typeDefinitions';
 
 let cache: any = null;
 
 /**
  * Assumes that sriConfig.databaseConnectionParameters.schema is set to a single string !!!
  */
-export = module.exports = async function (db, sriConfig:SriConfig) {
+export = module.exports = async function (db, sriConfig:TSriConfig) {
   if (cache === null) {
     const tableNames = _.uniq(sriConfig.resources.map(mapping => common.tableFromMapping(mapping)));
-    const query = qo.prepareSQL('information-schema');
+    const query = prepareSQL('information-schema');
     query.sql(`SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
                LEFT JOIN information_schema.element_types e
                   ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
                            = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
                WHERE table_name in (`).array(tableNames).sql(') and table_schema = ').param(sriConfig.databaseConnectionParameters.schema);
 
-    const rowsByTable = _.groupBy(await common.pgExec(db, query), r => r.table_name);
+    const rowsByTable = _.groupBy(await common.pgExec(db, query), (r) => r.table_name);
 
     cache = Object.fromEntries(
       sriConfig.resources

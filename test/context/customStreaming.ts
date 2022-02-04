@@ -1,4 +1,4 @@
-const sleep = require('await-sleep')
+import * as sleep from 'await-sleep';
 
 exports = module.exports = function (roa, extra) {
   'use strict';

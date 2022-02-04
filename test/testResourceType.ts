@@ -1,6 +1,7 @@
 var assert = require('assert');
 var uuid = require('uuid');
-const sriclientFactory = require('@kathondvla/sri-client/node-sri-client');
+import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
+import utilsFactory from './utils';
 
 export = module.exports = function (base) {
   'use strict';
@@ -13,7 +14,7 @@ export = module.exports = function (base) {
   const doPut = function(...args) { return api.put(...args) };
   const doDelete = function(...args) { return api.delete(...args) };
 
-  const utils =  require('./utils')(api);
+  const utils =  utilsFactory(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
   const authHdrObj = { headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') } }
 

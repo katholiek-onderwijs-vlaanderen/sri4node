@@ -1,11 +1,8 @@
 import * as common from '../../js/common';
 import { SriError } from '../../js/typeDefinitions';
+import prepareSQL from '../../js/queryObject';
 
-const pMap = require('p-map');
-// const { debug, SriError, mergeObject, pgExec } = common;
-const queryobject = require('../../js/queryObject');
-
-const prepare = queryobject.prepareSQL;
+import * as pMap from 'p-map';
 
 export = module.exports = function (sri4node, extra) {
   const $m = sri4node.mapUtils;
@@ -20,7 +17,7 @@ export = module.exports = function (sri4node, extra) {
   function disallowOneCommunity(forbiddenKey) {
     return async function (tx, sriRequest, elements) {
       if (sriRequest.httpMethod === 'GET') {
-        await pMap(elements, async (e) => {
+        await pMap(elements, async (e:any) => {
           if (sriRequest.path === `/communities/${forbiddenKey}`
                 || (sriRequest.query.expand !== undefined && e.permalink === `/communities/${forbiddenKey}`)) {
             common.debug('mocha', `security method disallowedOneCommunity for ${forbiddenKey} denies access`);
@@ -34,7 +31,7 @@ export = module.exports = function (sri4node, extra) {
   // Don't really need the extra parameters when using CTE.
   async function parameterWithExtraQuery(value, select, param, tx, count) {
     if (count) {
-      const query = prepare('create-allcommunitykeys');
+      const query = prepareSQL('create-allcommunitykeys');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
       await common.pgExec(tx, query);
 
@@ -46,7 +43,7 @@ export = module.exports = function (sri4node, extra) {
 
   async function parameterWithExtraQuery2(value, select, param, tx, count) {
     if (count) {
-      const query = prepare('create-allcommunitykeys2');
+      const query = prepareSQL('create-allcommunitykeys2');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
       await common.pgExec(tx, query);
 
@@ -72,7 +69,7 @@ export = module.exports = function (sri4node, extra) {
         return key;
       });
 
-      const query = prepare();
+      const query = prepareSQL();
       query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
       query.array(keys);
       query.sql(')');

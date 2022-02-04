@@ -1,6 +1,7 @@
 import * as common from '../../js/common';
+import utilsFactory from '../utils';
 
-const utils = require('../utils')(null);
+const utils = utilsFactory(null);
 
 export = module.exports = function (sri4node, extra) {
   const $s = sri4node.schemaUtils;

@@ -1,4 +1,4 @@
-const assert = require('assert');
+import * as assert from 'assert';
 import { debug, pgConnect } from '../js/common';
 const context = require('./context');
 

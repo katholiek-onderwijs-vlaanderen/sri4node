@@ -1,8 +1,10 @@
 // Utility methods for calling the SRI interface
-const assert = require('assert');
-const sriClientFactory = require('@kathondvla/sri-client/node-sri-client');
-const uuid = require('uuid');
-const _ = require('lodash');
+import * as assert from 'assert';
+import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
+import * as uuid from 'uuid';
+import * as _ from 'lodash';
+import utilsFactory from './utils';
+
 
 export = module.exports = function (base) {
   'use strict';
@@ -22,7 +24,7 @@ export = module.exports = function (base) {
   const doDelete = function(...args) { return api.delete(...args) };
   const doPatch = function(...args) { return api.patch(...args) };
 
-  const utils =  require('./utils')(api);
+  const utils =  utilsFactory(api);
 
   const auth = utils.makeBasicAuthHeader('sabine@email.be', 'pwd')
 

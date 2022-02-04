@@ -1,25 +1,21 @@
+/* eslint-disable import/first */
 /*
   The core server for the REST api.
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
+// needed for express-middleware-timer to actually do something !!!
+// And it must be set before importing ./js/common !!!
+process.env.TIMER = 'true';
+
 import { Application, Request, Response } from 'express';
 import { Stream } from 'stream';
 import * as _ from 'lodash';
-import {
-  ResourceDefinition, SriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError, TBatchHandlerRecord, THttpMethod,
-} from './js/typeDefinitions';
+import * as util from 'util';
 
-// needed for express-middleware-timer to actually do something !!!
-process.env.TIMER = 'true';
-
-import * as batch from './js/batch';
-import {
-  debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-  tableFromMapping, transformRowToObject, transformObjectToRow, startTransaction, startTask,
-  typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp, handleRequestDebugLog, createDebugLogConfigObject,
-  installEMT, emtReportToServerTiming, generateSriRequest, getPersonFromSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds,
-} from './js/common';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import { IDatabase } from 'pg-promise';
 
 // External dependencies.
 import compression = require('compression');
@@ -32,19 +28,22 @@ import EventEmitter = require('events');
 import pEvent = require('p-event');
 import httpContext = require('express-http-context');
 import shortid = require('shortid');
-import stream = require('stream');
-import util = require('util');
-import JSONStream = require('JSONStream');
+import pug = require('pug');
 
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
-addFormats(ajv);
+import {
+  debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError,
+  settleResultsToSriResults, tableFromMapping, transformRowToObject, transformObjectToRow,
+  startTransaction, startTask, typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp,
+  handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
+  generateSriRequest, getPersonFromSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds,
+} from './js/common';
+import * as batch from './js/batch';
+import prepareSQL from './js/queryObject';
+import {
+  TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
+  TBatchHandlerRecord, THttpMethod,
+} from './js/typeDefinitions';
 
-// import SriError from './js/common';
-// , debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError, settleResultsToSriResults,
-
-import queryobject = require('./js/queryObject');
 import $q = require('./js/queryUtils');
 import phaseSyncedSettle = require('./js/phaseSyncedSettle');
 import hooks = require('./js/hooks');
@@ -53,16 +52,20 @@ import listResource = require('./js/listResource');
 import regularResource = require('./js/regularResource');
 import utilLib = require('./js/utilLib');
 import schemaUtils = require('./js/schemaUtils');
-import { IDatabase } from 'pg-promise';
+
+const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
+
+const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
+addFormats(ajv);
 
 // Force https in production.
-function forceSecureSockets(req, res, next) {
+function forceSecureSockets(req, res:Response, next) {
   const isHttps = req.headers['x-forwarded-proto'] === 'https';
   if (!isHttps && req.get('Host').indexOf('localhost') < 0 && req.get('Host').indexOf('127.0.0.1') < 0) {
-    return res.redirect(`https://${req.get('Host')}${req.url}`);
+    res.redirect(`https://${req.get('Host')}${req.url}`);
+  } else {
+    next();
   }
-
-  next();
 }
 
 /* Handle GET /{type}/schema */
@@ -145,7 +148,7 @@ const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, ma
     const jobs = [[func, [t, sriRequest, mapping]]];
 
     [result] = settleResultsToSriResults(
-      await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase })
+      await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }),
     );
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result;
@@ -191,7 +194,7 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
 };
 
 const expressWrapper = (
-  dbR, dbW, func:TSriRequestHandler, sriConfig:SriConfig, mapping:ResourceDefinition | null,
+  dbR, dbW, func:TSriRequestHandler, sriConfig:TSriConfig, mapping:TResourceDefinition | null,
   isStreamingRequest:boolean, isBatchRequest:boolean, readOnly0:boolean,
 ) => async function (req:Request, resp:Response, next) {
   let t: any = null; let endTask; let resolveTx; let rejectTx; let
@@ -407,7 +410,7 @@ const toArray = (resource, name) => {
 /* express.js application, configuration for roa4node */
 // export = // for typescript
 module.exports = {
-  configure: async function configure(app: Application, sriConfig: SriConfig) {
+  configure: async function configure(app: Application, sriConfig: TSriConfig) {
     // make sure no x-powered-by header is being sent
     app.disable('x-powered-by');
 
@@ -427,7 +430,7 @@ module.exports = {
       sriConfig.resources.forEach((resource) => {
         // initialize undefined hooks in all resources with empty list
         ['beforeRead', 'afterRead', 'beforeUpdate', 'afterUpdate', 'beforeInsert',
-          'afterInsert', 'beforeDelete', 'afterDelete', , 'customRoutes', 'transformResponse']
+          'afterInsert', 'beforeDelete', 'afterDelete', 'customRoutes', 'transformResponse']
           .forEach((name) => toArray(resource, name));
         // for backwards compability set listResultDefaultIncludeCount default to true
         if (resource.listResultDefaultIncludeCount === undefined) {
@@ -451,14 +454,17 @@ module.exports = {
           if (resourceDefinition.query === undefined) {
             resourceDefinition.query = { defaultFilter: $q.defaultFilter };
           }
-          // In case of 'referencing' fields -> add expected filterReferencedType query if not defined.
+          // In case of 'referencing' fields -> add expected filterReferencedType query
+          // if not defined.
           if (resourceDefinition.map) {
             Object.keys(resourceDefinition.map).forEach((key) => {
               if (resourceDefinition.map?.[key]?.references !== undefined
                   && resourceDefinition.query
                   && resourceDefinition.query?.[key] === undefined
               ) {
-                resourceDefinition.query[key] = $q.filterReferencedType(resourceDefinition.map[key].references, key);
+                resourceDefinition.query[key] = $q.filterReferencedType(
+                  resourceDefinition.map[key].references, key
+                );
               }
             });
           }
@@ -477,7 +483,7 @@ module.exports = {
             throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
           }
           if (resourceDefinition.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
-            resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})$`);
+            resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`);
           } else if (resourceDefinition.schema.properties.key.type === schemaUtils.numeric('foo').type) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9]+)$`);
           } else if (resourceDefinition.schema.properties.key.type === schemaUtils.string('foo').type) {
@@ -527,7 +533,8 @@ module.exports = {
         sriConfig.resources,
         async (mapping) => {
           if (!mapping.onlyCustom) {
-            const schema = sriConfig.databaseConnectionParameters?.schema || sriConfig.databaseLibraryInitOptions?.schema;
+            const schema = sriConfig.databaseConnectionParameters?.schema
+                        || sriConfig.databaseLibraryInitOptions?.schema;
             const schemaName = Array.isArray(schema)
               ? schema[0]
               : schema?.toString();
@@ -551,7 +558,8 @@ module.exports = {
             col.init = (c) => c.source[cname];
           }
           const cType = global.sri4node_configuration.informationSchema[type][cname].type;
-          const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
+          const cElementType = global.sri4node_configuration
+            .informationSchema[type][cname].element_type;
           if (cType !== 'text') {
             if (cType === 'ARRAY') {
               col.cast = `${cElementType}[]`;
@@ -590,7 +598,6 @@ module.exports = {
       global.sri4node_loaded_plugins = new Map();
 
       global.sri4node_install_plugin = async (plugin) => {
-        const util = require('util');
         console.log(`Installing plugin ${util.inspect(plugin)}`);
         // load plugins with a uuid only once; backwards compatible with old system without uuid
         if ((plugin.uuid !== undefined) && global.sri4node_loaded_plugins.has(plugin.uuid)) {
@@ -638,7 +645,7 @@ module.exports = {
 
       // to parse html pages
       app.use('/docs/static', express.static(`${__dirname}/js/docs/static`));
-      app.engine('.pug', require('pug').__express);
+      app.engine('.pug', pug.__express);
       app.set('view engine', 'pug');
       app.set('views', `${__dirname}/js/docs`);
 
@@ -765,7 +772,6 @@ module.exports = {
           (acc:Array<TBatchHandlerRecord>, mapping) => {
             // [path, verb, func, mapping, streaming, readOnly, isBatch]
             const crudRoutes:Array<TBatchHandlerRecord> = [
-              // [`${mapping.type}/:key`, 'GET', regularResource.getRegularResource, sriConfig, mapping, false, true, false],
               {
                 route: `${mapping.type}/:key`,
                 verb: 'GET' as THttpMethod,
@@ -776,7 +782,6 @@ module.exports = {
                 readOnly: true,
                 isBatch: false,
               },
-              // [`${mapping.type}/:key`, 'PUT', regularResource.createOrUpdateRegularResource, sriConfig, mapping, false, false, false],
               {
                 route: `${mapping.type}/:key`,
                 verb: 'PUT',
@@ -787,7 +792,6 @@ module.exports = {
                 readOnly: false,
                 isBatch: false,
               },
-              // [`${mapping.type}/:key`, 'PATCH', regularResource.patchRegularResource, sriConfig, mapping, false, false, false],
               {
                 route: `${mapping.type}/:key`,
                 verb: 'PATCH',
@@ -798,7 +802,6 @@ module.exports = {
                 readOnly: false,
                 isBatch: false,
               },
-              // [`${mapping.type}/:key`, 'DELETE', regularResource.deleteRegularResource, sriConfig, mapping, false, false, false],
               {
                 route: `${mapping.type}/:key`,
                 verb: 'DELETE',
@@ -809,7 +812,6 @@ module.exports = {
                 readOnly: false,
                 isBatch: false,
               },
-              // [mapping.type, 'GET', listResource.getListResource, sriConfig, mapping, false, true, false],
               {
                 route: mapping.type,
                 verb: 'GET',
@@ -821,7 +823,6 @@ module.exports = {
                 isBatch: false,
               },
               // // a check operation to determine wether lists A is part of list B
-              // [`${mapping.type}/isPartOf`, 'POST', listResource.isPartOf, sriConfig, mapping, false, true, false],
               {
                 route: `${mapping.type}/isPartOf`,
                 verb: 'POST',
@@ -907,7 +908,9 @@ module.exports = {
                   if (likeMatches.length === 0) {
                     console.log(`\nWARNING: customRoute like ${crudPath} - ${method} not found => ignored.\n`);
                   } else {
-                    const { verb, func, streaming, readOnly } = likeMatches[0];
+                    const {
+                      verb, func, streaming, readOnly,
+                    } = likeMatches[0];
                     acc.push({
                       route: crudPath + cr.routePostfix,
                       verb,
@@ -949,7 +952,7 @@ module.exports = {
                         if (cr.beforeStreamingHandler !== undefined) {
                           try {
                             const result = await cr.beforeStreamingHandler(
-                              tx, sriRequest, customMapping
+                              tx, sriRequest, customMapping,
                             );
                             if (result !== undefined) {
                               const { status, headers } = result;
@@ -973,7 +976,6 @@ module.exports = {
                         await phaseSyncer.phase();
 
                         let keepAliveTimer: NodeJS.Timer | null = null;
-                        let streamingHandlerPromise;
                         let stream;
                         const streamEndEmitter = new EventEmitter();
                         const streamDonePromise = pEvent(streamEndEmitter, 'done');
@@ -986,7 +988,6 @@ module.exports = {
                           }
                           stream = new Stream.Readable({ objectMode: true });
                           stream._read = function () { };
-                          const JsonStreamStringify = require('json-stream-stringify');
                           const JsonStream = new JsonStreamStringify(stream);
                           JsonStream.pipe(sriRequest.outStream);
                           keepAliveTimer = setInterval(() => {
@@ -999,10 +1000,11 @@ module.exports = {
 
                         sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));
 
-                        streamingHandlerPromise = streamingHandler(tx, sriRequest, stream);
+                        const streamingHandlerPromise = streamingHandler(tx, sriRequest, stream);
 
-                        // Wait till busboy handler are in place (can be done in beforeStreamingHandler
-                        // or streamingHandler) before piping request to busBoy (otherwise events might get lost).
+                        // Wait till busboy handler are in place (can be done in
+                        // beforeStreamingHandler or streamingHandler) before piping request
+                        // to busBoy (otherwise events might get lost).
                         if (cr.busBoy) {
                           sriRequest.inStream.pipe(sriRequest.busBoy);
                         }
@@ -1077,7 +1079,9 @@ module.exports = {
 
       // register individual routes in express
       batchHandlerMap.forEach(
-        ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => {
+        ({
+          route, verb, func, config, mapping, streaming, readOnly, isBatch,
+        }) => {
           // Also use phaseSyncedSettle like in batch to use same shared code,
           // has no direct added value in case of single request.
           debug('general', `registering route ${route} - ${verb} - ${readOnly}`);
@@ -1089,7 +1093,9 @@ module.exports = {
       // transform map with 'routes' to be usable in batch (translate and group by verb)
       sriConfig.batchHandlerMap = _.groupBy(
         batchHandlerMap.map(
-          ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => ({
+          ({
+            route, verb, func, config, mapping, streaming, readOnly, isBatch,
+          }) => ({
             route: new Route(route), verb, func, config, mapping, streaming, readOnly, isBatch,
           }),
         ),
@@ -1111,7 +1117,9 @@ module.exports = {
       global.sri4node_internal_interface = async (internalReq: TInternalSriRequest) => {
         const match = batch.matchHref(internalReq.href, internalReq.verb);
 
-        const sriRequest = generateSriRequest(undefined, undefined, undefined, match, undefined, undefined, internalReq);
+        const sriRequest = generateSriRequest(
+          undefined, undefined, undefined, match, undefined, undefined, internalReq,
+        );
 
         await hooks.applyHooks('transform internal sriRequest',
           match.handler.config.transformInternalRequest,
@@ -1141,7 +1149,7 @@ module.exports = {
 
   utils: { // Utility to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
     executeSQL: pgExec,
-    prepareSQL: queryobject.prepareSQL,
+    prepareSQL,
     convertListResourceURLToSQL: listResource.getSQLFromListResource,
     addReferencingResources: utilLib.addReferencingResources,
   },

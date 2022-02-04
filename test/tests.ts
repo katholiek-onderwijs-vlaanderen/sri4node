@@ -1,14 +1,13 @@
-const sri4node = require('../');
+const sri4node = require('..');
 const context = require('./context');
 
 const port = 5000;
 const logdebug = false;
 // const logdebug = { channels: 'all' };
 
-const base = 'http://localhost:' + port;
+const base = `http://localhost:${port}`;
 
 const { spawn } = require('child_process');
-
 
 function asyncSpawn(command, args:string[] = []) {
   return new Promise((resolve, reject) => {
@@ -18,24 +17,23 @@ function asyncSpawn(command, args:string[] = []) {
     let errors = '';
 
     childProcess.stdout.on('data', (data) => {
-      output = output + data + '\n';
+      output = `${output + data}\n`;
     });
 
     childProcess.stderr.on('data', (data) => {
       // console.log(`stderr: ${data}`);
-      errors = errors + data + '\n';
+      errors = `${errors + data}\n`;
     });
 
     childProcess.on('close', (code) => {
       // console.log(`child process ${command} exited with code ${code}`);
       if (code === 0) {
-        resolve(output)
-      }
-      else {
-        reject(errors)
+        resolve(output);
+      } else {
+        reject(errors);
       }
     });
-  })
+  });
 }
 
 /**
@@ -43,8 +41,8 @@ function asyncSpawn(command, args:string[] = []) {
  *
  * makes it easier to filter out specific tests instead of running all of them al the times
  *
- * @param testFileName 
- * @param args 
+ * @param testFileName
+ * @param args
  */
 function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined) {
   const underscoresIndex = process.argv.indexOf('--pick');
@@ -61,24 +59,21 @@ function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined
   }
 }
 
-describe('Sri4node PURE UNIT TESTS', function () {
+describe('Sri4node PURE UNIT TESTS', () => {
   runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
 });
 
-
 describe('Sri4node SERVER TESTS', function () {
-  'use strict';
   this.timeout(0);
   let server:any = null;
 
-  before(async function () {
+  before(async () => {
     // init testing DB
     try {
       await asyncSpawn(`${__dirname}/../createdb.sh`);
-    }
-    catch (e) {
-      console.log(`Problem while trying to initialize the testing DB: ${e}`)
-      throw new Error(`Problem while trying to initialize the testing DB: ${e}`)
+    } catch (e) {
+      console.log(`Problem while trying to initialize the testing DB: ${e}`);
+      throw new Error(`Problem while trying to initialize the testing DB: ${e}`);
     }
 
     server = await context.serve(sri4node, port, logdebug);
@@ -88,17 +83,17 @@ describe('Sri4node SERVER TESTS', function () {
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
-    console.log('Stopping express server.')
+    console.log('Stopping express server.');
     if (server) {
       await server.close();
     }
-    console.log('Done.')
+    console.log('Done.');
   });
 
   // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [base]);
   runTestIfNeeded('./testAfterRead.ts', [base]);
-  runTestIfNeeded('./testCTE.ts', [base] );
+  runTestIfNeeded('./testCTE.ts', [base]);
   runTestIfNeeded('./testListResource.ts', [base]);
   runTestIfNeeded('./testPublicResources.ts', [base]);
   runTestIfNeeded('./testRegularResource.ts', [base]);

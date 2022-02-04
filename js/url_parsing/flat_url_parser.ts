@@ -17,7 +17,7 @@
  * what the sri-query spec explains).
  *
  * @param {Array<string>} existingProperties: a list of allowed properties
- * @param {SriConfig} sriConfig
+ * @param {TSriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
 export function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {

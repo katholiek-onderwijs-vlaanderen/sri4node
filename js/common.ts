@@ -2,22 +2,14 @@
 import { URL } from 'url';
 import * as Express from 'express';
 import { IInitOptions } from 'pg-promise';
-
 import * as pgPromise from 'pg-promise';
+import * as monitor from 'pg-monitor';
 import { Application, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Readable } from 'stream';
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
-import {
-  ResourceDefinition, SriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
-  TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction,
-  TErrorLogFunction, SriError, TLogDebug,
-} from './typeDefinitions';
-import { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } from './url_parsing/non_flat_url_parser';
-import * as flatUrlParser from './url_parsing/flat_url_parser';
-import * as schemaUtils from './schemaUtils';
 
 import _ = require('lodash');
 import url = require('url');
@@ -28,6 +20,15 @@ import stream = require('stream');
 import peggy = require('peggy');
 import httpContext = require('express-http-context');
 import emt = require('express-middleware-timer');
+
+import {
+  TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
+  TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction,
+  TErrorLogFunction, SriError, TLogDebug,
+} from './typeDefinitions';
+import { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } from './url_parsing/non_flat_url_parser';
+import * as flatUrlParser from './url_parsing/flat_url_parser';
+import * as schemaUtils from './schemaUtils';
 
 let pgp:pgPromise.IMain; // will be initialized at pgConnect
 
@@ -153,7 +154,7 @@ function pegSyntaxErrorToErrorMessage(e:{[prop:string]: any}, input = '') {
  * @param {} mapping
  * @returns {UrlQueryParamsParseTree}
  */
-function generateMissingDefaultsForParseTree(parseTree:any, mapping:ResourceDefinition) {
+function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDefinition) {
   const DEFAULT_LIMIT = 30; // if not configured in mapping file
   const DEFAULT_MAX_LIMIT = 500; // if not configured in mapping file
   const DEFAULT_EXPANSION = 'FULL';
@@ -305,7 +306,7 @@ const hrefToParsedObjectFactoryThis:any = {};
  *                       (filters grouped per type) will be generated
  */
 export function hrefToParsedObjectFactory(
-  sriConfig:SriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
+  sriConfig:TSriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
 ) {
   let parseQueryStringPartByPart:'NORMAL' | 'PART_BY_PART' | 'VALUES_APART' = 'PART_BY_PART'; // 'PARTBYPART';
 
@@ -638,7 +639,7 @@ export function mergeObject(source, target) {
   };
 }
 
-export function transformRowToObject(row:any, resourceMapping:ResourceDefinition) {
+export function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
   const map = resourceMapping.map || {};
   const element:any = {};
   element.$$meta = {};
@@ -749,7 +750,6 @@ export async function pgInit(
 
   // const pgMonitor = process.env.PGP_MONITOR === 'true' || (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true);
   if (extraOptions.monitor) {
-    const monitor = require('pg-monitor');
     monitor.attach(pgpInitOptions);
   }
 
@@ -803,7 +803,7 @@ export async function pgInit(
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-export async function pgConnect(sri4nodeConfig:SriConfig) {
+export async function pgConnect(sri4nodeConfig:TSriConfig) {
   // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
   if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
     console.warn('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
@@ -1190,7 +1190,7 @@ export function generateSriRequest(
   expressResponse:Express.Response | any | undefined = undefined,
   basicConfig:{
       isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean,
-      mapping?:ResourceDefinition
+      mapping?:TResourceDefinition
     } | undefined = undefined,
   batchHandlerAndParams:any = undefined,
   parentSriRequest:TSriRequest | undefined = undefined,

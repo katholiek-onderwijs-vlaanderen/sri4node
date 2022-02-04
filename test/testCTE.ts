@@ -1,45 +1,45 @@
 // Utility methods for calling the SRI interface
-const assert = require('assert');
-import { debug } from '../js//common';
+import * as assert from 'assert';
+import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
+import { debug } from '../js/common';
+import utilsFactory from './utils';
 
 export = module.exports = function (base) {
-  'use strict';
-
   const sriClientConfig = {
-    baseUrl: base
-  }
-  const api = require('@kathondvla/sri-client/node-sri-client')(sriClientConfig)
-  const doGet = function(...args) { return api.getRaw(...args) };
+    baseUrl: base,
+  };
+  const api = sriClientFactory(sriClientConfig);
 
-  const utils =  require('./utils')(api);
-  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
+  const doGet = function (...args) { return api.getRaw(...args); };
 
+  const utils = utilsFactory(api);
+  const { makeBasicAuthHeader } = utils;
 
-  describe('query parameters', function () {
-    describe('that use a CTE', function () {
-      it('to limit to a single key, should only return 1 row.', async function () {
-        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-        const response = await doGet('/messages?cteOneGuid=true', null, { headers: { authorization: auth } })
+  describe('query parameters', () => {
+    describe('that use a CTE', () => {
+      it('to limit to a single key, should only return 1 row.', async () => {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd');
+        const response = await doGet('/messages?cteOneGuid=true', null, { headers: { authorization: auth } });
         assert.equal(response.results.length, 1);
       });
     });
 
     // Test re-ordering of query parameters.
-    describe('that use a CTE and other parameter', function () {
-      it('to limit to a single key + another parameter, should handle re-sequencing of parameters well', async function () {
-        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    describe('that use a CTE and other parameter', () => {
+      it('to limit to a single key + another parameter, should handle re-sequencing of parameters well', async () => {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd');
         const response = await doGet('/messages?hrefs=/messages/d70c98ca-9559-47db-ade6-e5da590b2435&cteOneGuid=true',
-                                      null, { headers: { authorization: auth } })
+          null, { headers: { authorization: auth } });
         assert.equal(response.results.length, 1);
       });
     });
 
     // Test applying 2 CTEs
-    describe('that use a TWO CTEs', function () {
-      it('to limit to a single key, should handle both CTEs well', async function () {
-        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
+    describe('that use a TWO CTEs', () => {
+      it('to limit to a single key, should handle both CTEs well', async () => {
+        const auth = makeBasicAuthHeader('sabine@email.be', 'pwd');
         const response = await doGet('/messages?cteOneGuid=true&cteOneGuid2=true',
-                                      null, { headers: { authorization: auth } })
+          null, { headers: { authorization: auth } });
         assert.equal(response.results.length, 1);
       });
     });
