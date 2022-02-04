@@ -309,7 +309,7 @@ const hrefToParsedObjectFactoryThis:any = {};
 export function hrefToParsedObjectFactory(
   sriConfig:SriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
 ) {
-  const parseQueryStringPartByPart:'NORMAL' | 'PART_BY_PART' | 'VALUES_APART' = 'PART_BY_PART'; // 'PARTBYPART';
+  let parseQueryStringPartByPart:'NORMAL' | 'PART_BY_PART' | 'VALUES_APART' = 'PART_BY_PART'; // 'PARTBYPART';
 
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
