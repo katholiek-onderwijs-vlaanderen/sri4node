@@ -103,9 +103,15 @@ async function phaseSyncedSettle(
       .map((phaseSyncer: PhaseSyncer) => [phaseSyncer.id, phaseSyncer]),
   );
   const pendingJobs = new Set(jobMap.keys());
-  const sriRequestMap = new Map([...jobMap.entries()].map(([id, phaseSyncer]: [string, PhaseSyncer]) => [id, phaseSyncer.sriRequest]));
+  const sriRequestMap = new Map(
+    [...jobMap.entries()]
+      .map(([id, phaseSyncer]: [string, PhaseSyncer]) => [id, phaseSyncer.sriRequest]),
+  );
 
-  const sriRequestIDToPhaseSyncerMap = new Map([...jobMap.entries()].map(([_id, phaseSyncer]: [string, PhaseSyncer]) => [phaseSyncer.sriRequest.id, phaseSyncer]));
+  const sriRequestIDToPhaseSyncerMap = new Map(
+    [...jobMap.entries()]
+      .map(([_id, phaseSyncer]: [string, PhaseSyncer]) => [phaseSyncer.sriRequest.id, phaseSyncer]),
+  );
 
   let queuedJobs;
   let phasePendingJobs;

@@ -1,6 +1,6 @@
 import * as common from '../../js/common';
 import { SriError } from '../../js/typeDefinitions';
-import prepareSQL from '../../js/queryObject';
+import { prepareSQL } from '../../js/queryObject';
 
 import * as pMap from 'p-map';
 

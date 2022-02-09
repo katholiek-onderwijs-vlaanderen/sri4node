@@ -10,7 +10,7 @@ import {
   errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
   getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp,
 } from './common';
-import prepareSQL from './queryObject';
+import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
 const expand = require('./expand');

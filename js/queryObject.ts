@@ -9,7 +9,7 @@ They can all add CTEs as well, without affecting one another.
 
 const parameterPattern = '$?$?';
 
-export default function prepareSQL(name?:string):TPreparedSql {
+function prepareSQL(name?:string):TPreparedSql {
   return {
     name,
     text: '',
@@ -174,3 +174,7 @@ export default function prepareSQL(name?:string):TPreparedSql {
     },
   };
 }
+
+export {
+  prepareSQL,
+};

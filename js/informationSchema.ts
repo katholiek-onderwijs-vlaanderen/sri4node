@@ -14,7 +14,7 @@ if(type === 'text') {
 */
 import * as _ from 'lodash';
 
-import prepareSQL from './queryObject';
+import { prepareSQL } from './queryObject';
 import * as common from './common';
 import { TSriConfig } from './typeDefinitions';
 

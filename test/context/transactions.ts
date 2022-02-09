@@ -1,6 +1,6 @@
 import * as pMap from 'p-map';
 import * as common from '../../js/common';
-import prepareSQL from '../../js/queryObject';
+import { prepareSQL } from '../../js/queryObject';
 
 export = module.exports = function (sri4node, extra) {
   const $m = sri4node.mapUtils;

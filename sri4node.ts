@@ -38,7 +38,7 @@ import {
   generateSriRequest, getPersonFromSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds,
 } from './js/common';
 import * as batch from './js/batch';
-import prepareSQL from './js/queryObject';
+import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
   TBatchHandlerRecord, THttpMethod,

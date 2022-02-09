@@ -6,7 +6,7 @@ import {
   tableFromMapping, pgExec,
 } from './common';
 import { SriError, TResourceDefinition, TSriRequest } from './typeDefinitions';
-import prepareSQL from './queryObject';
+import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
 async function executeSecureFunctionsOnExpandedElements(db, expandedElements, targetMapping, me) {

@@ -1,7 +1,7 @@
 import * as pMap from 'p-map';
 import { typeToConfig, pgExec, transformRowToObject } from './common';
 import { TSriRequest } from './typeDefinitions';
-import prepareSQL from './queryObject';
+import { prepareSQL } from './queryObject';
 
 const expand = require('./expand');
 

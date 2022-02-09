@@ -1,5 +1,5 @@
 import { pgExec } from '../js/common';
-import prepareSQL from '../js//queryObject';
+import { prepareSQL } from '../js//queryObject';
 
 import * as assert from 'assert';
 

@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as streamEqual from 'stream-equal';
 
 import { debug, mergeObject, pgExec } from '../../js/common';
-import prepareSQL from '../../js//queryObject';
+import { prepareSQL } from '../../js//queryObject';
 
 export = module.exports = function (sri4node, extra) {
   const isHrefAPermalink = function (href) {

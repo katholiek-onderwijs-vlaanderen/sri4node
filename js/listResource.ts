@@ -3,7 +3,7 @@ import {
   transformRowToObject, tableFromMapping, pgExec,
 } from './common';
 import { TResourceDefinition, SriError, TSriRequest } from './typeDefinitions';
-import prepareSQL from './queryObject';
+import { prepareSQL } from './queryObject';
 
 import { applyHooks } from './hooks';
 import { executeExpansion } from './expand';
