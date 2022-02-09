@@ -1,3 +1,7 @@
+import * as _ from 'lodash';
+import * as pMap from 'p-map';
+import * as pFilter from 'p-filter';
+import * as url from 'url';
 import {
   debug, sqlColumnNames, getCountResult,
   transformRowToObject, tableFromMapping, pgExec,
@@ -8,11 +12,6 @@ import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 import { executeExpansion } from './expand';
 import * as queryUtils from './queryUtils';
-
-import * as _ from 'lodash';
-import * as pMap from 'p-map';
-import * as pFilter from 'p-filter';
-import * as url from 'url';
 
 // Constants
 const DEFAULT_LIMIT = 30;
@@ -444,7 +443,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
 
 //= ================
 
-export /*= module.exports */ = {
+export {
   getListResource,
   getSQLFromListResource,
   isPartOf,

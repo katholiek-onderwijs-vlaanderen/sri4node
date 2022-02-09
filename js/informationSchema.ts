@@ -17,13 +17,14 @@ import * as _ from 'lodash';
 import { prepareSQL } from './queryObject';
 import * as common from './common';
 import { TSriConfig } from './typeDefinitions';
+import { IDatabase } from 'pg-promise';
 
 let cache: any = null;
 
 /**
  * Assumes that sriConfig.databaseConnectionParameters.schema is set to a single string !!!
  */
-export = module.exports = async function (db, sriConfig:TSriConfig) {
+async function informationSchema(db:IDatabase<unknown>, sriConfig:TSriConfig) {
   if (cache === null) {
     const tableNames = _.uniq(sriConfig.resources.map(mapping => common.tableFromMapping(mapping)));
     const query = prepareSQL('information-schema');
@@ -63,4 +64,8 @@ export = module.exports = async function (db, sriConfig:TSriConfig) {
         }));
   }
   return cache;
+}
+
+export {
+  informationSchema,
 };

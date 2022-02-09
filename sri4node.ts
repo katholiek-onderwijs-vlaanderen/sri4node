@@ -44,13 +44,14 @@ import {
   TBatchHandlerRecord, THttpMethod,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
+import { informationSchema } from './js/informationSchema';
 
 import { phaseSyncedSettle } from './js/phaseSyncedSettle';
 import { applyHooks } from './js/hooks';
 
 // const listResource = require('./js/listResource')
-import listResource = require('./js/listResource');
-import regularResource = require('./js/regularResource');
+import * as listResource from './js/listResource';
+import * as regularResource from './js/regularResource';
 import utilLib = require('./js/utilLib');
 import schemaUtils = require('./js/schemaUtils');
 
@@ -563,7 +564,7 @@ const exported = {
         }, { concurrency: 1 },
       );
 
-      global.sri4node_configuration.informationSchema = await require('./js/informationSchema')(dbR, sriConfig);
+      global.sri4node_configuration.informationSchema = await informationSchema(dbR, sriConfig);
 
       // Prepare pg-promise columnsets for multi insert/update & delete
       const pgp = getPgp();

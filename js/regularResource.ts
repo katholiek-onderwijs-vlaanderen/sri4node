@@ -612,11 +612,11 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   }
 }
 
-export = module.exports = {
+export {
   getRegularResource,
   createOrUpdateRegularResource,
   patchRegularResource,
   deleteRegularResource,
   beforePhaseQueryByKey,
   beforePhaseInsertUpdate,
-}
+};
