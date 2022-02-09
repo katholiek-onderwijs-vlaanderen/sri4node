@@ -42,7 +42,7 @@ function asyncSpawn(command, args:string[] = []) {
 /**
  * after --pick on the command line, list the names of test files you want to run
  *
- * makes it easier to filter out specific tests instead of running all of them al the times
+ * makes it easier to filter out specific tests instead of running all of them all the time
  *
  * @param testFileName
  * @param args
@@ -144,4 +144,4 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testCustomRoutes.ts', [base]);
 });
 
-export = module.exports = {};
+export {};

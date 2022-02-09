@@ -154,7 +154,9 @@ async function batchOperation(sriRequest:TSriRequest) {
           { concurrency: 1 });
       } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
-          const batchJobs = await pMap(batch, async (batchElement:TSriBatchElement) => {
+          const batchJobs:Array<[
+            any, [IDatabase<unknown>, TSriRequest, TResourceDefinition]
+          ]> = await pMap(batch, async (batchElement:TSriBatchElement) => {
             if (!batchElement.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
             }
@@ -168,6 +170,7 @@ async function batchOperation(sriRequest:TSriRequest) {
               undefined, undefined, undefined, match, sriRequest, batchElement,
             );
 
+            if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
             return [match.handler.func, [tx, innerSriRequest, match.handler.mapping]];
           }, { concurrency: 1 });
 
@@ -184,8 +187,8 @@ async function batchOperation(sriRequest:TSriRequest) {
 
           await pEachSeries(results,
             async (res:any, idx) => {
-              const [/*_phaseSyncer,*/ _tx, innerSriRequest, mapping]:[
-                /*PhaseSyncer,*/ IDatabase<unknown>, TInternalSriRequest, TResourceDefinition
+              const [/* _phaseSyncer, */ _tx, innerSriRequest, mapping]:[
+                /* PhaseSyncer, */ IDatabase<unknown>, TSriRequest, TResourceDefinition
               ] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await applyHooks('transform response',
@@ -233,7 +236,7 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
     const context = {};
     let batchFailed = false;
 
-    const handleBatchStreaming = async (batch:TSriBatchArray, tx) => {
+    const handleBatchStreaming = async (batch:TSriBatchArray, tx:IDatabase<unknown>) => {
       if (batch.every((element) => Array.isArray(element))) {
         debug('batch', '┌──────────────────────────────────────────────────────────────────────────────');
         debug('batch', '| Handling batch list');
@@ -248,7 +251,9 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
           { concurrency: 1 });
       } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
-          const batchJobs = await pMap(batch, async (batchElement:TSriBatchElement) => {
+          const batchJobs:Array<[
+            any, [IDatabase<unknown>, TSriRequest, TResourceDefinition]
+          ]> = await pMap(batch, async (batchElement:TSriBatchElement) => {
             if (!batchElement.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
             }
@@ -261,22 +266,23 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
             const innerSriRequest:TSriRequest = {
               ...sriRequest,
               parentSriRequest: sriRequest,
-              path: match.path,
+              path: match?.path || '',
               originalUrl: batchElement.href,
-              query: match.queryParams,
-              params: match.routeParams,
+              query: match?.queryParams,
+              params: match?.routeParams,
               httpMethod: batchElement.verb,
               body: batchElement.body,
                 // element.body === undefined || _.isObject(element.body)
                 //   ? element.body
                 //   : JSON.parse(element.body),
-              sriType: match.handler.mapping.type,
+              sriType: match?.handler.mapping.type,
               isBatchPart: true,
               // context,
             };
             // const innerSriRequest:TSriRequest = generateSriRequest(
             //   undefined, undefined, undefined, match, sriRequest, batchElement,
             // );
+            if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
             return [match.handler.func, [tx, innerSriRequest, match.handler.mapping]];
           }, { concurrency: 1 });
 
@@ -291,15 +297,15 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
 
           await pEachSeries(results,
             async (res:any, idx) => {
-              const [_phaseSyncer, _tx, innerSriRequest, mapping] = batchJobs[idx][1];
+              const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await applyHooks('transform response',
-                  mapping.transformResponse,
+                  mapping.transformResponse || [],
                   (f) => f(tx, innerSriRequest, res));
               }
             });
           return results.map((res, idx) => {
-            const [_phaseSyncer, _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+            const [/* _phaseSyncer, */ _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
             res.href = innerSriRequest.originalUrl;
             res.verb = innerSriRequest.httpMethod;
             delete res.sriRequestID;
@@ -339,6 +345,7 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
     sriRequest.outStream.write('{');
     sriRequest.outStream.write('"results":');
 
+    if (!sriRequest.dbT) throw new Error('sriRequest containsno db transaction to work on');
     const batchResults = _.flatten(
       await handleBatchStreaming(reqBody as TSriBatchArray, sriRequest.dbT),
     );

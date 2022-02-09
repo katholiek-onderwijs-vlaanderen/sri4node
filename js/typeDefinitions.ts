@@ -11,7 +11,7 @@ import { JSONSchema4 } from 'json-schema';
 import {
   IDatabase, IInitOptions, ValidSchema,
 } from 'pg-promise';
-import { IConnectionParameters } from 'pg-promise/typescript/pg-subset';
+import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset';
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
@@ -75,7 +75,12 @@ export type TSriBatchElement = {
   href: string,
   verb: THttpMethod,
   body: TSriRequestBody,
-  match?: any, // should it be here???
+  match?: {
+    path: string,
+    queryParams: any,
+    routeParams: any,
+    handler: TBatchHandlerRecord,
+  }
 }
 
 export type TSriBatchArray =
@@ -128,7 +133,7 @@ export type TSriRequest = {
 
   headers: { [key:string] : string } | IncomingHttpHeaders,
   body?: TSriRequestBody,
-  dbT: unknown, // db transaction
+  dbT: IDatabase<unknown> | undefined, // db transaction
   inStream?: any,
   outStream?: any,
   setHeader?: (key: string, value: string) => void,
@@ -151,7 +156,7 @@ export type TSriRequest = {
 export type TInternalSriRequest = {
   href: string,
   verb: THttpMethod,
-  dbT: unknown, // transaction or task object of pg promise
+  dbT: IDatabase<unknown>, // transaction or task object of pg promise
   parentSriRequest: TSriRequest,
   headers?: { [key:string] : string } | IncomingHttpHeaders,
   body?: Array<{ href: string, verb: THttpMethod, body: TSriRequestBody }>,
@@ -270,8 +275,17 @@ export type TResourceDefinition = {
 
   // current query
   query?: {
-    defaultFilter?: (valueEnc: string, query: TPreparedSql, parameter: any, mapping: any, database: any) => void,
+    defaultFilter?:
+      (valueEnc: string, query: TPreparedSql, parameter: any, mapping: TResourceDefinition,
+        database: IDatabase<unknown, IClient>) => void,
+  }
+  |
+  {
+    [key:string]:
+    (value: string, select: TPreparedSql, key: string, database: IDatabase<unknown, IClient>,
+      count: number, mapping: TResourceDefinition) => void,
   },
+
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,
   //   _rootWithContextContains: {

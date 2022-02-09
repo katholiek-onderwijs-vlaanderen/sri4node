@@ -55,6 +55,7 @@ import * as regularResource from './js/regularResource';
 import utilLib = require('./js/utilLib');
 import schemaUtils = require('./js/schemaUtils');
 import { overloadProtectionFactory } from './js/overloadProtection';
+import * as relationFilters from './js/relationsFilter';
 
 const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
 
@@ -724,18 +725,7 @@ const exported = {
             // append relation filters if auto-detected a relation resource
             if (mapping.map.from && mapping.map.to) {
               // mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
-              const relationFilters = require('./js/relationsFilter');
-              // if (!mapping.query) {
-              //   mapping.query = {
-              //   };
-              // }
-
-              // for (let key in relationFilters) {
-              //   if (relationFilters.hasOwnProperty(key)) {
-              //     mapping.query?[key] = relationFilters[key];
-              //   }
-              // }
-
+              //const relationFilters = require('./js/relationsFilter');
               mapping.query = {
                 ...relationFilters,
               };

@@ -1,80 +1,81 @@
+import * as _ from 'lodash';
+import { IDatabase } from 'pg-promise';
 import * as common from './common';
+import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
 
-import _ = require('lodash');
+function fromTypesFilter(
+  value:string, select:TPreparedSql, key:string, database:IDatabase<unknown>,
+  count:number, mapping:TResourceDefinition,
+) {
+  let sql; let fromCondition; let whereCondition; let table; let fromTable; let
+    types;
 
-function fromTypesFilter(value, select, key, database, count, mapping) {
-  var sql, fromCondition, whereCondition, table, fromTable, types;
-
-  if (value && mapping.map.from && mapping.map.from.references) {
+  if (value && mapping.map?.from?.references) {
     fromCondition = select.text.split(' from')[1];
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    const table = common.tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping);
     types = value.split(',').join('\',\'');
     fromTable = mapping.map.from.references.split('/')[mapping.map.from.references.split('/').length - 1];
 
-    sql = select.text.indexOf('count') !== -1 ? 'select count(distinct ' + table + '.*)' : 'select distinct ' + table + '.*';
-    sql += ' from ' + fromCondition + ' JOIN ' + fromTable + ' c on c.key = ' + table + '.from ';
-    sql += ' where ' + whereCondition;
-    sql += ' AND c.type in (\'' + types + '\') AND c."$$meta.deleted" = false ';
+    sql = select.text.indexOf('count') !== -1 ? `select count(distinct ${table}.*)` : `select distinct ${table}.*`;
+    sql += ` from ${fromCondition} JOIN ${fromTable} c on c.key = ${table}.from `;
+    sql += ` where ${whereCondition}`;
+    sql += ` AND c.type in ('${types}') AND c."$$meta.deleted" = false `;
 
     select.text = sql;
   }
 }
 
-function toTypesFilter(value, select, key, database, count, mapping) {
-  var sql, fromCondition, whereCondition, table, toTable, types;
+function toTypesFilter(
+  value:string, select:TPreparedSql, key:string, database:IDatabase<unknown>,
+  count:number, mapping:TResourceDefinition,
+) {
+  let sql; let fromCondition; let whereCondition; let toTable: string; let
+    types: string;
 
-  if (value && mapping.map.to && mapping.map.to.references) {
-
+  if (value && mapping.map?.to?.references) {
     fromCondition = select.text.split(' from')[1];
     whereCondition = fromCondition.split('where')[1];
     fromCondition = fromCondition.split('where')[0];
 
-    const table = common.tableFromMapping(mapping)
+    const table = common.tableFromMapping(mapping);
     types = value.split(',').join('\',\'');
     toTable = mapping.map.to.references.split('/')[mapping.map.to.references.split('/').length - 1];
 
-    sql = select.text.indexOf('count') !== -1 ? 'select count(distinct ' + table + '.*)' : 'select distinct ' + table + '.*';
-    sql += ' FROM ' + fromCondition + ' JOIN ' + toTable + ' c2 on c2.key = ' + table + '.to ';
-    sql += ' where ' + whereCondition;
-    sql += ' AND c2.type in (\'' + types + '\') AND c2."$$meta.deleted" = false ';
+    sql = select.text.indexOf('count') !== -1 ? `select count(distinct ${table}.*)` : `select distinct ${table}.*`;
+    sql += ` FROM ${fromCondition} JOIN ${toTable} c2 on c2.key = ${table}.to `;
+    sql += ` where ${whereCondition}`;
+    sql += ` AND c2.type in ('${types}') AND c2."$$meta.deleted" = false `;
 
     select.text = sql;
   }
 }
 
-function fromsFilter(value, select, key, database, count, mapping) {
+function fromsFilter(value:string, select:TPreparedSql, key, database:IDatabase<unknown>, count, mapping) {
   if (value) {
+    const table = common.tableFromMapping(mapping);
 
-    const table = common.tableFromMapping(mapping)
+    const froms = value.split(',').map((val) => val.split('/')[val.split('/').length - 1]);
 
-    const froms = value.split(',').map(function(val) {
-      return val.split('/')[val.split('/').length - 1];
-    });
-
-    select.sql(' AND ' + table + '.from in (').array(froms).sql(')');
+    select.sql(` AND ${table}.from in (`).array(froms).sql(')');
   }
 }
 
-function tosFilter(value, select, key, database, count, mapping) {
+function tosFilter(value:string, select:TPreparedSql, key, database:IDatabase<unknown>, count, mapping) {
   if (value) {
+    const table = common.tableFromMapping(mapping);
 
-    const table = common.tableFromMapping(mapping)
+    const tos = value.split(',').map((val) => val.split('/')[val.split('/').length - 1]);
 
-    const tos = value.split(',').map(function(val) {
-      return val.split('/')[val.split('/').length - 1];
-    });
-
-    select.sql(' AND ' + table + '.to in (').array(tos).sql(')');
+    select.sql(` AND ${table}.to in (`).array(tos).sql(')');
   }
 }
 
-
-export = module.exports = {
-  fromTypes: fromTypesFilter,
-  toTypes: toTypesFilter,
-  tos: tosFilter,
-  froms: fromsFilter,
+export {
+  fromTypesFilter as fromTypes,
+  toTypesFilter as toTypes,
+  tosFilter as tos,
+  fromsFilter as froms,
 };
