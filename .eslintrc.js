@@ -17,5 +17,19 @@ module.exports = {
     '@typescript-eslint',
   ],
   rules: {
+    // default exports suck and only make things more confusing
+    'import/prefer-default-export': 'off',
+    // import without extension for all typescript files,
+    // but with explicit extension for everything else
+    'import/extensions': [
+      'warn', // or error?
+      'always', // "never" | "always" | "ignorePackages",
+      {
+        // ignorePackages: false,
+        pattern: {
+          ts: 'never',
+        },
+      },
+    ],
   },
 };

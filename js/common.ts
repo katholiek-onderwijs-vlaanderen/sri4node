@@ -11,7 +11,7 @@ import { Readable } from 'stream';
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
-import _ = require('lodash');
+import * as _ from 'lodash';
 import url = require('url');
 import EventEmitter = require('events');
 import pEvent = require('p-event');
@@ -44,7 +44,7 @@ const logBuffer:{ [k:string]: string[]} = {};
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-export function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
+function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
@@ -54,7 +54,7 @@ export function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):n
  * @param channel
  * @param {String | () => String}
  */
-export const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
+const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
   if (global.sri4node_configuration === undefined
         || (global.sri4node_configuration.logdebug && (
           global.sri4node_configuration.logdebug.channels === 'all'
@@ -77,7 +77,7 @@ export const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) 
   }
 };
 
-export const error:TErrorLogFunction = function (...args) {
+const error:TErrorLogFunction = function (...args) {
   const reqId = httpContext.get('reqId');
   if (reqId) {
     console.error(`[reqId:${reqId}]`, ...args);
@@ -213,7 +213,7 @@ function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDef
  * @param {*} parseTree
  * @returns the in-place sorted parseTree
  */
-export function sortUrlQueryParamParseTree(parseTree:any[]) {
+function sortUrlQueryParamParseTree(parseTree:any[]) {
   const compareProperties = (a:any, b:any, properties:string[]) => properties.reduce((acc, cur) => {
     if (acc !== 0) return acc;
     if (a[cur] === b[cur]) return acc;
@@ -305,10 +305,10 @@ const hrefToParsedObjectFactoryThis:any = {};
  * @param {boolean} flat if true, will generate a 'flat' parseTree, otherwise a non-flat parseTree
  *                       (filters grouped per type) will be generated
  */
-export function hrefToParsedObjectFactory(
+function hrefToParsedObjectFactory(
   sriConfig:TSriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
 ) {
-  let parseQueryStringPartByPart:'NORMAL' | 'PART_BY_PART' | 'VALUES_APART' = 'PART_BY_PART'; // 'PARTBYPART';
+  const parseQueryStringPartByPart = 'PART_BY_PART' as 'NORMAL' | 'PART_BY_PART' | 'VALUES_APART'; // 'PARTBYPART';
 
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
@@ -460,17 +460,17 @@ export function hrefToParsedObjectFactory(
   };
 }
 
-export function getParentSriRequest(sriRequest) {
+function getParentSriRequest(sriRequest) {
   return sriRequest.parentSriRequest ? sriRequest.parentSriRequest : sriRequest;
 }
 
-export function installEMT(app:Application) {
+function installEMT(app:Application) {
   app.use(emt.init((req:Express.Request, res:Express.Response) => {
   }));
   return emt;
 }
 
-export function setServerTimingHdr(sriRequest, property, value) {
+function setServerTimingHdr(sriRequest, property, value) {
   const parentSriRequest = getParentSriRequest(sriRequest);
   if (parentSriRequest.serverTiming === undefined) {
     parentSriRequest.serverTiming = {};
@@ -482,7 +482,7 @@ export function setServerTimingHdr(sriRequest, property, value) {
   }
 }
 
-export function emtReportToServerTiming(req:Request, res:Response, sriRequest:TSriRequest) {
+function emtReportToServerTiming(req:Request, res:Response, sriRequest:TSriRequest) {
   try {
     const report = emt.calculate(req, res);
     const timerLogs = Object.keys(report.timers).forEach((timer) => {
@@ -497,7 +497,7 @@ export function emtReportToServerTiming(req:Request, res:Response, sriRequest:TS
   }
 }
 
-export function createDebugLogConfigObject(logdebug:TLogDebug | boolean):TLogDebug {
+function createDebugLogConfigObject(logdebug:TLogDebug | boolean):TLogDebug {
   if (logdebug === true) {
     // for backwards compability
     console.warn(
@@ -522,7 +522,7 @@ export function createDebugLogConfigObject(logdebug:TLogDebug | boolean):TLogDeb
   return tempLogDebug;
 }
 
-export function handleRequestDebugLog(status:number) {
+function handleRequestDebugLog(status:number) {
   const reqId = httpContext.get('reqId');
   if (global.sri4node_configuration.logdebug.statuses.has(status)) {
     logBuffer[reqId].forEach((e) => console.log(e));
@@ -530,7 +530,7 @@ export function handleRequestDebugLog(status:number) {
   delete logBuffer[reqId];
 }
 
-export function urlToTypeAndKey(urlToParse:string) {
+function urlToTypeAndKey(urlToParse:string) {
   if (typeof urlToParse !== 'string') {
     throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
   }
@@ -553,11 +553,11 @@ export function urlToTypeAndKey(urlToParse:string) {
  * @param uuid
  * @returns true or false
  */
-export function isUuid(uuid:string):boolean {
+function isUuid(uuid:string):boolean {
   return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
 }
 
-export function parseResource(u:string) {
+function parseResource(u:string) {
   if (!u) {
     return null;
   }
@@ -592,7 +592,7 @@ export function parseResource(u:string) {
   };
 }
 
-export function errorAsCode(s:string) {
+function errorAsCode(s:string) {
   // return any string as code for REST API error object.
   let ret = s;
 
@@ -608,18 +608,18 @@ export function errorAsCode(s:string) {
 /**
  * Converts the configuration object for sri4node into an array per resource type
  */
-export function typeToConfig(config:any[]) {
+function typeToConfig(config:any[]) {
   return config.reduce((acc, c) => {
     acc[c.type] = c;
     return acc;
   }, {});
 }
 
-export function typeToMapping(type:string) {
+function typeToMapping(type:string) {
   return typeToConfig(global.sri4node_configuration.resources)[type];
 }
 
-export function sqlColumnNames(mapping, summary = false) {
+function sqlColumnNames(mapping, summary = false) {
   const columnNames = summary
     ? Object.keys(mapping.map).filter((c) => !(mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
     : Object.keys(mapping.map);
@@ -632,14 +632,14 @@ export function sqlColumnNames(mapping, summary = false) {
 /**
  * Merge all direct properties of object 'source' into object 'target'.
  */
-export function mergeObject(source, target) {
+function mergeObject(source, target) {
   return {
     ...target,
     ...source,
   };
 }
 
-export function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
+function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
   const map = resourceMapping.map || {};
   const element:any = {};
   element.$$meta = {};
@@ -674,7 +674,7 @@ export function transformRowToObject(row:any, resourceMapping:TResourceDefinitio
   return element;
 }
 
-export function transformObjectToRow(obj, resourceMapping, isNewResource) {
+function transformObjectToRow(obj, resourceMapping, isNewResource) {
   const { map } = resourceMapping;
   const row = {};
   Object.keys(map).forEach((key) => {
@@ -726,9 +726,13 @@ export function transformObjectToRow(obj, resourceMapping, isNewResource) {
  * @param pgpInitOptions
  * @param extraOptions
  */
-export async function pgInit(
+async function pgInit(
   pgpInitOptions:IInitOptions = {},
-  extraOptions: { schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined, connectionInitSql?: string, monitor: boolean },
+  extraOptions: {
+    schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined,
+    connectionInitSql?: string,
+    monitor: boolean,
+  },
 ) {
   const pgpInitOptionsUpdated:IInitOptions = {
     schema: extraOptions.schema,
@@ -803,7 +807,7 @@ export async function pgInit(
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-export async function pgConnect(sri4nodeConfig:TSriConfig) {
+async function pgConnect(sri4nodeConfig:TSriConfig) {
   // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
   if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
     console.warn('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
@@ -872,7 +876,7 @@ export async function pgConnect(sri4nodeConfig:TSriConfig) {
 // values : An array of java values to be inserted in $1,$2, etc..
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-export async function pgExec(db, query, sriRequest?: TSriRequest) {
+async function pgExec(db, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
   debug('sql', () => pgp.as.format(sql, values));
@@ -887,7 +891,7 @@ export async function pgExec(db, query, sriRequest?: TSriRequest) {
   return result;
 }
 
-export async function pgResult(db, query, sriRequest = null) {
+async function pgResult(db, query, sriRequest = null) {
   const { sql, values } = query.toParameterizedSql();
 
   debug('sql', () => pgp.as.format(sql, values));
@@ -902,15 +906,15 @@ export async function pgResult(db, query, sriRequest = null) {
   return result;
 }
 
-export async function startTransaction(
+async function startTransaction(
   db, sriRequest:TSriRequest | undefined = undefined, mode = new pgp.txMode.TransactionMode(),
 ) {
   const hrstart = process.hrtime();
   debug('db', '++ Starting database transaction.');
 
-  const emitter = new EventEmitter();
+  const eventEmitter = new EventEmitter();
 
-  const txWrapper = async (emitter) => {
+  const txWrapper = async (emitter:EventEmitter) => {
     // This wrapper run async without being awaited. This has some consequences:
     //   * errors are not passed the usual way, but via the 'tDone' event
     //   * debug() does not log the correct reqId
@@ -925,7 +929,7 @@ export async function startTransaction(
       emitter.emit('txDone');
     } catch (err) {
       // 'txRejected' as err is expected behaviour in case rejectTx is called
-      if (err != 'txRejected') {
+      if (err !== 'txRejected') {
         emitter.emit('txDone', err);
       } else {
         emitter.emit('txDone');
@@ -936,11 +940,11 @@ export async function startTransaction(
   try {
     const tx:pgPromise.ITask<any> = await new Promise((resolve, reject) => {
       let resolved = false;
-      emitter.on('txEvent', (tx) => {
+      eventEmitter.on('txEvent', (tx) => {
         resolve(tx);
         resolved = true;
       });
-      emitter.on('txDone', (err) => {
+      eventEmitter.on('txDone', (err) => {
         // ignore undefined error, happens at
         if (!resolved) {
           console.log('GOT ERROR:');
@@ -949,7 +953,7 @@ export async function startTransaction(
           reject(err);
         }
       });
-      txWrapper(emitter);
+      txWrapper(eventEmitter);
     });
     debug('db', 'Got db tx object.');
 
@@ -959,8 +963,8 @@ export async function startTransaction(
       if (how !== 'reject') {
         await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
       }
-      emitter.emit('terminate', how);
-      const res = await pEvent(emitter, 'txDone');
+      eventEmitter.emit('terminate', how);
+      const res = await pEvent(eventEmitter, 'txDone');
       if (res !== undefined) {
         throw res;
       }
@@ -979,7 +983,7 @@ export async function startTransaction(
   }
 }
 
-export async function startTask(db, sriRequest:TSriRequest | undefined) {
+async function startTask(db, sriRequest:TSriRequest | undefined) {
   const hrstart = process.hrtime();
   debug('db', '++ Starting database task.');
 
@@ -1033,7 +1037,7 @@ export async function startTask(db, sriRequest:TSriRequest | undefined) {
   }
 }
 
-export async function installVersionIncTriggerOnTable(db, tableName:string, schemaName?:string) {
+async function installVersionIncTriggerOnTable(db, tableName:string, schemaName?:string) {
   const tgname = `vsko_resource_version_trigger_${(schemaName !== undefined ? schemaName : '')}_${tableName}`;
 
   const plpgsql = `
@@ -1078,16 +1082,16 @@ export async function installVersionIncTriggerOnTable(db, tableName:string, sche
   await db.query(plpgsql);
 }
 
-export async function getCountResult(tx, countquery, sriRequest) {
+async function getCountResult(tx, countquery, sriRequest) {
   const [{ count }] = await pgExec(tx, countquery, sriRequest);
   return parseInt(count, 10);
 }
 
-export function tableFromMapping(mapping) {
-  return mapping.table ? mapping.table : _.last(mapping.type.split('/'));
+function tableFromMapping(mapping:TResourceDefinition) {
+  return mapping.table || _.last(mapping.type.split('/'));
 }
 
-export function isEqualSriObject(obj1, obj2, mapping) {
+function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
 
   function customizer(val, key, obj) {
@@ -1107,14 +1111,14 @@ export function isEqualSriObject(obj1, obj2, mapping) {
   return _.isEqualWith(o1, o2);
 }
 
-export function stringifyError(e) {
+function stringifyError(e) {
   if (e instanceof Error) {
     return e.toString();
   }
   return JSON.stringify(e);
 }
 
-export function settleResultsToSriResults(results) {
+function settleResultsToSriResults(results) {
   return results.map((res) => {
     if (res.isFulfilled) {
       return res.value;
@@ -1134,23 +1138,23 @@ export function settleResultsToSriResults(results) {
   });
 }
 
-export function createReadableStream(objectMode = true) {
+function createReadableStream(objectMode = true) {
   const s = new Readable({ objectMode });
   s._read = function () {};
   return s;
 }
 
-export function getPersonFromSriRequest(sriRequest) {
+function getPersonFromSriRequest(sriRequest) {
   // A userObject of null happens when the user is (not yet) logged in
   return sriRequest.userObject ? `/persons/${sriRequest.userObject.uuid}` : 'NONE';
 }
 
-export function getParentSriRequestFromRequestMap(sriRequestMap) {
+function getParentSriRequestFromRequestMap(sriRequestMap) {
   const sriRequest = Array.from(sriRequestMap.values())[0];
   return getParentSriRequest(sriRequest);
 }
 
-export function getPgp() {
+function getPgp() {
   return pgp;
 }
 
@@ -1185,7 +1189,7 @@ export function getPgp() {
  *
  * @returns {TSriRequest}
  */
-export function generateSriRequest(
+function generateSriRequest(
   expressRequest:Express.Request | undefined = undefined,
   expressResponse:Express.Response | any | undefined = undefined,
   basicConfig:{
@@ -1375,3 +1379,44 @@ export function generateSriRequest(
 
   throw Error('[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters');
 }
+
+export {
+  hrtimeToMilliseconds,
+  debug,
+  error,
+  sortUrlQueryParamParseTree,
+  hrefToParsedObjectFactory,
+  getParentSriRequest,
+  installEMT,
+  setServerTimingHdr,
+  emtReportToServerTiming,
+  createDebugLogConfigObject,
+  handleRequestDebugLog,
+  urlToTypeAndKey,
+  isUuid,
+  parseResource,
+  errorAsCode,
+  typeToConfig,
+  typeToMapping,
+  sqlColumnNames,
+  mergeObject,
+  transformObjectToRow,
+  transformRowToObject,
+  pgInit,
+  pgConnect,
+  pgExec,
+  pgResult,
+  startTransaction,
+  startTask,
+  installVersionIncTriggerOnTable,
+  getCountResult,
+  tableFromMapping,
+  isEqualSriObject,
+  stringifyError,
+  settleResultsToSriResults,
+  createReadableStream,
+  getPersonFromSriRequest,
+  getParentSriRequestFromRequestMap,
+  getPgp,
+  generateSriRequest,
+};

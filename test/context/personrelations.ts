@@ -1,7 +1,7 @@
 import * as common from '../../js/common';
 // Messages relations
 export = module.exports = function (sri4node, extra) {
-  'use strict';
+
 
   var $s = sri4node.schemaUtils;
   var $q = sri4node.queryUtils;

@@ -59,29 +59,34 @@ module.exports = (base) => {
     });
 
     it('batch - check for reqId presence', async () => {
-      const batch = [
-        [{
-          href: '/cities/38002',
-          verb: 'GET',
-        }],
-      ];
+      try {
+        const batch = [
+          [{
+            href: '/cities/38002',
+            verb: 'GET',
+          }],
+        ];
 
-      const {
-        headers,
-        body,
-      } = await client.request({
-        path: '/batch',
-        method: 'PUT',
-        headers: {
-          'Content-type': 'application/json; charset=utf-8',
-          'Request-Server-Timing': true,
-          //   'authorization': makeBasicAuthHeader('sabine@email.be', 'pwd')
-        },
-        body: JSON.stringify(batch),
-      });
+        const {
+          headers,
+          body,
+        } = await client.request({
+          path: '/batch',
+          method: 'PUT',
+          headers: {
+            'Content-type': 'application/json; charset=utf-8',
+            'Request-Server-Timing': true,
+            //   'authorization': makeBasicAuthHeader('sabine@email.be', 'pwd')
+          },
+          body: JSON.stringify(batch),
+        });
 
-      const reqID = headers['vsko-req-id'];
-      assert.notEqual(reqID, undefined);
+        const reqID = headers['vsko-req-id'];
+        assert.notEqual(reqID, undefined);
+      } catch (e) {
+        console.log(e, e.stack);
+        throw e;
+      }
     });
 
     it('streaming batch - check for reqId presence', async () => {

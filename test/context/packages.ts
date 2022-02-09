@@ -1,7 +1,7 @@
 import * as common from '../../js/common';
 
 export = module.exports = function (sri4node, extra) {
-  'use strict';
+
 
   var $s = sri4node.schemaUtils;
 

@@ -7,7 +7,7 @@ import utilsFactory from './utils';
 
 
 export = module.exports = function (base) {
-  'use strict';
+
   var communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   var personSabine = '/persons/9abe4102-6a29-4978-991e-2a30655030e6';
 

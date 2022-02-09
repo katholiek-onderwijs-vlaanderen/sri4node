@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import * as pMap from 'p-map';
-import * as assert from 'assert';
+import { assert } from 'chai';
 import * as uuid from 'uuid';
 import * as _ from 'lodash';
 import * as expect from 'expect.js';
@@ -114,6 +114,25 @@ export = module.exports = function (base) {
   }
 
   describe('BATCH', () => {
+    it('batch: 1 single list request should work', async () => {
+      const batch = [
+        {
+          href: '/countries',
+          verb: 'GET',
+        },
+      ];
+
+      // assert.doesNotThrow(async () => await doPut('/batch', batch, sriClientOptionsAuthSabine));
+
+      try {
+        const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
+        r.forEach((x) => assert.equal(x.status, 200));  
+      } catch (e) {
+        console.log(e, e.stack);
+        throw e;
+      }
+    });
+
     it('create community and immediately delete', async () => {
       const key = uuid.v4();
       const body = generateRandomCommunity(key);
@@ -758,7 +777,7 @@ export = module.exports = function (base) {
       );
     });
 
-    it('batch: check if phasesyncing is correctly aligned for al different kind of requests', async () => {
+    it('batch: check if phasesyncing is correctly aligned for all different kinds of requests', async () => {
       const body1 = generateRandomCity();
       // create a batch array
       const batch = [

@@ -7,7 +7,7 @@ import prepareSQL from './queryObject';
 
 import hooks = require('./hooks')
 import expand = require('./expand');
-import queryUtils = require('./queryUtils');
+import * as queryUtils from './queryUtils';
 
 import * as _ from 'lodash';
 import * as pMap from 'p-map';
@@ -39,9 +39,11 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
             throw new SriError({ status: 404, errors: [{ code: 'unknown.query.parameter', parameter: key }] }); // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
-          queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
+          // queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
+          queryUtils.filterHrefs(urlparameters.hrefs, query, mapping);
         } else if (key === 'modifiedSince') {
-          queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping);
+          // queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping);
+          queryUtils.modifiedSince(urlparameters.modifiedSince, query, mapping);
         }
       },
       { concurrency: 1 },
@@ -276,8 +278,8 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
   const keyOffset = queryParams.keyOffset || '';
   const { offset } = queryParams;
 
-  await phaseSyncer.phase();
-  await phaseSyncer.phase();
+  await phaseSyncer.phase(); // step 0
+  await phaseSyncer.phase(); // step 1
 
   await hooks.applyHooks('before read',
     mapping.beforeRead,

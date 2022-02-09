@@ -3,7 +3,7 @@ var assert = require('assert');
 import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
 
 export = module.exports = function (base) {
-  'use strict';
+
 
   const sriClientConfig = {
     baseUrl: base,

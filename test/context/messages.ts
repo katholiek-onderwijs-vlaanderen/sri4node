@@ -3,7 +3,7 @@ import utilsFactory from '../utils';
 const utils = utilsFactory(null);
 
 export = module.exports = function (sri4node, extra) {
-  'use strict';
+
 
   var $m = sri4node.mapUtils;
   var $s = sri4node.schemaUtils;

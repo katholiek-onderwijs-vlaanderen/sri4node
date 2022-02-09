@@ -3,7 +3,7 @@ import { debug, pgConnect } from '../js/common';
 const context = require('./context');
 
 export = module.exports = function () {
-  'use strict';
+
 
   describe('Information Schema', function () {
     it('should correctly show text columns', async function () {

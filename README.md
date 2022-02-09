@@ -322,7 +322,7 @@ A batch like the one below will be able to retrieve a newly created resource:
 
 ## Deferred constraints
 
-At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the the transaction before comitting the constraints are set back to IMMEDIATE (which result in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail  for that person).
+At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the transaction before comitting the constraints are set back to IMMEDIATE (which result in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail  for that person).
 
 **But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgress documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
 > Currently, only UNIQUE, PRIMARY KEY, REFERENCES (foreign key), and EXCLUDE constraints are affected by this setting. NOT NULL and CHECK constraints are always checked immediately when a row is inserted or modified (not at the end of the statement). Uniqueness and exclusion constraints that have not been declared DEFERRABLE are also checked immediately.
@@ -351,7 +351,7 @@ To be able to keep track of requests in the server logging and at the client, sr
 
 ## Internal requests
 
-Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). (global as any).sri4node_internal_interface has following fields:
+Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). (global as any).sri4node_internal_interface has following fields:
 
 * href: mandatory field
 * verb: mandatory field
@@ -726,7 +726,7 @@ Database columns are mapped 1:1 to keys in the output JSON object.
 The `columnToField` function receives these arguments :
 
 - `key` is the key the function was registered on.
-- `element` is the the result of the query that was executed.
+- `element` is the result of the query that was executed.
 
 Functions are executed in order of listing in the `map` section of the configuration.
 No return value is expected, this function manipulates the element in-place.

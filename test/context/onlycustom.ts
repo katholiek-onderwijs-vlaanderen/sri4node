@@ -1,5 +1,5 @@
 export = module.exports = function (sri4node, extra) {
-  'use strict';
+
 
   var ret = {
     type: '/onlyCustom',

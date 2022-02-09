@@ -11,6 +11,7 @@ import {
   IDatabase, IInitOptions, ValidSchema,
 } from 'pg-promise';
 import { IConnectionParameters } from 'pg-promise/typescript/pg-subset';
+import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
 export type PluginConfig = {}
@@ -71,8 +72,8 @@ export class SriError {
 
 export type TSriBatchElement = {
   href: string,
-  verb: string,
-  body: Record<string, unknown>,
+  verb: THttpMethod,
+  body: TSriRequestBody,
   match?: any, // should it be here???
 }
 
@@ -83,6 +84,21 @@ export type TSriRequestBody =
   TSriBatchArray
   |
   Array<Operation> // json patch
+
+export type TPreparedSql = {
+  name?:string,
+  text:string,
+  params: Array<string | number | boolean>,
+  param: (x:string | number | boolean, noQuotes?:boolean) => TPreparedSql,
+  sql: (x:string) => TPreparedSql,
+  keys: (o:Record<string,unknown>) => TPreparedSql,
+  values: (o:Record<string,string | number | boolean>) => TPreparedSql,
+  array: (x:Array<string | number | boolean>) => TPreparedSql,
+  with: (nonrecursivequery:TPreparedSql, unionclause:string, recursivequery:TPreparedSql,
+      virtualtablename:string) => TPreparedSql,
+  appendQueryObject(queryObject2:TPreparedSql):TPreparedSql,
+  toParameterizedSql: () => { sql: string, values: Array<any> },
+}
 
 // TODO make more strict
 export type TSriRequest = {
@@ -127,6 +143,8 @@ export type TSriRequest = {
   generateError?: boolean,
 
   busBoy?: unknown,
+
+  ended?: boolean,
 };
 
 export type TInternalSriRequest = {
@@ -135,7 +153,7 @@ export type TInternalSriRequest = {
   dbT: unknown, // transaction or task object of pg promise
   parentSriRequest: TSriRequest,
   headers?: { [key:string] : string } | IncomingHttpHeaders,
-  body?: Array<{ href: string, verb: string, body: Record<string, unknown> }>,
+  body?: Array<{ href: string, verb: THttpMethod, body: TSriRequestBody }>,
 
   // In case of a streaming request, following fields are also required:
   inStream?: any,
@@ -150,6 +168,9 @@ export type TResourceMetaType = Uppercase<string>;
 export type TResourceDefinition = {
   type: TUriPath,
   metaType: TResourceMetaType,
+
+  /** the database table to store the records, optional, inferred from typeif missing */
+  table?: string,
 
   // these next lines are put onto the same object afterwards, not by the user
   singleResourceRegex?: RegExp,
@@ -244,7 +265,7 @@ export type TResourceDefinition = {
   afterRead?: ((p:unknown) => unknown)[],
   // current query
   query?: {
-    defaultFilter?: (arg0:unknown) => void
+    defaultFilter?: (valueEnc: string, query: TPreparedSql, parameter: any, mapping: any, database: any) => void,
   },
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,
@@ -265,7 +286,7 @@ export type TResourceDefinition = {
   map?: {
     [k:string]: {
       columnToField: Array<(key:string, element:Record<string, unknown>) => void>,
-      [k:string]: unknown,
+      [k:string]: any,
     }
   },
   onlyCustom?: boolean,
@@ -296,9 +317,11 @@ export type TResourceDefinition = {
   >
 };
 
+export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
+  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:unknown) => unknown
+
 export type TSriRequestHandler = ((sriRequest:TSriRequest) => unknown)
-  | ((phaseSyncer:Record<string, any>, tx:IDatabase<unknown>,
-    sriRequest:TSriRequest, mapping:unknown) => unknown);
+  | TSriRequestHandlerForPhaseSyncer;
 
 export type TBatchHandlerRecord = {
   route: unknown,
@@ -340,7 +363,10 @@ export type TSriConfig = {
   dbR?: IDatabase<unknown>,
   dbW?: IDatabase<unknown>,
   informationSchema?: unknown,
-  id?: unknown,
+  /** a short string that will be added to every request id while logging
+   * (tis can help to differentiate between different api's while searching thourgh logs)
+   */
+  id?: string,
 
   // the real properties !!!
   plugins?: PluginConfig[]

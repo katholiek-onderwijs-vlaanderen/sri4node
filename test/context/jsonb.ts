@@ -4,7 +4,7 @@ const $m = sri4node.mapUtils;
 const $s = sri4node.schemaUtils;
 
 export = module.exports = function (extra) {
-  'use strict';
+
   var ret = {
     type: '/jsonb',
     metaType: 'SRI4NODE_JSONB',

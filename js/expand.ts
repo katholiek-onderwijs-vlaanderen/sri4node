@@ -52,7 +52,7 @@ async function executeSingleExpansion(
       debug('trace', `expand - rejecting expand value [${expand}]`);
       throw new SriError({ status: 404, errors: [{ code: 'expansion.failed', msg: `Cannot expand [${expand}] because it is not mapped.` }] });
     } else {
-      const keysToExpand = elements.reduce(
+      const keysToExpand:string[] = elements.reduce<string[]>(
         (acc, element) => {
           if (element[expand]) { // ignore if undefined or null
             const targetlink = element[expand].href;
@@ -63,7 +63,7 @@ async function executeSingleExpansion(
             }
           }
           return acc;
-        }, [],
+        }, [] as string[],
       );
 
       if (keysToExpand.length > 0) {
@@ -147,7 +147,7 @@ function parseExpand(expand) {
   return ret;
 }
 
-/*
+/**
  Execute expansion on an array of elements.
  Takes into account a comma-separated list of property paths.
  Currently only one level of items on the elements can be expanded.
@@ -164,26 +164,27 @@ function parseExpand(expand) {
  - person,community is OK
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
+async function executeExpansion(db, sriRequest, elements, mapping) {
+  const { expand } = sriRequest.query;
 
-export = module.exports = {
-  executeExpansion: async (db, sriRequest, elements, mapping) => {
-    const { expand } = sriRequest.query;
+  const { resources } = global.sri4node_configuration;
 
-    const { resources } = global.sri4node_configuration;
-
-    debug('trace', 'expand - executeExpansion()');
-    if (expand) {
-      const paths = parseExpand(expand);
-      if (paths && paths.length > 0) {
-        const expandedElements = elements.map((element) => element.$$expanded || element);
-        const results = await pMap(
-          paths,
-          (path:string) => (
-            executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path)
-          ),
-        );
-        debug('trace', 'expand - expansion done');
-      }
+  debug('trace', 'expand - executeExpansion()');
+  if (expand) {
+    const paths = parseExpand(expand);
+    if (paths && paths.length > 0) {
+      const expandedElements = elements.map((element) => element.$$expanded || element);
+      const results = await pMap(
+        paths,
+        (path:string) => (
+          executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path)
+        ),
+      );
+      debug('trace', 'expand - expansion done');
     }
-  },
+  }
+}
+
+export {
+  executeExpansion,
 };

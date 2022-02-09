@@ -1,9 +1,12 @@
+import { TDebugChannel } from '../js/typeDefinitions';
+
 const sri4node = require('..');
 const context = require('./context');
 
 const port = 5000;
 const logdebug = false;
 // const logdebug = { channels: 'all' };
+// const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer'] };
 
 const base = `http://localhost:${port}`;
 

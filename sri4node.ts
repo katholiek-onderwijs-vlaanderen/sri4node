@@ -43,10 +43,11 @@ import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
   TBatchHandlerRecord, THttpMethod,
 } from './js/typeDefinitions';
+import * as queryUtils from './js/queryUtils';
 
-import $q = require('./js/queryUtils');
-import phaseSyncedSettle = require('./js/phaseSyncedSettle');
-import hooks = require('./js/hooks');
+import { phaseSyncedSettle } from './js/phaseSyncedSettle';
+import { applyHooks } from './js/hooks';
+
 // const listResource = require('./js/listResource')
 import listResource = require('./js/listResource');
 import regularResource = require('./js/regularResource');
@@ -58,7 +59,9 @@ const JsonStreamStringify = require('json-stream-stringify'); // not working wit
 const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
 addFormats(ajv);
 
-// Force https in production.
+/**
+ * Force https in production
+ */
 function forceSecureSockets(req, res:Response, next) {
   const isHttps = req.headers['x-forwarded-proto'] === 'https';
   if (!isHttps && req.get('Host').indexOf('localhost') < 0 && req.get('Host').indexOf('127.0.0.1') < 0) {
@@ -68,7 +71,9 @@ function forceSecureSockets(req, res:Response, next) {
   }
 }
 
-/* Handle GET /{type}/schema */
+/**
+ * Handle GET /{type}/schema
+ */
 function getSchema(req, resp) {
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   const mapping = typeToMapping(type);
@@ -77,14 +82,16 @@ function getSchema(req, resp) {
   resp.send(mapping.schema);
 }
 
-/* Handle GET /docs and /{type}/docs */
+/**
+ * Handle GET /docs and /{type}/docs
+ */
 function getDocs(req, resp) {
   const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   if (type in typeToMappingMap) {
     const mapping = typeToMappingMap[type];
     resp.locals.path = req._parsedUrl.pathname;
-    resp.render('resource', { resource: mapping, queryUtils: module.exports.queryUtils });
+    resp.render('resource', { resource: mapping, queryUtils });
   } else if (req.route.path === '/docs') {
     resp.render('index', { config: global.sri4node_configuration });
   } else {
@@ -140,24 +147,26 @@ const middlewareErrorWrapper = (fun) => async (req, resp) => {
 process.on('unhandledRejection', (err) => { console.log(err); throw err; });
 
 const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, mapping) => {
-  const t = sriRequest.dbT;
+  const { dbT } = sriRequest;
   let result;
   if (sriRequest.isBatchRequest) {
     result = await (func as ((r:TSriRequest) => unknown))(sriRequest);
   } else {
-    const jobs = [[func, [t, sriRequest, mapping]]];
+    const jobs = [[func, [dbT, sriRequest, mapping]]];
 
     [result] = settleResultsToSriResults(
-      await phaseSyncedSettle(jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase }),
+      await phaseSyncedSettle(
+        jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase },
+      ),
     );
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
       throw result;
     }
 
     if (sriRequest.streamStarted === undefined || !sriRequest.streamStarted()) {
-      await hooks.applyHooks('transform response',
+      await applyHooks('transform response',
         mapping.transformResponse,
-        (f) => f(t, sriRequest, result),
+        (f) => f(dbT, sriRequest, result),
         sriRequest);
     }
   }
@@ -234,6 +243,8 @@ const expressWrapper = (
     const reqId = httpContext.get('reqId');
     if (reqId !== undefined) {
       resp.set('vsko-req-id', reqId);
+    } else {
+      console.log('no reqId ???');
     }
 
     const sriRequest = generateSriRequest(req, resp, {
@@ -254,10 +265,12 @@ const expressWrapper = (
       sriRequest.reqCancelled = true;
     });
 
-    await hooks.applyHooks('transform request',
+    await applyHooks(
+      'transform request',
       sriConfig.transformRequest,
       (f) => f(req, sriRequest, t),
-      sriRequest);
+      sriRequest,
+    );
 
     setServerTimingHdr(sriRequest, 'batch-routing', batchRoutingDuration);
 
@@ -333,7 +346,7 @@ const expressWrapper = (
         resp.send(result.body);
       }
 
-      await hooks.applyHooks('afterRequest',
+      await applyHooks('afterRequest',
         sriConfig.afterRequest,
         (f) => f(sriRequest),
         sriRequest);
@@ -409,7 +422,7 @@ const toArray = (resource, name) => {
 
 /* express.js application, configuration for roa4node */
 // export = // for typescript
-module.exports = {
+const exported = {
   configure: async function configure(app: Application, sriConfig: TSriConfig) {
     // make sure no x-powered-by header is being sent
     app.disable('x-powered-by');
@@ -452,7 +465,7 @@ module.exports = {
         if (!resourceDefinition.onlyCustom) {
           // In case query is not defied -> use defaultFilter
           if (resourceDefinition.query === undefined) {
-            resourceDefinition.query = { defaultFilter: $q.defaultFilter };
+            resourceDefinition.query = { defaultFilter: queryUtils.defaultFilter };
           }
           // In case of 'referencing' fields -> add expected filterReferencedType query
           // if not defined.
@@ -462,8 +475,8 @@ module.exports = {
                   && resourceDefinition.query
                   && resourceDefinition.query?.[key] === undefined
               ) {
-                resourceDefinition.query[key] = $q.filterReferencedType(
-                  resourceDefinition.map[key].references, key
+                resourceDefinition.query[key] = queryUtils.filterReferencedType(
+                  resourceDefinition.map[key].references, key,
                 );
               }
             });
@@ -669,7 +682,7 @@ module.exports = {
       app.use((req, res, next) => {
         httpContext.ns.bindEmitter(req);
         httpContext.ns.bindEmitter(res);
-        let reqId;
+        let reqId:string | string[];
         if (req.headers['x-request-id'] !== undefined) {
           // if present use the id provided by heroku
           reqId = req.headers['x-request-id'];
@@ -754,18 +767,8 @@ module.exports = {
       }
 
       /**
-       * map (2-dim array actually) with urls which can be called within a batch
-       * each record has the following format
-       * [
-       *  {string} path,
-       *  {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb,
-       *  {function} func,
-       *  {object} config,
-       *  {object} mapping,
-       *  {boolean} streaming,
-       *  {boolean} readOnly,
-       *  {boolean} isBatch,
-       * ]
+       * array of objects with url, verb, handler and some other options
+       * which can be called within a batch
        */
       const batchHandlerMap:Array<TBatchHandlerRecord> = sriConfig.resources
         .reduce(
@@ -1107,7 +1110,7 @@ module.exports = {
       /**
        * Sometimes one wants to do sri4node operations on its own API, but within the state
        * of the current transaction. Internal requests can be used for this purpose.
-       * You provide similar input as a http request in a javascript object with the the
+       * You provide similar input as a http request in a javascript object with the
        * database transaction to execute it on. The internal calls follow the same code path
        * as http requests (inclusive plugins like for example security checks or version tracking).
        *
@@ -1121,7 +1124,7 @@ module.exports = {
           undefined, undefined, undefined, match, undefined, undefined, internalReq,
         );
 
-        await hooks.applyHooks('transform internal sriRequest',
+        await applyHooks('transform internal sriRequest',
           match.handler.config.transformInternalRequest,
           (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
           sriRequest);
@@ -1153,7 +1156,7 @@ module.exports = {
     convertListResourceURLToSQL: listResource.getSQLFromListResource,
     addReferencingResources: utilLib.addReferencingResources,
   },
-  queryUtils: require('./js/queryUtils'),
+  queryUtils,
   mapUtils: require('./js/mapUtils'),
   schemaUtils: require('./js/schemaUtils'),
   // internalUtils: common,
@@ -1171,4 +1174,4 @@ module.exports = {
   transformObjectToRow,
 };
 
-export default module.exports;
+export = exported;

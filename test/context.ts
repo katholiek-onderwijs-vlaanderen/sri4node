@@ -20,7 +20,7 @@ var configCache: any = null;
 
 export = module.exports = {
   async serve (sri4node, port, logdebug) {
-    'use strict';
+
     const config = module.exports.config(sri4node, port, logdebug);
 
     // Need to pass in express.js and node-postgress as dependencies.
@@ -42,7 +42,7 @@ export = module.exports = {
   },
 
   getConfiguration () {
-    'use strict';
+
     if (configCache === null) {
       throw new Error('please first configure the context');
     }
@@ -51,7 +51,7 @@ export = module.exports = {
   },
 
   config (sri4node, port, logdebug) {
-    'use strict';
+
 
     if (configCache !== null) {
       console.log('config cached');

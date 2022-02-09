@@ -1,5 +1,10 @@
 # Release Notes
 
+## version 2.3 (02-2021)
+
+* configuration now solely happens through the config object, so nothing is assumed to be in an environment variable anymore (mainly the database connection details)
+  * there used to be a way to cal dbInit yourself, but right now
+
 ## sprint-248-1 (01-09-2021)
 
 * several bugfixes/improvements:

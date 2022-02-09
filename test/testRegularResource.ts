@@ -7,7 +7,7 @@ const makeAuthHeader = (user, pw) =>
   'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
 
 export = module.exports = function (base) {
-  'use strict';
+
 
   const sriClientConfig = {
     baseUrl: base,

@@ -4,7 +4,7 @@ import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from './utils';
 
 export = module.exports = function (base) {
-  'use strict';
+
 
   const sriClientConfig = {
     baseUrl: base

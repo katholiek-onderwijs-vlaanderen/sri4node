@@ -1,7 +1,7 @@
 import * as sleep from 'await-sleep';
 
 exports = module.exports = function (roa, extra) {
-  'use strict';
+
 
   var ret = {
     type: '/customStreaming',

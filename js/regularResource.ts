@@ -1,16 +1,15 @@
-import {
-  debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
-  errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
-  getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp,
-} from './common';
-import { SriError, TSriRequest } from './typeDefinitions';
-
 import * as _ from 'lodash';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import * as jsonPatch from 'fast-json-patch';
 import * as pMap from 'p-map';
 import { Operation } from 'fast-json-patch';
+import { SriError, TSriRequest } from './typeDefinitions';
+import {
+  debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
+  errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
+  getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp,
+} from './common';
 import prepareSQL from './queryObject';
 
 const expand = require('./expand');
@@ -108,7 +107,6 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
 }
 
 async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
-  // 'use strict';
   const { key } = sriRequest.params;
 
   await phaseSyncer.phase();
@@ -161,7 +159,6 @@ async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mappi
 }
 
 function getSchemaValidationErrors(json, schema) {
-  // 'use strict';
   const validate = ajv.compile(schema);
   const valid = validate(json);
   if (!valid) {
@@ -186,7 +183,6 @@ function getSchemaValidationErrors(json, schema) {
  * @param {*} previousQueriedByKey
  */
 async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
-  // 'use strict';
   const { key } = sriRequest.params;
   const patch = (sriRequest.body || []) as Operation[];
   // const patch:Operation[] = sriRequest.body?.map((b) => b.body as unknown as Operation) || [];
@@ -228,7 +224,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriReq
  */
 /* eslint-disable */
 async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey: any = undefined) {
-  // 'use strict';
+
   const key = sriRequest.params.key;
   const obj = sriRequest.body
   const table = tableFromMapping(mapping);
@@ -490,7 +486,6 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
 }
 
 async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
-  // 'use strict';
   await phaseSyncer.phase();
   debug('trace', '* sri4node PUT processing invoked.');
   try {
@@ -515,7 +510,6 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
 }
 
 async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
-  // 'use strict';
   await phaseSyncer.phase();
   debug('trace', '* sri4node PATCH processing invoked.');
   try {
@@ -540,7 +534,6 @@ async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 }
 
 async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
-  // 'use strict';
   try {
     await phaseSyncer.phase();
 

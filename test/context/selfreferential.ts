@@ -1,10 +1,10 @@
 const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../index');
 import * as common from '../../js/common';
-var debug = common.debug;
+const debug = common.debug;
 
 
 async function allParentsOf(value, select) {
-  'use strict';
+
   var key = value.split('/')[2];
   var nonrecursive = $u.prepareSQL();
   nonrecursive.sql('VALUES (').param(key).sql(')');
@@ -17,7 +17,7 @@ async function allParentsOf(value, select) {
 }
 
 export = module.exports = function (extra) {
-  'use strict';
+
   var ret = {
     type: '/selfreferential',
     metaType: 'SRI4NODE_SELFREFERENTIAL',

@@ -1,5 +1,5 @@
 const { error } = require('./common');
-
+import { TPreparedSql } from './typeDefinitions';
 /*
 A query object used to allow multiple functions to annotate a common piece for SQL
 independently from each other. For example : all 'query' functions in an sri4node
@@ -9,7 +9,7 @@ They can all add CTEs as well, without affecting one another.
 
 const parameterPattern = '$?$?';
 
-export default function prepareSQL(name?:string) {
+export default function prepareSQL(name?:string):TPreparedSql {
   return {
     name,
     text: '',
@@ -33,7 +33,6 @@ export default function prepareSQL(name?:string) {
       return this;
     },
     array(x:Array<string | number | boolean>) {
-      let i;
       // Convenience function for adding an array of values to a SQL statement.
       // The values are added comma-separated.
 
