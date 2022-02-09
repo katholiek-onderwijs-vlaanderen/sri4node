@@ -1,6 +1,6 @@
 import * as common from './common';
 
-export = module.exports = (config) => {
+function overloadProtectionFactory(config) {
   let usedPipelines = 0;
   let extraDrop = 0;
   return {
@@ -37,4 +37,8 @@ export = module.exports = (config) => {
       }
     },
   };
+}
+
+export {
+  overloadProtectionFactory,
 };

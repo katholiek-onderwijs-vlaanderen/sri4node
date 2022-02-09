@@ -54,6 +54,7 @@ import * as listResource from './js/listResource';
 import * as regularResource from './js/regularResource';
 import utilLib = require('./js/utilLib');
 import schemaUtils = require('./js/schemaUtils');
+import { overloadProtectionFactory } from './js/overloadProtection';
 
 const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
 
@@ -640,7 +641,7 @@ const exported = {
       }
 
       // set the overload protection as first middleware to drop requests as soon as possible
-      global.overloadProtection = require('./js/overloadProtection')(sriConfig.overloadProtection);
+      global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
       app.use(async (req, res, next) => {
         if (global.overloadProtection.canAccept()) {
           next();
