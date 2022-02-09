@@ -7,8 +7,7 @@ import {
 } from './common';
 import { SriError, TResourceDefinition, TSriRequest } from './typeDefinitions';
 import prepareSQL from './queryObject';
-
-const hooks = require('./hooks');
+import { applyHooks } from './hooks';
 
 async function executeSecureFunctionsOnExpandedElements(db, expandedElements, targetMapping, me) {
   if (targetMapping.secure && targetMapping.secure.length) {
@@ -91,7 +90,7 @@ async function executeSingleExpansion(
         );
 
         debug('trace', 'expand - executing afterRead functions on expanded resources');
-        await hooks.applyHooks(
+        await applyHooks(
           'after read',
           targetMapping.afterRead,
           (f) => f(

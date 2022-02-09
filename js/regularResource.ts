@@ -11,10 +11,10 @@ import {
   getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp,
 } from './common';
 import prepareSQL from './queryObject';
+import { applyHooks } from './hooks';
 
 const expand = require('./expand');
-const hooks = require('./hooks');
-const schemaUtils = require('./schemaUtils');
+import * as schemaUtils from './schemaUtils';
 
 const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
 addFormats(ajv);
@@ -112,8 +112,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mappi
   await phaseSyncer.phase();
   await phaseSyncer.phase();
 
-  await hooks.applyHooks('before read',
-    mapping.beforeRead,
+  await applyHooks('before read',
+    mapping.beforeRead || [],
     (f) => f(tx,
       sriRequest),
     sriRequest);
@@ -144,8 +144,8 @@ async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mappi
   await phaseSyncer.phase();
 
   debug('trace', '* executing afterRead functions on results');
-  await hooks.applyHooks('after read',
-    mapping.afterRead,
+  await applyHooks('after read',
+    mapping.afterRead || [],
     (f) => f(tx, sriRequest, [{
       permalink: element.$$meta.permalink,
       incoming: null,
@@ -293,8 +293,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
   if (result.code != 'found') {
     // insert new element
 
-    await hooks.applyHooks('before insert'
-      , mapping.beforeInsert
+    await applyHooks('before insert'
+      , mapping.beforeInsert || []
       , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null }])
       , sriRequest
     )
@@ -323,8 +323,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     // update existing element
     const prevObj = result.object
 
-    await hooks.applyHooks('before update'
-      , mapping.beforeUpdate
+    await applyHooks('before update'
+      , mapping.beforeUpdate || []
       , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: prevObj }])
       , sriRequest)
 
@@ -453,7 +453,7 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
 
     await phaseSyncer.phase();
 
-    await hooks.applyHooks('after insert',
+    await applyHooks('after insert',
       mapping.afterInsert,
       (f) => f(sriRequest.dbT, sriRequest, [{ permalink: state.permalink, incoming: state.obj, stored: null }]),
       sriRequest);
@@ -475,8 +475,8 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
 
   await phaseSyncer.phase();
 
-  await hooks.applyHooks('after update',
-    mapping.afterUpdate,
+  await applyHooks('after update',
+    mapping.afterUpdate || [],
     (f) => f(sriRequest.dbT, sriRequest, [{ permalink: state.permalink, incoming: state.obj, stored: state.prevObj }]),
     sriRequest);
 
@@ -555,8 +555,8 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
       sriRequest.containsDeleted = false;
 
       const prevObj = result.object;
-      await hooks.applyHooks('before delete',
-        mapping.beforeDelete,
+      await applyHooks('before delete',
+        mapping.beforeDelete || [],
         (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
         sriRequest);
 
@@ -595,8 +595,8 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
       await phaseSyncer.phase();
 
-      await hooks.applyHooks('after delete',
-        mapping.afterDelete,
+      await applyHooks('after delete',
+        mapping.afterDelete || [],
         (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
         sriRequest);
     }

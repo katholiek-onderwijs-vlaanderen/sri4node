@@ -4,7 +4,15 @@ import {
 } from './common';
 import { SriError, TSriRequest } from './typeDefinitions';
 
-async function applyHooks(type, functions, applyFun, sriRequest?:TSriRequest) {
+async function applyHooks(
+  type:string,
+  functions: Array<(...any) => any>,
+    // Array<(expressRequest:Request, sriReq:TSriRequest, dbT:unknown) => void>
+    // | (sriRequest:TSriRequest) => void,
+  // applyFun: (fun:(dbT:any, sriReq:TSriRequest, result:any) => any) => any,
+  applyFun: (fun:(...any) => any) => any,
+  sriRequest?:TSriRequest,
+) {
   if (functions && functions.length > 0) {
     try {
       debug('hooks', `applyHooks-${type}: going to apply ${functions.length} functions`);

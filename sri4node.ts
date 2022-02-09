@@ -267,8 +267,9 @@ const expressWrapper = (
 
     await applyHooks(
       'transform request',
-      sriConfig.transformRequest,
+      sriConfig.transformRequest || [],
       (f) => f(req, sriRequest, t),
+      // () => sriConfig.transformRequest(req, sriRequest, t),
       sriRequest,
     );
 
@@ -347,7 +348,7 @@ const expressWrapper = (
       }
 
       await applyHooks('afterRequest',
-        sriConfig.afterRequest,
+        sriConfig.afterRequest || [],
         (f) => f(sriRequest),
         sriRequest);
     }
@@ -454,8 +455,14 @@ const exported = {
       // initialize undefined global hooks with empty list
       (['beforePhase', 'transformRequest', 'transformInternalRequest'])
         .forEach((name) => toArray(sriConfig, name));
-      sriConfig.beforePhase?.push(regularResource.beforePhaseQueryByKey);
-      sriConfig.beforePhase?.push(regularResource.beforePhaseInsertUpdate);
+      sriConfig.beforePhase = [
+        ...(sriConfig.beforePhase || []),
+        regularResource.beforePhaseQueryByKey,
+      ];
+      sriConfig.beforePhase = [
+        ...(sriConfig.beforePhase || []),
+        regularResource.beforePhaseInsertUpdate,
+      ];
 
       if (sriConfig.bodyParserLimit === undefined) {
         sriConfig.bodyParserLimit = '5mb';
@@ -1125,7 +1132,7 @@ const exported = {
         );
 
         await applyHooks('transform internal sriRequest',
-          match.handler.config.transformInternalRequest,
+          match.handler.config.transformInternalRequest || [],
           (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
           sriRequest);
 

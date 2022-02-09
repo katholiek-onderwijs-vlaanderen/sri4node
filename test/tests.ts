@@ -6,7 +6,7 @@ const context = require('./context');
 const port = 5000;
 const logdebug = false;
 // const logdebug = { channels: 'all' };
-// const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer'] };
+// const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
 const base = `http://localhost:${port}`;
 

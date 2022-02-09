@@ -14,7 +14,8 @@ import * as pEvent from 'p-event';
 import * as httpContext from 'express-http-context';
 
 import { applyHooks } from './hooks';
-import { phaseSyncedSettle } from './phaseSyncedSettle';
+import { phaseSyncedSettle, PhaseSyncer } from './phaseSyncedSettle';
+import { IDatabase } from 'pg-promise';
 
 const maxSubListLen = (a) =>
   // this code works as long as a batch array contain either all objects or all (sub)arrays
@@ -125,9 +126,11 @@ function matchBatch(req) {
 
 async function batchOperation(sriRequest:TSriRequest) {
   const reqBody:Array<TSriBatchElement> = sriRequest.body as Array<TSriBatchElement> || [];
-  const batchConcurrency = global.overloadProtection.startPipeline(
-    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency),
+  const batchConcurrency = Math.min(
+    maxSubListLen(reqBody),
+    global.sri4node_configuration.batchConcurrency,
   );
+  global.overloadProtection.startPipeline(batchConcurrency);
   try {
     const contextInsideBatch = {};
     let batchFailed = false;
@@ -181,15 +184,17 @@ async function batchOperation(sriRequest:TSriRequest) {
 
           await pEachSeries(results,
             async (res:any, idx) => {
-              const [_phaseSyncer, _tx, innerSriRequest, mapping] = batchJobs[idx][1];
+              const [/*_phaseSyncer,*/ _tx, innerSriRequest, mapping]:[
+                /*PhaseSyncer,*/ IDatabase<unknown>, TInternalSriRequest, TResourceDefinition
+              ] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await applyHooks('transform response',
-                  mapping.transformResponse,
+                  mapping.transformResponse || [],
                   (f) => f(tx, innerSriRequest, res));
               }
             });
           return results.map((res, idx) => {
-            const [_phaseSyncer, _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+            const [/*_phaseSyncer,*/ _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
             res.href = innerSriRequest.originalUrl;
             res.verb = innerSriRequest.httpMethod;
             delete res.sriRequestID;

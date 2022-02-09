@@ -4,6 +4,7 @@
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
 import { BusboyConfig } from 'busboy';
+import { Request } from 'express';
 import { Operation } from 'fast-json-patch';
 import { IncomingHttpHeaders } from 'http2';
 import { JSONSchema4 } from 'json-schema';
@@ -263,6 +264,10 @@ export type TResourceDefinition = {
   beforeInsert?: ((p:unknown) => unknown)[],
   beforeRead?: ((p:unknown) => unknown)[],
   afterRead?: ((p:unknown) => unknown)[],
+  transformResponse?: Array<
+    (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void
+  >
+
   // current query
   query?: {
     defaultFilter?: (valueEnc: string, query: TPreparedSql, parameter: any, mapping: any, database: any) => void,
@@ -356,6 +361,12 @@ export interface IExtendedDatabaseInitOptions extends IInitOptions {
   pgMonitor?: boolean,
 }
 
+export type TSriResult = {
+  status: number,
+  body: any,
+  headers?: Record<string, string>,
+}
+
 export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: unknown,
@@ -388,13 +399,19 @@ export type TSriConfig = {
   resources: TResourceDefinition[],
   beforePhase?:
     Array<
-      (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>) => unknown
+      (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
+        => unknown
     >,
 
-  transformRequest?: unknown,
-  afterRequest?: unknown,
+  transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:IDatabase<unknown>)
+    => void>,
 
-  transformInternalRequest?: Array<(dbT:unknown, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest) => void>,
+  afterRequest?: Array<(sriRequest:TSriRequest) => void>,
+
+  transformInternalRequest?: Array<
+    (dbT:IDatabase<unknown>, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest)
+      => void
+  >,
 
   /**
    * @deprecated

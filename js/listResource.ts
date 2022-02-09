@@ -5,8 +5,8 @@ import {
 import { TResourceDefinition, SriError, TSriRequest } from './typeDefinitions';
 import prepareSQL from './queryObject';
 
-import hooks = require('./hooks')
-import expand = require('./expand');
+import { applyHooks } from './hooks';
+import { executeExpansion } from './expand';
 import * as queryUtils from './queryUtils';
 
 import * as _ from 'lodash';
@@ -281,8 +281,8 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
   await phaseSyncer.phase(); // step 0
   await phaseSyncer.phase(); // step 1
 
-  await hooks.applyHooks('before read',
-    mapping.beforeRead,
+  await applyHooks('before read',
+    mapping.beforeRead || [],
     (f) => f(tx,
       sriRequest),
     sriRequest);
@@ -330,8 +330,8 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
 
   debug('trace', 'listResource - executing afterRead functions on results');
 
-  await hooks.applyHooks('after read',
-    mapping.afterRead,
+  await applyHooks('after read',
+    mapping.afterRead || [],
     (f) => f(tx,
       sriRequest,
       output.results.map((e) => {
@@ -353,7 +353,7 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
   await phaseSyncer.phase();
 
   debug('trace', `listResource - executing expansion : ${queryParams.expand}`);
-  await expand.executeExpansion(tx, sriRequest, output.results, mapping);
+  await executeExpansion(tx, sriRequest, output.results, mapping);
 
   return { status: 200, body: output };
 }

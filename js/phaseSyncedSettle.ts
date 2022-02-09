@@ -7,12 +7,12 @@ import * as queue from 'emitter-queue';
 import * as Emitter from 'events';
 import * as _ from 'lodash';
 import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition } from './typeDefinitions';
-import { debug, getParentSriRequestFromRequestMap } from './common';
+import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';
+import { applyHooks } from './hooks';
 
 const { v4: uuidv4 } = require('uuid');
 
-const hooks = require('./hooks');
 
 const debug_log = (id, msg) => {
   debug('phaseSyncer', `PS -${id}- ${msg}`);
@@ -92,7 +92,7 @@ const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
  */
 async function phaseSyncedSettle(
   jobList,
-  { concurrency = 1, beforePhaseHooks = [] }:
+  { concurrency, beforePhaseHooks }:
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},
 ) {
@@ -114,17 +114,27 @@ async function phaseSyncedSettle(
   try {
     const startNewPhase = async () => {
       const pendingJobList = [...pendingJobs.values()];
-      const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency);
+      const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency || 1);
 
       if (jobsToWake.length > 0) {
-        // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer will be terminated
-        await hooks.applyHooks('ps',
-          beforePhaseHooks,
+        // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer 
+        // will be terminated
+        await applyHooks('ps',
+          beforePhaseHooks || [],
           (f) => f(sriRequestMap, jobMap, pendingJobs),
           getParentSriRequestFromRequestMap(sriRequestMap));
       }
 
-      jobsToWake.forEach((id) => jobMap.get(id)?.jobEmitter.queue('ready'));
+      jobsToWake.forEach((id) => {
+        const job = jobMap.get(id);
+        if (job) {
+          // debug('phaseSyncer', 'emitting "ready"');
+          job.jobEmitter.queue('ready');
+        } else {
+          error("PhaseSyncer: job not found in jobMap");
+          throw new Error("PhaseSyncer: job not found in jobMap");
+        }
+      });
       queuedJobs = new Set(jobsToQueue);
       phasePendingJobs = new Set(pendingJobs);
     };
@@ -132,7 +142,14 @@ async function phaseSyncedSettle(
     const startQueuedJob = () => {
       if (queuedJobs.size > 0) {
         const id = queuedJobs.values().next().value;
-        jobMap.get(id)?.jobEmitter.queue('ready');
+        const job = jobMap.get(id);
+        if (job) {
+          // debug('phaseSyncer', 'emitting "ready"');
+          job.jobEmitter.queue('ready');
+        } else {
+          error("PhaseSyncer: job not found in jobMap");
+          throw new Error("PhaseSyncer: job not found in jobMap");
+        }
         queuedJobs.delete(id);
       }
     };
