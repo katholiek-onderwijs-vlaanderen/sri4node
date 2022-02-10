@@ -1,7 +1,7 @@
 import { TDebugChannel } from '../js/typeDefinitions';
 
-const sri4node = require('..');
-const context = require('./context');
+import * as sri4node from '..';
+import * as context from './context';
 
 const port = 5000;
 const logdebug = false;

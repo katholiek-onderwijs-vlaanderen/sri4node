@@ -11,7 +11,7 @@ if (c9hostname) {
   console.log(`https://${c9hostname}`);
 }
 
-const context = require('../test/context');
+import * as context from '../test/context';
 
 context.serve(sri4node, port, true, false, false, true);
 
