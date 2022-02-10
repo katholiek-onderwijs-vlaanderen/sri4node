@@ -1,9 +1,4 @@
 import { Stream } from 'stream';
-import {
-  debug, startTransaction, settleResultsToSriResults, generateSriRequest,
-} from './common';
-import { THttpMethod, SriError, TInternalSriRequest, TSriConfig, TBatchHandlerRecord, TSriRequestHandler, TResourceDefinition, TSriRequest, TSriRequestBody, TSriBatchElement, TSriBatchArray } from './typeDefinitions';
-
 import * as _ from 'lodash';
 import * as pMap from 'p-map';
 import * as pEachSeries from 'p-each-series';
@@ -12,10 +7,17 @@ import * as JSONStream from 'JSONStream';
 import * as EventEmitter from 'events';
 import * as pEvent from 'p-event';
 import * as httpContext from 'express-http-context';
+import { IDatabase } from 'pg-promise';
 
 import { applyHooks } from './hooks';
 import { phaseSyncedSettle, PhaseSyncer } from './phaseSyncedSettle';
-import { IDatabase } from 'pg-promise';
+import {
+  debug, startTransaction, settleResultsToSriResults, generateSriRequest,
+} from './common';
+import {
+  THttpMethod, SriError, TBatchHandlerRecord, TResourceDefinition, TSriRequest,
+  TSriBatchElement, TSriBatchArray,
+} from './typeDefinitions';
 
 const maxSubListLen = (a) =>
   // this code works as long as a batch array contain either all objects or all (sub)arrays

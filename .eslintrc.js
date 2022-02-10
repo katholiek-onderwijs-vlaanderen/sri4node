@@ -31,6 +31,6 @@ module.exports = {
         },
       },
     ],
-    // 'import/group-exports': 'on',
+    'import/group-exports': 'error',
   },
 };

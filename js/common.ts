@@ -12,6 +12,15 @@ import { Readable } from 'stream';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
 import * as _ from 'lodash';
+
+import * as flatUrlParser from './url_parsing/flat_url_parser';
+import * as schemaUtils from './schemaUtils';
+import {
+  TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
+  TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction,
+  TErrorLogFunction, SriError, TLogDebug,
+} from './typeDefinitions';
+import { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } from './url_parsing/non_flat_url_parser';
 import url = require('url');
 import EventEmitter = require('events');
 import pEvent = require('p-event');
@@ -20,15 +29,6 @@ import stream = require('stream');
 import peggy = require('peggy');
 import httpContext = require('express-http-context');
 import emt = require('express-middleware-timer');
-
-import {
-  TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
-  TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction,
-  TErrorLogFunction, SriError, TLogDebug,
-} from './typeDefinitions';
-import { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } from './url_parsing/non_flat_url_parser';
-import * as flatUrlParser from './url_parsing/flat_url_parser';
-import * as schemaUtils from './schemaUtils';
 
 let pgp:pgPromise.IMain; // will be initialized at pgConnect
 

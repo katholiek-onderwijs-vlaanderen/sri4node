@@ -20,7 +20,7 @@
  * @param {TSriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
-export function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
+function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
     .filter(([k, v]) => k.endsWith('[*]'))
     .map(([k, v]) => encodeURIComponent(k))
@@ -269,6 +269,6 @@ export function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   return grammar;
 }
 
-// module.exports = {
-//  generateFlatQueryStringParserGrammar
-// }
+export {
+  generateFlatQueryStringParserGrammar,
+};

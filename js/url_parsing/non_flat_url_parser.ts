@@ -341,7 +341,7 @@ function generateExpectedType(
  * @param {TSriConfig} sriConfig
  * @returns {String} the peggy grammar
  */
-export function generateNonFlatQueryStringParserGrammar(
+function generateNonFlatQueryStringParserGrammar(
   flattenedJsonSchema:FlattenedJsonSchema,
   sriConfigDefaults?:TSriConfig,
   sriConfigResourceDefinition?:TResourceDefinition,
@@ -695,11 +695,11 @@ export function generateNonFlatQueryStringParserGrammar(
   return grammar;
 }
 
-export interface SriParser extends peggy.Parser {
+interface SriParser extends peggy.Parser {
   origParse: typeof peggy.parser.parse,
 }
 
-export function generateNonFlatQueryStringParser(
+function generateNonFlatQueryStringParser(
   sriConfigDefaults?:TSriConfig,
   sriConfigResourceDefinition?:TResourceDefinition,
   allowedStartRules:string[] | undefined = undefined,
@@ -753,3 +753,9 @@ export function generateNonFlatQueryStringParser(
     ),
   };
 }
+
+export {
+  SriParser,
+  generateNonFlatQueryStringParserGrammar,
+  generateNonFlatQueryStringParser,
+};

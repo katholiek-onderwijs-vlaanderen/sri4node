@@ -33,7 +33,7 @@ import { FlattenedJsonSchema } from './typeDefinitions';
  * @returns a version of the json schema where every property name if on the top-level
  *          but with dot notation
  */
-export function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
+function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
 :FlattenedJsonSchema {
   if (jsonSchema.type === 'object') {
     // old skool modification of an object is a bit easier to reason about in this case
@@ -65,7 +65,7 @@ export function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[]
   return { [flattenedName]: jsonSchema };
 }
 
-export function permalink(type, description) {
+function permalink(type, description) {
   const name = type.substring(1);
 
   return {
@@ -81,7 +81,7 @@ export function permalink(type, description) {
   };
 }
 
-export function string(description, min?:number, max?:number) {
+function string(description, min?:number, max?:number) {
   const ret:any = {
     type: 'string',
     description,
@@ -96,7 +96,7 @@ export function string(description, min?:number, max?:number) {
   return ret;
 }
 
-export function numeric(description, min?:number, max?:number) {
+function numeric(description, min?:number, max?:number) {
   const ret:any = {
     type: 'number',
     description,
@@ -111,7 +111,7 @@ export function numeric(description, min?:number, max?:number) {
   return ret;
 }
 
-export function email(description) {
+function email(description) {
   return {
     type: 'string',
     format: 'email',
@@ -121,7 +121,7 @@ export function email(description) {
   };
 }
 
-export function url(description) {
+function url(description) {
   return {
     type: 'string',
     minLength: 1,
@@ -131,7 +131,7 @@ export function url(description) {
   };
 }
 
-export function belgianzipcode(description) {
+function belgianzipcode(description) {
   return {
     type: 'string',
     pattern: '^[0-9][0-9][0-9][0-9]$',
@@ -139,7 +139,7 @@ export function belgianzipcode(description) {
   };
 }
 
-export function phone(description) {
+function phone(description) {
   return {
     type: 'string',
     pattern: '^[0-9]*$',
@@ -149,7 +149,7 @@ export function phone(description) {
   };
 }
 
-export function guid(description) {
+function guid(description) {
   return {
     type: 'string',
     description,
@@ -158,7 +158,7 @@ export function guid(description) {
   };
 }
 
-export function timestamp(description) {
+function timestamp(description) {
   return {
     type: 'string',
     format: 'date-time',
@@ -166,14 +166,14 @@ export function timestamp(description) {
   };
 }
 
-export function boolean(description) {
+function boolean(description) {
   return {
     type: 'boolean',
     description,
   };
 }
 
-export function array(description) {
+function array(description) {
   const ret = {
     type: 'array',
     description,
@@ -181,7 +181,7 @@ export function array(description) {
   return ret;
 };
 
-export function patchSchemaToDisallowAdditionalProperties(schema) {
+function patchSchemaToDisallowAdditionalProperties(schema) {
   const patchedSchema = { ...schema };
   if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
     patchedSchema.additionalProperties = false;
@@ -198,4 +198,20 @@ export function patchSchemaToDisallowAdditionalProperties(schema) {
     );
   }
   return patchedSchema;
+}
+
+export {
+  flattenJsonSchema,
+  permalink,
+  string,
+  numeric,
+  email,
+  url,
+  belgianzipcode,
+  phone,
+  guid,
+  timestamp,
+  boolean,
+  array,
+  patchSchemaToDisallowAdditionalProperties,
 }
