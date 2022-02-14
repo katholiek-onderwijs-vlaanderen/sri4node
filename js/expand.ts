@@ -42,7 +42,7 @@ const checkRecurse = (expandpath) => {
  */
 async function executeSingleExpansion(
   db, sriRequest:TSriRequest, elements:Array<Record<string, any>>,
-  mapping:TResourceDefinition, resources:Array<Record<string, any>>, expandpath:string,
+  mapping:TResourceDefinition, resources:Array<TResourceDefinition>, expandpath:string,
 ) {
   // console.log(expandpath)
   if (elements && elements.length > 0) {

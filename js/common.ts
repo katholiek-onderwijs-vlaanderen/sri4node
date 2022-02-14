@@ -557,6 +557,17 @@ function isUuid(uuid:string):boolean {
   return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
 }
 
+/**
+ * @deprecated
+ *
+ * It is being used nowhere (maybe in some plugin?)
+ *
+ * Translates an href into an object containing base, id, query, comment
+ * example: /things/<guid>?expand=subthings#somehash will become
+ * { base: '/things', id: '<guid>', query: 'expand=subthing', comment: 'somehash' }
+ * @param u: an href
+ * @returns the parsed url
+ */
 function parseResource(u:string) {
   if (!u) {
     return null;
@@ -608,14 +619,18 @@ function errorAsCode(s:string) {
 /**
  * Converts the configuration object for sri4node into an array per resource type
  */
-function typeToConfig(config:any[]) {
+function typeToConfig(config:TResourceDefinition[]) {
   return config.reduce((acc, c) => {
     acc[c.type] = c;
     return acc;
   }, {});
 }
 
-function typeToMapping(type:string) {
+/**
+ * @param type the string used as 'type' in the sriConfig resources
+ * @returns the resource definition record from the active sriConfig
+ */
+function typeToMapping(type:string):TResourceDefinition {
   return typeToConfig(global.sri4node_configuration.resources)[type];
 }
 
@@ -1087,6 +1102,12 @@ async function getCountResult(tx, countquery, sriRequest) {
   return parseInt(count, 10);
 }
 
+/**
+ * Given a single resource definition from sriConfig.resources
+ * returns the corresponding database table.
+ * @param mapping
+ * @returns the correponding database table name
+ */
 function tableFromMapping(mapping:TResourceDefinition) {
   return mapping.table || _.last(mapping.type.split('/'));
 }
@@ -1142,11 +1163,6 @@ function createReadableStream(objectMode = true) {
   const s = new Readable({ objectMode });
   s._read = function () {};
   return s;
-}
-
-function getPersonFromSriRequest(sriRequest) {
-  // A userObject of null happens when the user is (not yet) logged in
-  return sriRequest.userObject ? `/persons/${sriRequest.userObject.uuid}` : 'NONE';
 }
 
 function getParentSriRequestFromRequestMap(sriRequestMap) {
@@ -1415,7 +1431,6 @@ export {
   stringifyError,
   settleResultsToSriResults,
   createReadableStream,
-  getPersonFromSriRequest,
   getParentSriRequestFromRequestMap,
   getPgp,
   generateSriRequest,

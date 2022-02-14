@@ -189,7 +189,7 @@ async function batchOperation(sriRequest:TSriRequest) {
 
           await pEachSeries(results,
             async (res:any, idx) => {
-              const [/* _phaseSyncer, */ _tx, innerSriRequest, mapping]:[
+              const [_tx, innerSriRequest, mapping]:[
                 /* PhaseSyncer, */ IDatabase<unknown>, TSriRequest, TResourceDefinition
               ] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
@@ -199,7 +199,7 @@ async function batchOperation(sriRequest:TSriRequest) {
               }
             });
           return results.map((res, idx) => {
-            const [/*_phaseSyncer,*/ _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+            const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
             res.href = innerSriRequest.originalUrl;
             res.verb = innerSriRequest.httpMethod;
             delete res.sriRequestID;
@@ -274,9 +274,9 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
               params: match?.routeParams,
               httpMethod: batchElement.verb,
               body: batchElement.body,
-                // element.body === undefined || _.isObject(element.body)
-                //   ? element.body
-                //   : JSON.parse(element.body),
+              // element.body === undefined || _.isObject(element.body)
+              //   ? element.body
+              //   : JSON.parse(element.body),
               sriType: match?.handler.mapping.type,
               isBatchPart: true,
               // context,
@@ -307,7 +307,7 @@ async function batchOperationStreaming(sriRequest:TSriRequest) {
               }
             });
           return results.map((res, idx) => {
-            const [/* _phaseSyncer, */ _tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+            const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
             res.href = innerSriRequest.originalUrl;
             res.verb = innerSriRequest.httpMethod;
             delete res.sriRequestID;
