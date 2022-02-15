@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "ES6",
+      // "DOM"
+    ],
+    "target": "ES6",
+    // "noImplicitAny": true,
+    "strictNullChecks": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "module": "commonjs",
+    "sourceMap": true,
+    "declaration": true,
+    // "isolatedModules": true,
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "test"
+  ]
+}

@@ -108,6 +108,9 @@ INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-7412
 INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-3699-4996-ae5b-ec33c903ee4d', 'da6dcc12-c46f-4626-a965-1a00536131b2', '9abe4102-6a29-4978-991e-2a30655030e6', 'DAUGHTER');
 INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-8526-4996-ae5b-ec33c903ee4d', '692fa054-33ec-4a28-87eb-53df64e3d09d', '9abe4102-6a29-4978-991e-2a30655030e6', 'NICE');
 
+INSERT INTO "foos" (key, "bar") VALUES ('cd6a4678-7dcf-11ec-b41e-0faad76b288d', 7);
+INSERT INTO "foos" (key, "bar") VALUES ('7c85b45a-7ddd-11ec-8a3d-4742839ee2fd', 8);
+
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (41002, 'Aalst', 41002);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (44001, 'Aalter', 44001);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (24001, 'Aarschot', 24001);

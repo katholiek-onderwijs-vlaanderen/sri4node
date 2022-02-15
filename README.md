@@ -46,6 +46,156 @@ logdebug: {
 ```
 On a running sri4node instance the logdebug configuration can be altered with a POST call to `/setlogdebug` with the new logdebug configuration object as body.
 
+# Usage
+
+## Getting started
+
+Start by requiring the module in your code.
+Then we'll create some convenient aliasses for the utility functions bundled with sri4node as well.
+
+    const express = require('express');
+    const app = express();
+    const sri4node = require('sri4node');
+    const $u = sri4node.utils;
+    const $m = sri4node.mapUtils;
+    const $s = sri4node.schemaUtils;
+    const $q = sri4node.queryUtils;
+
+Finally we configure handlers for 1 example resource.
+This example shows a resource for storing content as `html` with meta-data like `authors`, `themes` and `editor`.
+The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
+
+    const sriConfig = {
+            // Log and time HTTP requests ?
+            logrequests : true,
+            // Log SQL ?
+            logsql: false,
+            // Log debugging information ?
+            logdebug: false,
+            // Log middleware timing ?
+            logmiddleware: true,
+            // The URL of the postgres database
+            defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
+            forceSecureSockets: true,
+            description: 'A description about the collection of resources',
+            resources : [
+                {
+                    // Base url, maps 1:1 with a table in postgres
+                    // Can be defined as /x or /x/y/..
+                    // Table name will be the last part of the path
+                    type: '/content',
+                    // Is this resource public ?
+                    // Can it be read / updated / inserted publicly ?
+                    public: false,
+                    // Multiple function that check access control
+                    // They receive a database object and the security context
+                    // as determined by the 'identify' function above.
+
+                    // Standard JSON Schema definition.
+                    // It uses utility functions, for compactness.
+                    schema: {
+                        $schema: "http://json-schema.org/schema#",
+                        title: "An article on the websites/mailinglists.",
+                        type: "object",
+                        properties : {
+                            authors: $s.string("Comma-separated list of authors."),
+                            themes: $s.string("Comma-separated list of themes."),
+                            html: $s.string("HTML content of the article.")
+                        },
+                        required: ["authors","themes","html"]
+                    },
+
+                    // Supported URL parameters are configured
+                    // for list resources. $q is an alias for
+                    // sri4node.queryUtils.
+                    // This is a collection of predefined functions.
+                    // You can build your own (see below).
+                    // These functions can execute an arbitrary set
+                    // of preparatory queries on the database,
+                    // You can execute stored procedures and create
+                    // temporary tables to allow you to add things like :
+                    // ' AND key IN (SELECT key FROM mytemptable) '
+                    // to the query being executed.
+                    // Allowig any kind of filtering on
+                    // the resulting list resource.
+                    query: {
+                        editor: $q.filterReferencedType('/persons','editor'),
+                        defaultFilter: $q.defaultFilter
+                    },
+                    // The limit for queries. If not provided a default will be used
+                    defaultlimit: 5,
+                    // The maximum allowed limit for queries. If not provided a default will be used
+                    maxlimit: 50,
+                    // All columns in the table that appear in the
+                    // resource should be declared in the 'map' object.
+                    // Optionally mapping functions can be given.
+                    // Mapping functions can be registered
+                    // for onread, onwrite and onupdate.
+                    //
+                    // For GET operations the key in the 'map' object
+                    // is the name of the key as it will appear in the JSON output.
+                    //
+                    // For PUT operations it is the key that appears
+                    // on the input resource. The end result after mapping
+                    // is created / updated in the database table.
+                    map: {
+                        authors: {},
+                        themes: {},
+                        html: {},
+                        // Reference to another resource of type /persons.
+                        // (mapping of 'persons' is not shown in this example)
+                        // Can also be referenced as /x/y/.. if another resources is defined like this
+                        editor: {references : '/persons'}
+                    },
+
+                    // After read, update, insert or delete
+                    // you can perform extra actions.
+                    beforeInsert: [ validateAuthorVersusThemes ]
+                    beforeUpdate: [ validateAuthorVersusThemes ]
+
+                    afterRead: [ checkAccessOnResource, checkSomeMoreRules, addAdditionalInfoToOutputJSON ],
+                    afterUpdate: [ checkAccessOnResource, checkSomeMoreRules ],
+                    afterInsert: [ checkAccessOnResource, checkSomeMoreRules ],
+                    afterDelete: [ checkAccessOnResource, checkSomeMoreRules, cleanupFunction ]
+
+                    // custom routes can be defined. See #custom-routes
+                    customroutes: [
+                      { routePostfix: '/:key/:attachment'
+                      , httpMethods: ['GET']
+                      , handler:  getAttachment
+                      },
+                    ],
+                }
+            ]
+        });
+
+Many properties of the sri4node config object have defaults and can be omitted. 
+
+There is only 1 way to configure the database which sri4node uses:
+* Specify sri4nodeConfig.databaseConnectionParameters in the sri4node configuration.
+    * These are any format as supported by [connection syntax](https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax) of the DB library + a 'schema' property
+    * You can also specify the pg-promise [initialization options](http://vitaly-t.github.io/pg-promise/module-pg-promise.html) by adding a property databaseLibraryInitOptions
+
+These mechanisms have been made obsolete:
+* [OBSOLETE > 2.3] ~~Specify an already initiated database object in the sri4node configuration. This way has two variants: 
+    * db: the global sri4node pg-promise database object used for all database work.
+    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW), useful if you work with read-replica's.~~
+* [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
+* [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
+
+Next step is to pass the sri4node config object to the async sri4node configure function:
+
+    await sri4node.configure(app, sriConfig);
+
+Now we can start Express.js to start serving up our SRI REST interface :
+
+    app.set('port', (process.env.PORT || 5000));
+    app.listen(app.get('port'), function() {
+        console.log('Node app is running at localhost:'' + app.get('port'))
+    });
+
+
+
 # Changes in sri4node 2.0
 
 In the latest version, we decided to rewrite a few things in order to be able to fix long-known problems (including the fact that GETs inside BATCH operations was not properly supported).
@@ -73,11 +223,11 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
 
-## 'me'
+### 'me'
 
 We also removed the [me](###identify) concept, allowing the implementer to add stuff to the sriRequest object as it sees fit. If that info is 'the current user', so be it, you can just as well build an API that doesn't need an identity to work.
 
-## 'validate'
+## dryRun
 
 The possibility of appending '/validate' to a PUT request to see wether it would succeed is replaced by a more general 'dry run' mode. This mode is activated by adding `?dryRun=true` to the request parameters. This means that the request is executed and responsed as normal, but in the end the database transaction corresponding to the request is rolled back. 
 
@@ -85,23 +235,6 @@ The possibility of appending '/validate' to a PUT request to see wether it would
 
 A valid patch is in [RFC6902 format][https://tools.ietf.org/html/rfc6902].
 
-## Plugins
-
-You have one array of plugins, that will be smart enough to add themselves to the express app.
-
-This means that you don't need to set hooks to functions from plugins anymore (no more `onread: myplugin.onread` etc.), but that a plugin will add the proper hooks itself.
-
-```javascript
-sri4node.configure( app,
-    {
-            // add some sri4node plugins
-            plugins : [ require( 'my-plugin' )( ... ) ],
-    ...
-```
-
-On top of that: if a plugin needs another plugin to work, it should be smart enough to automatically add that other plugin also to the list of plugins, so no more 'plugin A doesn't work because it needs plugin B' (cfr. AccessControl needing OAuth, including AccessControl should suffice).
-
-The plugins work plug and play (an 'install' function is called by sri4node during initialization with sriConfig object and the plugin will manipulate it to insert its hooks).
 
 ## Throwing errors (the http response code)
 
@@ -252,9 +385,75 @@ These hooks replace the now obsolete [onread](###onread)/[oninsert/onupdate](###
 
 ### Performance enhancements
 
-A count query is a heavy query in Postgres in case of a huge table. Therefore the count in the list result is made optional. By adding `listResultDefaultIncludeCount: false` to the configuration of a resource the count will be omitted by default. This setting can be overriden in a linst query by appending `?$$includeCount=[boolean]` to the query parameters.
+A count query is a heavy query in Postgres in case of a huge table. Therefore the count in the list result is made optional. By adding `listResultDefaultIncludeCount: false` to the configuration of a resource the count will be omitted by default. This setting can be overriden in a list query by appending `?$$includeCount=[boolean]` to the query parameters.
 
 Other performance enhancement is to use key offsets for the next links instead of count offsets (prev links are skipped due to not being usefull in a scenario with key offsets). Count offset is becoming more and more time consuming when the count increases (as postgres needs to construct all the results before the requested set to get the starting point) while for key offset an index can be used to determine the starting point. 
+
+## Plugins
+
+### How to use plugins
+
+The sri4node config object contains a single array of plugins, that must be smart enough to make the necessary changes to the configuration object.
+
+This means that you don't need to set hooks to functions from plugins anymore (no more `onread: myplugin.onread` etc.), but that a plugin will add the proper hooks itself.
+
+You should check the readme of the plugin itself for information how it should be instantiated.
+Often they will require some dependency to be handed to them, and so they will export a factory
+function that gets the current sri4node library, and some configuration object as input.
+
+Example:
+```javascript
+import { myPluginFactory } from 'my-plugin'
+
+sri4node.configure( app,
+  {
+    // add some sri4node plugins
+    plugins : [
+      myPluginFactory({ sri4node, prop: value, ... })
+    ],
+    ...
+```
+
+On top of that: if a plugin needs another plugin to work, it should be smart enough to automatically add that other plugin also to the list of plugins, so no more 'plugin A doesn't work because it needs plugin B' (cfr. AccessControl needing OAuth, including AccessControl should suffice). Alternatively, the plugin should define a peer dependency, making sure that npm install will inform you if another plugin that it depends on is not installed or an incompatible version.
+
+The plugins work plug and play. An 'install' function will be called by sri4node during initialization with 2 parameters (sriConfig object and a writable database transaction) and the plugin will manipulate this sriConfig object to insert its hooks and other additions to the config.
+
+(In the future it should return a new version of the config without actually touching the input config, but that is not how it currently works).
+
+### How to write a plugin
+
+A valid sri4node plugin consists of an object, exposing an install(SriConfig, dbW) method that will be called when sri4node starts.
+
+If your plugin instance needs an instance of the current sri4node library (for example because it wants to log certain info with the debug or error methods) make sure you get that instance when creating the plugin.
+
+Our suggestion is that every plugin author exports a single myPluginFactory(...) function that gets everything it needs as an argument and which returns the plugin instance.
+
+Example:
+```typescript
+
+function afterUpdate(sri4node) {
+    sri4node.debug('general', 'myPlugin: after update!')
+}
+
+function myPluginFactory({ sri4node, prop }) {
+    const hook = () => afterUpdate(sri4node);
+
+    return {
+        install: function(sriConfig, dbW) {
+            // modify sriConfig for example add some hooks for every resource
+            sriConfig.resources.forEach(
+                (r) => r.afterUpdate = r.afterUpdate
+                        ? [...r.afterUpdate, hook)]
+                        : [hook]
+            );
+        }
+    }
+}
+
+export {
+    myPluginFactory,
+}
+```
 
 ## Batch execution order
 
@@ -273,45 +472,45 @@ So how you construct your batch determines which operations go 'phaseSynced' par
 A batch like the one below will be able to retrieve a newly created resource:
 ```
 [
-	[ {
-	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
-	    "verb": "PUT",
-	    "body": {
-	      "key": "e4f09527-a973-4510-a67c-783d388f7265",
-	      "type": "SCHOOLENTITY",
-	      "names": [
-		{
-		  "type": "OFFICIAL",
-		  "value": "Official 1",
-		  "startDate": "2017-01-01"
-		},
-		{
-		  "type": "SHORT",
-		  "value": "Short 1",
-		  "startDate": "2017-01-01"
-		}
-	      ],
-	      "description": "Some description...",
-	      "startDate": "2017-01-01"
-	    }
-	  } ],
-	[ {
-	    "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
-	    "verb": "GET"
-	  } ]
+  [ {
+      "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+      "verb": "PUT",
+      "body": {
+        "key": "e4f09527-a973-4510-a67c-783d388f7265",
+        "type": "SCHOOLENTITY",
+        "names": [
+    {
+      "type": "OFFICIAL",
+      "value": "Official 1",
+      "startDate": "2017-01-01"
+    },
+    {
+      "type": "SHORT",
+      "value": "Short 1",
+      "startDate": "2017-01-01"
+    }
+        ],
+        "description": "Some description...",
+        "startDate": "2017-01-01"
+      }
+    } ],
+  [ {
+      "href": "/organisationalunits/e4f09527-a973-4510-a67c-783d388f7265",
+      "verb": "GET"
+    } ]
 ]
 ```
 
 ## Deferred constraints
 
-At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the the transaction before comitting the constraints are set back to IMMEDIATE (which result in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail  for that person).
+At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the transaction before comitting the constraints are set back to IMMEDIATE (which results in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail for that person).
 
-**But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgress documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
+**But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgres documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
 > Currently, only UNIQUE, PRIMARY KEY, REFERENCES (foreign key), and EXCLUDE constraints are affected by this setting. NOT NULL and CHECK constraints are always checked immediately when a row is inserted or modified (not at the end of the statement). Uniqueness and exclusion constraints that have not been declared DEFERRABLE are also checked immediately.
  
 An example from samenscholing where foreign keys are defined DEFERRABLE:
 
-```
+```sql
 CREATE TABLE organisationalunits_relations (
     key UUID,
     type text NOT NULL,
@@ -328,12 +527,12 @@ CREATE TABLE organisationalunits_relations (
 
 ## Request Tracking
 
-To be able to keep track of requests in the server logging and at the client, sri4node generates a short id for each request (reqId - not guaranteed to be uniq). This ID is used in all the sri4node logging (and also in the logging of sri4node application when they use `debug` and `error` from sri4node `common`), sri4node error responses and is passed to the client in the `vsko-req-id` header.
+To be able to keep track of requests in the server logging and at the client, sri4node generates a short id for each request (reqId - not guaranteed to be unique). This ID is used in all the sri4node logging (and also in the logging of sri4node application when they use `debug` and `error` from sri4node `common`), sri4node error responses and is passed to the client in the `vsko-req-id` header.
 
 
 ## Internal requests
 
-Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
+Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
 
 * href: mandatory field
 * verb: mandatory field
@@ -354,7 +553,7 @@ The result will be either an object with fields status and body or an error (mos
 
 **Remark**: sri4node makes a distinction between a database task (consider this as a connection, no commit/rollback) and a transaction. For GETs a task database object is provided, while requests which potentially may modify the database receive a transaction object. With internal requests this has the consequence that in case your initial sri4node requests is a read-only operation (GET), you get database task for your internal request to operate on. If the internal request then writes via this task, the changes will not be rollbacked in case the request is not succesfully ended.
 
-An example: 
+An example:
 ```
     const internalReq = {
         href: '/deploys/f5b002fc-9622-4a16-8021-b71189966e48',
@@ -363,7 +562,7 @@ An example:
         parentSriRequest: sriRequest,
     }
 
-    const resp = await global.sri4node_internal_interface(internalReq);
+    const resp = await (global as any).sri4node_internal_interface(internalReq);
 ```
 
 ### transformInternalRequest
@@ -406,10 +605,10 @@ An example request:
 ```
 POST /messages/isPartOf
 { 
-	"a": { "href": "/messages?descriptionRegEx=^Ik.*$"  },
+  "a": { "href": "/messages?descriptionRegEx=^Ik.*$"  },
         "b": { "hrefs": [ "/messages?type=request"
                         , "/messages?titleRegEx=^Wie.*$"
-			, "/messages"] }
+      , "/messages"] }
 }
 ```
 with an example reply:
@@ -421,171 +620,12 @@ Remark: the raw url A and all raw urls in list B needs to be of the same type [r
 
 ## Additions to the sri4node configuration object
 
-* dbConnectionInitSql: optional sql string which will be executed at the start of each new database connection
+* [OBSOLETE] ~~dbConnectionInitSql~~ (use databaseConnectionParameters.connectionInitSql instead): optional sql string which will be executed at the start of each new database connection
 
-By default sri4node will initialize the database connection based on environment variables or the sri4node configuration object. But one can also pass database connection(s) to sri4node (initialized with the pgInit and/or pgConnect functions - see also General Utilities, just below) in case some customization is required. These database connection(s) can be passed with following fields in the sri4node configuration object:
+By default sri4node will initialize the database connection based on the sri4node configuration object. But one can also pass database connection(s) to sri4node (initialized with the pgInit and/or pgConnect functions - see also General Utilities, just below) in case extreme customization is required (you should be able to handle almost all cases by specifying databaseConnectionParameters and databaseLibraryInitOptions). These database connection(s) can be passed with following fields in the sri4node configuration object:
 
 * db: a pgp database connection object,
 * dbR and dbW: two pgp database connection objects, one for reading and one for writing (can be used when working with database followers)
-## General Utilities
-
-* pgInit: `async function (pgpInitOptionsIn = {})` can optionally be called to initiate the pgp-promise library with some extra configuration
-
-* pgConnect: `async function (arg)` can be called to create a pgp database object, argument can be an sri4node configuration object or a plain database url string
-
-* pgResult: alternative to pgExec in case more information about the query is needed then just the returned rows as provided by pgExec. The result is a pg.Result shape (see https://node-postgres.com/api/result).
-
-## Other changes and bug fixes
-
- * [Deleted resource could not be retrieved as regalar resource with '$$meta.deleted=true'](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/128)
- * [expand is not working sometimes bug](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/125)
- * [Expand is expanding deleted resources.](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/123)
- * [If a property is missing, it is not set to null enhancement](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/118)
- * [Schema validation is not working bug](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/114)
- * [expanded addReferencingResources ignores afterRead of referencing resource enhancement](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues/108)
-
-
-# Usage
-
-Start by requiring the module in your code.
-Then we'll create some convenient aliasses for the utility functions bundled with sri4node as well.
-
-    var express = require('express');
-    var app = express();
-    var sri4node = require('sri4node');
-    var $u = sri4node.utils;
-    var $m = sri4node.mapUtils;
-    var $s = sri4node.schemaUtils;
-    var $q = sri4node.queryUtils;
-
-Finally we configure handlers for 1 example resource.
-This example shows a resource for storing content as `html` with meta-data like `authors`, `themes` and `editor`.
-The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
-
-    const sriConfig = {
-            // Log and time HTTP requests ?
-            logrequests : true,
-            // Log SQL ?
-            logsql: false,
-            // Log debugging information ?
-            logdebug: false,
-            // Log middleware timing ?
-            logmiddleware: true,
-            // The URL of the postgres database
-            defaultdatabaseurl : "postgres://user:pwd@localhost:5432/postgres",
-            forceSecureSockets: true,
-            description: 'A description about the collection of resources',
-            resources : [
-                {
-                    // Base url, maps 1:1 with a table in postgres
-                    // Can be defined as /x or /x/y/..
-                    // Table name will be the last part of the path
-                    type: '/content',
-                    // Is this resource public ?
-                    // Can it be read / updated / inserted publicly ?
-                    public: false,
-                    // Multiple function that check access control
-                    // They receive a database object and the security context
-                    // as determined by the 'identify' function above.
-
-                    // Standard JSON Schema definition.
-                    // It uses utility functions, for compactness.
-                    schema: {
-                        $schema: "http://json-schema.org/schema#",
-                        title: "An article on the websites/mailinglists.",
-                        type: "object",
-                        properties : {
-                            authors: $s.string("Comma-separated list of authors."),
-                            themes: $s.string("Comma-separated list of themes."),
-                            html: $s.string("HTML content of the article.")
-                        },
-                        required: ["authors","themes","html"]
-                    },
-
-                    // Supported URL parameters are configured
-                    // for list resources. $q is an alias for
-                    // sri4node.queryUtils.
-                    // This is a collection of predefined functions.
-                    // You can build your own (see below).
-                    // These functions can execute an arbitrary set
-                    // of preparatory queries on the database,
-                    // You can execute stored procedures and create
-                    // temporary tables to allow you to add things like :
-                    // ' AND key IN (SELECT key FROM mytemptable) '
-                    // to the query being executed.
-                    // Allowig any kind of filtering on
-                    // the resulting list resource.
-                    query: {
-                        editor: $q.filterReferencedType('/persons','editor'),
-                        defaultFilter: $q.defaultFilter
-                    },
-                    // The limit for queries. If not provided a default will be used
-                    defaultlimit: 5,
-                    // The maximum allowed limit for queries. If not provided a default will be used
-                    maxlimit: 50,
-                    // All columns in the table that appear in the
-                    // resource should be declared in the 'map' object.
-                    // Optionally mapping functions can be given.
-                    // Mapping functions can be registered
-                    // for onread, onwrite and onupdate.
-                    //
-                    // For GET operations the key in the 'map' object
-                    // is the name of the key as it will appear in the JSON output.
-                    //
-                    // For PUT operations it is the key that appears
-                    // on the input resource. The end result after mapping
-                    // is created / updated in the database table.
-                    map: {
-                        authors: {},
-                        themes: {},
-                        html: {},
-                        // Reference to another resource of type /persons.
-                        // (mapping of 'persons' is not shown in this example)
-                        // Can also be referenced as /x/y/.. if another resources is defined like this
-                        editor: {references : '/persons'}
-                    },
-
-                    // After read, update, insert or delete
-                    // you can perform extra actions.
-                    beforeInsert: [ validateAuthorVersusThemes ]
-                    beforeUpdate: [ validateAuthorVersusThemes ]
-
-                    afterRead: [ checkAccessOnResource, checkSomeMoreRules, addAdditionalInfoToOutputJSON ],
-                    afterUpdate: [ checkAccessOnResource, checkSomeMoreRules ],
-                    afterInsert: [ checkAccessOnResource, checkSomeMoreRules ],
-                    afterDelete: [ checkAccessOnResource, checkSomeMoreRules, cleanupFunction ]
-
-                    // custom routes can be defined. See #custom-routes
-                    customroutes: [
-                      { routePostfix: '/:key/:attachment'
-                      , httpMethods: ['GET']
-                      , handler:  getAttachment
-                      },
-                    ],
-                }
-            ]
-        });
-
-Many properties of the sri4node config object have defaults and can be omitted. 
-
-There are three ways to configure the database which sri4node uses (in order of priority):
-* Specify an already initiated database object in the sri4node configuration. This way has two variants: 
-    * db: the global sri4node pg-promise database object used for all database work.
-    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW).
-* Specifying the database connection string in the DATABASE_URL environment variable.
-* Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration.
-
-Next step is to pass the sri4node config object to the async sri4node configure function:
-
-    await sri4node.configure(app, sriConfig);
-
-Now we can start Express.js to start serving up our SRI REST interface :
-
-    app.set('port', (process.env.PORT || 5000));
-    app.listen(app.get('port'), function() {
-        console.log('Node app is running at localhost:'' + app.get('port'))
-    });
-
 
 ## Reserved and required fields (mandatory)
 
@@ -708,7 +748,7 @@ Database columns are mapped 1:1 to keys in the output JSON object.
 The `columnToField` function receives these arguments :
 
 - `key` is the key the function was registered on.
-- `element` is the the result of the query that was executed.
+- `element` is the result of the query that was executed.
 
 Functions are executed in order of listing in the `map` section of the configuration.
 No return value is expected, this function manipulates the element in-place.
@@ -920,6 +960,8 @@ Specify the foreign key column (in the table of those referencing resource) via 
 Specify the desired key (should be `$$somekey`, as it is not actually a part of the resource, but provided for convenience) to add to the currently retrieved resource(s) via `targetkey`.
 
 #### convertListResourceURLToSQL(req, mapping, count, database, query)
+
+#### 
 Receives a query object and constructs the SQL for a list query.
 
 Arguments:
@@ -1304,59 +1346,59 @@ When you want more information about a resource you can access `/resource/docs`
 To document validate functions you need to add *validateDocs* to the resource configuration.
 *validateDocs* has to include a description and possible error codes of the validate function.
 
-	validate: [
-			validateAuthorVersusThemes
-	],
-	validateDocs: {
-			validateAuthorVersusThemes: {
-					description: "Validate if author or theme exists",
-					errors: [{
-							code: 'not.a.desert',
-							description: 'This is not a desert.'
-					}]
-			}
-	}
+  validate: [
+      validateAuthorVersusThemes
+  ],
+  validateDocs: {
+      validateAuthorVersusThemes: {
+          description: "Validate if author or theme exists",
+          errors: [{
+              code: 'not.a.desert',
+              description: 'This is not a desert.'
+          }]
+      }
+  }
 
 ## queryDocs
 
 To document a custom query function you need to add *queryDocs* to the resource configuration.
 *queryDocs* has to include the description of the query function.
 
-	query: {
-			editor: $q.filterReferencedType('/persons','editor'),
-			defaultFilter: $q.defaultFilter
-	},
-	queryDocs: {
-			editor: 'Allow to filer on an editor.'
-	}
+  query: {
+      editor: $q.filterReferencedType('/persons','editor'),
+      defaultFilter: $q.defaultFilter
+  },
+  queryDocs: {
+      editor: 'Allow to filer on an editor.'
+  }
 
-##Description
+## Description
 
-####Interface
+#### Interface
 You can describe your sri interface by using the *description* variable in the root for your configuration
 
-	description: 'A description about the collection of resources'
+  description: 'A description about the collection of resources'
 
-####Resource 	
+#### Resource
 You can describe a resource by using the to use *schema* > *title*
 
-	title: 'An article on the websites/mailinglists'
+  title: 'An article on the websites/mailinglists'
 
-####Property
+#### Property
 If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *description* :
 
-	properties : {
-			authors: {
-					type: 'string'
-					description: 'Comma-separated list of authors.'
-			}
-	}
+  properties : {
+      authors: {
+          type: 'string'
+          description: 'Comma-separated list of authors.'
+      }
+  }
 
 Or use the schemaUtils function:
 
-	properties : {
-			authors: $s.string('Comma-separated list of authors.')
-	}
+  properties : {
+      authors: $s.string('Comma-separated list of authors.')
+  }
 
 
 # Contributions

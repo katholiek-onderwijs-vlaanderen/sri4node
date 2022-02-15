@@ -4,7 +4,7 @@ const fs = require('fs')
 const { Client } = require('undici');
 const client = new Client(`http://localhost:4000`);
 
-const utils =  require('../test/utils.js')(null);
+const utils =  require('../test/utils')(null);
 const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
 describe('Sri4node testing', function () {
