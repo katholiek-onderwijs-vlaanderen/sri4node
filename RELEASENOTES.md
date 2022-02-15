@@ -6,13 +6,13 @@
 * a huge amount of code cleanup has been performed as a result of adding a .eslintrc
 * configuration now solely happens through the config object, so nothing is assumed to be in an environment variable anymore (mainly the database connection details)
   * there used to be a way to call dbInit yourself, but right now this is removed in favour of using databaseLibraryInitOptions
-* a few extra utils has been exposed on the sri4node object under the utils property
+* a few extra utils have been exposed on the sri4node object under the 'utils' property
   (mainly because we found out some of them were being used by plugins by requiring commons.js directly, which does not work anymore due to the switch to typescript)
   * typeToMapping,
   * tableFromMapping,
   * urlToTypeAndKey,
   * parseResource
-
+* the functions pgInit, pgResult, pgConnect have been removed
 
 ## sprint-248-1 (01-09-2021)
 

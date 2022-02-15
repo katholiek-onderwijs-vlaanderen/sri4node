@@ -171,13 +171,15 @@ The declaration of the editor is a reference to a second resource (/person), whi
 
 Many properties of the sri4node config object have defaults and can be omitted. 
 
-There are three ways to configure the database which sri4node uses (in order of priority):
-* Specify an already initiated database object in the sri4node configuration. This way has two variants: 
-    * db: the global sri4node pg-promise database object used for all database work.
-    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW), useful if you work with read-replica's.
+There is only 1 way to configure the database which sri4node uses:
 * Specify sri4nodeConfig.databaseConnectionParameters in the sri4node configuration.
     * These are any format as supported by [connection syntax](https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax) of the DB library + a 'schema' property
     * You can also specify the pg-promise [initialization options](http://vitaly-t.github.io/pg-promise/module-pg-promise.html) by adding a property databaseLibraryInitOptions
+
+These mechanisms have been made obsolete:
+* [OBSOLETE > 2.3] ~~Specify an already initiated database object in the sri4node configuration. This way has two variants: 
+    * db: the global sri4node pg-promise database object used for all database work.
+    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW), useful if you work with read-replica's.~~
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
 
@@ -624,12 +626,6 @@ By default sri4node will initialize the database connection based on the sri4nod
 
 * db: a pgp database connection object,
 * dbR and dbW: two pgp database connection objects, one for reading and one for writing (can be used when working with database followers)
-## General Utilities
-
-* pgConnect: `async function (arg)` can be called to create a pgp database object, argument can be an sri4node configuration object or a plain database url string
-
-* pgResult: alternative to pgExec in case more information about the query is needed then just the returned rows as provided by pgExec. The result is a pg.Result shape (see https://node-postgres.com/api/result).
-
 
 ## Reserved and required fields (mandatory)
 

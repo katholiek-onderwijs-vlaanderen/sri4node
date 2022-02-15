@@ -430,6 +430,16 @@ const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, a
   prepareSQL,
   convertListResourceURLToSQL: listResource.getSQLFromListResource,
   addReferencingResources: utilLib.addReferencingResources,
+
+  // removed pgInit and pgResult, but kept pgConnect for now (in case someoine wants to use the
+  // db, dbW and/or dbR properties)
+  pgConnect,
+
+  // still here for backwards compatibility, in most cases we assume that using an
+  // internalSriRerquest would be sufficient
+  transformRowToObject,
+  transformObjectToRow,
+
   typeToMapping,
   tableFromMapping,
   urlToTypeAndKey,
@@ -553,19 +563,12 @@ async function configure(app: Application, sriConfig: TSriConfig) {
 
     global.sri4node_configuration = sriConfig; // share configuration with other modules
 
-    let dbR; let
-      dbW;
-    if (sriConfig.db !== undefined) {
-      dbR = sriConfig.db;
-      dbW = sriConfig.db;
-    } else if (sriConfig.dbR !== undefined && sriConfig.dbW !== undefined) {
-      dbR = sriConfig.dbR;
-      dbW = sriConfig.dbW;
-    } else {
-      const db = await pgConnect(sriConfig);
-      dbR = db;
-      dbW = db;
-    }
+    // in futre we'd want to support a separate read and write datrabase by adding another
+    // connection paramaters object toi the config, and if it is filled in that can be the
+    // separate read database
+    const db = await pgConnect(sriConfig);
+    const dbR = db;
+    const dbW = db;
 
     await pMap(
       sriConfig.resources,
@@ -1168,13 +1171,13 @@ async function configure(app: Application, sriConfig: TSriConfig) {
 // export = // for typescript
 export {
   configure,
+
+  debug,
+  error,
+  SriError,
+
   utils,
   queryUtils,
   mapUtils,
   schemaUtils,
-  debug,
-  error,
-  SriError,
-  transformRowToObject,
-  transformObjectToRow,
 };

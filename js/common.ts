@@ -654,6 +654,11 @@ function mergeObject(source, target) {
   };
 }
 
+/**
+ * @param row the database row
+ * @param resourceMapping the applicable resource definition from the sriConfig object
+ * @returns the json object as returned by the api
+ */
 function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
   const map = resourceMapping.map || {};
   const element:any = {};
@@ -689,8 +694,16 @@ function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
   return element;
 }
 
-function transformObjectToRow(obj, resourceMapping, isNewResource) {
-  const { map } = resourceMapping;
+/**
+ * @param obj the api object
+ * @param resourceMapping the applicable resource definition from the sriConfig object
+ * @param isNewResource boolean indicating that the resource doesn't exist yet
+ * @returns a row to be saved on the database
+ */
+function transformObjectToRow(
+  obj:Record<string, any>, resourceMapping:TResourceDefinition, isNewResource:boolean,
+) {
+  const map = resourceMapping.map || {};
   const row = {};
   Object.keys(map).forEach((key) => {
     if (map[key].references && obj[key] !== undefined) {
@@ -718,8 +731,9 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
     }
 
-    const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    const fieldTypeObject = resourceMapping.schema.properties[key]
+    const fieldTypeDb = global
+      .sri4node_configuration.informationSchema[resourceMapping.type][key].type;
+    const fieldTypeObject = resourceMapping.schema.properties?.[key]
       ? resourceMapping.schema.properties[key].type
       : null;
     if (fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
