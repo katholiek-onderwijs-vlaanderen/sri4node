@@ -4,8 +4,8 @@ import * as sleep from 'await-sleep';
 import * as fs from 'fs';
 import * as streamEqual from 'stream-equal';
 
-import { debug, mergeObject, pgExec } from '../../js/common';
-import { prepareSQL } from '../../js//queryObject';
+import { debug, mergeObject, pgExec } from '../../src/common';
+import { prepareSQL } from '../../src//queryObject';
 import { debugLog } from '../utils';
 
 export = module.exports = function (sri4node, extra) {

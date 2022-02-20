@@ -1,14 +1,14 @@
-import { TSriConfig } from "../../js/typeDefinitions";
+import { TSriConfig } from "../../src/typeDefinitions";
 
 // const { assert } = require('chai');
 import { assert } from 'chai';
-import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../js/common';
+import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../src/common';
 import { debugLog } from "../utils";
-const { flattenJsonSchema } = require('../../js/schemaUtils');
+const { flattenJsonSchema } = require('../../src/schemaUtils');
 
-// const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
+// const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../src/url_parsing/non_flat_url_parser')
 
-const $u = require('../../js/schemaUtils');
+const $u = require('../../src/schemaUtils');
 
 const sriConfig:TSriConfig = {
   resources: [

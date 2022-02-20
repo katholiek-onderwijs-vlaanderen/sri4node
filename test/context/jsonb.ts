@@ -1,4 +1,4 @@
-import * as common from '../../js/common';
+import * as common from '../../src/common';
 const sri4node = require('../../');
 const $m = sri4node.mapUtils;
 const $s = sri4node.schemaUtils;

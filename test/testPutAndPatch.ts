@@ -3,7 +3,7 @@ import * as pMap from 'p-map';
 import * as assert from 'assert';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import * as uuid from 'uuid';
-import { debug } from '../js/common';
+import { debug } from '../src/common';
 import utilsFactory from './utils';
 
 export = module.exports = function (base) {

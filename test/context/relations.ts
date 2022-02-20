@@ -1,4 +1,4 @@
-import * as common from '../../js/common';
+import * as common from '../../src/common';
 // Messages relations
 export = module.exports = function (sri4node, extra) {
 

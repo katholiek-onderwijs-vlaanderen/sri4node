@@ -11,7 +11,7 @@
     "prepare": "npm run build",
     "prebuild": "npm run clean",
     "build": "tsc --project .",
-    "postbuild": "cp -r ./js/docs ./dist/js",
+    "postbuild": "cp -r ./src/docs ./dist/js",
     "clean": "rm -rf ./dist",
     "pretest": "npm run clean && mkdir -p ./dist/js && npm run postbuild",
     "test": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts",

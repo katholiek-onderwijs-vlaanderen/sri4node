@@ -1,4 +1,4 @@
-import * as common from '../../js/common';
+import * as common from '../../src/common';
 import utilsFactory from '../utils';
 
 const utils = utilsFactory(null);

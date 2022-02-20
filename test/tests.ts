@@ -1,4 +1,4 @@
-import { TDebugChannel } from '../js/typeDefinitions';
+import { TDebugChannel } from '../src/typeDefinitions';
 
 import * as sri4node from '..';
 import * as context from './context';

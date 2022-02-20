@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { debug, pgConnect } from '../js/common';
-import { informationSchema } from '../js/informationSchema';
+import { debug, pgConnect } from '../src/common';
+import { informationSchema } from '../src/informationSchema';
 
 import * as context from './context';
 

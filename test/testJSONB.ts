@@ -2,7 +2,7 @@
 var uuid = require('uuid');
 var assert = require('assert');
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import { debug } from '../js/common';
+import { debug } from '../src/common';
 import utilsFactory from './utils';
 
 export = module.exports = function (base) {

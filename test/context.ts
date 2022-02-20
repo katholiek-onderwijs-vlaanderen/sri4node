@@ -10,7 +10,7 @@ context.serve();
 // var express = require('express');
 import * as express from 'express';
 
-import { TSriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
+import { TSriConfig, SriError, TSriRequest } from '../src/typeDefinitions';
 import utilsFactory, { debugLog } from './utils';
 
 const utils = utilsFactory(null);
