@@ -1,4 +1,4 @@
-const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../index');
+const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../src');
 import * as common from '../../src/common';
 const debug = common.debug;
 

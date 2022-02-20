@@ -1,6 +1,6 @@
 import { TDebugChannel } from '../src/typeDefinitions';
 
-import * as sri4node from '..';
+import * as sri4node from '../src';
 import * as context from './context';
 import { debugLog } from './utils';
 

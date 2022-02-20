@@ -1411,10 +1411,9 @@ The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.
 
 [express-request]: http://expressjs.com/4x/api.html#req
 [express-response]: http://expressjs.com/4x/api.html#res
-[kriskowal-q]: https://github.com/kriskowal/q
 
-[sri-specs]: https://github.com/dimitrydhondt/sri
-[sri-specs-list-resources]: https://github.com/dimitrydhondt/sri#list-resources
-[sri-specs-batch]: https://github.com/dimitrydhondt/sri#batch-operations
-[sri-errors]: https://github.com/dimitrydhondt/sri#errors
-[sri-query]: https://github.com/dimitrydhondt/sri-query
+[sri-specs]: https://github.com/katholiek-onderwijs-vlaanderen/sri
+[sri-specs-list-resources]: https://github.com/katholiek-onderwijs-vlaanderen/sri#list-resources
+[sri-specs-batch]: https://github.com/katholiek-onderwijs-vlaanderen/sri#batch-operations
+[sri-errors]: https://github.com/katholiek-onderwijs-vlaanderen/sri#errors
+[sri-query]: https://github.com/katholiek-onderwijs-vlaanderen/sri-query

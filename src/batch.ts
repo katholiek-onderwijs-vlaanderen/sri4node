@@ -134,7 +134,6 @@ async function batchOperation(sriRequest:TSriRequest) {
   );
   global.overloadProtection.startPipeline(batchConcurrency);
   try {
-    const contextInsideBatch = {};
     let batchFailed = false;
 
     const handleBatchInBatchOperation = async (batch:Array<TSriBatchElement>, tx) => {

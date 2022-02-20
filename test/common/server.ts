@@ -2,7 +2,7 @@
 Run the reference API for the test suite stand alone.
 Just here for convenience.
 */
-import * as sri4node from '..';
+import * as sri4node from '.';
 import * as context from '../test/context';
 
 const c9hostname = process.env.C9_HOSTNAME; // eslint-disable-line

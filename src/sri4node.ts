@@ -5,7 +5,7 @@
 */
 
 // needed for express-middleware-timer to actually do something !!!
-// And it must be set before importing ./src/common !!!
+// And it must be set before importing ./common !!!
 process.env.TIMER = 'true';
 
 import { Application, Request, Response } from 'express';
@@ -36,27 +36,27 @@ import {
   startTransaction, startTask, typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp,
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds,
-} from './src/common';
-import * as batch from './src/batch';
-import { prepareSQL } from './src/queryObject';
+} from './common';
+import * as batch from './batch';
+import { prepareSQL } from './queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
   TBatchHandlerRecord, THttpMethod,
-} from './src/typeDefinitions';
-import * as queryUtils from './src/queryUtils';
-import * as schemaUtils from './src/schemaUtils';
-import * as mapUtils from './src/mapUtils';
-import { informationSchema } from './src/informationSchema';
+} from './typeDefinitions';
+import * as queryUtils from './queryUtils';
+import * as schemaUtils from './schemaUtils';
+import * as mapUtils from './mapUtils';
+import { informationSchema } from './informationSchema';
 
-import { phaseSyncedSettle } from './src/phaseSyncedSettle';
-import { applyHooks } from './src/hooks';
+import { phaseSyncedSettle } from './phaseSyncedSettle';
+import { applyHooks } from './hooks';
 
-// const listResource = require('./src/listResource')
-import * as listResource from './src/listResource';
-import * as regularResource from './src/regularResource';
-import utilLib = require('./src/utilLib');
-import { overloadProtectionFactory } from './src/overloadProtection';
-import * as relationFilters from './src/relationsFilter';
+// const listResource = require('./listResource')
+import * as listResource from './listResource';
+import * as regularResource from './regularResource';
+import utilLib = require('./utilLib');
+import { overloadProtectionFactory } from './overloadProtection';
+import * as relationFilters from './relationsFilter';
 
 const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
 
@@ -685,10 +685,10 @@ async function configure(app: Application, sriConfig: TSriConfig) {
     // use option 'strict: false' to allow also valid JSON like a single boolean
 
     // to parse html pages
-    app.use('/docs/static', express.static(`${__dirname}/src/docs/static`));
+    app.use('/docs/static', express.static(`${__dirname}/docs/static`));
     app.engine('.pug', pug.__express);
     app.set('view engine', 'pug');
-    app.set('views', `${__dirname}/src/docs`);
+    app.set('views', `${__dirname}/docs`);
 
     app.put('/log', middlewareErrorWrapper((req, resp) => {
       const err = req.body;
@@ -743,7 +743,7 @@ async function configure(app: Application, sriConfig: TSriConfig) {
           // append relation filters if auto-detected a relation resource
           if (mapping.map.from && mapping.map.to) {
             // mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
-            //const relationFilters = require('./src/relationsFilter');
+            //const relationFilters = require('./relationsFilter');
             mapping.query = {
               ...relationFilters,
             };
@@ -1174,10 +1174,11 @@ export {
 
   debug,
   error,
-  SriError,
 
   utils,
   queryUtils,
   mapUtils,
   schemaUtils,
 };
+
+export * from './typeDefinitions';

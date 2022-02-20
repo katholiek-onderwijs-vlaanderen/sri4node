@@ -22,9 +22,9 @@ export = module.exports = function (base) {
         },
       });
 
-      const bufArr: unknown[] = [];
+      // const bufArr: unknown[] = [];
       for await (const data of body) {
-        bufArr.push(data);
+        // bufArr.push(data);
       }
 
       assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
@@ -43,9 +43,9 @@ export = module.exports = function (base) {
         },
       });
 
-      const bufArr: any[] = [];
+      // const bufArr: any[] = [];
       for await (const data of body) {
-        bufArr.push(data);
+        // bufArr.push(data);
       }
 
       assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
@@ -73,9 +73,9 @@ export = module.exports = function (base) {
         body: JSON.stringify(batch),
       });
 
-      const bufArr: any[] = [];
+      // const bufArr: any[] = [];
       for await (const data of body) {
-        bufArr.push(data);
+        // bufArr.push(data);
       }
 
       assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
@@ -103,9 +103,9 @@ export = module.exports = function (base) {
         body: JSON.stringify(batch),
       });
 
-      const bufArr: any[] = [];
+      // const bufArr: any[] = [];
       for await (const data of body) {
-        bufArr.push(data);
+        // bufArr.push(data);
       }
 
       assert.strictEqual(trailers['server-timing'] !== undefined, true, 'Server-Timing header is missing in trailers.');
