@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { debugLog } from './utils';
 const { Client } = require('undici');
 const { stdout } = require('test-console');
 
@@ -84,7 +85,7 @@ module.exports = (base) => {
         const reqID = headers['vsko-req-id'];
         assert.notEqual(reqID, undefined);
       } catch (e) {
-        console.log(e, e.stack);
+        debugLog(e, e.stack);
         throw e;
       }
     });

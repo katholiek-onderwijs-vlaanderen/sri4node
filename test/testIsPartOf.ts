@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 import * as assert from 'assert';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import utilsFactory, { debugLog } from './utils';
 
 export = module.exports = function (base) {
   const sriClientConfig = {
@@ -47,8 +47,8 @@ export = module.exports = function (base) {
             a: { href: '/countries?unexistingPara=5' },
             b: { hrefs: ['/countries'] },
           }, authHdrObj);
-          console.log('R:');
-          console.log(r);
+          debugLog('R:');
+          debugLog(r);
         },
         (error) => {
           assert.equal(error.status, 400);

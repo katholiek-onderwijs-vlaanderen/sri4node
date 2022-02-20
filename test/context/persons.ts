@@ -6,6 +6,7 @@ import * as streamEqual from 'stream-equal';
 
 import { debug, mergeObject, pgExec } from '../../js/common';
 import { prepareSQL } from '../../js//queryObject';
+import { debugLog } from '../utils';
 
 export = module.exports = function (sri4node, extra) {
   const isHrefAPermalink = function (href) {
@@ -235,7 +236,7 @@ export = module.exports = function (sri4node, extra) {
         streamingHandler: async (tx, sriRequest, stream) => {
           sriRequest.attachmentsRcvd = [];
           sriRequest.busBoy.on('file', async (fieldname, file, filename, encoding, mimetype) => {
-            console.log(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
+            debugLog(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
             if (filename === 'test.jpg') {
               if (mimetype !== 'image/jpeg') {
                 throw `Unexpected mimetype! got ${mimetype}`;
@@ -256,7 +257,7 @@ export = module.exports = function (sri4node, extra) {
           });
           // wait until busboy is done
           await pEvent(sriRequest.busBoy, 'finish');
-          console.log('busBoy is done');
+          debugLog('busBoy is done');
 
           if (sriRequest.attachmentsRcvd.length !== 2) {
             throw `Unexpected number attachments posted ${sriRequest.attachmentsRcvd.length}`;

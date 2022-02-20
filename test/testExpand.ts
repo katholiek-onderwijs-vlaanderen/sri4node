@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import utilsFactory, { debugLog } from './utils';
 
 export = module.exports = function (base) {
   const sriClientConfig = {
@@ -226,7 +226,7 @@ export = module.exports = function (base) {
             assert.fail('Should be null !');
           }
         } catch (err) {
-          console.log(err.stack);
+          debugLog(err.stack);
           throw err;
         }
       });

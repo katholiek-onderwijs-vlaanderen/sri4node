@@ -4,41 +4,34 @@ Use in the 'map' section of yout sri4node configuration
 */
 
 function removeifnull(key, e) {
-
   if (e[key] == null) {
     delete e[key];
   }
 }
 
 function remove(key, e) {
-
   delete e[key];
 }
 
 function now(key, e) {
-
   e[key] = new Date().toISOString();
 }
 
-function value(value) {
-
+function value(aValue) {
   return function (key, e) {
-    e[key] = value;
+    e[key] = aValue;
   };
 }
 
 function parse(key, e) {
-
   e[key] = JSON.parse(e[key]);
 }
 
 function stringify(key, e) {
-
   e[key] = JSON.stringify(e[key]);
 }
 
 function base64enc(key, e) {
-
   if (e[key] !== null) {
     e[key] = e[key].toString('base64');
   }

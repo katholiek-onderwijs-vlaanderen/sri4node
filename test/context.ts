@@ -11,7 +11,7 @@ context.serve();
 import * as express from 'express';
 
 import { TSriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
-import utilsFactory from './utils';
+import utilsFactory, { debugLog } from './utils';
 
 const utils = utilsFactory(null);
 
@@ -20,7 +20,7 @@ let configCache: any = null;
 
 function config(sri4node, port, logdebug) {
   if (configCache !== null) {
-    console.log('config cached');
+    debugLog('config cached');
     return configCache;
   }
 
@@ -103,10 +103,10 @@ async function serve(sri4node, port, logdebug) {
   try {
     const port = app.get('port');
     const server = await app.listen(port);
-    console.log(`Node app is running at localhost:${app.get('port')}`);
+    debugLog(`Node app is running at localhost:${app.get('port')}`);
     return server;
   } catch (error) {
-    console.log(`Node app failed to initialize: ${error}`);
+    debugLog(`Node app failed to initialize: ${error}`);
     process.exit(1);
   }
 }

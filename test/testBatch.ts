@@ -5,7 +5,7 @@ import * as uuid from 'uuid';
 import * as _ from 'lodash';
 import * as expect from 'expect.js';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import utilsFactory, { debugLog } from './utils';
 
 /**
  * BATCH should work like this (and now it works the other way around):
@@ -128,7 +128,7 @@ export = module.exports = function (base) {
         const r = await doPut('/batch', batch, sriClientOptionsAuthSabine);
         r.forEach((x) => assert.equal(x.status, 200));  
       } catch (e) {
-        console.log(e, e.stack);
+        debugLog(e, e.stack);
         throw e;
       }
     });

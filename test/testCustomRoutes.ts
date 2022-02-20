@@ -1,16 +1,17 @@
 // Utility methods for calling the SRI interface
 import * as assert from 'assert';
+// import * as https from 'https'; // used to be request (deprecated)!!!
 import * as request from 'request';
+import * as JSONStream from 'JSONStream';
 import * as sleep from 'await-sleep';
 import * as pEvent from 'p-event';
-import * as JSONStream from 'JSONStream';
 import * as fs from 'fs';
 import * as streamEqual from 'stream-equal';
 import * as util from 'util';
 // import * as expect from 'expect.js';
 import * as zlib from 'zlib';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import utilsFactory, { debugLog } from './utils';
 
 const { performance } = require('perf_hooks');
 
@@ -112,7 +113,7 @@ export = module.exports = function (base) {
       const collect:any[] = [];
 
       stream.on('data', (data) => {
-        // console.log('[JSON] received:', data);
+        // debugLog('[JSON] received:', data);
         collect.push(data);
       });
 
@@ -128,9 +129,8 @@ export = module.exports = function (base) {
     });
 
     it('streamingHandler binary stream should work', async () => {
-      const crRead = request.get(`${base}/persons/downStreamBinary`, authHdrObj);
       const fileRead = fs.createReadStream('test/files/test.jpg');
-
+      const crRead = request.get(`${base}/persons/downStreamBinary`, authHdrObj);
       crRead.on('response', (response) => {
         assert.equal(response.statusCode, 200);
         assert.equal(response.headers['content-type'], 'image/jpeg');

@@ -2,6 +2,7 @@ import { TDebugChannel } from '../js/typeDefinitions';
 
 import * as sri4node from '..';
 import * as context from './context';
+import { debugLog } from './utils';
 
 const port = 5000;
 const logdebug = false;
@@ -24,12 +25,12 @@ function asyncSpawn(command, args:string[] = []) {
     });
 
     childProcess.stderr.on('data', (data) => {
-      // console.log(`stderr: ${data}`);
+      // debugLog(`stderr: ${data}`);
       errors = `${errors + data}\n`;
     });
 
     childProcess.on('close', (code) => {
-      // console.log(`child process ${command} exited with code ${code}`);
+      // debugLog(`child process ${command} exited with code ${code}`);
       if (code === 0) {
         resolve(output);
       } else {
@@ -75,7 +76,7 @@ describe('Sri4node SERVER TESTS', function () {
     try {
       await asyncSpawn(`${__dirname}/../createdb.sh`);
     } catch (e) {
-      console.log(`Problem while trying to initialize the testing DB: ${e}`);
+      debugLog(`Problem while trying to initialize the testing DB: ${e}`);
       throw new Error(`Problem while trying to initialize the testing DB: ${e}`);
     }
 
@@ -86,11 +87,11 @@ describe('Sri4node SERVER TESTS', function () {
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
-    console.log('Stopping express server.');
+    debugLog('Stopping express server.');
     if (server) {
       await server.close();
     }
-    console.log('Done.');
+    debugLog('Done.');
   });
 
   // require('./testOrderBy')(base);

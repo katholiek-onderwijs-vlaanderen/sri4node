@@ -3,6 +3,7 @@ import { TSriConfig } from "../../js/typeDefinitions";
 // const { assert } = require('chai');
 import { assert } from 'chai';
 import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../js/common';
+import { debugLog } from "../utils";
 const { flattenJsonSchema } = require('../../js/schemaUtils');
 
 // const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
@@ -1118,7 +1119,7 @@ function checkHrefToFlatParsedObject(input, expected) {
     const hrstart = process.hrtime();
     const normalizedUrl = hrefToFlatParsedObject(input);
     const hrElapsed = process.hrtime(hrstart);
-    // console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+    // debugLog('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
 
     const expectedSorted = {
       ...expected,
@@ -1129,7 +1130,7 @@ function checkHrefToFlatParsedObject(input, expected) {
       expectedSorted,
     );
   // } catch (e) {
-  //   console.log('href parse error', e.message, e, e.stack);
+  //   debugLog('href parse error', e.message, e, e.stack);
   //   throw e;
   // }
 }
@@ -1146,7 +1147,7 @@ function checkhrefToFlatParsedObjectAddsMissing(input, paramName, expectedParamV
   const hrstart = process.hrtime();
   const parsedUrl = hrefToFlatParsedObject(input);
   const hrElapsed = process.hrtime(hrstart);
-  console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
+  debugLog('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
   assert.isTrue(
     parsedUrl.parseTree.findIndex(f => f.operator === paramName) >= 0,
     `The expected query parameter '${paramName}' has not been added to the normalized url`,
@@ -1332,12 +1333,12 @@ describe('non_flat_url_parser.ts', () => {
     it('should know what to do with ?dryRun=true', () => {
       // doesn't seem to matter a lot for list resources or gets in general, so maybe they are simply not supported on gets?
       // on the other hand, adding this somewhere to the parse tree does seem to make sense
-      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)');
+      debugLog('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)');
     });
 
     it('should put list control parameter in the right subsection', () => {
       // const parsed = parse('/persons?limit=5');
-      // console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
+      // debugLog(JSON.stringify(parse('/persons?limit=5'), null, 2));
       checkHrefToNonFlatParsedObjectContains(
         '/persons?limit=5',
         'listControl',
