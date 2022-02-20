@@ -1,7 +1,7 @@
 import * as peggy from 'peggy';
 import { flattenJsonSchema } from '../schemaUtils';
 import {
-  FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty,
+  TFlattenedJsonSchema, TParseTree, TParseTreeFilter, TParseTreeOperator, TParseTreeProperty,
   TResourceDefinition,
   TSriConfig,
 } from '../typeDefinitions';
@@ -35,7 +35,7 @@ function encodeURIComponentStrict(uriComp) {
  * @param {*} b
  * @returns -1 if a should be before b, 1 if b should be before a, 0 if they are equivalent
  */
-function parseTreeSortFunction(a: ParseTreeFilter, b: ParseTreeFilter) {
+function parseTreeSortFunction(a: TParseTreeFilter, b: TParseTreeFilter) {
   return ([
     [() => a.property && !b.property, -1],
     [() => !a.property && b.property, +1],
@@ -56,7 +56,7 @@ function parseTreeSortFunction(a: ParseTreeFilter, b: ParseTreeFilter) {
  * And then also translate the value from an array into a single value sometimes
  * or the other way around?
  */
-function normalizeRowFilter(rowFilter:ParseTreeFilter) {
+function normalizeRowFilter(rowFilter:TParseTreeFilter) {
   const retVal = { ...rowFilter };
   if (rowFilter.operator.name === 'EQ') {
     // translate EQ to IN
@@ -84,7 +84,7 @@ function normalizeRowFilter(rowFilter:ParseTreeFilter) {
 /**
  * Should turn OMIT into the opposite to list exactly all the fields required fields.
  */
-function normalizeColumnFilter(columnFilter:ParseTreeFilter) {
+function normalizeColumnFilter(columnFilter:TParseTreeFilter) {
   const retVal = { ...columnFilter };
   // if (columnFilter.operator.name === 'EQ') {
   //   // translate EQ to IN
@@ -133,8 +133,8 @@ function convertValue(value:string, type = 'string') {
 }
 
 function translateValueType(
-  property:ParseTreeProperty | { type?: never } = { },
-  operator:ParseTreeOperator | { type?: never } = {},
+  property:TParseTreeProperty | { type?: never } = { },
+  operator:TParseTreeOperator | { type?: never } = {},
   value,
 ) {
   // console.log('translateValueType(', property, operator, value, ')');
@@ -146,8 +146,8 @@ function translateValueType(
  *
  */
 function produceValue(
-  property:ParseTreeProperty | { multiValued?: never, type?: never } = {},
-  operator:ParseTreeOperator | { multiValued?: never, type?: never } = {},
+  property:TParseTreeProperty | { multiValued?: never, type?: never } = {},
+  operator:TParseTreeOperator | { multiValued?: never, type?: never } = {},
   escapedUnparsedValue:string,
 ) {
   const value = decodeURIComponent(escapedUnparsedValue.replace(/\\+/g, ' '));
@@ -258,7 +258,7 @@ function parsedQueryStringToParseTreeWithDefaults(
  *
  */
 function checkType({ property, operator }
-:{ property:ParseTreeProperty, operator: ParseTreeOperator }, typeDescription:string) {
+:{ property:TParseTreeProperty, operator: TParseTreeOperator }, typeDescription:string) {
   const safeProperty = property || {};
   const safeOperator = operator || {};
   const parseTreeExpectsArray = safeProperty.multiValued || safeOperator.multiValued;
@@ -290,7 +290,7 @@ function checkType({ property, operator }
  * @returns a string expressing the expected type like 'boolean', 'integer[]', ...
  */
 function generateExpectedType(
-  { property, operator }:{ property:ParseTreeProperty, operator: ParseTreeOperator },
+  { property, operator }:{ property:TParseTreeProperty, operator: TParseTreeOperator },
 ) {
   const safeProperty = property || {};
   const safeOperator = operator || {};
@@ -342,7 +342,7 @@ function generateExpectedType(
  * @returns {String} the peggy grammar
  */
 function generateNonFlatQueryStringParserGrammar(
-  flattenedJsonSchema:FlattenedJsonSchema,
+  flattenedJsonSchema:TFlattenedJsonSchema,
   sriConfigDefaults?:TSriConfig,
   sriConfigResourceDefinition?:TResourceDefinition,
 ) {
@@ -748,7 +748,7 @@ function generateNonFlatQueryStringParser(
   return {
     ...parser,
     origParse: parser.parse,
-    parse: (input:string, moreOptions:object = {}):ParseTree => parser.parse(
+    parse: (input:string, moreOptions:object = {}):TParseTree => parser.parse(
       input, { ...moreOptions, ...options },
     ),
   };

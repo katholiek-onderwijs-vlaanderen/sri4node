@@ -1,5 +1,5 @@
 import { JSONSchema4 } from 'json-schema';
-import { FlattenedJsonSchema } from './typeDefinitions';
+import { TFlattenedJsonSchema } from './typeDefinitions';
 
 /**
  * This will make sure we can easily find all possible dot-separated property names
@@ -34,7 +34,7 @@ import { FlattenedJsonSchema } from './typeDefinitions';
  *          but with dot notation
  */
 function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
-:FlattenedJsonSchema {
+:TFlattenedJsonSchema {
   if (jsonSchema.type === 'object') {
     // old skool modification of an object is a bit easier to reason about in this case
     const retVal = {};
@@ -214,4 +214,4 @@ export {
   boolean,
   array,
   patchSchemaToDisallowAdditionalProperties,
-}
+};

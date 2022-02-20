@@ -15,27 +15,27 @@ import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset'
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
-export type PluginConfig = {}
+type TPluginConfig = Record<string, unknown>;
 
 // for example /llinkid/activityplanning, so should only start with a slash
 // and maybe only lowercase etc???
-export type TUriPath = string
+type TUriPath = string
 
-export type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH' | 'POST';
+type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH' | 'POST';
 
-export type TDebugChannel = 'general' | 'db'| 'sql' | 'requests' | 'hooks' | 'server-timing'| 'batch'
+type TDebugChannel = 'general' | 'db'| 'sql' | 'requests' | 'hooks' | 'server-timing'| 'batch'
                         | 'trace'| 'phaseSyncer' | 'overloadProtection'| 'mocha';
 
-export type TLogDebug = {
+type TLogDebug = {
   channels: Set<TDebugChannel> | TDebugChannel[] | 'all',
   statuses?: Set<number> | Array<number>,
 }
 
-export type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
+type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
 
-export type TErrorLogFunction = (...unknown) => void;
+type TErrorLogFunction = (...unknown) => void;
 
-export class SriError {
+class SriError {
   status: number;
 
   body: { errors: unknown[]; status: number; document: { [key:string]: unknown }; };
@@ -71,7 +71,7 @@ export class SriError {
   }
 }
 
-export type TSriBatchElement = {
+type TSriBatchElement = {
   href: string,
   verb: THttpMethod,
   body: TSriRequestBody,
@@ -83,15 +83,15 @@ export type TSriBatchElement = {
   }
 }
 
-export type TSriBatchArray =
+type TSriBatchArray =
   Array<TSriBatchElement | Array<TSriBatchElement>>
 
-export type TSriRequestBody =
+type TSriRequestBody =
   TSriBatchArray
   |
   Array<Operation> // json patch
 
-export type TPreparedSql = {
+type TPreparedSql = {
   name?:string,
   text:string,
   params: Array<string | number | boolean>,
@@ -107,7 +107,7 @@ export type TPreparedSql = {
 }
 
 // TODO make more strict
-export type TSriRequest = {
+type TSriRequest = {
   id: string,
   parentSriRequest?: TSriRequest | TInternalSriRequest,
 
@@ -153,7 +153,7 @@ export type TSriRequest = {
   ended?: boolean,
 };
 
-export type TInternalSriRequest = {
+type TInternalSriRequest = {
   href: string,
   verb: THttpMethod,
   dbT: IDatabase<unknown>, // transaction or task object of pg promise
@@ -169,9 +169,9 @@ export type TInternalSriRequest = {
   streamStarted?: () => boolean,
 };
 
-export type TResourceMetaType = Uppercase<string>;
+type TResourceMetaType = Uppercase<string>;
 
-export type TResourceDefinition = {
+type TResourceDefinition = {
   type: TUriPath,
   metaType: TResourceMetaType,
 
@@ -336,13 +336,13 @@ export type TResourceDefinition = {
   >
 };
 
-export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
+type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
   tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:unknown) => unknown
 
-export type TSriRequestHandler = ((sriRequest:TSriRequest) => unknown)
+type TSriRequestHandler = ((sriRequest:TSriRequest) => unknown)
   | TSriRequestHandlerForPhaseSyncer;
 
-export type TBatchHandlerRecord = {
+type TBatchHandlerRecord = {
   route: unknown,
   verb: THttpMethod,
   func: TSriRequestHandler,
@@ -362,26 +362,26 @@ export type TBatchHandlerRecord = {
  * That option used to be in the root of TSriConfig and used to be called dbConnectionInitSql
  * EXAMPLE: "set random_page_cost = 1.1;"
  */
-export interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
+interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
   schema?: ValidSchema | ((dc: unknown) => ValidSchema),
   // will be run
   connectionInitSql?: string, // example "set random_page_cost = 1.1;",
 }
 
-export interface IExtendedDatabaseInitOptions extends IInitOptions {
+interface IExtendedDatabaseInitOptions extends IInitOptions {
   /**
    * Do we attach the pgMonitor plugin?
    */
   pgMonitor?: boolean,
 }
 
-export type TSriResult = {
+type TSriResult = {
   status: number,
   body: any,
   headers?: Record<string, string>,
 }
 
-export type TSriConfig = {
+type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: unknown,
   db?: IDatabase<unknown>,
@@ -394,7 +394,7 @@ export type TSriConfig = {
   id?: string,
 
   // the real properties !!!
-  plugins?: PluginConfig[]
+  plugins?: TPluginConfig[]
   enableGlobalBatch?: boolean,
   globalBatchRoutePrefix?: TUriPath,
   // logrequests?: boolean,
@@ -458,30 +458,30 @@ export type TSriConfig = {
   streamingKeepAliveTimeoutMillis?: number,
 };
 
-export type ParseTreeType = 'string' | 'number' | 'integer' | 'boolean';
+type TParseTreeType = 'string' | 'number' | 'integer' | 'boolean';
 
-export type ParseTreeProperty = { name: string, type: ParseTreeType, multiValued: boolean };
+type TParseTreeProperty = { name: string, type: TParseTreeType, multiValued: boolean };
 
-export type ParseTreeOperator = { name: string, type: ParseTreeType, multiValued: boolean };
+type TParseTreeOperator = { name: string, type: TParseTreeType, multiValued: boolean };
 
-export type ParseTreeFilter = {
-  property?: ParseTreeProperty,
-  operator: ParseTreeOperator,
+type TParseTreeFilter = {
+  property?: TParseTreeProperty,
+  operator: TParseTreeOperator,
   invertOperator: boolean,
   caseInsensitive: boolean,
   value: unknown,
 }
 
-export type ParseTree = {
+type TParseTree = {
   normalizedUrl: {
-    rowFilters: ParseTreeFilter[],
-    columnFilters: ParseTreeFilter[],
-    listControlFilters: ParseTreeFilter[],
+    rowFilters: TParseTreeFilter[],
+    columnFilters: TParseTreeFilter[],
+    listControlFilters: TParseTreeFilter[],
   }
 }
 
 // can be improved and made a lot more strict (cfr. @types/json-schema), but for now...
-export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: unknown } }
+type TFlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: unknown } }
 
 // const sriConfig = {
 //   "plugins": [
@@ -843,3 +843,35 @@ export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: strin
 //     }
 //   ]
 // };
+
+export {
+  TPluginConfig,
+  TUriPath,
+  THttpMethod,
+  TDebugChannel,
+  TLogDebug,
+  TDebugLogFunction,
+  TErrorLogFunction,
+  SriError,
+  TSriBatchElement,
+  TSriBatchArray,
+  TSriRequestBody,
+  TPreparedSql,
+  TSriRequest,
+  TInternalSriRequest,
+  TResourceMetaType,
+  TResourceDefinition,
+  TSriRequestHandlerForPhaseSyncer,
+  TSriRequestHandler,
+  TBatchHandlerRecord,
+  TSriResult,
+  TSriConfig,
+  TParseTreeType,
+  TParseTreeProperty,
+  TParseTreeOperator,
+  TParseTreeFilter,
+  TParseTree,
+  TFlattenedJsonSchema,
+  IExtendedDatabaseConnectionParameters,
+  IExtendedDatabaseInitOptions,
+};

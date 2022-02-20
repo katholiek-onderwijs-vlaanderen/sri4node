@@ -34,6 +34,7 @@
     "express-middleware-timer": "^0.2.2",
     "fast-json-patch": "^3.0.0-1",
     "gc-stats": "^1.4.0",
+    "json-schema": "^0.4.0",
     "json-stream-stringify": "^2.0.4",
     "lodash": "^4.17.20",
     "p-each-series": "^2.1.0",
