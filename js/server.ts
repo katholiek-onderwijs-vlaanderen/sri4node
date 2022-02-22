@@ -13,6 +13,6 @@ if (c9hostname) {
 
 import * as context from '../test/context';
 
-context.serve(sri4node, port, true, false, false, true);
+context.serve(sri4node, port, true); // , false, false, true
 
-export = module.exports = context.serve(sri4node, port, true, false, false, true);
+export = module.exports = context.serve(sri4node, port, true); // , false, false, true

@@ -408,7 +408,8 @@ export type TSriConfig = {
   },
 
   defaultlimit?: boolean,
-  trackHeapMax?: boolean,
+  // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
+  // trackHeapMax?: boolean,
   batchHandlerMap?: TBatchHandlerRecord,
   resources: TResourceDefinition[],
   beforePhase?:
