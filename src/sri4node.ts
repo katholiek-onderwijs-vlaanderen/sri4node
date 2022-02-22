@@ -456,17 +456,17 @@ async function configure(app: Application, sriConfig: TSriConfig) {
   // make sure no x-powered-by header is being sent
   app.disable('x-powered-by');
 
-  let maxHeapUsage = 0;
-
-  if (sriConfig.trackHeapMax === true) {
-    const gc = (require('gc-stats'))();
-    gc.on('stats', (stats) => {
-      const heapUsage = (stats.before.usedHeapSize / 1024 / 1024);
-      if (heapUsage > maxHeapUsage) {
-        maxHeapUsage = heapUsage;
-      }
-    });
-  }
+  // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
+  // let maxHeapUsage = 0;
+  // if (sriConfig.trackHeapMax === true) {
+  //   const gc = (require('gc-stats'))();
+  //   gc.on('stats', (stats) => {
+  //     const heapUsage = (stats.before.usedHeapSize / 1024 / 1024);
+  //     if (heapUsage > maxHeapUsage) {
+  //       maxHeapUsage = heapUsage;
+  //     }
+  //   });
+  // }
 
   try {
     sriConfig.resources.forEach((resource) => {
@@ -1152,12 +1152,13 @@ async function configure(app: Application, sriConfig: TSriConfig) {
       return JSON.parse(JSON.stringify(result));
     };
 
-    if (sriConfig.trackHeapMax === true) {
-      app.get('/heap_max', (req, res) => {
-        res.set('Content-Type', 'application/json');
-        res.send({ maxHeapUsage });
-      });
-    }
+    // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
+    // if (sriConfig.trackHeapMax === true) {
+    //   app.get('/heap_max', (req, res) => {
+    //     res.set('Content-Type', 'application/json');
+    //     res.send({ maxHeapUsage });
+    //   });
+    // }
 
     console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________');
   } catch (err) {
