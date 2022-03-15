@@ -29,13 +29,25 @@ function config(sri4node, port, logdebug) {
   const commonResourceConfig = {
   };
 
+
   const config:TSriConfig = {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
-      connectionString: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
+      // connectionString: 'postgres://sri4node:sri4node@localhost:5434/postgres?ssl=false',
       // ssl: false,
+      user: 'sri4node',
+      password: 'sri4node',
+      host: 'localhost',
+      port: 5432,
+      database: "postgres",
       schema: 'sri4node',
+      // FOR DOCKER
+      // user: 'user',
+      // password: 'password',
+      // host: 'localhost',
+      // port: 5434,
+      // schema: 'postgres',
     },
 
     resources: [

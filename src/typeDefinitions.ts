@@ -150,7 +150,18 @@ type TSriRequest = {
 
   busBoy?: unknown,
 
-  ended?: boolean,
+  /**
+   * Under the custom property a user (or a plugin) can store custom information
+   * that it needs to pass from one stage to the next during the sriRequest's lifecycle.
+   * 
+   * We think about information that is needed in later hooks, like for example:
+   *  * setting the identity in a 'before' hook, and using that identity for some check
+   *    in an 'after' hook
+   *  * whatever information you can think of that you have at one point, but doesn't
+   *    immediately lead to an exception (status other than 2xx) that would end the request
+   *    right away
+   */
+  custom: Record<string, unknown>,
 };
 
 type TInternalSriRequest = {

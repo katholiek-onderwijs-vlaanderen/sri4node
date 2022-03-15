@@ -1261,6 +1261,7 @@ function generateSriRequest(
     isBatchPart: undefined,
 
     serverTiming: {},
+    custom: {},
   };
 
   if (internalSriRequest && !batchElement) { // internal interface

@@ -12,13 +12,14 @@ The implementation supports storage on a postgres database.
 Installation is simple using npm :
 
     $ cd [your_project]
-    $ npm install --save sri4node
+    $ npm install "git://github.com/katholiek-onderwijs-vlaanderen/sri4node.git"
+    $ # or npm install "git://github.com/katholiek-onderwijs-vlaanderen/sri4node.git#<version>"
 
 You will also want to install Express.js :
 
-    $ npm install --save express
+    $ npm install express
 
-Express.js is *technically* not a dependency (as in npm dependencies) of sri4node. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
+Express.js is *technically* not a dependency (as in npm dependencies) of sri4node, but rather a peer dependency. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
 
 # Logging
 

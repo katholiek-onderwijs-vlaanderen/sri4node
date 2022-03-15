@@ -53,11 +53,9 @@ class PhaseSyncer {
       try {
         const res = await fun(this, ...args);
         this.ctrlEmitter.queue('jobDone', this.id);
-        this.sriRequest.ended = true;
         return res;
       } catch (err) {
         this.ctrlEmitter.queue('jobFailed', this.id);
-        this.sriRequest.ended = true;
         throw err;
       }
     };
