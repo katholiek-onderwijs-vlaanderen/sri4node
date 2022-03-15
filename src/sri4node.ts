@@ -212,7 +212,7 @@ const expressWrapper = (
 ) => async function (req:Request, resp:Response, next) {
   let t: any = null; let endTask; let resolveTx; let rejectTx; let
     readOnly;
-  const reqMsgStart = `${req.method} ${req.path}`;
+  const reqMsgStart = `${req.method} ${req.originalUrl}`;
   debug('requests', `${reqMsgStart} starting.`);
 
   const hrstart = process.hrtime();
