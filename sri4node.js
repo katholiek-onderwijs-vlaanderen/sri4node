@@ -189,7 +189,7 @@ const handleServerTiming = async (req, resp, sriRequest) => {
 const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchRequest, readOnly0) => {
   return async function (req, resp, next) {
     let t=null, endTask, resolveTx, rejectTx, readOnly;
-    const reqMsgStart = req.method + ' ' + req.path;
+    const reqMsgStart = req.method + ' ' + req.originalUrl;
     debug('requests', `${reqMsgStart} starting.`);
 
     const hrstart = process.hrtime();
