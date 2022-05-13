@@ -62,7 +62,7 @@ export = module.exports = function (base) {
                      ',/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c',
                      null, sriClientOptionsAuthSabine)
         assert.equal(response.$$meta.count, 2);
-        var hrefs = [response.results[0].href, response.results[1].href];
+        const hrefs = [response.results[0].href, response.results[1].href];
         if (hrefs.indexOf('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d') === -1) {
           assert.fail();
         }
@@ -78,7 +78,7 @@ export = module.exports = function (base) {
           await utils.testForStatusCode(
             async () => {
               await doGet('/communities?invalidParam=abc')
-            }, 
+            },
             (error) => {
               assert.equal(error.status, 404);
             })
@@ -93,7 +93,7 @@ export = module.exports = function (base) {
         await utils.testForStatusCode(
           async () => {
             await doGet('/persons')
-          }, 
+          },
           (error) => {
             assert.equal(error.status, 401);
           })
@@ -118,7 +118,7 @@ export = module.exports = function (base) {
         await utils.testForStatusCode(
           async () => {
             await doGet('/communities?invalidQueryParameter=true');
-          }, 
+          },
           (error) => {
             assert.equal(error.status, 404);
             assert.equal(error.body.errors[0].code, 'invalid.query.parameter');
@@ -131,16 +131,16 @@ export = module.exports = function (base) {
         await utils.testForStatusCode(
           async () => {
             await doGet('/communities?nonexistingparameter=x')
-          }, 
+          },
           (error) => {
             assert.equal(error.status, 404);
             assert.equal(error.body.errors[0].code, 'invalid.query.parameter');
-            assert.equal(error.body.errors[0].parameter, 'nonexistingparameter');            
+            assert.equal(error.body.errors[0].parameter, 'nonexistingparameter');
           })
       });
     });
 
-    // test does not work anymore and is not relevant anymore as a list query get a db task 
+    // test does not work anymore and is not relevant anymore as a list query get a db task
     // (instead of db transaction) which cannot be used to write to the database
   //   describe('that use the database object', function () {
   //     it('should return correct results (no side-effects)', async function () {
@@ -253,7 +253,7 @@ export = module.exports = function (base) {
       await traverse('/alldatatypes?limit=3&descending=false')
       assert.equal(hrefsFound.length, _.uniq(hrefsFound).length);
       assert.equal(count, _.uniq(hrefsFound).length);
-    });    
+    });
 
     it('should also return all resources with created timestamp in microseconds', async function () {
       const hrefsFound:string[] = []
@@ -289,11 +289,11 @@ export = module.exports = function (base) {
       await utils.testForStatusCode(
         async () => {
           await doGet('/alldatatypes?limit=100', null, sriClientOptionsAuthKevin)
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 409);
           assert.equal(error.body.errors[0].code, 'invalid.limit.parameter');
-          assert.equal(error.body.errors[0].message, 'The maximum allowed limit is 50');      
+          assert.equal(error.body.errors[0].msg, 'The maximum allowed limit is 50');
         })
     });
 
@@ -311,11 +311,11 @@ export = module.exports = function (base) {
       await utils.testForStatusCode(
         async () => {
           await doGet('/alldatatypes?limit=*', null, sriClientOptionsAuthKevin)
-        }, 
+        },
         (error) => {
           assert.equal(error.status, 409);
           assert.equal(error.body.errors[0].code, 'invalid.limit.parameter');
-          assert.equal(error.body.errors[0].message, 'The maximum allowed limit is 50');      
+          assert.equal(error.body.errors[0].msg, 'The maximum allowed limit is 50');
         })
     });
 
@@ -327,7 +327,7 @@ export = module.exports = function (base) {
 
     it('should be able to deal with limit=0 and no results', async function () {
       const response = await doGet('/persons?firstname=unexisting&limit=0', null, sriClientOptionsAuthSabine)
-    });  
+    });
 
   });
 

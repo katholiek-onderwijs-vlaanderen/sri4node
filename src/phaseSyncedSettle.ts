@@ -259,7 +259,7 @@ async function phaseSyncedSettle(
     if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
       sriError = err;
     } else {
-      sriError = new SriError({ status: 500, errors: [{ code: 'phase.synced.settle.failed', err: err.toString() }] });
+      sriError = new SriError({ status: 500, errors: [{ code: 'phase.synced.settle.failed', msg: err.toString() }] });
     }
     pendingJobs.forEach((id) => {
       jobMap.get(id)?.jobEmitter.queue(

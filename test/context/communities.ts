@@ -11,7 +11,7 @@ export = module.exports = function (sri4node, extra) {
   const $u = sri4node.utils;
 
   async function invalidQueryParameter() {
-    throw new SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
+    throw new SriError({ status: 404, errors: [{ code: 'invalid.query.parameter', msg: 'invalid query parameter' }] });
   }
 
   function disallowOneCommunity(forbiddenKey) {

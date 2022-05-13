@@ -80,7 +80,7 @@ function config(sri4node, port, logdebug) {
             if (pendingJobs.has(psId)) {
               if (sriRequest.generateError === true) {
                 sriRequest.generateError = false;
-                throw new SriError({ status: 400, errors: [{ code: 'foo' }], sriRequestID: sriRequest.id });
+                throw new SriError({ status: 400, errors: [{ code: 'foo', msg: 'foo' }], sriRequestID: sriRequest.id });
               }
             }
           });

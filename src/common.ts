@@ -35,10 +35,6 @@ let pgp:pgPromise.IMain; // will be initialized at pgConnect
 const logBuffer:{ [k:string]: string[]} = {};
 
 /**
- * Base class for every error that is being thrown throughout the lifetime of an sri request
- */
-
-/**
  * process.hrtime() method can be used to measure execution time, but returns an array
  *
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]

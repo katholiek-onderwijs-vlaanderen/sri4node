@@ -35,10 +35,33 @@ type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => v
 
 type TErrorLogFunction = (...unknown) => void;
 
+
+/**
+ * When sri encpounters an error, an array of errors will be sent back
+ * in the body of the response.
+ * Each error object will have a code and a msg,
+ * but some errors contain extra info, so these fields are also allowed...
+ */
+type TSriErrorItem = {
+  code: string,       // a code like 'internal.server.error'
+  msg: string,        // description of the error
+  type?: string,      // Used to categorize the error => ERROR or WARNING
+                      // but also used as
+                      // meta type of resource that caused the issue
+  err?: Error,        // the raw exception can be passed in
+  parameter?: string, // parameter name if it's about an invalid query param
+  possibleParameters?: string[] // list of allowed parameter names if it's about an invalid query param
+  value?: string,     // parameter value if it's about an invalid query param
+  possibleValues?: string[] // possible parameter values (if this applies for the given parameter)
+  url?: string,       // 
+  key?: string,       // key of resource that caused the issue
+  errors?: { validationErrors: Array<Record<string, unknown>> } // used on schema validation errors (but why not simply add each schema error as a single error)?
+  body?: unknown,     // request body
+};
 class SriError {
   status: number;
 
-  body: { errors: unknown[]; status: number; document: { [key:string]: unknown }; };
+  body: { errors: Array<TSriErrorItem>; status: number; document: { [key:string]: unknown }; };
 
   headers: { [key:string]: string };
 
@@ -52,21 +75,21 @@ class SriError {
   constructor({
     status = 500, errors = [], headers = {}, document = {}, sriRequestID = null,
   }:{
-    status:number, errors:unknown[], headers?:{ [k:string]: string },
-    document?:{ [k:string]: unknown }, sriRequestID?:string | null,
+    status:number, errors:Array<TSriErrorItem>,
+    headers?:{ [k:string]: string }, document?:{ [k:string]: unknown },
+    sriRequestID?:string | null,
   }) {
     this.status = status;
     this.body = {
-      errors: errors.map((e:{ [key:string]: unknown }) => {
-        if (e.type === undefined) {
-          e.type = 'ERROR'; // if no type is specified, set to 'ERROR'
-        }
-        return e;
-      }),
+      errors: errors.map((e:TSriErrorItem) => ({
+          type: 'ERROR', // default
+          ...e,
+        }),
+      ),
       status,
       document,
     };
-    this.headers = headers;
+    this.headers = { ...headers };
     this.sriRequestID = sriRequestID;
   }
 }
@@ -153,7 +176,7 @@ type TSriRequest = {
   /**
    * Under the custom property a user (or a plugin) can store custom information
    * that it needs to pass from one stage to the next during the sriRequest's lifecycle.
-   * 
+   *
    * We think about information that is needed in later hooks, like for example:
    *  * setting the identity in a 'before' hook, and using that identity for some check
    *    in an 'after' hook

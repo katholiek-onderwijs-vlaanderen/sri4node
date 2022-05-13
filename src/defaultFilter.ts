@@ -169,7 +169,7 @@ function filterArray(select, filter, value, _mapping, _baseType, field) {
         errors: [{
           code: 'invalid.array.filter',
           parameter: filter.operator,
-          message: 'Invalid array filter operator.',
+          msg: 'Invalid array filter operator.',
         }],
       });
     }
@@ -198,7 +198,7 @@ function filterJson(select, filter, value, mapping) {
       errors: [{
         code: 'invalid.query.property',
         parameter: filter.key,
-        message: 'There is no valid path defined, use \'.\' to define path.',
+        msg: 'There is no valid path defined, use \'.\' to define path.',
       }],
     });
   } else {
@@ -375,7 +375,7 @@ function getFieldBaseType(fieldType) {
  * @param {*} mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
  * @param {*} database: ?
  */
-function defaultFilter (valueEnc:string, query:TPreparedSql, parameter, mapping, database) {
+function defaultFilter (valueEnc:string, query:TPreparedSql, parameter:string, mapping, database) {
   const value = decodeURIComponent(valueEnc);
 
   // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
@@ -412,6 +412,7 @@ function defaultFilter (valueEnc:string, query:TPreparedSql, parameter, mapping,
       status: 404,
       errors: [{
         code: 'invalid.query.parameter',
+        msg: `The paramater ${parameter} in invalid.`,
         parameter,
         possibleParameters: Object.keys(informationSchema[idx]),
       }],

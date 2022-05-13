@@ -4,11 +4,11 @@ import { TSriConfig } from "../../src/typeDefinitions";
 import { assert } from 'chai';
 import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../src/common';
 import { debugLog } from "../utils";
-const { flattenJsonSchema } = require('../../src/schemaUtils');
+import { flattenJsonSchema } from '../../src/schemaUtils';
+import * as $u from '../../src/schemaUtils';
 
 // const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../src/url_parsing/non_flat_url_parser')
 
-const $u = require('../../src/schemaUtils');
 
 const sriConfig:TSriConfig = {
   resources: [

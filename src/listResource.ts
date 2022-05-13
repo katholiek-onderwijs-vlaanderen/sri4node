@@ -35,7 +35,7 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
               await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters);
             }
           } else {
-            throw new SriError({ status: 404, errors: [{ code: 'unknown.query.parameter', parameter: key }] }); // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
+            throw new SriError({ status: 404, errors: [{ code: 'unknown.query.parameter', msg: `The parameter ${key} is invalid.`, parameter: key }] });
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
           // queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
@@ -108,7 +108,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
         errors: [
           {
             code: 'invalid.orderby.parameter',
-            message: `Can not order by [${orderBy}]. One or more unknown properties.`,
+            msg: `Can not order by [${orderBy}]. One or more unknown properties.`,
           }],
       });
     }
@@ -124,7 +124,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
         errors: [
           {
             code: 'invalid.keyoffset',
-            message: `Number of offset key values (${keyValues.length}) does not match number of order keys (${orderKeys.length}).`,
+            msg: `Number of offset key values (${keyValues.length}) does not match number of order keys (${orderKeys.length}).`,
           }],
       });
     }
@@ -159,7 +159,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
             {
               code: 'invalid.limit.parameter',
               type: 'ERROR',
-              message: `The maximum allowed limit is ${maxlimit}`,
+              msg: `The maximum allowed limit is ${maxlimit}`,
             },
           ],
         },
@@ -177,7 +177,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
           {
             code: 'offset.and.keyoffset.incompatible',
             type: 'ERROR',
-            message: 'The parameters "offset" and "keyOffset" cannot be used together',
+            msg: 'The parameters "offset" and "keyOffset" cannot be used together',
           }],
       });
     } else {
@@ -315,7 +315,7 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
     rows = await pgExec(tx, query, sriRequest);
   } catch (error) {
     if (error.code === '42703') { // UNDEFINED COLUMN
-      throw new SriError({ status: 409, errors: [{ code: 'invalid.query.parameter' }] });
+      throw new SriError({ status: 409, errors: [{ code: 'invalid.query.parameter', msg: 'One of the paramaters is invalid.' }] });
     } else {
       throw error;
     }
@@ -368,7 +368,7 @@ const matchUrl = (url, mapping) => {
     const key = matchResult[1];
     return { type: 'single', key };
   }
-  throw new SriError({ status: 400, errors: [{ code: 'unknown.resource.type', url }] });
+  throw new SriError({ status: 400, errors: [{ code: 'unknown.resource.type', msg: `The url ${url} points to an unknown resource.`, url }] });
 };
 
 // Check if a given raw url A is a subset of the given raw urls in list B
@@ -383,15 +383,17 @@ const matchUrl = (url, mapping) => {
 async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
   await phaseSyncer.phase();
 
-  if (sriRequest.body.a === undefined || sriRequest.body.a.href === undefined
-       || sriRequest.body.b === undefined || sriRequest.body.b.hrefs === undefined) {
-    throw new SriError({ status: 400, errors: [{ code: 'a.href.and.b.hrefs.needs.to.specified' }] });
+  if (sriRequest.body.a?.href === undefined) {
+    throw new SriError({ status: 400, errors: [{ code: 'a.href.and.b.hrefs.needs.to.specified', msg: 'a.href must be specified' }] });
+  }
+  if (sriRequest.body.b?.hrefs === undefined) {
+    throw new SriError({ status: 400, errors: [{ code: 'a.href.and.b.hrefs.needs.to.specified', msg: 'b.hrefs must be specified' }] });
   }
   if (Array.isArray(sriRequest.body.a.href)) {
-    throw new SriError({ status: 400, errors: [{ code: 'a.href.must.be.single.value' }] });
+    throw new SriError({ status: 400, errors: [{ code: 'a.href.must.be.single.value', msg: `'${sriRequest.body.a.href.toString()}' must be a single value` }] });
   }
   if (!Array.isArray(sriRequest.body.b.hrefs)) {
-    throw new SriError({ status: 400, errors: [{ code: 'b.hrefs.must.be.array' }] });
+    throw new SriError({ status: 400, errors: [{ code: 'b.hrefs.must.be.array', msg: `'${sriRequest.body.b.hrefs.toString()}' must be an array` }] });
   }
 
   const urlA = sriRequest.body.a.href;
@@ -411,7 +413,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
     try {
       await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
     } catch (err) {
-      throw new SriError({ status: 400, errors: [{ code: 'resource.b.raised.error', url: urlB, err }] });
+      throw new SriError({ status: 400, errors: [{ code: 'resource.b.raised.error', msg: err.message, url: urlB, err }] });
     }
     const sqlB = queryB.text;
     const valuesB = queryB.params;
@@ -426,7 +428,7 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
       try {
         await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
       } catch (err) {
-        throw new SriError({ status: 400, errors: [{ code: 'resource.a.raised.error', url: urlA, err }] });
+        throw new SriError({ status: 400, errors: [{ code: 'resource.a.raised.error', msg: err.message, url: urlA, err }] });
       }
       const sqlA = queryA.text;
       const valuesA = queryA.params;

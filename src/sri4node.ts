@@ -385,13 +385,25 @@ const expressWrapper = (
       // next(err)
       req.destroy();
     } else if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
+      if (err.status >= 500) {
+        error('____________________________ E R R O R (expressWrapper)____________________________________');
+        error(err);
+        error('STACK:');
+        error(err.stack);
+        error('___________________________________________________________________________________________');
+      }
       if (err.status > 0) {
         const reqId = httpContext.get('reqId');
         if (reqId !== undefined) {
           err.body.vskoReqId = reqId;
           err.headers['vsko-req-id'] = reqId;
         }
-        resp.set(err.headers).status(err.status).send(err.body);
+        const strippedBody = {
+          ...err.body,
+          errors: (err as SriError).body.errors
+            .map((error) => Object.fromEntries(Object.entries(error).filter(([key]) => key !== 'err'))),
+        }
+        resp.set(err.headers).status(err.status).send(strippedBody);
       }
     } else {
       error('____________________________ E R R O R (expressWrapper)____________________________________');
@@ -444,6 +456,7 @@ const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, a
   tableFromMapping,
   urlToTypeAndKey,
   parseResource, // should be deprecated in favour of a decent url parsing mechanism
+  stringifyError,
 };
 
 /**
@@ -455,6 +468,14 @@ const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, a
 async function configure(app: Application, sriConfig: TSriConfig) {
   // make sure no x-powered-by header is being sent
   app.disable('x-powered-by');
+
+  /*
+    sriConfig: {
+      middlewares: [ 'AZERTY' ]
+    }
+    const [m] = sriConfig.middlewares;
+    m.
+  */
 
   // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
   // let maxHeapUsage = 0;
@@ -989,7 +1010,7 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                           if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
                             throw err;
                           } else {
-                            throw new SriError({ status: 500, errors: [`${util.format(err)}`] });
+                            throw new SriError({ status: 500, errors: [ { code: 'internal.server.error', msg: `${util.format(err)}`, err } ] });
                           }
                         }
                       }

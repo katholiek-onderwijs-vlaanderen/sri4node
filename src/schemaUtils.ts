@@ -65,7 +65,7 @@ function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
   return { [flattenedName]: jsonSchema };
 }
 
-function permalink(type, description) {
+function permalink(type, description):JSONSchema4 {
   const name = type.substring(1);
 
   return {
@@ -81,7 +81,7 @@ function permalink(type, description) {
   };
 }
 
-function string(description, min?:number, max?:number) {
+function string(description, min?:number, max?:number):JSONSchema4 {
   const ret:any = {
     type: 'string',
     description,
@@ -96,7 +96,7 @@ function string(description, min?:number, max?:number) {
   return ret;
 }
 
-function numeric(description, min?:number, max?:number) {
+function numeric(description, min?:number, max?:number):JSONSchema4 {
   const ret:any = {
     type: 'number',
     description,
@@ -111,7 +111,7 @@ function numeric(description, min?:number, max?:number) {
   return ret;
 }
 
-function email(description) {
+function email(description):JSONSchema4 {
   return {
     type: 'string',
     format: 'email',
@@ -121,7 +121,7 @@ function email(description) {
   };
 }
 
-function url(description) {
+function url(description):JSONSchema4 {
   return {
     type: 'string',
     minLength: 1,
@@ -131,7 +131,7 @@ function url(description) {
   };
 }
 
-function belgianzipcode(description) {
+function belgianzipcode(description):JSONSchema4 {
   return {
     type: 'string',
     pattern: '^[0-9][0-9][0-9][0-9]$',
@@ -139,7 +139,7 @@ function belgianzipcode(description) {
   };
 }
 
-function phone(description) {
+function phone(description):JSONSchema4 {
   return {
     type: 'string',
     pattern: '^[0-9]*$',
@@ -149,7 +149,7 @@ function phone(description) {
   };
 }
 
-function guid(description) {
+function guid(description):JSONSchema4 {
   return {
     type: 'string',
     description,
@@ -158,7 +158,7 @@ function guid(description) {
   };
 }
 
-function timestamp(description) {
+function timestamp(description):JSONSchema4 {
   return {
     type: 'string',
     format: 'date-time',
@@ -166,22 +166,22 @@ function timestamp(description) {
   };
 }
 
-function boolean(description) {
+function boolean(description):JSONSchema4 {
   return {
     type: 'boolean',
     description,
   };
 }
 
-function array(description) {
-  const ret = {
+function array(description):JSONSchema4 {
+  const ret:JSONSchema4 = {
     type: 'array',
     description,
   };
   return ret;
-};
+}
 
-function patchSchemaToDisallowAdditionalProperties(schema) {
+function patchSchemaToDisallowAdditionalProperties(schema):JSONSchema4 {
   const patchedSchema = { ...schema };
   if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
     patchedSchema.additionalProperties = false;

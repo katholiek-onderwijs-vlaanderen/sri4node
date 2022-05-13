@@ -204,7 +204,7 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriReq
     sriRequest.body = jsonPatch.applyPatch(result.object, patch, true, false).newDocument;
     debug('trace', `Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
   } catch (e) {
-    throw new SriError({ status: 400, errors: [{ code: 'patch.invalid', msg: 'The patch could not be applied.', error: e }] });
+    throw new SriError({ status: 400, errors: [{ code: 'patch.invalid', msg: 'The patch could not be applied.', err: e }] });
   }
 
   // from now on behave like a PUT of the patched object
