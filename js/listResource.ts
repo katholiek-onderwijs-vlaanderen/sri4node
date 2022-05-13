@@ -75,13 +75,13 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
     query.sql(sql);
   } else {
     if (parameters['$$meta.deleted'] === 'true') {
-      sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified" from "`;
+      sql = `select ${columns} from "`;
       sql += `${table}" where "${table}"."$$meta.deleted" = true `;
     } else if (parameters['$$meta.deleted'] === 'any') {
-      sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified" from "`;
+      sql = `select ${columns} from "`;
       sql += `${table}" where 1=1 `;
     } else {
-      sql = `select ${columns}, "$$meta.deleted", "$$meta.created", "$$meta.modified" from "`;
+      sql = `select ${columns} from "`;
       sql += `${table}" where "${table}"."$$meta.deleted" = false `;
     }
     query.sql(sql);
