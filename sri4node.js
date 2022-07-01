@@ -198,6 +198,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         debug('requests', `${reqMsgStart} took ${hrend[0]*1000 + hrend[1] / 1000000} ms`);
     });
     debug('trace', 'Starting express wrapper');
+    let sriRequest;
     try {
       let batchRoutingDuration = 0;
       if (isBatchRequest) {
@@ -227,7 +228,7 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
           resp.set('vsko-req-id', reqId);
         }
 
-        const sriRequest  = {
+        sriRequest  = {
           id: uuidv4(),
           path: req.path,
           originalUrl: req.originalUrl,
@@ -365,6 +366,10 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
             })
         }
     } catch (err) {
+      if (sriRequest && sriRequest.customErrorHandler && sriRequest.customErrorHandler instanceof Function) {
+        sriRequest.customErrorHandler(err);
+      }
+
       //TODO: what with streaming errors
       if (t!=null) { // t will be null in case of error during startTask/startTransaction
         if (readOnly===true) {
@@ -413,6 +418,9 @@ const expressWrapper = (dbR, dbW, func, config, mapping, streaming, isBatchReque
         })
       }
     } finally {
+      if (sriRequest && sriRequest.finallyFun && sriRequest.finallyFun instanceof Function) {
+        sriRequest.finallyFun();
+      }
       global.overloadProtection.endPipeline();
     } 
   }
