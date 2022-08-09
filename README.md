@@ -46,6 +46,13 @@ logdebug: {
 ```
 On a running sri4node instance the logdebug configuration can be altered with a POST call to `/setlogdebug` with the new logdebug configuration object as body.
 
+An example of such POST call with curl:
+```console
+$ curl -u <username> --request POST 'https://<servername>/setlogdebug' \
+--header 'Content-Type: application/json' \
+--data-raw "{ \"channels\": [ \"general\", \"requests\", \"trace\", \"batch\" ] }"
+```
+
 # Usage
 
 ## Getting started
