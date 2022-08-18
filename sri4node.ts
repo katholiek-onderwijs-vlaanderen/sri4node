@@ -1182,3 +1182,5 @@ export {
   mapUtils,
   schemaUtils,
 };
+
+export * from './js/typeDefinitions'

@@ -15,7 +15,7 @@ import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset'
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
-export type PluginConfig = {}
+export type TPluginConfig = Record<string, unknown>;
 
 // for example /llinkid/activityplanning, so should only start with a slash
 // and maybe only lowercase etc???
@@ -394,7 +394,7 @@ export type TSriConfig = {
   id?: string,
 
   // the real properties !!!
-  plugins?: PluginConfig[]
+  plugins?: TPluginConfig[]
   enableGlobalBatch?: boolean,
   globalBatchRoutePrefix?: TUriPath,
   // logrequests?: boolean,
