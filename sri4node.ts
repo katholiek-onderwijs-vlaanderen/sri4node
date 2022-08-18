@@ -425,6 +425,9 @@ const toArray = (resource, name) => {
   }
 };
 
+/**
+ * Exposes a bunch of utility functions.
+ */
 const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
   executeSQL: pgExec,
   prepareSQL,
@@ -444,6 +447,14 @@ const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, a
   tableFromMapping,
   urlToTypeAndKey,
   parseResource, // should be deprecated in favour of a decent url parsing mechanism
+
+  debug,
+  error,
+  SriError,
+
+  queryUtils,
+  mapUtils,
+  schemaUtils,
 };
 
 /**
@@ -1173,12 +1184,37 @@ async function configure(app: Application, sriConfig: TSriConfig) {
 export {
   configure,
 
+  /**
+   * @deprecated
+   * Use utils.debug instead from now on
+   */
   debug,
+  /**
+   * @deprecated
+   * Use utils.error instead from now on
+   */
   error,
+  /**
+   * @deprecated
+   * Use utils.SriError instead from now on
+   */
   SriError,
 
-  utils,
+  /**
+   * @deprecated
+   * Use utils.queryUtils instead from now on
+   */
   queryUtils,
+  /**
+   * @deprecated
+   * Use utils.mapUtils instead from now on
+   */
   mapUtils,
+  /**
+   * @deprecated
+   * Use utils.schemaUtils instead from now on
+   */
   schemaUtils,
+
+  utils,
 };
