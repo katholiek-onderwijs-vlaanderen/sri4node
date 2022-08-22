@@ -460,7 +460,11 @@ function hrefToParsedObjectFactory(
   };
 }
 
-function getParentSriRequest(sriRequest) {
+/**
+ * @param sriRequest 
+ * @returns the parent sri request if it exists (otherwsie the same request is returned!)
+ */
+function getParentSriRequest(sriRequest:TSriRequest) {
   return sriRequest.parentSriRequest ? sriRequest.parentSriRequest : sriRequest;
 }
 
@@ -470,9 +474,9 @@ function installEMT(app:Application) {
   return emt;
 }
 
-function setServerTimingHdr(sriRequest, property, value) {
+function setServerTimingHdr(sriRequest:TSriRequest, property, value) {
   const parentSriRequest = getParentSriRequest(sriRequest);
-  if (parentSriRequest.serverTiming === undefined) {
+  if ((parentSriRequest as TSriRequest).serverTiming === undefined) {
     parentSriRequest.serverTiming = {};
   }
   if (parentSriRequest.serverTiming[property] === undefined) {
@@ -1179,7 +1183,7 @@ function createReadableStream(objectMode = true) {
   return s;
 }
 
-function getParentSriRequestFromRequestMap(sriRequestMap) {
+function getParentSriRequestFromRequestMap(sriRequestMap:Map<string,TSriRequest>) {
   const sriRequest = Array.from(sriRequestMap.values())[0];
   return getParentSriRequest(sriRequest);
 }
@@ -1302,6 +1306,8 @@ function generateSriRequest(
     return {
       ...parentSriRequest,
       ...baseSriRequest,
+
+      dbT: parentSriRequest.dbT,
 
       originalUrl: batchElement.href,
 

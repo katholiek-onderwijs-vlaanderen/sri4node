@@ -95,7 +95,7 @@ describe('Sri4node SERVER TESTS', function () {
 
   // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [base]);
-  runTestIfNeeded('./testAfterRead.ts', [base]);
+  runTestIfNeeded('./testHooks.ts', [base]);
   runTestIfNeeded('./testCTE.ts', [base]);
   runTestIfNeeded('./testListResource.ts', [base]);
   runTestIfNeeded('./testPublicResources.ts', [base]);
