@@ -1186,3 +1186,5 @@ export {
 
   utils,
 };
+
+export * from './js/typeDefinitions';
