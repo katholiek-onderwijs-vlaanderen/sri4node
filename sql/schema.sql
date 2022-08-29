@@ -203,3 +203,17 @@ CREATE TABLE "cities" (
   "$$meta.modified" timestamp with time zone not null default current_timestamp,
   "$$meta.created" timestamp with time zone not null default current_timestamp
 );
+
+CREATE TABLE "bars" (
+  "key" uuid primary key,
+  "foo" text,
+  "$$meta.deleted" boolean default false,
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "hooktests" (
+  "key" uuid primary key,
+  "ref" uuid,
+  "msg" text
+);

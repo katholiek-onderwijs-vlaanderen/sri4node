@@ -109,7 +109,7 @@ export type TPreparedSql = {
 // TODO make more strict
 export type TSriRequest = {
   id: string,
-  parentSriRequest?: TSriRequest | TInternalSriRequest,
+  parentSriRequest?: TSriRequest,
 
   logDebug: TDebugLogFunction,
   logError: TErrorLogFunction,
@@ -133,7 +133,7 @@ export type TSriRequest = {
 
   headers: { [key:string] : string } | IncomingHttpHeaders,
   body?: TSriRequestBody,
-  dbT: IDatabase<unknown> | undefined, // db transaction
+  dbT: IDatabase<unknown>, // db transaction
   inStream?: any,
   outStream?: any,
   setHeader?: (key: string, value: string) => void,
@@ -151,9 +151,30 @@ export type TSriRequest = {
   busBoy?: unknown,
 
   ended?: boolean,
+
+  queryByKeyFetchList?: any, // Record<string, unknown>,
+  queryByKeyResults?: Record<string, string>,
+
+  putRowsToInsert?: any, // Record<string, unknown>,
+  putRowsToInsertIDs?: Array<string>,
+  multiInsertFailed?: boolean,
+  multiInsertError?: any,
+
+  putRowsToUpdate?: any,
+  putRowsToUpdateIDs?: Array<string>,
+  multiUpdateFailed?: boolean,
+  multiUpdateError?: any,
+
+  rowsToDelete?: any, // Record<string, unknown>,
+  rowsToDeleteIDs?: Array<string>,
+  multiDeleteFailed?: boolean,
+  multiDeleteError?: any,
+
+  userData?: Record<string, any>,
 };
 
 export type TInternalSriRequest = {
+  protocol: '_internal_',
   href: string,
   verb: THttpMethod,
   dbT: IDatabase<unknown>, // transaction or task object of pg promise
@@ -167,6 +188,8 @@ export type TInternalSriRequest = {
   setHeader?: (key: string, value: string) => void,
   setStatus?: (statusCode:number) => void,
   streamStarted?: () => boolean,
+
+  serverTiming: { [key:string]: unknown },
 };
 
 export type TResourceMetaType = Uppercase<string>;
@@ -414,7 +437,8 @@ export type TSriConfig = {
   resources: TResourceDefinition[],
   beforePhase?:
     Array<
-      (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
+      //(sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
+      (sriRequestMap:Map<string,TSriRequest>, jobMap:unknown, pendingJobs:Set<string>)
         => unknown
     >,
 

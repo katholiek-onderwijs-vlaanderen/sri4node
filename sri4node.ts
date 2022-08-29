@@ -251,19 +251,19 @@ const expressWrapper = (
       console.log('no reqId ???');
     }
 
-    const sriRequest = generateSriRequest(req, resp, {
-      isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest,
-    });
-
-    // After creating the inital SriRequest object, we still need to add the task/transaction !!!
+    // Before creating the inital SriRequest object, we need to generate a task/transaction !!!
+    const hrStartStartTransaction = process.hrtime();
     if (readOnly === true) {
-      ({ t, endTask } = await startTask(dbR, sriRequest));
+      ({ t, endTask } = await startTask(dbR));
     } else {
-      ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW, sriRequest));
+      ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW));
     }
-    sriRequest.dbT = t;
+    const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
 
-    // req.sriRequest = sriRequest;
+    const sriRequest = generateSriRequest(req, resp, {
+      isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest, dbT: t,
+    });
+    setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsedStartTransaction));
 
     req.on('close', (err) => {
       sriRequest.reqCancelled = true;
@@ -350,12 +350,11 @@ const expressWrapper = (
       } else {
         resp.send(result.body);
       }
-
-      await applyHooks('afterRequest',
-        sriConfig.afterRequest || [],
-        (f) => f(sriRequest),
-        sriRequest);
     }
+    await applyHooks('afterRequest',
+      sriConfig.afterRequest || [],
+      (f) => f(sriRequest),
+      sriRequest);
     if (global.sri4node_configuration.logdebug.statuses !== undefined) {
       setImmediate(() => {
         // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
@@ -425,6 +424,9 @@ const toArray = (resource, name) => {
   }
 };
 
+/**
+ * Exposes a bunch of utility functions.
+ */
 const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
   executeSQL: pgExec,
   prepareSQL,
@@ -489,7 +491,7 @@ async function configure(app: Application, sriConfig: TSriConfig) {
     ];
     sriConfig.beforePhase = [
       ...(sriConfig.beforePhase || []),
-      regularResource.beforePhaseInsertUpdate,
+      regularResource.beforePhaseInsertUpdateDelete,
     ];
 
     if (sriConfig.bodyParserLimit === undefined) {
@@ -950,11 +952,9 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                   func:
                     async (phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest,
                       mapping1) => {
-                      await phaseSyncer.phase();
                       if (sriRequest.isBatchPart) {
                         throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] });
                       }
-                      await phaseSyncer.phase();
                       if (cr.busBoy) {
                         try {
                           let busBoyConfig: any = {};
@@ -993,7 +993,6 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                           }
                         }
                       }
-                      await phaseSyncer.phase();
 
                       let keepAliveTimer: NodeJS.Timer | null = null;
                       let stream;
@@ -1062,11 +1061,14 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                   func:
                     async (phaseSyncer, tx, sriRequest:TSriRequest, mapping) => {
                       await phaseSyncer.phase();
+                      await phaseSyncer.phase();
+                      await phaseSyncer.phase();
                       if (cr.beforeHandler !== undefined) {
                         await cr.beforeHandler(tx, sriRequest, customMapping);
                       }
                       await phaseSyncer.phase();
                       const result = await handler(tx, sriRequest, customMapping);
+                      await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       if (cr.afterHandler !== undefined) {
                         await cr.afterHandler(tx, sriRequest, customMapping, result);
@@ -1177,10 +1179,11 @@ export {
   error,
   SriError,
 
-  utils,
   queryUtils,
   mapUtils,
   schemaUtils,
+
+  utils,
 };
 
-export * from './js/typeDefinitions'
+export * from './js/typeDefinitions';

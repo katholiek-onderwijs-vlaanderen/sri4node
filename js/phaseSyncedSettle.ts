@@ -235,9 +235,17 @@ async function phaseSyncedSettle(
         //      of a failed multi* operation)
         pMap(pendingJobs, async (id) => {
           const job = jobMap.get(id);
-          if (!(parent.multiInsertFailed && parent.PutRowsToInsertIDs?.includes(job?.sriRequest.id))
-              && !(parent.multiUpdateFailed && parent.PutRowsToUpdateIDs?.includes(job?.sriRequest.id))
-              && !(parent.multiDeleteFailed && parent.rowsToDeleteIDs?.includes(job?.sriRequest.id))) {
+
+          if (job === undefined) {
+            throw new Error('[jobFailed] Job is undefined, which is unexpected...');
+          } else if (
+            job.sriRequest === undefined ||
+            (
+                 !(parent.multiInsertFailed && parent.putRowsToInsertIDs?.includes(job?.sriRequest.id))
+              && !(parent.multiUpdateFailed && parent.putRowsToUpdateIDs?.includes(job?.sriRequest.id))
+              && !(parent.multiDeleteFailed && parent.rowsToDeleteIDs?.includes(job?.sriRequest.id))
+            )
+          ) {
             job?.jobEmitter.queue(
               'sriError',
               new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] }),

@@ -8,6 +8,12 @@ export default function utilsFactory(api) {
     makeBasicAuthHeader: (user, pw) => `Basic ${Buffer.from(`${user}:${pw}`).toString('base64')}`,
 
     async lookForBasicAuthUser(req, sriRequest, db) {
+      // just a very basic query to test if we can speak with the database
+      const result = await db.query('SELECT 1 AS foo;');
+      if (result[0].foo !== 1) {
+        throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.before.handler' }] });
+      }
+
       if (req.headers.authorization) {
         const basic = req.headers.authorization;
         const encoded = basic.substr(6);
@@ -35,6 +41,12 @@ export default function utilsFactory(api) {
     },
 
     copyUserInfo: async (dbT, sriRequest, parentSriRequest) => {
+      // just a very basic query to test if we can speak with the database
+      const result = await dbT.query('SELECT 1 AS foo;');
+      if (result[0].foo !== 1) {
+        throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.copy.user.info' }] });
+      }
+
       sriRequest.userObject = parentSriRequest.userObject;
       sriRequest.authException = parentSriRequest.authException;
     },

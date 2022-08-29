@@ -111,6 +111,11 @@ INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-8526
 INSERT INTO "foos" (key, "bar") VALUES ('cd6a4678-7dcf-11ec-b41e-0faad76b288d', 7);
 INSERT INTO "foos" (key, "bar") VALUES ('7c85b45a-7ddd-11ec-8a3d-4742839ee2fd', 8);
 
+INSERT INTO "bars" (key, "foo") VALUES ('5de9c352-2534-11ed-84bc-9bce6d5e13f9', 'Lorem');
+INSERT INTO "bars" (key, "foo") VALUES ('6305824a-2534-11ed-8716-0f26acef3469', 'ipsum');
+INSERT INTO "bars" (key, "foo") VALUES ('6c7b7a0a-2534-11ed-b655-d742b8ffa05c', 'dolor');
+INSERT INTO "bars" (key, "foo") VALUES ('6cb3c284-2534-11ed-8489-4732ce3c7119', 'sit');
+
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (41002, 'Aalst', 41002);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (44001, 'Aalter', 44001);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (24001, 'Aarschot', 24001);
@@ -125,6 +130,7 @@ INSERT INTO "cities" (key, "name", "nisCode") VALUES (92003, 'Andenne', 92003);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (21001, 'Anderlecht', 21001);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (56001, 'Anderlues', 56001);
 INSERT INTO "cities" (key, "name", "nisCode") VALUES (91005, 'Anhée', 91005);
+INSERT INTO "cities" (key, "name", "nisCode", "$$meta.deleted" ) VALUES (99999, 'Anhée', 91005, true);
 
 UPDATE "cities" SET "$$meta.modified"='2015-11-01', "$$meta.created"='2018-09-20 13:22:32.7814';
 
