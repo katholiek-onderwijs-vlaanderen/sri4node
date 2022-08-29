@@ -945,9 +945,8 @@ async function pgResult(db, query, sriRequest = null) {
 }
 
 async function startTransaction(
-  db, sriRequest:TSriRequest | undefined = undefined, mode = new pgp.txMode.TransactionMode(),
+  db, mode = new pgp.txMode.TransactionMode(),
 ) {
-  const hrstart = process.hrtime();
   debug('db', '++ Starting database transaction.');
 
   const eventEmitter = new EventEmitter();
@@ -1008,11 +1007,6 @@ async function startTransaction(
       }
     };
 
-    const hrElapsed = process.hrtime(hrstart);
-    if (sriRequest) {
-      setServerTimingHdr(sriRequest, 'db-starttx', hrtimeToMilliseconds(hrElapsed));
-    }
-
     return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') });
   } catch (err) {
     error('CAUGHT ERROR: ');
@@ -1021,7 +1015,7 @@ async function startTransaction(
   }
 }
 
-async function startTask(db, sriRequest:TSriRequest | undefined) {
+async function startTask(db) {
   const hrstart = process.hrtime();
   debug('db', '++ Starting database task.');
 
@@ -1063,9 +1057,6 @@ async function startTask(db, sriRequest:TSriRequest | undefined) {
       }
     };
     const hrElapsed = process.hrtime(hrstart);
-    if (sriRequest) {
-      setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsed));
-    }
 
     return ({ t, endTask });
   } catch (err) {
@@ -1233,7 +1224,8 @@ function generateSriRequest(
   expressResponse:Express.Response | any | undefined = undefined,
   basicConfig:{
       isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean,
-      mapping?:TResourceDefinition
+      mapping?:TResourceDefinition,
+      dbT: any,
     } | undefined = undefined,
   batchHandlerAndParams:any = undefined,
   parentSriRequest:TSriRequest | undefined = undefined,
@@ -1259,7 +1251,7 @@ function generateSriRequest(
     httpMethod: undefined,
     headers: {},
     body: undefined,
-    dbT: undefined,
+    dbT: basicConfig?.dbT || internalSriRequest?.dbT || parentSriRequest?.dbT,
     inStream: undefined,
     outStream: undefined,
     setHeader: undefined,

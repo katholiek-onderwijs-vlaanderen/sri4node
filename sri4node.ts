@@ -251,19 +251,19 @@ const expressWrapper = (
       console.log('no reqId ???');
     }
 
-    const sriRequest = generateSriRequest(req, resp, {
-      isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest,
-    });
-
-    // After creating the inital SriRequest object, we still need to add the task/transaction !!!
+    // Before creating the inital SriRequest object, we need to generate a task/transaction !!!
+    const hrStartStartTransaction = process.hrtime();
     if (readOnly === true) {
-      ({ t, endTask } = await startTask(dbR, sriRequest));
+      ({ t, endTask } = await startTask(dbR));
     } else {
-      ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW, sriRequest));
+      ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW));
     }
-    sriRequest.dbT = t;
+    const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
 
-    // req.sriRequest = sriRequest;
+    const sriRequest = generateSriRequest(req, resp, {
+      isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest, dbT: t,
+    });
+    setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsedStartTransaction));
 
     req.on('close', (err) => {
       sriRequest.reqCancelled = true;

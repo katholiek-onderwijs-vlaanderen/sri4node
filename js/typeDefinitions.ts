@@ -133,7 +133,7 @@ export type TSriRequest = {
 
   headers: { [key:string] : string } | IncomingHttpHeaders,
   body?: TSriRequestBody,
-  dbT: IDatabase<unknown> | undefined, // db transaction
+  dbT: IDatabase<unknown>, // db transaction
   inStream?: any,
   outStream?: any,
   setHeader?: (key: string, value: string) => void,
