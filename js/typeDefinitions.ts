@@ -170,6 +170,7 @@ export type TSriRequest = {
   multiDeleteFailed?: boolean,
   multiDeleteError?: any,
 
+  userData?: Record<string, any>,
 };
 
 export type TInternalSriRequest = {
@@ -436,7 +437,8 @@ export type TSriConfig = {
   resources: TResourceDefinition[],
   beforePhase?:
     Array<
-      (sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
+      //(sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
+      (sriRequestMap:Map<string,TSriRequest>, jobMap:unknown, pendingJobs:Set<string>)
         => unknown
     >,
 

@@ -288,7 +288,7 @@ export = module.exports = function (base) {
       const bodyC1 = generateRandomCommunity(keyC1);
       const keyC2 = uuid.v4();
       const bodyC2 = generateRandomCommunity(keyC2);
-      delete bodyC2.name;
+      delete bodyC2.name; // this wil trigger a validation error
 
       // create a batch array
       const batch = [
@@ -310,6 +310,7 @@ export = module.exports = function (base) {
         (error) => {
           // expected to fail because property 'name' is missing
           assert.equal(error.status, 409);
+          assert.equal(error.body[1].body.errors[0].errors.validationErrors[0].code, 'must.have.required.property.name');
         },
       );
       await utils.testForStatusCode(
@@ -328,7 +329,7 @@ export = module.exports = function (base) {
       const bodyC1 = generateRandomCommunity(keyC1);
       const keyC2 = uuid.v4();
       const bodyC2 = generateRandomCommunity(keyC2);
-      delete bodyC2.name;
+      delete bodyC2.name; // this will trigger a validation error
 
       // create a batch array
       const batch = [
@@ -350,6 +351,7 @@ export = module.exports = function (base) {
         (error) => {
           // expected to fail: bodyC2 is missing required name
           assert.equal(error.status, 409);
+          assert.equal(error.body[1].body.errors[0].errors.validationErrors[0].code, 'must.have.required.property.name');
         },
       );
       await utils.testForStatusCode(
@@ -425,7 +427,7 @@ export = module.exports = function (base) {
     it('error should result in cancellation of accompanying requests ', async () => {
       const keyC1 = uuid.v4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      delete bodyC1.name;
+      delete bodyC1.name; // no name ==> validation error
       const keyC2 = uuid.v4();
       const bodyC2 = generateRandomCommunity(keyC2);
 
@@ -448,6 +450,8 @@ export = module.exports = function (base) {
         },
         (error) => {
           assert.equal(error.status, 409);
+          assert.equal(error.body[0].body.errors[0].code, 'validation.errors');
+          assert.equal(error.body[0].body.errors[0].errors.validationErrors[0].code, 'must.have.required.property.name');
           assert.equal(error.body[1].status, 202);
           assert.equal(error.body[1].body.errors[0].code, 'cancelled');
         },
@@ -590,7 +594,8 @@ export = module.exports = function (base) {
         },
         {
           href: '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a',
-          verb: 'DELETE', // will fail
+          verb: 'DELETE',
+            // will fail (403) as user Ingrid is not allowed to delete persons
         },
         {
           href: '/cities/52074',
@@ -602,6 +607,7 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthIngrid);
         },
         async (error) => {
+          console.log(error)
           const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid);
         },
       );
@@ -622,7 +628,8 @@ export = module.exports = function (base) {
         },
         {
           href: '/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a',
-          verb: 'DELETE', // will fail
+          verb: 'DELETE',
+            // will fail (403) as user Ingrid is not allowed to delete persons
         },
         {
           href: '/cities/52074',
@@ -631,6 +638,8 @@ export = module.exports = function (base) {
       ];
       const r = await doPut('/batch_streaming', batch, sriClientOptionsAuthIngrid);
       const r2 = await doGet('/cities/52074', null, sriClientOptionsAuthIngrid);
+      // If we get past the GET of '/cities/52074', it means the batch rolled back.
+      // Otherwise this GET would have thrown 410 resource.gone error.
     });
 
     it('batch: errors triggered in the global beforePhase should match the correct request', async () => {
@@ -672,7 +681,7 @@ export = module.exports = function (base) {
           body: body3,
         },
         {
-          href: '/cities/100001',
+          href: '/cities/100001',  // key 100001 is configured to throw an error 'foo'
           verb: 'PUT',
           body: {
             key: 100001,
@@ -773,6 +782,7 @@ export = module.exports = function (base) {
         },
         async (error) => {
           assert.equal(error.body[3].status, 400);
+          assert.strictEqual(error.body[3].body.errors[0].code, 'foo');
         },
       );
     });
@@ -859,7 +869,7 @@ export = module.exports = function (base) {
 
     it('batch with multi row insert and a constraint error', async () => {
       const keyp1 = uuid.v4();
-      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000'); // ==> constraint error
       const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
@@ -884,8 +894,12 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
+          // and all insert elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.insert.failed');
           expect([200, 202]).to.contain(error.body[2].status);
           assert.strictEqual(error.body[0].href, `/persons/${keyp1}`);
           assert.strictEqual(error.body[1].href, `/persons/${keyp2}`);
@@ -896,7 +910,7 @@ export = module.exports = function (base) {
 
     it('batch with multi row insert and a constraint error (reverse order)', async () => {
       const keyp1 = uuid.v4();
-      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');  // ==> constraint error
       const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       const batch2 = [
@@ -920,9 +934,13 @@ export = module.exports = function (base) {
           await doPut('/batch', batch2, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
+          // and all insert elements will receive a 409 error explaining this.
           expect([200, 202]).to.contain(error.body[0].status);
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.object.body[2].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[0].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
           assert.strictEqual(error.body[1].href, `/persons/${keyp2}`);
           assert.strictEqual(error.body[2].href, `/persons/${keyp1}`);
@@ -949,20 +967,28 @@ export = module.exports = function (base) {
         },
       ];
       await doPut('/batch', batch, sriClientOptionsAuthSabine);
-      const updateBatch = _.cloneDeep(batch);
-      updateBatch[0].body.community.href = '/communities/00000000-0000-0000-0000-000000000000';
-      updateBatch[1].body.streetnumber = 18;
-      updateBatch[2] = {
-        href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple',
-        verb: 'GET',
-      },
+
+      const updateBatchPart = [ ...batch ];
+      updateBatchPart[0].body.community.href = '/communities/00000000-0000-0000-0000-000000000000';  // ==> constraint error
+      updateBatchPart[1].body.streetnumber = '18'; // will trigger an update
+      const updateBatch =  [
+        ...updateBatchPart,
+        {
+          href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple',
+          verb: 'GET',
+        },
+      ];
       await utils.testForStatusCode(
         async () => {
           await doPut('/batch', updateBatch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi update for which one row fails -> sri4node cannot determine which rows failed
+          // and all update elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.update.failed');
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.update.failed');
           expect([200, 202]).to.contain(error.body[2].status);
           assert.strictEqual(error.body[0].href, `/persons/${keyp1}`);
           assert.strictEqual(error.body[1].href, `/persons/${keyp2}`);
@@ -974,11 +1000,11 @@ export = module.exports = function (base) {
     it('batch with multi row delete and a constraint error', async () => {
       const batch = [
         {
-          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',
+          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
         {
-          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',
+          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
         {
@@ -991,8 +1017,12 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi delete for which one row fails -> sri4node cannot determine which rows failed
+          // and all delete elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.delete.failed');
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.delete.failed');
           expect([200, 202]).to.contain(error.body[2].status);
           assert.strictEqual(error.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
           assert.strictEqual(error.body[1].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
@@ -1019,11 +1049,11 @@ export = module.exports = function (base) {
           body: p2,
         },
         {
-          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',
+          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
         {
-          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',
+          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
       ];
@@ -1032,10 +1062,14 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi delete for which one row fails -> sri4node cannot determine which rows failed
+          // and all delete elements will receive a 409 error explaining this.
           expect([200, 202]).to.contain(error.body[0].status);
           expect([200, 202]).to.contain(error.body[1].status);
           assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.object.body[2].body.errors[0].code, 'multi.delete.failed');
           assert.strictEqual(error.body[3].status, 409);
+          assert.strictEqual(error.object.body[3].body.errors[0].code, 'multi.delete.failed');
           assert.strictEqual(error.body[0].href, `/persons/${keyp1}`);
           assert.strictEqual(error.body[1].href, `/persons/${keyp2}`);
           assert.strictEqual(error.body[2].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
@@ -1052,11 +1086,11 @@ export = module.exports = function (base) {
       // create a batch array
       const batch = [
         {
-          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',
+          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd', // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
         {
-          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',
+          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
           verb: 'DELETE',
         },
         {
@@ -1075,8 +1109,12 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi delete for which one row fails -> sri4node cannot determine which rows failed
+          // and all delete elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.delete.failed');
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.delete.failed');
           expect([200, 202]).to.contain(error.body[2].status);
           expect([200, 202]).to.contain(error.body[3].status);
           assert.strictEqual(error.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
@@ -1089,7 +1127,7 @@ export = module.exports = function (base) {
 
     it('batch with multi row insert and a constraint error + multi delete', async () => {
       const keyp1 = uuid.v4();
-      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000'); // constraint error
       const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
@@ -1118,8 +1156,12 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
+          // and all insert elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[1].status, 409);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.insert.failed');
           expect([200, 202]).to.contain(error.body[2].status);
           expect([200, 202]).to.contain(error.body[3].status);
           assert.strictEqual(error.body[0].href, `/persons/${keyp1}`);
@@ -1132,7 +1174,7 @@ export = module.exports = function (base) {
 
     it('batch with multi row insert and a constraint error + multi delete (reverse order)', async () => {
       const keyp1 = uuid.v4();
-      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000');
+      const p1 = generateRandomPerson(keyp1, '/communities/00000000-0000-0000-0000-000000000000'); // ==> constraint error
       const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
@@ -1161,10 +1203,14 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
+          // and all insert elements will receive a 409 error explaining this.
           expect([200, 202]).to.contain(error.body[0].status);
           expect([200, 202]).to.contain(error.body[1].status);
           assert.strictEqual(error.body[2].status, 409);
+          assert.strictEqual(error.object.body[2].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[3].status, 409);
+          assert.strictEqual(error.object.body[3].body.errors[0].code, 'multi.insert.failed');
           assert.strictEqual(error.body[0].href, '/cities/61003');
           assert.strictEqual(error.body[1].href, '/cities/73001');
           assert.strictEqual(error.body[2].href, `/persons/${keyp1}`);
@@ -1180,7 +1226,7 @@ export = module.exports = function (base) {
       const keyp2 = uuid.v4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       await doPut(`/persons/${keyp2}`, p2, sriClientOptionsAuthSabine);
-      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
+      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000'; // ==> constraint error
       // create a batch array
       const batch = [
         [{
@@ -1218,9 +1264,9 @@ export = module.exports = function (base) {
       const p3 = generateRandomPerson(keyp3, communityDendermonde);
       await doPut(`/persons/${keyp3}`, p3, sriClientOptionsAuthSabine);
 
-      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000';
-      p2.community.href = communityHamme;
-      // create a batch array
+      p1.community.href = '/communities/00000000-0000-0000-0000-000000000000'; // ==> constraint error
+      p2.community.href = communityHamme; // ==> valid update
+      // create a batch array (2 updates and a similar reput)
       const batch = [
         {
           href: `/persons/${keyp1}`,
@@ -1243,9 +1289,13 @@ export = module.exports = function (base) {
           await doPut('/batch', batch, sriClientOptionsAuthSabine);
         },
         async (error) => {
+          // this is a multi update for which one row fails -> sri4node cannot determine which rows failed
+          // and all update elements will receive a 409 error explaining this.
           assert.strictEqual(error.body[0].status, 409);
+          assert.strictEqual(error.object.body[0].body.errors[0].code, 'multi.update.failed');
           assert.strictEqual(error.body[1].status, 409);
-          assert.strictEqual(error.body[2].status, 200);
+          assert.strictEqual(error.object.body[1].body.errors[0].code, 'multi.update.failed');
+          assert.strictEqual(error.body[2].status, 202);
         },
       );
     });
@@ -1263,12 +1313,10 @@ export = module.exports = function (base) {
         {
           href: `/persons/${keyp1}`,
           verb: 'DELETE',
-          // , "body": p1
         },
         {
           href: `/persons/${keyp2}`,
           verb: 'DELETE',
-          // , "body": p2
         },
       ];
       await doPut('/batch', batch, sriClientOptionsAuthSabine);
@@ -1279,6 +1327,8 @@ export = module.exports = function (base) {
       const batch = [
         {
           href: '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb',
+            // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
+            //   ==> forbidden for Sabine from 'LETS Regio Dendermonde'
           verb: 'GET',
         },
         {
@@ -1323,6 +1373,8 @@ export = module.exports = function (base) {
       const batch = [
         [{
           href: '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb',
+            // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
+            //   ==> forbidden for Sabine from 'LETS Regio Dendermonde'
           verb: 'GET',
         }],
         [{

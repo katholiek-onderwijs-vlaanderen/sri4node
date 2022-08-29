@@ -185,7 +185,13 @@ export = module.exports = function (sri4node, extra) {
         httpMethods: ['GET'],
         alterMapping: (mapping) => {
           mapping.transformResponse = [
-            function (tx, sriRequest, result) {
+            async function (tx, sriRequest, result) {
+              // just a very basic query to test if we can speak with the database
+              const qResult = await tx.query('SELECT 1 AS foo;');
+              if (qResult[0].foo !== 1) {
+                throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.transform.response' }] });
+              };
+
               const simple = {
                 firstname: result.body.firstname,
                 lastname: result.body.lastname,

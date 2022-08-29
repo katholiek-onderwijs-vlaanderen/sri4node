@@ -350,12 +350,11 @@ const expressWrapper = (
       } else {
         resp.send(result.body);
       }
-
-      await applyHooks('afterRequest',
-        sriConfig.afterRequest || [],
-        (f) => f(sriRequest),
-        sriRequest);
     }
+    await applyHooks('afterRequest',
+      sriConfig.afterRequest || [],
+      (f) => f(sriRequest),
+      sriRequest);
     if (global.sri4node_configuration.logdebug.statuses !== undefined) {
       setImmediate(() => {
         // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
@@ -492,7 +491,7 @@ async function configure(app: Application, sriConfig: TSriConfig) {
     ];
     sriConfig.beforePhase = [
       ...(sriConfig.beforePhase || []),
-      regularResource.beforePhaseInsertUpdate,
+      regularResource.beforePhaseInsertUpdateDelete,
     ];
 
     if (sriConfig.bodyParserLimit === undefined) {
@@ -953,11 +952,9 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                   func:
                     async (phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest,
                       mapping1) => {
-                      await phaseSyncer.phase();
                       if (sriRequest.isBatchPart) {
                         throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] });
                       }
-                      await phaseSyncer.phase();
                       if (cr.busBoy) {
                         try {
                           let busBoyConfig: any = {};
@@ -996,7 +993,6 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                           }
                         }
                       }
-                      await phaseSyncer.phase();
 
                       let keepAliveTimer: NodeJS.Timer | null = null;
                       let stream;
@@ -1065,11 +1061,14 @@ async function configure(app: Application, sriConfig: TSriConfig) {
                   func:
                     async (phaseSyncer, tx, sriRequest:TSriRequest, mapping) => {
                       await phaseSyncer.phase();
+                      await phaseSyncer.phase();
+                      await phaseSyncer.phase();
                       if (cr.beforeHandler !== undefined) {
                         await cr.beforeHandler(tx, sriRequest, customMapping);
                       }
                       await phaseSyncer.phase();
                       const result = await handler(tx, sriRequest, customMapping);
+                      await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       if (cr.afterHandler !== undefined) {
                         await cr.afterHandler(tx, sriRequest, customMapping, result);

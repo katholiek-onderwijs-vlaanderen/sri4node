@@ -279,6 +279,7 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
 
   await phaseSyncer.phase(); // step 0
   await phaseSyncer.phase(); // step 1
+  await phaseSyncer.phase(); // step 2
 
   await applyHooks('before read',
     mapping.beforeRead || [],
@@ -325,6 +326,7 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
 
   const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, orderKeys);
 
+  await phaseSyncer.phase();
   await phaseSyncer.phase();
 
   debug('trace', 'listResource - executing afterRead functions on results');
@@ -382,6 +384,10 @@ const matchUrl = (url, mapping) => {
 
 async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
   await phaseSyncer.phase();
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
 
   if (sriRequest.body.a === undefined || sriRequest.body.a.href === undefined
        || sriRequest.body.b === undefined || sriRequest.body.b.hrefs === undefined) {
@@ -438,6 +444,8 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
     const [{ result }] = await pgExec(tx, query, sriRequest);
     return result;
   });
+  await phaseSyncer.phase();
+  await phaseSyncer.phase();
   return { status: 200, body: resultList };
 }
 

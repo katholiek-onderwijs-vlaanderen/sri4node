@@ -462,10 +462,15 @@ function hrefToParsedObjectFactory(
 
 /**
  * @param sriRequest 
- * @returns the parent sri request if it exists (otherwsie the same request is returned!)
+ * @param recurse if set, return top sriRequest
+ * @returns the parent sri request if it exists (otherwise the same request is returned!)
  */
-function getParentSriRequest(sriRequest:TSriRequest) {
-  return sriRequest.parentSriRequest ? sriRequest.parentSriRequest : sriRequest;
+function getParentSriRequest(sriRequest:TSriRequest, recurse = false) {
+  return sriRequest.parentSriRequest
+    ? ( recurse
+          ? getParentSriRequest(sriRequest.parentSriRequest)
+          : sriRequest.parentSriRequest )
+    : sriRequest;
 }
 
 function installEMT(app:Application) {
@@ -1183,9 +1188,9 @@ function createReadableStream(objectMode = true) {
   return s;
 }
 
-function getParentSriRequestFromRequestMap(sriRequestMap:Map<string,TSriRequest>) {
+function getParentSriRequestFromRequestMap(sriRequestMap:Map<string,TSriRequest>, recurse=false) {
   const sriRequest = Array.from(sriRequestMap.values())[0];
-  return getParentSriRequest(sriRequest);
+  return getParentSriRequest(sriRequest, recurse);
 }
 
 function getPgp() {

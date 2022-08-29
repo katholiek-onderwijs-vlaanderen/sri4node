@@ -111,12 +111,15 @@ async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mappi
 
   await phaseSyncer.phase();
   await phaseSyncer.phase();
+  await phaseSyncer.phase();
 
   await applyHooks('before read',
     mapping.beforeRead || [],
     (f) => f(tx,
       sriRequest),
     sriRequest);
+
+  await phaseSyncer.phase();
 
   queryByKeyRequestKey(sriRequest, mapping, key);
 
@@ -264,6 +267,9 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
   let result;
   if (previousQueriedByKey !== undefined) {
+    // In this case no 'await phaseSyncer.phase()' is necessary because this happens in case of patch
+    // and preparePatchInsideTransaction() has already done an 'await phaseSyncer.phase()' while querying
+    // the resource.
     result = previousQueriedByKey
   } else {
     queryByKeyRequestKey(sriRequest, mapping, key);
@@ -289,6 +295,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
   }
 
   sriRequest.containsDeleted = false;
+  await phaseSyncer.phase();
 
   if (result.code != 'found') {
     // insert new element
@@ -334,6 +341,9 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
     if (isEqualSriObject(prevObj, obj, mapping)) {
       debug('trace', 'Putted resource does NOT contain changes -> ignore PUT.');
+      await phaseSyncer.phase();
+      await phaseSyncer.phase();
+      await phaseSyncer.phase();
       return { retVal: { status: 200 } }
     }
 
@@ -360,12 +370,12 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 }
 /* eslint-enable */
 
-async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
+async function beforePhaseInsertUpdateDelete(sriRequestMap, jobMap, pendingJobs) {
   const sriRequest:TSriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
 
   const throwIfDbTUndefined = (sriReq: TSriRequest):void => {
     if (sriReq?.dbT === undefined) {
-      throw new Error('[beforePhaseInsertUpdate] Expected sriRequest.dbT to be defined');
+      throw new Error('[beforePhaseInsertUpdateDelete] Expected sriRequest.dbT to be defined');
     }
   }
   throwIfDbTUndefined(sriRequest);
@@ -390,6 +400,10 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
         await sriRequest.dbT?.none(query);
       } catch (err) {
         sriRequest.multiInsertFailed = true;
+        if (err.code === '25P02') {
+          // postgres transaction aborted error -> caused by earlier error
+          sriRequest.multiDeleteError = err;
+        }
         if (rows.length === 1) {
           sriRequest.multiInsertError = err;
         }
@@ -413,6 +427,10 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
         await sriRequest.dbT?.none(update);
       } catch (err) {
         sriRequest.multiUpdateFailed = true;
+        if (err.code === '25P02') {
+          // postgres transaction aborted error -> caused by earlier error
+          sriRequest.multiDeleteError = err;
+        }
         if (rows.length === 1) {
           sriRequest.multiUpdateError = err;
         }
@@ -436,6 +454,10 @@ async function beforePhaseInsertUpdate(sriRequestMap, jobMap, pendingJobs) {
         await sriRequest.dbT?.none(update);
       } catch (err) {
         sriRequest.multiDeleteFailed = true;
+        if (err.code === '25P02') {
+          // postgres transaction aborted error -> caused by earlier error
+          sriRequest.multiDeleteError = err;
+        }
         if (rows.length === 1) {
           sriRequest.multiDeleteError = err;
         }
@@ -451,8 +473,6 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
     if (parentSriRequest.multiInsertFailed) {
       if (parentSriRequest.multiInsertError !== undefined) {
         const err = parentSriRequest.multiInsertError;
-        delete parentSriRequest.multiInsertError;
-        delete parentSriRequest.multiInsertFailed;
         throw err;
       } else {
         throw multiInsertError();
@@ -473,8 +493,6 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
   if (parentSriRequest.multiUpdateFailed) {
     if (parentSriRequest.multiUpdateError !== undefined) {
       const err = parentSriRequest.multiUpdateError;
-      delete parentSriRequest.multiUpdateError;
-      delete parentSriRequest.multiUpdateFailed;
       throw err;
     } else {
       throw multiUpdateError();
@@ -558,15 +576,23 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
     if (result.code != 'found') {
       debug('trace', 'No row affected - the resource is already gone');
+      await phaseSyncer.phase();
+      await phaseSyncer.phase();
+      await phaseSyncer.phase();
+      await phaseSyncer.phase();
     } else {
       const table = tableFromMapping(mapping);
       sriRequest.containsDeleted = false;
+
+      await phaseSyncer.phase();
 
       const prevObj = result.object;
       await applyHooks('before delete',
         mapping.beforeDelete || [],
         (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
         sriRequest);
+
+      await phaseSyncer.phase();
 
       const deleteRow = {
         key,
@@ -592,9 +618,11 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
 
       if (parentSriRequest.multiDeleteFailed) {
         if (parentSriRequest.multiDeleteError !== undefined) {
+          if (parentSriRequest.multiDeleteError.code === '25P02') {
+            // postgres transaction aborted error -> caused by earlier error
+            throw new SriError({ status: 202, errors: [{ code: 'transaction.failed', msg: 'Request cancelled due to database error generated by accompanying request in batch.' }] });
+          }
           const err = parentSriRequest.multiDeleteError;
-          delete parentSriRequest.multiDeleteError;
-          delete parentSriRequest.multiDeleteFailed;
           throw err;
         } else {
           throw multiDeleteError();
@@ -626,5 +654,5 @@ export {
   patchRegularResource,
   deleteRegularResource,
   beforePhaseQueryByKey,
-  beforePhaseInsertUpdate,
+  beforePhaseInsertUpdateDelete,
 };

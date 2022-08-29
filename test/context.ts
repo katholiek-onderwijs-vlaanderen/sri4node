@@ -9,16 +9,18 @@ context.serve();
 // External includes
 // var express = require('express');
 import * as express from 'express';
+import { getParentSriRequestFromRequestMap } from '../js/common';
 
 import { TSriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
 import utilsFactory from './utils';
 
 const utils = utilsFactory(null);
 
+
 let $u;
 let configCache: any = null;
 
-function config(sri4node, port, logdebug) {
+function config(sri4node, port, logdebug, dummyLogger) {
   if (configCache !== null) {
     console.log('config cached');
     return configCache;
@@ -57,14 +59,13 @@ function config(sri4node, port, logdebug) {
       require('./context/onlycustom')(sri4node, commonResourceConfig),
       require('./context/customStreaming')(sri4node, commonResourceConfig),
       require('./context/foos')(sri4node, commonResourceConfig),
+      require('./context/bars')(sri4node, commonResourceConfig),
     ],
 
     beforePhase: [
       async (sriRequestMap, jobMap, pendingJobs) => {
         (Array.from(sriRequestMap) as Array<[string, TSriRequest]>)
           .forEach(([psId, sriRequest]) => {
-          // .forEach((keyValueTuple:any) => {
-          //   const [psId, sriRequest] = keyValueTuple;
             if (pendingJobs.has(psId)) {
               if (sriRequest.generateError === true) {
                 sriRequest.generateError = false;
@@ -73,10 +74,28 @@ function config(sri4node, port, logdebug) {
             }
           });
       },
+
+      // count the number of calls to beforePhase
+      async (sriRequestMap: Map<string,TSriRequest>, jobMap, pendingJobs) => {
+        // find parent sriRequest
+        const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
+        if (sriRequest.userData === undefined) {
+          sriRequest.userData = {
+            beforePhaseCntr: 0,
+          }
+        }
+        sriRequest.userData.beforePhaseCntr += 1;
+      }
     ],
 
     transformRequest: [utils.lookForBasicAuthUser],
     transformInternalRequest: [utils.copyUserInfo],
+
+    afterRequest: [ (sriRequest) => {
+      dummyLogger.log(`afterRequest hook of ${sriRequest.id}`)
+      dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData?.beforePhaseCntr}`)
+    } ],
+
 
     // temporarily global batch for samenscholing
     enableGlobalBatch: true,
@@ -90,8 +109,8 @@ function config(sri4node, port, logdebug) {
   return config;
 }
 
-async function serve(sri4node, port, logdebug) {
-  const theConfig = config(sri4node, port, logdebug);
+async function serve(sri4node, port, logdebug, dummyLogger) {
+  const theConfig = config(sri4node, port, logdebug, dummyLogger);
 
   // Need to pass in express.js and node-postgress as dependencies.
   const app = express();

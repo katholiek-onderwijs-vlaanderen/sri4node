@@ -1,7 +1,20 @@
 import { TDebugChannel } from '../js/typeDefinitions';
 
 import * as sri4node from '..';
+const devNull = require('dev-null');
+const { Console } = require('console');
+
 import * as context from './context';
+
+
+const dummyLogger = new Console({
+  stdout: devNull(),
+  stderr: devNull(),
+  ignoreErrors: true,
+  colorMode: false
+});
+
+
 
 const port = 5000;
 const logdebug = false;
@@ -79,7 +92,7 @@ describe('Sri4node SERVER TESTS', function () {
       throw new Error(`Problem while trying to initialize the testing DB: ${e}`);
     }
 
-    server = await context.serve(sri4node, port, logdebug);
+    server = await context.serve(sri4node, port, logdebug, dummyLogger);
   });
 
   after(async () => {
@@ -95,7 +108,7 @@ describe('Sri4node SERVER TESTS', function () {
 
   // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [base]);
-  runTestIfNeeded('./testHooks.ts', [base]);
+  runTestIfNeeded('./testHooks.ts', [base, dummyLogger]);
   runTestIfNeeded('./testCTE.ts', [base]);
   runTestIfNeeded('./testListResource.ts', [base]);
   runTestIfNeeded('./testPublicResources.ts', [base]);
