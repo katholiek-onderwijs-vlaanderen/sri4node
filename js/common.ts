@@ -886,7 +886,7 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
 
   // ssl=true is required for heruko.com
   // ssl=false is required for development on local postgres (Cloud9)
-  if (cn.connectionString?.indexOf('ssl=false') || 0 >= 0) {
+  if (cn.connectionString && cn.connectionString.indexOf('ssl=false') >= 0) {
     const cs = cn.connectionString || '';
     cn.connectionString = cs
       .replace('ssl=false', '').replace(/\?$/, '');
@@ -1470,6 +1470,8 @@ export {
   pgConnect,
   pgExec,
   pgResult,
+  createPreparedStatement,
+  pgDeallocateAllPreparedStatements,
   startTransaction,
   startTask,
   installVersionIncTriggerOnTable,
