@@ -904,6 +904,37 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
   return pgp(cn);
 }
 
+/**
+ * TODO: finish how this should be exposed to the user in order to be used
+ */
+// async function pgDeallocateAllPreparedStatements(pgClients) {
+//   // <<<<<<<<<< START HACK
+//   // The 'pg' library has currently no possibility to release prepared statements and since version 7.8.2
+//   // the lib starts throwing errors when using a prepared statement with same name and changed sql compared
+//   // with early usage of the prepared statement.
+//   //  ==> Use the configuration hash in the name of the prepared statement to void changed sql for the same
+//   // prepated statement name and execute 'DEALLOCATE ALL' at the database to release prepared statements at
+//   // server side before creating new ones. This way there only remain prepared statements state at the
+//   // 'pg' client side.
+//   // There seems no way to get the pgClient from the dbR object, store pgClient via connect handler in a
+//   // global variable. This will work as long as we use ONE database connection. If a master/follower db
+//   // is needed, this code will need some changes; probably the pg-promise 'dc' ( = Database Context ) can
+//   // be used for this.
+//   for (const pgClient of pgClients) {
+//     pgClient.connection.parsedStatements = {};
+//   }
+//   await dbR.query('DEALLOCATE ALL;')
+//   // >>>>>>>>>> END HACK
+// }
+
+/**
+ * @type {{ name: string, text: string }} details
+ * @returns a prepared statement that can be used with tx.any() or similar functions
+ */
+function createPreparedStatement(details:pgPromise.IPreparedStatement | undefined) {
+  return new pgp.PreparedStatement(details);
+}
+
 // Q wrapper for executing SQL statement on a node-postgres client.
 //
 // Instead the db object is a node-postgres Query config object.
