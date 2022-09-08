@@ -11,7 +11,7 @@ context.serve();
 import * as express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
-import { TSriConfig, SriError, TSriRequest } from '../js/typeDefinitions';
+import { TSriConfig, SriError, TSriRequest, TDebugChannel, TLogDebug } from '../js/typeDefinitions';
 import utilsFactory from './utils';
 
 const utils = utilsFactory(null);
@@ -109,7 +109,7 @@ function config(sri4node, port, logdebug, dummyLogger) {
   return config;
 }
 
-async function serve(sri4node, port, logdebug, dummyLogger) {
+async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger) {
   const theConfig = config(sri4node, port, logdebug, dummyLogger);
 
   // Need to pass in express.js and node-postgress as dependencies.

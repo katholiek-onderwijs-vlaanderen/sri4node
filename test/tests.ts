@@ -1,4 +1,4 @@
-import { TDebugChannel } from '../js/typeDefinitions';
+import { TDebugChannel, TLogDebug } from '../js/typeDefinitions';
 
 import * as sri4node from '..';
 const devNull = require('dev-null');
@@ -17,7 +17,7 @@ const dummyLogger = new Console({
 
 
 const port = 5000;
-const logdebug = false;
+const logdebug:TLogDebug = { channels: [] };
 // const logdebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 

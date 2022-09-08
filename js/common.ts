@@ -907,7 +907,8 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
 /**
  * TODO: finish how this should be exposed to the user in order to be used
  */
-// async function pgDeallocateAllPreparedStatements(pgClients) {
+async function pgDeallocateAllPreparedStatements(pgClients) {
+  throw new Error('[pgDeallocateAllPreparedStatements] Not implemented');
 //   // <<<<<<<<<< START HACK
 //   // The 'pg' library has currently no possibility to release prepared statements and since version 7.8.2
 //   // the lib starts throwing errors when using a prepared statement with same name and changed sql compared
@@ -925,7 +926,7 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
 //   }
 //   await dbR.query('DEALLOCATE ALL;')
 //   // >>>>>>>>>> END HACK
-// }
+}
 
 /**
  * @type {{ name: string, text: string }} details
