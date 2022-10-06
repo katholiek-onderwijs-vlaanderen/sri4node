@@ -4,7 +4,7 @@ import { prepareSQL } from '../../js/queryObject';
 
 import * as pMap from 'p-map';
 
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;

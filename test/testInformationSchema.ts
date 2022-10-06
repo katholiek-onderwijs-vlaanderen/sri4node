@@ -4,7 +4,7 @@ import { informationSchema } from '../js/informationSchema';
 
 import * as context from './context';
 
-export = module.exports = function () {
+module.exports = function () {
   describe('Information Schema', () => {
     // eslint-disable-next-line prefer-arrow-callback
     it('should correctly show text columns', async function () {

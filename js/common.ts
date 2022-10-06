@@ -1293,7 +1293,16 @@ function generateSriRequest(
     protocol: undefined,
     isBatchPart: undefined,
 
+    /**
+     * serverTiming is an object used to accumulate timing data which is passed to the client in the response 
+     * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
+     */
     serverTiming: {},
+    /**
+     * userData is an object which can be used by applications using sri4node to store information associated with 
+     * a request. It is initialized as an empty object.
+     */
+    userData: {},
   };
 
   if (internalSriRequest && !batchElement) { // internal interface

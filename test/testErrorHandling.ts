@@ -4,7 +4,7 @@ import * as uuid from 'uuid';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from './utils';
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base,
   };

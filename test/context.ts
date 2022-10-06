@@ -79,7 +79,7 @@ function config(sri4node, port, logdebug, dummyLogger) {
       async (sriRequestMap: Map<string,TSriRequest>, jobMap, pendingJobs) => {
         // find parent sriRequest
         const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
-        if (sriRequest.userData === undefined) {
+        if (sriRequest.userData.beforePhaseCntr === undefined) {
           sriRequest.userData = {
             beforePhaseCntr: 0,
           }
@@ -93,7 +93,7 @@ function config(sri4node, port, logdebug, dummyLogger) {
 
     afterRequest: [ (sriRequest) => {
       dummyLogger.log(`afterRequest hook of ${sriRequest.id}`)
-      dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData?.beforePhaseCntr}`)
+      dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`)
     } ],
 
 

@@ -7,7 +7,7 @@ import * as streamEqual from 'stream-equal';
 import { debug, mergeObject, pgExec } from '../../js/common';
 import { prepareSQL } from '../../js//queryObject';
 
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
   const isHrefAPermalink = function (href) {
     return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };

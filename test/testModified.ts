@@ -18,7 +18,7 @@ function generateRandomAllDatatypes(key) {
   };
 }
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base,
   };

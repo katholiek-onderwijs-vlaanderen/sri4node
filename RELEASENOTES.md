@@ -1,5 +1,11 @@
 # Release Notes
 
+## version 2.3.5 (06-10-2022)
+
+* added sriServerInstance as return on configure(sri4nodeConfig) containing pgp, db and app associated with the configured sri4node server instanc
+* added new hooks startUp and errorHandler
+* added userData object to sriRequest for storing data associated with requests by applications using sri4node
+
 ## version 2.3 (02-2021)
 
 * rewritten in typescript, so a lot of type checking has been added, and a few bugs were fixed as a result of that

@@ -41,7 +41,7 @@ import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -221,6 +221,7 @@ const expressWrapper = (
     debug('requests', `${reqMsgStart} took ${hrend[0] * 1000 + hrend[1] / 1000000} ms`);
   });
   debug('trace', 'Starting express wrapper');
+  let sriRequest;
   try {
     let batchRoutingDuration = 0;
     if (isBatchRequest) {
@@ -260,7 +261,7 @@ const expressWrapper = (
     }
     const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
 
-    const sriRequest = generateSriRequest(req, resp, {
+    sriRequest = generateSriRequest(req, resp, {
       isBatchRequest, readOnly, mapping: mapping || undefined, isStreamingRequest, dbT: t,
     });
     setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsedStartTransaction));
@@ -362,6 +363,11 @@ const expressWrapper = (
       });
     }
   } catch (err) {
+    await applyHooks('errorHandler',
+      sriConfig.errorHandler || [],
+      (f) => f(sriRequest, err),
+      sriRequest);
+
     // TODO: what with streaming errors
     if (t != null) { // t will be null in case of error during startTask/startTransaction
       if (readOnly === true) {
@@ -454,7 +460,7 @@ const utils = { // Utilities to run arbitrary SQL in validation, beforeupdate, a
  * @param app express application
  * @param sriConfig the config object
  */
-async function configure(app: Application, sriConfig: TSriConfig) {
+async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSriServerInstance> {
   // make sure no x-powered-by header is being sent
   app.disable('x-powered-by');
 
@@ -1099,6 +1105,15 @@ async function configure(app: Application, sriConfig: TSriConfig) {
         [] as Array<TBatchHandlerRecord>,
       );
 
+    const sriServerInstance = {
+        pgp,
+        db,
+        app,
+    }
+
+    // before registering routes in express, call startUp hook
+    await applyHooks('start up', sriConfig.startUp || [], (f) => f(db, sriServerInstance) );
+
     // register individual routes in express
     batchHandlerMap.forEach(
       ({
@@ -1163,6 +1178,7 @@ async function configure(app: Application, sriConfig: TSriConfig) {
     // }
 
     console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________');
+    return sriServerInstance;
   } catch (err) {
     console.error('___________________________ SRI4NODE INITIALIZATION ERROR _____________________________');
     console.error(err);
