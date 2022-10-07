@@ -190,9 +190,10 @@ These mechanisms have been made obsolete:
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
 
-Next step is to pass the sri4node config object to the async sri4node configure function:
+Next step is to pass the sri4node config object to the async sri4node configure function. The configure function will return a sriServerInstance object containing 
+a reference to pgp (an initialised version of the pgPromise library, see http://vitaly-t.github.io/pg-promise), db (pgPromise database object, see http://vitaly-t.github.io/pg-promise/Database.html) and app (the Axpress application).
 
-    await sri4node.configure(app, sriConfig);
+    const sriServerInstance = await sri4node.configure(app, sriConfig);
 
 Now we can start Express.js to start serving up our SRI REST interface :
 
@@ -229,6 +230,7 @@ The 'sriRequest' object will have the following properties (but the developer ca
  * context: an object which can be used for storing information shared between requests of the same batch (by default an empty object)
  * SriError: constructor to create an error object to throw in a handler in case of error \
  `new SriError( { status, errors = [], headers = {} } )`
+ * userData: an object which can be used by applications using sri4node to store information associated with a request. It is initialized as an empty object.
 
 ### 'me'
 
@@ -271,6 +273,14 @@ All hooks are 'await'ed for (and the result is ignored). This makes that a hook 
 
 Gobal hooks can be defined in the root of the sri4node config and are called for each request (unless an error occurs earlier in the request processing flow).
 
+#### startUp
+
+```javascript
+startUp(db, sriServerInstance)
+```
+
+This function is called during sri4node configuration, just before routes are registered in express. It is only called once during the lifetiem of an sri4node instance.
+
 #### transformRequest
 
 ```javascript
@@ -281,7 +291,7 @@ This function is called at the very start of each http request (i.e. for batch o
 
 #### beforePhase
 
-New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see Batch execution order (#Batch-execution-order)).
+New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see [Batch execution order](#Batch-execution-order)).
 
 ```javascript
 beforePhase(sriRequestMap, jobMap, pendingJobs)
@@ -290,6 +300,15 @@ beforePhase(sriRequestMap, jobMap, pendingJobs)
 * `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
 * `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
 * `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
+
+#### errorHandler
+
+This hook will be called in case an exception is catched during the handling of an SriResquest. After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
+Warning: in case of an early error, the parameter sriRequest might be undefined!
+
+```javascript
+errorHandler(sriRequest, error)
+```
 
 #### afterRequest
 

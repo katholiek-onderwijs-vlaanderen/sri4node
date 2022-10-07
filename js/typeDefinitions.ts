@@ -11,7 +11,9 @@ import { JSONSchema4 } from 'json-schema';
 import {
   IDatabase, IInitOptions, ValidSchema,
 } from 'pg-promise';
+import pgPromise = require('pg-promise');
 import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset';
+import pg = require('pg-promise/typescript/pg-subset');
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
@@ -106,6 +108,21 @@ export type TPreparedSql = {
   toParameterizedSql: () => { sql: string, values: Array<any> },
 }
 
+/**
+ * This will be returned by sri4node.configure() and it contains instance specific properties
+ */
+export type TSriServerInstance = {
+  /**
+   * pgp is an initialised version of the pgPromise library (https://vitaly-t.github.io/pg-promise)
+   */
+  pgp: pgPromise.IMain,
+  /**
+   * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
+   */
+  db: pgPromise.IDatabase<{}, pg.IClient>,
+  app: Express.Application,
+}
+
 // TODO make more strict
 export type TSriRequest = {
   id: string,
@@ -170,7 +187,7 @@ export type TSriRequest = {
   multiDeleteFailed?: boolean,
   multiDeleteError?: any,
 
-  userData?: Record<string, any>,
+  userData: Record<string, any>,
 };
 
 export type TInternalSriRequest = {
@@ -435,6 +452,16 @@ export type TSriConfig = {
   // trackHeapMax?: boolean,
   batchHandlerMap?: TBatchHandlerRecord,
   resources: TResourceDefinition[],
+
+  /**
+   * This is a global hook. It is called during configuration, just before routes are registered in express.
+   */
+  startUp?: Array<(dbT:IDatabase<unknown>, sriServerInstance: TSriServerInstance) => void>,
+
+  /**
+   * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests, 
+   * they are used to synchronize between executing batch operations in parallel, see Batch execution order in the README.
+   */
   beforePhase?:
     Array<
       //(sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
@@ -442,15 +469,35 @@ export type TSriConfig = {
         => unknown
     >,
 
+  /**
+   * This is a global hook. This function is called at the very start of each http request (i.e. for batch only once).
+   * Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe
+   * add the user's identity if it can be deducted from the headers).
+   */
   transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:IDatabase<unknown>)
     => void>,
 
-  afterRequest?: Array<(sriRequest:TSriRequest) => void>,
-
+  /**
+   * This is a global hook. This hook is defined to be able to copy data set by transformRequest (like use data) from the
+   * original (parent) request to the new internal request. This function is called at creation of each sriRequest created
+   * via the 'internal' interface.
+   */
   transformInternalRequest?: Array<
     (dbT:IDatabase<unknown>, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest)
-      => void
-  >,
+      => void>,
+
+  /**
+   * This is a global hook. This hook will be called in case an exception is catched during the handling of an SriResquest.
+   * After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
+   * Warning: in case of an early error, sriRequest might be undefined!
+  */
+  errorHandler?: Array<(sriRequest:TSriRequest, error: Error) => void>,
+
+  /**
+   * This is a global hook. It will be called after the request is handled (without errors). At the moment this handler is called,
+   * the database task/transaction is already closed and the response is already sent to the client.
+   */
+  afterRequest?: Array<(sriRequest:TSriRequest) => void>,
 
   /**
    * @deprecated

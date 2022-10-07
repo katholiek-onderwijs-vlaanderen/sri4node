@@ -30,4 +30,4 @@ import * as context from '../test/context';
 const logdebug:TLogDebug = { channels: 'all' };
 context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true
 
-export = module.exports = context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true
+module.exports = context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true

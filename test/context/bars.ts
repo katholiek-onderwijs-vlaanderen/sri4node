@@ -2,7 +2,7 @@ import * as uuid from 'uuid';
 
 import * as common from '../../js/common';
 
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
 
 
 const doBeforeHook = async (tx, sriRequest, operation) => {

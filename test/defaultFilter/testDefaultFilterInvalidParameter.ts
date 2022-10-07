@@ -8,7 +8,7 @@ import utilsFactory from '../utils';
 const sri4node = require('../..');
 const alldatatypes = require('../context/alldatatypes')(sri4node, {});
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base,
   };

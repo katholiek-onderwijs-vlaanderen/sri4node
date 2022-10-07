@@ -3,7 +3,7 @@ const sri4node = require('../../');
 const $m = sri4node.mapUtils;
 const $s = sri4node.schemaUtils;
 
-export = module.exports = function (extra) {
+module.exports = function (extra) {
 
   var ret = {
     type: '/jsonb',

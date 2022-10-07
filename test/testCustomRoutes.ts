@@ -16,7 +16,7 @@ const { performance } = require('perf_hooks');
 
 const { Client } = require('undici');
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const client = new Client(base);
   const sriClientConfig = {
     baseUrl: base,

@@ -6,7 +6,7 @@ import utilsFactory from './utils';
 const makeAuthHeader = (user, pw) => 
   'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
 
-export = module.exports = function (base) {
+module.exports = function (base) {
 
 
   const sriClientConfig = {

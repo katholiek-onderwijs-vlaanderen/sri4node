@@ -7,7 +7,7 @@ const setLogLvl = async (doPost, logdebug) => {
   const response = doPost('/setlogdebug', logdebug);
 };
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base,
   };

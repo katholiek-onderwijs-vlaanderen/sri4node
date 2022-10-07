@@ -8,7 +8,7 @@ const makeAuthHeader = (user, pw) =>
 
 const specialSriTypeUser = '838524ec-d267-11eb-bbb0-8f3f35e5f1f8'
 
-export = module.exports = function (base) {
+module.exports = function (base) {
 
 
   const sriClientConfig = {

@@ -16,7 +16,7 @@ async function allParentsOf(value, select) {
   debug('mocha', select.text);
 }
 
-export = module.exports = function (extra) {
+module.exports = function (extra) {
 
   var ret = {
     type: '/selfreferential',

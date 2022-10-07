@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   describe('Docs', () => {
     const sriClientConfig = {
       baseUrl: base,

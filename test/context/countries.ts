@@ -1,6 +1,6 @@
 import * as common from '../../js/common';
 
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
   const $s = sri4node.schemaUtils;
   const $m = sri4node.mapUtils;
 

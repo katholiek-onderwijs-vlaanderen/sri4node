@@ -1,4 +1,4 @@
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
 
   var ret = {
     type: '/onlyCustom',

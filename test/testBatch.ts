@@ -23,7 +23,7 @@ import utilsFactory from './utils';
  *   to make sure a simple single-array batch is executed IN SEQUENCE as everybody would expect !!!
  *
  */
-export = module.exports = function (base) {
+module.exports = function (base) {
   const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
   const communityHamme = '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d';
 

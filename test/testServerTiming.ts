@@ -2,7 +2,7 @@ import * as assert from 'assert';
 const { Client } = require('undici');
 import utilsFactory from './utils';
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const client = new Client(base);
 
   const utils = utilsFactory(null);

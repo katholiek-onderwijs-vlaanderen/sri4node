@@ -2,7 +2,7 @@ import * as common from '../../js/common';
 import utilsFactory from '../utils';
 const utils = utilsFactory(null);
 
-export = module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, extra) {
 
 
   var $m = sri4node.mapUtils;

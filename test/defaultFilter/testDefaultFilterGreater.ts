@@ -4,7 +4,7 @@ import utilsFactory from '../utils';
 
 const assert = require('assert');
 
-export = module.exports = function (base) {
+module.exports = function (base) {
   const sriClientConfig = {
     baseUrl: base,
   };

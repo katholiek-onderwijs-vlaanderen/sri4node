@@ -3,7 +3,7 @@ var uuid = require('uuid');
 import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from './utils';
 
-export = module.exports = function (base) {
+module.exports = function (base) {
 
 
   const sriClientConfig = {

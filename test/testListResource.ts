@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from './utils';
 
-export = module.exports = function (base) {
+module.exports = function (base) {
 
 
   const sriClientConfig = {
