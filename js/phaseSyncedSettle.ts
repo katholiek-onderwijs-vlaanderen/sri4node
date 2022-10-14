@@ -1,6 +1,4 @@
-// import * as pSettle from 'p-settle';
 import * as pSettle from 'p-settle';
-import * as pFinally from 'p-finally';
 import * as pEvent from 'p-event';
 import * as pMap from 'p-map';
 import * as queue from 'emitter-queue';
@@ -19,23 +17,45 @@ const debug_log = (id, msg) => {
 };
 
 /**
- * PhaseSyncer is a way to control synchronization between multiple
- * requests handlers, that can only go to the next phase
- * when all others have finished their 'step' from the same phase.
- *
- *
+ * "Phase syncing" is a way to control synchronization between multiple requests handlers (multiple items
+ * of batch request). Jobs (sri request handlers) are divided into 'phases' (steps, subtasks) and jobs are
+ * only allowed to go the next phase when all other handlers have also finished their current phase.
+ * 
+ * This mechanism is used for handling parallel batch requests to be able to implements things like:
+ *  - run all before before-* hooks before database changes
+ *  - run all after-* hooks after all database changes
+ *  - gathering data from all requests before handling this data in one sql command
+ *  ...
  */
 class PhaseSyncer {
-  ctrlEmitter: any;
+  /**
+   * unique identifier of each PhaseSyncer instance
+   */
+   id: any;
 
-  id: any;
-
+  /**
+   * indicates the number of the phase this PhaseSyncer instance is executing
+   */
   phaseCntr: number;
 
+  /**
+   * channel for communication from the PhaseSyncer instance towards the controlling process
+   */
+  ctrlEmitter: any;
+
+   /**
+   * channel for communication from the controlling process towards the PhaseSyncer instance
+   */
   jobEmitter: queue;
 
+  /**
+   * promise of the jobWrapperFun which runs the sri request handler
+   */
   jobPromise: Promise<any>;
 
+  /**
+   * SriRequest associated with the PhaseSyncer instance
+   */
   #sriRequest: TSriRequest;
 
   constructor(
@@ -49,6 +69,10 @@ class PhaseSyncer {
     this.jobEmitter = queue(new Emitter());
     this.#sriRequest = args[1];
 
+    /**
+     * A wrapper around the sri request handler dealing with sending synchronisation events.
+     * @returns result of the sri request handler
+     */
     const jobWrapperFun = async () => {
       try {
         const res = await fun(this, ...args);
@@ -65,6 +89,10 @@ class PhaseSyncer {
     debug_log(this.id, 'PhaseSyncer constructed.');
   }
 
+  /**
+   * This function needs to be called by the sri request handler at the end of each phase 
+   * (i.e. at each synchronisation point).
+   */
   async phase() {
     debug_log(this.id, `STEP ${this.phaseCntr}`);
     if (this.phaseCntr > 0) {
@@ -84,10 +112,16 @@ class PhaseSyncer {
 const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
 
 /**
- *
- *
+ * This function will create a new bunch of PhaseSyncer instances:
+ * one for each job from the jobList (i.e. one for each item of a parallel batch[part]).
+ * 
+ * It will then control the effective synchronisation between the PhaseSyncer instances (by keeping
+ * track of state and passing events based on state).
+ * 
  * @param jobList
- * @param param1
+ * @param {Object} parameters - object containing optional parameters
+ * @param {string} parameters.concurrency - the number of jobs which is allowed to run concurrent
+ * @param {string} parameters.beforePhaseHooks - hooks which will be called before starting each new phase
  * @returns
  */
 async function phaseSyncedSettle(
@@ -96,28 +130,73 @@ async function phaseSyncedSettle(
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},
 ) {
+  /**
+   * channel used to communicate between the controller process (this function) and the PhaseSyncer instances.
+   */
   const ctrlEmitter = queue(new Emitter());
+
+  /**
+   * With jobMap, PhaseSyncer instances can be retrieved by their PhaseSyncer IDs.
+   */
   const jobMap: Map<string, PhaseSyncer> = new Map(
     jobList
       .map(([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter))
       .map((phaseSyncer: PhaseSyncer) => [phaseSyncer.id, phaseSyncer]),
   );
+
+  /**
+   * The Set pendingJobs keep track of which jobs are still in progress (jobs which are terminated by
+   *  error or which are finished are removed from this set).
+   */
   const pendingJobs = new Set(jobMap.keys());
+
+  /**
+   * With sriRequestMap, sriRequest objects can be retrieved by the ID of the PhaseSyncer instance 
+   * associated with the sriRequest.
+   */
   const sriRequestMap = new Map(
     [...jobMap.entries()]
       .map(([id, phaseSyncer]: [string, PhaseSyncer]) => [id, phaseSyncer.sriRequest]),
   );
 
+  /**
+   * With sriRequestIDToPhaseSyncerMap, PhaseSyncer instances can be retrieved by the ID of the sriRequest
+   * associated with the PhaseSyncer instance.
+   */
   const sriRequestIDToPhaseSyncerMap = new Map(
     [...jobMap.entries()]
       .map(([_id, phaseSyncer]: [string, PhaseSyncer]) => [phaseSyncer.sriRequest.id, phaseSyncer]),
   );
 
-  let queuedJobs;
-  let phasePendingJobs;
-  let failureHasBeenBroadcasted = false;
+  /**
+   * queuedJobs keeps tracks of ID's of jobs waiting to be started their phase. This is nescessary in case
+   * a batch contains more jobs then the 'concurrency' allows to be running at the same time.
+   * When a job finishes its phase, one from the queue will be started.
+   */
+  let queuedJobs : Set<string>;
+
+  /**
+   * The set phasePendingJobs keeps track of the jobs which did not yet complete the current phase. When a
+   * job finishes his phase, it is removed from the set. When a new phase is started, phasePendingJobs is
+   * set to the content of pendingJobs.
+   */
+  let phasePendingJobs : Set<string>;
+
+  /**
+   * In case of batches which consist not only of read items, it makes no sense to continue after failure of 
+   * an item  (as the transaction will be rolled back). In such case, the other items of the batch will be
+   * when an error has encoutered. The boolean failureHasBeenBroadcasted is used to indicate wether the
+   * notification is already happened or not.
+   */
+  let failureHasBeenBroadcasted : boolean = false;
 
   try {
+    /**
+     * This function will start a new phase, this means notifying all jobs they can start exectuting their
+     * phase in case there are less jobs then concurrency allows. In case there are more jobs then allowed
+     * to run concurrently, only notify as many as are allowed to run concurrently and put the remainder in
+     * the jobQueue.
+     */
     const startNewPhase = async () => {
       const pendingJobList = [...pendingJobs.values()];
       const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency || 1);
@@ -134,7 +213,6 @@ async function phaseSyncedSettle(
       jobsToWake.forEach((id) => {
         const job = jobMap.get(id);
         if (job) {
-          // debug('phaseSyncer', 'emitting "ready"');
           job.jobEmitter.queue('ready');
         } else {
           error("PhaseSyncer: job not found in jobMap");
@@ -145,21 +223,32 @@ async function phaseSyncedSettle(
       phasePendingJobs = new Set(pendingJobs);
     };
 
+    /**
+     * This function will notify next job in queue it can start with execution of his current phase
+     * and remove the job from the queue.
+     */
     const startQueuedJob = () => {
-      if (queuedJobs.size > 0) {
-        const id = queuedJobs.values().next().value;
-        const job = jobMap.get(id);
-        if (job) {
-          // debug('phaseSyncer', 'emitting "ready"');
-          job.jobEmitter.queue('ready');
-        } else {
-          error("PhaseSyncer: job not found in jobMap");
-          throw new Error("PhaseSyncer: job not found in jobMap");
+      if ((phasePendingJobs.size - queuedJobs.size) > (concurrency || 1)) {
+        error("ERROR: PhaseSyncer: unexpected startQueuedJob() call while max number of concurrent jobs is still running ! -> NOT starting queued job");
+      } else {
+        if (queuedJobs.size > 0) {
+          const id = queuedJobs.values().next().value;
+          const job = jobMap.get(id);
+          if (job) {
+            job.jobEmitter.queue('ready');
+          } else {
+            error("PhaseSyncer: job not found in jobMap");
+            throw new Error("PhaseSyncer: job not found in jobMap");
+          }
+          queuedJobs.delete(id);
         }
-        queuedJobs.delete(id);
       }
     };
 
+    /**
+     * A wrapper for around the functions handling events, as they all needs the same error handling.
+     * @param fun function to wrap with error handling
+     */
     const errorHandlingWrapper = (fun) => async (id, args) => {
       try {
         await fun(id, args);
@@ -233,7 +322,7 @@ async function phaseSyncedSettle(
         // failure of one job in batch leads to failure of the complete batch
         //  --> notify the other jobs of the failure (only if they are not part
         //      of a failed multi* operation)
-        pMap(pendingJobs, async (id) => {
+        await pMap(pendingJobs, async (id) => {
           const job = jobMap.get(id);
 
           if (job === undefined) {
@@ -250,12 +339,13 @@ async function phaseSyncedSettle(
               'sriError',
               new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] }),
             );
-          } else if (phasePendingJobs.size === 0) {
-            await startNewPhase();
-          } else {
-            startQueuedJob();
           }
         });
+      }
+      if (phasePendingJobs.size === 0) {
+        await startNewPhase();
+      } else {
+        await startQueuedJob();
       }
     }));
 
@@ -288,5 +378,6 @@ async function phaseSyncedSettle(
 
 export {
   phaseSyncedSettle,
-  PhaseSyncer,
 };
+
+export type { PhaseSyncer };
