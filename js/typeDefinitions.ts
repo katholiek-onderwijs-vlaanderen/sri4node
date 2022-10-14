@@ -521,6 +521,11 @@ export type TSriConfig = {
   databaseLibraryInitOptions?: IExtendedDatabaseInitOptions,
 
   /**
+   * to enable [pg-monitor](https://www.npmjs.com/package/pg-monitor) (detailed logging about database interaction)
+   */
+  enablePgMonitor?: boolean,
+
+  /**
    * When streaming a response, even if it takes a long time to send the next chunk,
    * we'll make sure something (a space character) is being sent to the client
    * to avoid anything in the middle to kill the connection.

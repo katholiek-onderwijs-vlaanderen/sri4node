@@ -190,6 +190,8 @@ These mechanisms have been made obsolete:
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
 
+To enable [pg-monitor](https://www.npmjs.com/package/pg-monitor) (detailed logging about database interaction), set the boolean `enablePgMonitor` in the sri4node configuration on `true`.
+
 Next step is to pass the sri4node config object to the async sri4node configure function. The configure function will return a sriServerInstance object containing 
 a reference to pgp (an initialised version of the pgPromise library, see http://vitaly-t.github.io/pg-promise), db (pgPromise database object, see http://vitaly-t.github.io/pg-promise/Database.html) and app (the Axpress application).
 
