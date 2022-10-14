@@ -884,21 +884,6 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
     ...sri4nodeConfig.databaseConnectionParameters,
   };
 
-  // ssl=true is required for heruko.com
-  // ssl=false is required for development on local postgres (Cloud9)
-  if (cn.connectionString && cn.connectionString.indexOf('ssl=false') >= 0) {
-    const cs = cn.connectionString || '';
-    cn.connectionString = cs
-      .replace('ssl=false', '').replace(/\?$/, '');
-    cn.ssl = false;
-  } else {
-    cn.ssl = { rejectUnauthorized: false };
-    // recent pg 8 deprecates implicit disabling of certificate verification
-    //   and heroku does not provide for their CA files or certificate for your Heroku Postgres server
-    //   (see https://help.heroku.com/3DELT3RK/why-can-t-my-third-party-utility-connect-to-heroku-postgres-with-ssl)
-    //   ==> need for explicit disabling of rejectUnauthorized
-  }
-
   console.log(`Using database connection object : [${JSON.stringify(cn)}]`);
 
   return pgp(cn);

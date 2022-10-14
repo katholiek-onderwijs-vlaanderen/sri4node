@@ -1413,5 +1413,209 @@ module.exports = function (base) {
         },
       );
     });
+
+    it('batch with read and multi row create, re-put, update & delete', async () => {
+      // in preparation for being able to do update, run a create batch first
+      const keyp1 = uuid.v4();
+      const p1 = generateRandomPerson(keyp1, communityHamme);
+      const keyp2 = uuid.v4();
+      const p2 = generateRandomPerson(keyp2, communityDendermonde);
+      const keyp3 = uuid.v4();
+      const p3 = generateRandomPerson(keyp3, communityHamme);
+      const keyp4 = uuid.v4();
+      const p4 = generateRandomPerson(keyp4, communityDendermonde);
+      const keyp5 = uuid.v4();
+      const p5 = generateRandomPerson(keyp5, communityDendermonde);
+      const keyp6 = uuid.v4();
+      const p6 = generateRandomPerson(keyp6, communityDendermonde);
+
+      const batch = [
+        {
+          href: `/persons/${keyp1}`,
+          verb: 'PUT',
+          body: p1,
+        },
+        {
+          href: `/persons/${keyp2}`,
+          verb: 'PUT',
+          body: p2,
+        },
+        {
+          href: `/persons/${keyp3}`,
+          verb: 'PUT',
+          body: p3,
+        },
+        {
+          href: `/persons/${keyp4}`,
+          verb: 'PUT',
+          body: p4,
+        },
+        {
+          href: `/persons/${keyp5}`,
+          verb: 'PUT',
+          body: p5,
+        },
+        {
+          href: `/persons/${keyp6}`,
+          verb: 'PUT',
+          body: p6,
+        },
+      ];
+      await doPut('/batch', batch, sriClientOptionsAuthSabine);
+
+      // create update batch with three updates (one will fail) and three re-puts
+      const updateBatchPart = [ ...batch ];
+      updateBatchPart[0].body.community.href = '/communities/00000000-0000-0000-0000-000000000000';  // ==> constraint error
+      updateBatchPart[1].body.streetnumber = '18'; // will trigger an update
+      updateBatchPart[2].body.streetnumber = '18'; // will trigger an update
+
+      // inserts, one will fail
+      const keyp11 = uuid.v4();
+      const p11 = generateRandomPerson(keyp11, communityHamme);
+      const keyp12 = uuid.v4();
+      const p12 = generateRandomPerson(keyp12, communityHamme);
+      const keyp13 = uuid.v4();
+      const p13 = generateRandomPerson(keyp13, communityHamme);
+      const keyp14 = uuid.v4();
+      const p14 = generateRandomPerson(keyp14, communityHamme);
+      const keyp15 = uuid.v4();
+      const p15 = generateRandomPerson(keyp15, communityHamme);
+      const keyp16 = uuid.v4();
+      const p16 = generateRandomPerson(keyp16, communityHamme);
+      const keyp17 = uuid.v4();
+      const p17 = generateRandomPerson(keyp17, communityHamme);
+      const keyp18 = uuid.v4();
+      const p18 = generateRandomPerson(keyp18, '/communities/00000000-0000-0000-0000-000000000000'); // ==> constraint error
+
+      // inserts of other type, will succeed
+      const keyc1 = uuid.v4();
+      const c1 = generateRandomCommunity(keyc1);
+      const keyc2 = uuid.v4();
+      const c2 = generateRandomCommunity(keyc2);
+      const keyc3 = uuid.v4();
+      const c3 = generateRandomCommunity(keyc3);
+      const keyc4 = uuid.v4();
+      const c4 = generateRandomCommunity(keyc4);
+      const keyc5 = uuid.v4();
+      const c5 = generateRandomCommunity(keyc5);
+      const keyc6 = uuid.v4();
+      const c6 = generateRandomCommunity(keyc6);
+
+
+      const composedBatch = [
+        // inserts
+        {
+          href: `/communities/${keyc1}`,
+          verb: 'PUT',
+          body: c1,
+        },
+        {
+          href: `/communities/${keyc2}`,
+          verb: 'PUT',
+          body: c2,
+        },
+        {
+          href: `/communities/${keyc3}`,
+          verb: 'PUT',
+          body: c3,
+        },
+        {
+          href: `/communities/${keyc4}`,
+          verb: 'PUT',
+          body: c4,
+        },
+        {
+          href: `/communities/${keyc5}`,
+          verb: 'PUT',
+          body: c5,
+        },
+        {
+          href: `/communities/${keyc6}`,
+          verb: 'PUT',
+          body: c6,
+        },
+
+        {
+          href: `/persons/${keyp11}`,
+          verb: 'PUT',
+          body: p11,
+        },
+        {
+          href: `/persons/${keyp12}`,
+          verb: 'PUT',
+          body: p12,
+        },
+        {
+          href: `/persons/${keyp13}`,
+          verb: 'PUT',
+          body: p13,
+        },
+        {
+          href: `/persons/${keyp14}`,
+          verb: 'PUT',
+          body: p14,
+        },
+        {
+          href: `/persons/${keyp15}`,
+          verb: 'PUT',
+          body: p15,
+        },
+        {
+          href: `/persons/${keyp16}`,
+          verb: 'PUT',
+          body: p16,
+        },
+        {
+          href: `/persons/${keyp17}`,
+          verb: 'PUT',
+          body: p17,
+        },
+        {
+          href: `/persons/${keyp18}`,
+          verb: 'PUT',
+          body: p18,
+        },
+        // deletes
+        {
+          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',  // table foos has the constraint '"$$meta.deleted" != true' => constraint error
+          verb: 'DELETE',
+        },
+        {
+          href: '/cities/52074',
+          verb: 'DELETE',
+        },
+        {
+           href: '/cities/52075', // does not exists
+           verb: 'DELETE',
+        },
+        // gets
+        {
+          href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple',
+          verb: 'GET',
+        },
+        {
+          href: '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd',
+          verb: 'GET',
+        },
+        {
+          href: '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d',
+          verb: 'GET',
+        },
+        // updates
+        ...updateBatchPart,
+      ];
+      await utils.testForStatusCode(
+        async () => {
+          await doPut('/batch', composedBatch, sriClientOptionsAuthSabine);
+        },
+        async (error) => {
+          // console.log(error)
+          // console.log(JSON.stringify(error, null, 2));
+          assert.strictEqual(error.status, 409);
+        },
+      );
+    });
+
+
   });
 };

@@ -35,8 +35,8 @@ function config(sri4node, port, logdebug, dummyLogger) {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
-      connectionString: 'postgres://sri4node:sri4node@localhost:5432/postgres?ssl=false',
-      // ssl: false,
+      connectionString: 'postgres://sri4node:sri4node@localhost:5432/postgres',
+      ssl: false,
       schema: 'sri4node',
     },
 
