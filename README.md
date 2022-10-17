@@ -269,6 +269,8 @@ As a general principle for renaming those functions, we think that sri4node shou
 
 For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make it clear when the operation happens, but the function name doesn't suggest anymore what you should do at that time. Of course you could do some validation of the input before an insert, but you might as well dance the lambada if you wish. Sri4node shouldn't have an opinion about that.
 
+In the sri4node configuration, hooks are always configured as an array of hook functions.
+
 All hooks are 'await'ed for (and the result is ignored). This makes that a hook can be a plain synchronous function or an asynchronous function. You could return a promise but this will not have any added value.
 
 ### Global hooks
@@ -305,7 +307,7 @@ beforePhase(sriRequestMap, jobMap, pendingJobs)
 
 #### errorHandler
 
-This hook will be called in case an exception is catched during the handling of an SriResquest. After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
+This hook will be called in case an exception is catched during the handling of an SriRequest. After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
 Warning: in case of an early error, the parameter sriRequest might be undefined!
 
 ```javascript
