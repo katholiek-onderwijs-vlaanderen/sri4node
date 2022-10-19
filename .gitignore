@@ -5,3 +5,4 @@ npm-debug.log
 dist/
 env.js
 .vscode
+sri4node_postgresdbfortests.*

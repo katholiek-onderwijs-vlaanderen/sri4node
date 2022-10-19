@@ -1,0 +1,1 @@
+../../../sql/privileges.sql
