@@ -201,6 +201,9 @@ async function phaseSyncedSettle(
       const pendingJobList = [...pendingJobs.values()];
       const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency || 1);
 
+      queuedJobs = new Set(jobsToQueue);
+      phasePendingJobs = new Set(pendingJobs);
+
       if (jobsToWake.length > 0) {
         // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer 
         // will be terminated
@@ -219,8 +222,6 @@ async function phaseSyncedSettle(
           throw new Error("PhaseSyncer: job not found in jobMap");
         }
       });
-      queuedJobs = new Set(jobsToQueue);
-      phasePendingJobs = new Set(pendingJobs);
     };
 
     /**

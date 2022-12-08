@@ -276,6 +276,102 @@ module.exports = function (base, dummyLogger) {
           await doPut('/batch', batch);
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
         });
+        it('batch request - parallel with error', async () => {
+          const keypA = uuid.v4();
+          const pA = generateRandomPerson(keypA, communityDendermonde, 'Oona', 'Hazelhof');
+          await doPut(`/persons/${keypA}`, pA);
+
+          const keypB = uuid.v4();
+          const pB = generateRandomPerson(keypB, communityDendermonde, 'Rosemarijn', 'van der Boon');
+          await doPut(`/persons/${keypB}`, pB);
+
+          const keypC = uuid.v4();
+          const pC = generateRandomPerson(keypC, communityDendermonde, 'Sonja', 'Lambert');
+          await doPut(`/persons/${keypC}`, pC);
+
+          const keypD = uuid.v4();
+          const pD = generateRandomPerson(keypD, communityDendermonde, 'Elena', 'van der Hagen');
+          await doPut(`/persons/${keypD}`, pD);
+
+          const keypE = uuid.v4();
+          const pE = generateRandomPerson(keypE, communityDendermonde, 'Stijn', 'Lindhout');
+          await doPut(`/persons/${keypE}`, pE);
+          await doDelete(`/persons/${keypE}`, {});
+
+          dummyLoggerSpy.resetHistory();
+          const keypN = uuid.v4();
+          const pN = generateRandomPerson(keypN, communityDendermonde, 'Sara', 'Hermelink');
+          const batch = [
+            { // read single
+              href: '/store/products/1edb2754-5684-1234-ae5b-ec33c903ee4d',
+              verb: 'GET',
+            },
+            { // read list
+              href: '/store/products',
+              verb: 'GET',
+            },
+            { // create
+              href: `/persons/${keypN}`,
+              verb: 'PUT',
+              body: pN,
+            },
+            { // reput same
+              href: `/persons/${keypA}`,
+              verb: 'PUT',
+              body: pA,
+            },
+            { // update
+              href: `/persons/${keypB}`,
+              verb: 'PUT',
+              body: {
+                ...pB,
+                firstname: 'Rozemarijn',
+              }
+            },
+            { // patch
+              href: `/persons/${keypC}`,
+              verb: 'PATCH',
+              body: [ { op: 'replace', path: '/streetnumber', value: '88' } ],
+            },
+            { // delete existing
+              href: `/persons/${keypD}`,
+              verb: 'DELETE',
+            },
+            { // delete already deleted
+              href: `/persons/${keypE}`,
+              verb: 'DELETE',
+            },
+            { // delete unexisting
+              href: `/persons/${uuid.v4()}`,
+              verb: 'DELETE',
+            },
+            { // custom -- onlyCustom
+              href: '/onlyCustom',
+              verb: 'GET',
+            },
+            { // custom -- normal
+              href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple',
+              verb: 'GET',
+            },
+            { // custom -- like
+              href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike',
+              verb: 'GET',
+            },
+            {
+              href: '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb',
+                // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
+                //   ==> forbidden for Kevin from 'LETS Regio Zele'
+              verb: 'GET',
+            },
+          ];
+          await utils.testForStatusCode(
+            () => doPut('/batch', batch),
+            (error) => {
+              console.log()
+              assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
+            },
+          );
+        });
         it('batch request - sequential', async () => {
           dummyLoggerSpy.resetHistory();
 
