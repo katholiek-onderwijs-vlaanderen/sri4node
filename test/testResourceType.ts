@@ -1,4 +1,4 @@
-var assert = require('assert');
+import { assert } from 'chai';
 var uuid = require('uuid');
 import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from './utils';

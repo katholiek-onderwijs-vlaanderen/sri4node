@@ -17,6 +17,59 @@ module.exports = function (base) {
 
   const doGet = function(...args) { return api.getRaw(...args) };
 
+  /**
+   * Gets a list from an sri api page-by-page (following the next links) and then
+   * applies an asynchronous function to each batch received from the API.
+   * The function will not work in parallel, so we wait to call the next one until
+   * the current one has finished processing.
+   *
+   * @param asyncFunctionToApply the function that will be applied to each 'page'
+   *  we get from the API (following the next links). Its parameters will be
+   *  - an array of api resource objects (or strings containing hrefs if expand=NONE)
+   *  - isLastPage boolean indicating no more pages will follow
+   *  - current page
+   *  - nr of resources handled so far
+   * @param url
+   * @param options sri-client options
+   */
+  async function applyFunctionToList(
+      asyncFunctionToApply:(apiResponse:Array<string | Record<string, unknown>>, lastPage:boolean, pageNum:number, countBeforeCurrentPage:number) => any,
+      url:string,
+      options:Record<string,unknown> = {},
+  ) {
+    let nextPath:string | null = url;
+    const getListOptions = { ...options, raw: true };
+    let nextJsonDataPromise = api.wrapGet(url, {}, getListOptions); // api.getList(url, {}, getListOptions);
+    let pageNum = 0;
+    let countBeforeCurrentPage = 0;
+    while (nextJsonDataPromise) {
+      // console.log(`Trying to get ${nextPath}`);
+      // eslint-disable-next-line no-await-in-loop
+      const jsonData = await nextJsonDataPromise;
+      if (jsonData.$$meta && jsonData.$$meta.next) {
+        nextPath = jsonData.$$meta.next;
+      } else {
+        nextPath = null;
+      }
+      // already start fetching the next url
+      nextJsonDataPromise = nextPath ? api.wrapGet(`${nextPath}`, {}, { ...options, raw: true }) : null;
+
+      // apply async function to batch
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await asyncFunctionToApply(jsonData, nextJsonDataPromise === null, pageNum, countBeforeCurrentPage);
+        countBeforeCurrentPage += jsonData.results.length;
+      } catch (e) {
+        console.log('Error while trying to apply the given function to the current page', e.stack);
+        throw e;
+      }
+
+      pageNum += 1;
+    }
+    return countBeforeCurrentPage;
+  }
+
+
   const utils =  utilsFactory(api);
   const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
@@ -295,6 +348,83 @@ module.exports = function (base) {
           assert.equal(error.body.errors[0].code, 'invalid.limit.parameter');
           assert.equal(error.body.errors[0].message, 'The maximum allowed limit is 50');      
         })
+    });
+
+    it('should generate proper next links with expand=NONE', async function () {
+      let metaCount:number;
+      await applyFunctionToList(
+        (apiResponse, isLastPage, _pageNum, countBeforeCurrentPage) => {
+          metaCount = metaCount === undefined ? (apiResponse as any).$$meta.count : metaCount;
+          if (! (apiResponse as any).results || ! Array.isArray((apiResponse as any).results)) {
+            assert.fail('No results found');
+          }
+
+          // do some final checks on the last page (no $$meta.next link anymore)
+          if (isLastPage) {
+            assert.equal(countBeforeCurrentPage + (apiResponse as any).results.length, metaCount);
+          }
+        },
+        '/alldatatypes?limit=2&expand=none&$$includeCount=true',
+        sriClientOptionsAuthKevin,
+      );
+    });
+
+    it('should work when expand=NONE is combined with orderBy (only using properties that are never NULL)', async function () {
+      // let metaCount:number | undefined;
+      await applyFunctionToList(
+        (apiResponse, isLastPage, _pageNum, countBeforeCurrentPage) => {
+          // metaCount = metaCount === undefined ? (apiResponse as any).$$meta.count : metaCount;
+          if (! (apiResponse as any).results || ! Array.isArray((apiResponse as any).results)) {
+            assert.fail('No results found');
+          }
+
+          // do some final checks on the last page (no $$meta.next link anymore)
+          if (isLastPage) {
+            assert.equal(countBeforeCurrentPage + (apiResponse as any).results.length, (apiResponse as any).$$meta.count);
+          }
+        },
+        '/alldatatypes?limit=2&expand=none&$$includeCount=true&orderBy=key,$$meta.modified,$$meta.created',
+        sriClientOptionsAuthKevin,
+      );
+    });
+
+    it('should work when expand=NONE is combined with orderBy, and the orderBy contains a property that can have NULL values in the DB', async function () {
+      // in this case we'll check what happens if one of the orderBy keys can contain NULL values
+      // (the 'number' property of /alldatatypes is somtimes null)
+      // does the keyOffset still work in these cases?
+      await applyFunctionToList(
+        (apiResponse, isLastPage, _pageNum, countBeforeCurrentPage) => {
+          if (! (apiResponse as any).results || ! Array.isArray((apiResponse as any).results)) {
+            assert.fail('No results found');
+          }
+
+          // do some final checks on the last page (no $$meta.next link anymore)
+          if (isLastPage) {
+            assert.equal(countBeforeCurrentPage + (apiResponse as any).results.length, (apiResponse as any).$$meta.count);
+          }
+        },
+        '/alldatatypes?limit=2&expand=none&$$includeCount=true&orderBy=key,$$meta.modified,number',
+        sriClientOptionsAuthKevin,
+      );
+    });
+
+    it.skip('should not generate an empty page', async function () {
+      await applyFunctionToList(
+        (apiResponse, _isLastPage, _pageNum, _countBeforeCurrentPage) => {
+          assert(Array.isArray((apiResponse as any).results), 'results property is not an array');
+          assert.notStrictEqual((apiResponse as any).results?.length, 0, 'we got a response with a results array containing zero elements');
+        },
+        '/alldatatypes?limit=1&expand=none&$$includeCount=true',
+        sriClientOptionsAuthKevin,
+      );
+      await applyFunctionToList(
+        (apiResponse, _isLastPage, _pageNum, _countBeforeCurrentPage) => {
+          assert(Array.isArray((apiResponse as any).results), 'results property is not an array');
+          assert.notStrictEqual((apiResponse as any).results?.length, 0, 'we got a response with a results array containing zero elements');
+        },
+        '/alldatatypes?limit=1',
+        sriClientOptionsAuthKevin,
+      );
     });
 
     it('should allow unlimited resources with expand none', async function () {

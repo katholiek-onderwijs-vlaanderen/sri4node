@@ -1,5 +1,6 @@
 // Utility methods for calling the SRI interface
-var assert = require('assert');
+import { assert } from 'chai';
+
 import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
 
 module.exports = function (base) {

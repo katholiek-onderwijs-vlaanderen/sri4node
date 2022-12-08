@@ -56,7 +56,17 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
   let sql;
   let columns;
   if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
-    columns = '"key"';
+    if (parameters.orderBy) {
+      columns = parameters.orderBy
+        .split(',')
+        .map((v) => `"${v}"`)
+        .join(',')
+    } else {
+      // this should become obsolete when we have a separate query parser that builds a fully deterministic parseTree
+      // because
+      columns = '"key","$$meta.created"';
+    }
+    // what if orderby is specified in a list query with expand=NONE?
   } else {
     columns = sqlColumnNames(
       mapping,
@@ -95,20 +105,20 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
-  const { orderBy } = queryParams;
-  const { descending } = queryParams;
+  const { orderBy, descending } = queryParams;
 
   let orderKeys = ['$$meta.created', 'key']; // default
 
   if (orderBy !== undefined) {
     orderKeys = orderBy.split(',');
-    if (orderKeys.some((k) => (k !== '$$meta.created' && k !== '$$meta.modified' && !mapping.map[k]))) {
+    const invalidOrderByKeys = orderKeys.filter((k) => (k !== '$$meta.created' && k !== '$$meta.modified' && !mapping.map[k]));
+    if (invalidOrderByKeys.length !== 0) {
       throw new SriError({
         status: 400,
         errors: [
           {
             code: 'invalid.orderby.parameter',
-            message: `Can not order by [${orderBy}]. One or more unknown properties.`,
+            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(', ')}.`,
           }],
       });
     }
@@ -253,13 +263,17 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
 
   if (results.length === parseInt(queryLimit, 10) && results.length > 0) {
     const lastElement = queryParams.expand && queryParams.expand.toLowerCase() === 'none' ? rows[queryLimit - 1] : results[queryLimit - 1].$$expanded;
-    const keyOffset = orderKeys.map((k) => {
-      const o = _.get(lastElement, k);
-      if (tableInformation[k].type === 'timestamp with time zone') {
-        return encodeURIComponent(o);
-      }
-      return o.toString();
-    })
+    const keyOffset = orderKeys
+      .map((k) => {
+        // !!! _.get supports a dotted notation path { 'my.key': 'value' } as well as { my: { key: 'value' } }
+        const o = _.get(lastElement, k);
+        if (tableInformation[k].type === 'timestamp with time zone') {
+          return encodeURIComponent(o);
+        } else if (o === null) {
+          return null;
+        }
+        return o.toString();
+      })
       .join(',');
     output.$$meta.next = addOrReplaceParameter(originalUrl, 'keyOffset', keyOffset);
   }

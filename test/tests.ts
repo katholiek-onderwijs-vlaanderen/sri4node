@@ -86,7 +86,9 @@ describe('Sri4node SERVER TESTS', function () {
   before(async () => {
     // init testing DB
     try {
-      await asyncSpawn(`${__dirname}/../createdb.sh`);
+      // OBSOLETE: assume a local postgres db instance
+      // await asyncSpawn(`${__dirname}/../createdb.sh`);
+      // > 202210: run the createdb.sh script INSIDE the docker container
     } catch (e) {
       console.log(`Problem while trying to initialize the testing DB: ${e}`);
       throw new Error(`Problem while trying to initialize the testing DB: ${e}`);

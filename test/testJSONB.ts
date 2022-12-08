@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 var uuid = require('uuid');
-var assert = require('assert');
+import { assert } from 'chai';
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import { debug } from '../js/common';
 import utilsFactory from './utils';

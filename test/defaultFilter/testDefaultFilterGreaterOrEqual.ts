@@ -2,7 +2,7 @@
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from '../utils';
 
-const assert = require('assert');
+import { assert } from 'chai';
 const util = require('util');
 
 module.exports = function (base) {

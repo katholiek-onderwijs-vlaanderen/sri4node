@@ -2,7 +2,7 @@
 import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import utilsFactory from '../utils';
 
-const assert = require('assert');
+import { assert } from 'chai';
 
 module.exports = function (base) {
   const sriClientConfig = {
@@ -423,8 +423,8 @@ module.exports = function (base) {
           let q = '/alldatatypes?publicationsNot=2015-01-01T00:00:00%2B02:00';
           q += ',2015-07-01T00:00:00%2B02:00,2015-04-01T00:00:00%2B02:00';
           const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 12);
+          assert.equal(response.results.length, 1, 'length is not 1');
+          assert.equal(response.results[0].$$expanded.id, 12, 'first result id is not 12');
         });
       });
     });
