@@ -190,6 +190,8 @@ These mechanisms have been made obsolete:
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
 * [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
 
+To enable [pg-monitor](https://www.npmjs.com/package/pg-monitor) (detailed logging about database interaction), set the boolean `enablePgMonitor` in the sri4node configuration on `true`.
+
 Next step is to pass the sri4node config object to the async sri4node configure function. The configure function will return a sriServerInstance object containing 
 a reference to pgp (an initialised version of the pgPromise library, see http://vitaly-t.github.io/pg-promise), db (pgPromise database object, see http://vitaly-t.github.io/pg-promise/Database.html) and app (the Axpress application).
 
@@ -267,6 +269,8 @@ As a general principle for renaming those functions, we think that sri4node shou
 
 For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make it clear when the operation happens, but the function name doesn't suggest anymore what you should do at that time. Of course you could do some validation of the input before an insert, but you might as well dance the lambada if you wish. Sri4node shouldn't have an opinion about that.
 
+In the sri4node configuration, hooks are always configured as an array of hook functions.
+
 All hooks are 'await'ed for (and the result is ignored). This makes that a hook can be a plain synchronous function or an asynchronous function. You could return a promise but this will not have any added value.
 
 ### Global hooks
@@ -303,7 +307,7 @@ beforePhase(sriRequestMap, jobMap, pendingJobs)
 
 #### errorHandler
 
-This hook will be called in case an exception is catched during the handling of an SriResquest. After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
+This hook will be called in case an exception is catched during the handling of an SriRequest. After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
 Warning: in case of an early error, the parameter sriRequest might be undefined!
 
 ```javascript
@@ -483,13 +487,26 @@ export {
 
 ## Batch execution order
 
-In a batch all operations in an inner list are executed in 'parallel' (in practice with a concurrency limit) but are 'phaseSynced' at three points:
-- at the start of 'before' hooks
-- at the start of database operations
-- at the start of 'after' hooks
-- after the 'after' hooks
+In a batch all operations in an inner list are executed in 'parallel' (in practice with a concurrency limit) but are 'phaseSynced' at several different points like at the start of the 'before'/'after' 'read'/'update'/'insert'/'delete' hooks and at the start of database operations. With 'phaseSynced' is meant that **all** operations need to be at the sync point before the operations continue (again in 'parallel'), so you can be sure that at the moment a validation rule in an after hook is evaluated all database operations of the inner batch list have been executed.
 
-With 'phaseSynced' is meant that **all** operations need to be at the sync point before the operations continue (again in 'parallel'), so you can be sure that at the moment a validation rule in an after hook is evaluated all database operations of the inner batch list have been executed.
+An overview of what happens during the different phases of all possible batch operations:
+
+| Phase  | Get - Single                           | Get - List                   | Insert/Update/Patch          | Delete                    | Custom non-streaming |
+|:-------:|:--------------------------------------:|:----------------------------:|:----------------------------:|:-------------------------:|:--------------------:|
+|0|-|-|validation<br>$\textsf{\color{green}prepare QBK}$|$\textsf{\color{green}prepare QBK}$|-|
+|1|-|-|$\textsf{\color{green}query QBK}$<br>handle RE-PUT|$\textsf{\color{green}query QBK}$|-|
+|2|$\textsf{\color{blue}beforeRead}$|$\textsf{\color{blue}beforeRead}$|$\textsf{\color{blue}beforeInsert/Update}$|$\textsf{\color{blue}beforeDelete}$|$\textsf{\color{blue}beforeHandler}$|
+|3|$\textsf{\color{green}prepare QBK}$|query<br>processing|$\textsf{\color{green}prepare multi insert/update}$|$\textsf{\color{green}prepare multi delete}$|$\textsf{\color{blue}handler}$|
+|4|$\textsf{\color{green}query QBK}$<br>processing<br>expansion|-|$\textsf{\color{green}query multi insert/update}$|$\textsf{\color{green}query multi delete}$|-|
+|5|$\textsf{\color{blue}afterRead}$ |$\textsf{\color{blue}afterRead}$|$\textsf{\color{blue}afterInsert/Update}$ |$\textsf{\color{blue}afterDelete}$ |$\textsf{\color{blue}afterHandler}$ |
+|6|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|
+
+
+At the start of each phase a hook beforePhase() is executed, these are not shown in the table above. Marked in blue are hooks which might be provided by the application using sri4node. Marked in green are the beforePhase hooks used by sri4node itself to implement QBK and multi insert/update/delete.
+
+QKB (QueryByKey) is a mechanism to bundle read requests of different elements in batch (instead of doing potentially a lot individual database operations). In the prepare phase all types and keys are collected, and in the next phase elements are fetched with one query for each resource type.
+
+Multi insert/update/delete is a mechanism to bundle insert, update and delete operations of a batch (instead of doing potentially a lot individual database operations). In the prepare phase all relevant data is collected, and in the next phase a bulk db operation is executed for each kind of operation and each resource type.
  
 If a batch contains multiple lists, these lists are handled **in order** list by list (with the inner lists executed in 'phaseSynced parallel' as described above).
  

@@ -792,7 +792,7 @@ async function pgInit(
 
   // const pgMonitor = process.env.PGP_MONITOR === 'true' || (global.sri4node_configuration && global.sri4node_configuration.pgMonitor===true);
   if (extraOptions.monitor) {
-    monitor.attach(pgpInitOptions);
+    monitor.attach(pgpInitOptionsUpdated);
   }
 
   // The node pg library assumes by default that values of type 'timestamp without time zone' are in local time.
@@ -868,7 +868,7 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
   if (!pgp) {
     const extraOptions = {
       schema: sri4nodeConfig.databaseConnectionParameters.schema,
-      monitor: sri4nodeConfig.databaseLibraryInitOptions?.pgMonitor === true,
+      monitor: sri4nodeConfig.enablePgMonitor === true,
       connectionInitSql: sri4nodeConfig.databaseConnectionParameters.connectionInitSql,
     };
     pgInit(sri4nodeConfig.databaseLibraryInitOptions, extraOptions);
