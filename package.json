@@ -30,7 +30,7 @@
     "busboy": "0.3.1",
     "compression": "^1.7.4",
     "emitter-queue": "^1.0.0",
-    "express": "4.17.2",
+    "express": "4.17.3",
     "express-http-context": "^1.2.3",
     "express-middleware-timer": "^0.2.2",
     "fast-json-patch": "^3.0.0-1",
