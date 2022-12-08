@@ -17,7 +17,7 @@ import pg = require('pg-promise/typescript/pg-subset');
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
-export type PluginConfig = {}
+export type TPluginConfig = Record<string, unknown>;
 
 // for example /llinkid/activityplanning, so should only start with a slash
 // and maybe only lowercase etc???
@@ -434,7 +434,7 @@ export type TSriConfig = {
   id?: string,
 
   // the real properties !!!
-  plugins?: PluginConfig[]
+  plugins?: TPluginConfig[]
   enableGlobalBatch?: boolean,
   globalBatchRoutePrefix?: TUriPath,
   // logrequests?: boolean,
@@ -519,6 +519,11 @@ export type TSriConfig = {
   // cfr. https://github.com/vitaly-t/pg-promise/blob/master/typescript/pg-promise.d.ts
   // OPTIONAL, but useful if you want to enable pgMonitor or enable some lifecycle hooks
   databaseLibraryInitOptions?: IExtendedDatabaseInitOptions,
+
+  /**
+   * to enable [pg-monitor](https://www.npmjs.com/package/pg-monitor) (detailed logging about database interaction)
+   */
+  enablePgMonitor?: boolean,
 
   /**
    * When streaming a response, even if it takes a long time to send the next chunk,
