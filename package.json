@@ -72,7 +72,7 @@
     "expect.js": "^0.3.1",
     "iso-datestring-validator": "2.1.4",
     "kov-docker-utils": "git+https://github.com/katholiek-onderwijs-vlaanderen/kov-docker-utils.git",
-    "mocha": "^8.4.0",
+    "mocha": "^10.2.0",
     "nodemon": "^2.0.19",
     "sinon": "^14.0.0",
     "stream-equal": "2.0.0",
