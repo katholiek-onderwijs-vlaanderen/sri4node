@@ -35,7 +35,7 @@ import {
   settleResultsToSriResults, tableFromMapping, transformRowToObject, transformObjectToRow,
   startTransaction, startTask, typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp,
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
-  generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds,
+  generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
@@ -178,8 +178,7 @@ const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, ma
 };
 
 const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
-  const logEnabled = global.sri4node_configuration.logdebug.channels === 'all'
-    || global.sri4node_configuration.logdebug.channels.has('server-timing');
+  const logEnabled = isLogChannelEnabled('server-timing');
   const hdrEnable = sriRequest.headers?.['request-server-timing'] !== undefined;
   let serverTiming = '';
   if ((logEnabled || hdrEnable) && (sriRequest.serverTiming !== undefined)) {

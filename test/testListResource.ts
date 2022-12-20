@@ -388,7 +388,7 @@ module.exports = function (base) {
       );
     });
 
-    it('should work when expand=NONE is combined with orderBy, and the orderBy contains a property that can have NULL values in the DB', async function () {
+    it.skip('should work when expand=NONE is combined with orderBy, and the orderBy contains a property that can have NULL values in the DB', async function () {
       // in this case we'll check what happens if one of the orderBy keys can contain NULL values
       // (the 'number' property of /alldatatypes is somtimes null)
       // does the keyOffset still work in these cases?

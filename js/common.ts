@@ -48,6 +48,13 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
+const isLogChannelEnabled = (channel:TDebugChannel): boolean => {
+  return (global.sri4node_configuration === undefined
+        || (global.sri4node_configuration.logdebug && (
+          global.sri4node_configuration.logdebug.channels === 'all'
+          || global.sri4node_configuration.logdebug.channels.has(channel))));
+}
+
 /**
  * Logging output (use the proper channel!)
  *
@@ -55,10 +62,7 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
  * @param {String | () => String}
  */
 const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
-  if (global.sri4node_configuration === undefined
-        || (global.sri4node_configuration.logdebug && (
-          global.sri4node_configuration.logdebug.channels === 'all'
-          || global.sri4node_configuration.logdebug.channels.has(channel)))) {
+  if (isLogChannelEnabled(channel)) {
     const reqId:string = httpContext.get('reqId');
     const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof x === 'function' ? x() : x}`;
     if (reqId !== undefined) {
@@ -1441,6 +1445,7 @@ function generateSriRequest(
 
 export {
   hrtimeToMilliseconds,
+  isLogChannelEnabled,
   debug,
   error,
   sortUrlQueryParamParseTree,
