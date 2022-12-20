@@ -13,7 +13,7 @@
     "build": "tsc --project .",
     "postbuild": "cp -r ./js/docs ./dist/js",
     "clean": "rm -rf ./dist",
-    "pretest": "npm run clean && mkdir -p ./dist/js && npm run postbuild",
+    "pretest": "npm run clean && mkdir -p ./dist/js && npm run postbuild && (npm run testcleanup || /bin/true)",
     "test": "./node_modules/kov-docker-utils/kov-docker-utils postgres start sri4node_postgresdbfortests 15432 ./docker/postgres_initdb && ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts; R=$?; ./node_modules/kov-docker-utils/kov-docker-utils postgres stop sri4node_postgresdbfortests; exit $R",
     "testcleanup": "./node_modules/kov-docker-utils/kov-docker-utils postgres cleanup sri4node_postgresdbfortests",
     "test_performance": "mocha --config .mocharc_performance.js --exit",
