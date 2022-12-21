@@ -103,10 +103,14 @@ INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-7412-4996-
 INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-3699-4996-ae5b-ec33c903ee4d', 'd70c98ca-9559-47db-ade6-e5da590b2435', 'a391efaf-485e-45bb-8688-87d7bdfee9f6', 'IS_PART_OF');
 INSERT INTO "relations" (key, "from", "to", "type") VALUES ('3edb2754-8526-4996-ae5b-ec33c903ee4d', '7f5f646c-8f0b-4ce6-97ce-8549b8b78234', '5a2747d4-ed99-4ceb-9058-8152e34f4cd5', 'IS_PART_OF');
 
-INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-5684-4996-ae5b-ec33c903ee4d', '2f11714a-9c45-44d3-8cde-cd37eb0c048b', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON');
-INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-7412-4996-ae5b-ec33c903ee4d', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON');
-INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-3699-4996-ae5b-ec33c903ee4d', 'da6dcc12-c46f-4626-a965-1a00536131b2', '9abe4102-6a29-4978-991e-2a30655030e6', 'DAUGHTER');
-INSERT INTO "personrelations" (key, "from", "to", "type") VALUES ('4edb2754-8526-4996-ae5b-ec33c903ee4d', '692fa054-33ec-4a28-87eb-53df64e3d09d', '9abe4102-6a29-4978-991e-2a30655030e6', 'NICE');
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('4edb2754-5684-4996-ae5b-ec33c903ee4d', '2f11714a-9c45-44d3-8cde-cd37eb0c048b', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON', '1000-01-01', null);
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('4edb2754-7412-4996-ae5b-ec33c903ee4d', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '9abe4102-6a29-4978-991e-2a30655030e6', 'SON', '1000-01-01', null);
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('4edb2754-3699-4996-ae5b-ec33c903ee4d', 'da6dcc12-c46f-4626-a965-1a00536131b2', '9abe4102-6a29-4978-991e-2a30655030e6', 'DAUGHTER', '1000-01-01', null);
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('4edb2754-8526-4996-ae5b-ec33c903ee4d', '692fa054-33ec-4a28-87eb-53df64e3d09d', '9abe4102-6a29-4978-991e-2a30655030e6', 'NICE', '1000-01-01', null);
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('de9ffe6e-8130-11ed-9c45-eb33832319db', '82565813-943e-4d1a-ac58-8b4cbc865bdb', 'de32ce31-af0c-4620-988e-1d0de282ee9d', 'FRIEND', null, '2020-01-01');
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('df0cee2a-8130-11ed-8207-5f6d92046f98', '82565813-943e-4d1a-ac58-8b4cbc865bdb', '838524ec-d267-11eb-bbb0-8f3f35e5f1f8', 'FRIEND', '2020-01-01', null);
+INSERT INTO "personrelations" (key, "from", "to", "type", "startdate", "enddate") VALUES ('4a85ee3e-8133-11ed-8f58-97b87a2e6edd', '2f11714a-9c45-44d3-8cde-cd37eb0c048b', '82565813-943e-4d1a-ac58-8b4cbc865bdb', 'FRIEND', '2020-01-01', '9999-12-12');
+
 
 INSERT INTO "foos" (key, "bar") VALUES ('cd6a4678-7dcf-11ec-b41e-0faad76b288d', 7);
 INSERT INTO "foos" (key, "bar") VALUES ('7c85b45a-7ddd-11ec-8a3d-4742839ee2fd', 8);

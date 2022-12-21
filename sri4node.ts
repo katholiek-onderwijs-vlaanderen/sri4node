@@ -747,11 +747,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
           }
           checkRequiredFields(mapping, sriConfig.informationSchema);
 
+          if (mapping.query === undefined) {
+            mapping.query = {}
+          }
+
           // append relation filters if auto-detected a relation resource
           if (mapping.map.from && mapping.map.to) {
             // mapping.query.relationsFilter = mapping.query.relationsFilter(mapping.map.from, mapping.map.to);
-            //const relationFilters = require('./js/relationsFilter');
             mapping.query = {
+              ...mapping.query,
               ...relationFilters,
             };
           }
