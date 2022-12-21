@@ -355,7 +355,7 @@ const expressWrapper = (
       sriConfig.afterRequest || [],
       (f) => f(sriRequest),
       sriRequest);
-    if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+    if (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.statuses !== undefined) {
       setImmediate(() => {
         // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
         handleRequestDebugLog(result.status);
@@ -405,7 +405,7 @@ const expressWrapper = (
       error('___________________________________________________________________________________________');
       resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
     }
-    if (global.sri4node_configuration.logdebug.statuses !== undefined) {
+    if (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.statuses !== undefined) {
       setImmediate(() => {
         // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
         console.log('GOING TO CALL handleRequestDebugLog');
