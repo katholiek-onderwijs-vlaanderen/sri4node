@@ -506,4 +506,37 @@ module.exports = function (base) {
     });
   });
 
+  describe('Custom query parameter', function () {
+    it('should return all resources', async function () {
+        const response1 = await doGet('/personrelations', null, sriClientOptionsAuthSabine)
+        assert.equal(response1.results.length, 7);
+        const response2 = await doGet('/personrelations?status=ABOLISHED', null, sriClientOptionsAuthSabine)
+        assert.equal(response2.results.length, 1);
+        const response3 = await doGet('/personrelations?status=ACTIVE', null, sriClientOptionsAuthSabine)
+        console.log(response3)
+        assert.equal(response3.results.length, 6);
+      });
+    it('error', async function () {
+        await utils.testForStatusCode(
+          async () => {
+            await doGet('/personrelations?status=foo', null, sriClientOptionsAuthSabine)
+          },
+          (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.body.errors[0].code, 'status.filter.value.unknown');
+          })
+    });
+    it('unkown query parameter', async function () {
+      await utils.testForStatusCode(
+        async () => {
+          await doGet('/personrelations?unkown_para=55', null, sriClientOptionsAuthSabine)
+        },
+        (error) => {
+          assert.equal(error.status, 404);
+          assert.equal(error.body.errors[0].code, 'unknown.query.parameter');
+        })
+    });
+  });
+
+
 };

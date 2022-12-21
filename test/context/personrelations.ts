@@ -1,4 +1,5 @@
 import * as common from '../../js/common';
+import { SriError } from '../../sri4node';
 // Messages relations
 module.exports = function (sri4node, extra) {
 
@@ -17,6 +18,37 @@ module.exports = function (sri4node, extra) {
       type: {},
       startdate: {},
       enddate: {}
+    },
+    query: {
+      status: (value, select) => {
+        const today = (new Date()).toISOString().substring(0,10);
+
+        switch (value) {
+          case "ACTIVE":
+            select.sql(
+              ' AND ("startdate" <= \'' +
+                today +
+                "' AND (" +
+                '"enddate" >= \'' +
+                today +
+                '\' OR "enddate" IS NULL))'
+            );
+            break;
+          case "FUTURE":
+            select.sql(' AND "startdate" > \'' + today + "'");
+            break;
+          case "ABOLISHED":
+            select.sql(' AND "enddate" < \'' + today + "'");
+            break;
+          case "ACTIVE,FUTURE":
+            select.sql(
+              ' AND ("enddate" IS NULL OR "enddate" >= \'' + today + "')"
+            );
+            break;
+          default:
+            throw new SriError({ status: 409, errors: [{ code: 'status.filter.value.unknown', value }] });
+        }
+      },
     },
     schema: {
       $schema: 'http://json-schema.org/schema#',
