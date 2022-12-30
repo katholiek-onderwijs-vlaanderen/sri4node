@@ -33,7 +33,7 @@
     "express": "4.17.2",
     "express-http-context": "^1.2.3",
     "express-middleware-timer": "^0.2.2",
-    "fast-json-patch": "^3.0.0-1",
+    "fast-json-patch": "^3.1.1",
     "json-schema": "^0.4.0",
     "json-stream-stringify": "^2.0.4",
     "lodash": "^4.17.20",
