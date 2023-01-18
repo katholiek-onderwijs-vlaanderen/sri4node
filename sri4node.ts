@@ -273,7 +273,6 @@ const expressWrapper = (
       'transform request',
       sriConfig.transformRequest || [],
       (f) => f(req, sriRequest, t),
-      // () => sriConfig.transformRequest(req, sriRequest, t),
       sriRequest,
     );
 
@@ -919,13 +918,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
             const customMapping = _.cloneDeep(mapping);
             if (cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping);
-            } else {
-              if (cr.transformRequest !== undefined) {
-                customMapping.transformRequest.push(cr.transformRequest);
-              }
-              if (cr.transformResponse !== undefined) {
-                customMapping.transformResponse.push(cr.transformResponse);
-              }
             }
 
             cr.httpMethods.forEach((method) => {
