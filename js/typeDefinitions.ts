@@ -344,7 +344,7 @@ export type TResourceDefinition = {
   // },
   map?: {
     [k:string]: {
-      columnToField: Array<(key:string, element:Record<string, unknown>) => void>,
+      columnToField?: Array<(key:string, element:Record<string, unknown>) => void>,
       [k:string]: any,
     }
   },
