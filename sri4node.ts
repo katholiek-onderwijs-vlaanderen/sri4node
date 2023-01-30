@@ -553,7 +553,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     sriConfig.resources.forEach((mapping) => {
       if (mapping.metaType === undefined) {
         error(`WARNING: metaType missing for resource ${mapping.type}`);
-        mapping.metaType = 'not specified';
+        mapping.metaType = 'NOT SPECIFIED';
       }
     });
 
