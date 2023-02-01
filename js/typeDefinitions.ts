@@ -214,6 +214,7 @@ export type TResourceMetaType = Uppercase<string>;
 export type TResourceDefinition = {
   type: TUriPath,
   metaType: TResourceMetaType,
+  methods?: THttpMethod[],
 
   /** the database table to store the records, optional, inferred from typeif missing */
   table?: string,
