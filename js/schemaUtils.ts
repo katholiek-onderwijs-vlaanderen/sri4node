@@ -65,7 +65,7 @@ function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
   return { [flattenedName]: jsonSchema };
 }
 
-function permalink(type, description) {
+function permalink(type: string, description: string): JSONSchema4 {
   const name = type.substring(1);
 
   return {
@@ -81,8 +81,8 @@ function permalink(type, description) {
   };
 }
 
-function string(description, min?:number, max?:number) {
-  const ret:any = {
+function string(description: string, min?:number, max?:number, pattern?:string|string[]): JSONSchema4 {
+  const ret:JSONSchema4 = {
     type: 'string',
     description,
   };
@@ -92,12 +92,19 @@ function string(description, min?:number, max?:number) {
   if (max) {
     ret.maxLength = max;
   }
+  if (pattern) {
+    if (Array.isArray(pattern)) {
+      ret.oneOf = pattern.map( p => ({pattern: p}))
+    } else {
+      ret.pattern = pattern;
+    }
+  }
 
   return ret;
 }
 
-function numeric(description, min?:number, max?:number) {
-  const ret:any = {
+function numeric(description: string, min?:number, max?:number, pattern?:string): JSONSchema4 {
+  const ret:JSONSchema4 = {
     type: 'number',
     description,
   };
@@ -107,11 +114,17 @@ function numeric(description, min?:number, max?:number) {
   if (max) {
     ret.maximum = max;
   }
+  if (pattern) {
+    ret.pattern = pattern;
+  }
 
   return ret;
 }
 
-function email(description) {
+// email fun is used in mailer-api; 
+// sam-api creates its own schema part with pattern: "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
+//   ==> add it here ?
+function email(description: string): JSONSchema4 {
   return {
     type: 'string',
     format: 'email',
@@ -121,7 +134,7 @@ function email(description) {
   };
 }
 
-function url(description) {
+function url(description: string): JSONSchema4 {
   return {
     type: 'string',
     minLength: 1,
@@ -131,7 +144,7 @@ function url(description) {
   };
 }
 
-function belgianzipcode(description) {
+function belgianzipcode(description: string): JSONSchema4 {
   return {
     type: 'string',
     pattern: '^[0-9][0-9][0-9][0-9]$',
@@ -139,7 +152,8 @@ function belgianzipcode(description) {
   };
 }
 
-function phone(description) {
+// seems to be only used in sri4node tests
+function phone(description: string): JSONSchema4 {
   return {
     type: 'string',
     pattern: '^[0-9]*$',
@@ -149,7 +163,7 @@ function phone(description) {
   };
 }
 
-function guid(description) {
+function guid(description: string): JSONSchema4 {
   return {
     type: 'string',
     description,
@@ -158,7 +172,7 @@ function guid(description) {
   };
 }
 
-function timestamp(description) {
+function timestamp(description: string): JSONSchema4 {
   return {
     type: 'string',
     format: 'date-time',
@@ -166,32 +180,35 @@ function timestamp(description) {
   };
 }
 
-function boolean(description) {
+function boolean(description: string): JSONSchema4 {
   return {
     type: 'boolean',
     description,
   };
 }
 
-function array(description) {
-  const ret = {
+function array(description: string): JSONSchema4 {
+  const ret:JSONSchema4 = {
     type: 'array',
     description,
   };
   return ret;
 };
 
+function enumeration(description: string, values: string[]): JSONSchema4 {
+  const ret:JSONSchema4 = {
+    type: 'string',
+    description,
+    enum: values,
+  };
+  return ret;
+};
+
+
 function patchSchemaToDisallowAdditionalProperties(schema) {
   const patchedSchema = { ...schema };
   if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
     patchedSchema.additionalProperties = false;
-    // patchedSchema.properties = {};
-    // Object.entries(schema.properties)
-    //   .forEach((e) => {
-    //     patchedSchema.properties[e[0]] = patchSchemaToDisallowAdditionalProperties(e[1])
-    //   });
-
-    // from NodeJS 12 and up could be something like
     patchedSchema.properties = Object.fromEntries(
       Object.entries(patchedSchema.properties)
         .map((e) => [e[0], patchSchemaToDisallowAdditionalProperties(e[1])]),
@@ -213,5 +230,6 @@ export {
   timestamp,
   boolean,
   array,
+  enumeration,
   patchSchemaToDisallowAdditionalProperties,
 }
