@@ -48,7 +48,7 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
-const isLogChannelEnabled = (channel:TDebugChannel): boolean => {
+const isLogChannelEnabled = (channel:TDebugChannel|string): boolean => {
   return (global.sri4node_configuration === undefined
         || (global.sri4node_configuration.logdebug && (
           global.sri4node_configuration.logdebug.channels === 'all'
@@ -56,15 +56,23 @@ const isLogChannelEnabled = (channel:TDebugChannel): boolean => {
 }
 
 /**
- * Logging output (use the proper channel!)
+ * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
+ * If the 'channel' of a debug call is in the selected set of debug channels in the
+ * sri4node configuration (logdebug.channels), output (second parameter) is logged.
+ * Otherwise output is discared. 
+ * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
+ * information).
+ * 
+ * This function is available for sri4node plugins and applications using sri4, which
+ * are allowed to use logchannels of their own.
  *
- * @param channel
- * @param {String | () => String}
+ * @param channel one of the predefined log channels
+ * @param output string or string generating function to log
  */
-const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
+const debugAnyChannelAllowed:TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId:string = httpContext.get('reqId');
-    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof x === 'function' ? x() : x}`;
+    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof output === 'function' ? output() : output}`;
     if (reqId !== undefined) {
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         if (!logBuffer[reqId]) {
@@ -80,6 +88,25 @@ const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | strin
     }
   }
 };
+
+/**
+ * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
+ * If the 'channel' of a debug call is in the selected set of debug channels in the
+ * sri4node configuration (logdebug.channels), output (second parameter) is logged.
+ * Otherwise output is discared. 
+ * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
+ * information).
+ * 
+ * This function is for internal (sri4node) usage where logchannels are restricted
+ * to pre-defined debug channels. Restricting channels avoids errors and will make
+ * it possible for vscode to do auto-completion.
+ * @param channel one of the predefined log channels
+ * @param output string or string generating function to log
+ */
+const debug = (channel:TDebugChannel, output:(() => string) | string) => {
+  debugAnyChannelAllowed(channel, output);
+}
+
 
 const error:TErrorLogFunction = function (...args) {
   const reqId = httpContext.get('reqId');
@@ -1446,6 +1473,7 @@ function generateSriRequest(
 export {
   hrtimeToMilliseconds,
   isLogChannelEnabled,
+  debugAnyChannelAllowed,
   debug,
   error,
   sortUrlQueryParamParseTree,

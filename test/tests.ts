@@ -5,7 +5,14 @@ const devNull = require('dev-null');
 const { Console } = require('console');
 
 import * as context from './context';
+import * as informationSchema from '../js/informationSchema';
+import { assert } from 'chai';
+import sinon from 'ts-sinon';
+// const sinonTest = require("sinon-test");
+// const test = sinonTest(sinon);
 
+
+const sinonSandbox = sinon.createSandbox();
 
 const dummyLogger = new Console({
   stdout: devNull(),
@@ -23,34 +30,11 @@ const logdebug:TLogDebug = { channels: [] };
 
 const base = `http://localhost:${port}`;
 
-const { spawn } = require('child_process');
 
-function asyncSpawn(command, args:string[] = []) {
-  return new Promise((resolve, reject) => {
-    const childProcess = spawn(command, args);
 
-    let output = '';
-    let errors = '';
 
-    childProcess.stdout.on('data', (data) => {
-      output = `${output + data}\n`;
-    });
 
-    childProcess.stderr.on('data', (data) => {
-      // console.log(`stderr: ${data}`);
-      errors = `${errors + data}\n`;
-    });
 
-    childProcess.on('close', (code) => {
-      // console.log(`child process ${command} exited with code ${code}`);
-      if (code === 0) {
-        resolve(output);
-      } else {
-        reject(errors);
-      }
-    });
-  });
-}
 
 /**
  * after --pick on the command line, list the names of test files you want to run
@@ -79,22 +63,64 @@ describe('Sri4node PURE UNIT TESTS', () => {
   runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
 });
 
+describe('Sri4node SCHEMA VALIDATION', function () {
+  this.timeout(0);
+  let server:any = null;
+
+  after(async () => {
+    sinonSandbox.restore();
+    if (server) {
+      console.log('Stopping express server (was not stopped as we stubbed process.exit !).');
+      await server.close();
+    }
+    console.log('Done.');
+  });
+
+  it('sri4node should exit with an invalid schema', async function () {
+    const consoleSpy = sinonSandbox.spy(console, 'log');
+    const exitStub = sinonSandbox.stub(process, 'exit');
+    server = await context.serve(sri4node, port, logdebug, dummyLogger, [ './context/invalidSchema' ]);
+    assert.isTrue(exitStub.called, 'expected process.exit to be called');
+    assert.isTrue(consoleSpy.calledWith('Compiling JSON schema of /invalidschema failed:'), 'expected logging of schema compilation error');
+  });
+});
+
+
 describe('Sri4node SERVER TESTS', function () {
   this.timeout(0);
   let server:any = null;
 
   before(async () => {
-    // init testing DB
     try {
-      // OBSOLETE: assume a local postgres db instance
-      // await asyncSpawn(`${__dirname}/../createdb.sh`);
-      // > 202210: run the createdb.sh script INSIDE the docker container
-    } catch (e) {
-      console.log(`Problem while trying to initialize the testing DB: ${e}`);
-      throw new Error(`Problem while trying to initialize the testing DB: ${e}`);
+      /**
+       * We need to clear the informationSchema cache as it is currently iniatialized for the configuration of
+       * 'Sri4node SCHEMA VALIDATION'.
+       */
+      informationSchema.clearCache();
+      server = await context.serve(sri4node, port, logdebug, dummyLogger, 
+[ './context/persons',
+'./context/messages',
+'./context/communities',
+'./context/transactions',
+'./context/table',
+'./context/jsonb',
+'./context/alldatatypes',
+'./context/products',
+'./context/packages',
+'./context/relations',
+'./context/personrelations',
+'./context/cities',
+'./context/selfreferential',
+'./context/countries',
+'./context/countries_with_prefix',
+'./context/onlycustom',
+'./context/customStreaming',
+'./context/foos',
+'./context/bars',
+]);
+    } catch (err) {
+      console.log(err);
     }
-
-    server = await context.serve(sri4node, port, logdebug, dummyLogger);
   });
 
   after(async () => {

@@ -28,6 +28,31 @@ if (c9hostname) {
 import * as context from '../test/context';
 
 const logdebug:TLogDebug = { channels: 'all' };
-context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true
 
-module.exports = context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true
+const main = async () => {
+  console.log('Going to start server...')
+  await context.serve(sri4node, port, logdebug, dummyLogger, [
+    './context/persons',
+    './context/messages',
+    './context/communities',
+    './context/transactions',
+    './context/table',
+    './context/jsonb',
+    './context/alldatatypes',
+    './context/products',
+    './context/packages',
+    './context/relations',
+    './context/personrelations',
+    './context/cities',
+    './context/selfreferential',
+    './context/countries',
+    './context/countries_with_prefix',
+    './context/onlycustom',
+    './context/customStreaming',
+    './context/foos',
+    './context/bars'
+  ])
+}
+
+// module.exports = context.serve(sri4node, port, logdebug, dummyLogger); // , false, false, true
+module.exports = main;

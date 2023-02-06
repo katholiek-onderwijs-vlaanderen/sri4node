@@ -3,6 +3,7 @@
 // have  a type definition, so it'll be easier to use for developers.
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
+import Ajv from 'ajv';
 import { BusboyConfig } from 'busboy';
 import { Request } from 'express';
 import { Operation } from 'fast-json-patch';
@@ -33,7 +34,7 @@ export type TLogDebug = {
   statuses?: Set<number> | Array<number>,
 }
 
-export type TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => void;
+export type TDebugLogFunction = (channel:TDebugChannel | string, x:(() => string) | string) => void;
 
 export type TErrorLogFunction = (...unknown) => void;
 
@@ -223,6 +224,7 @@ export type TResourceDefinition = {
   singleResourceRegex?: RegExp,
   listResourceRegex?: RegExp,
   validateKey?: (key:string) => boolean,
+  validateSchema?: (key:string) => boolean;
 
   listResultDefaultIncludeCount?: boolean,
   maxlimit?: number,

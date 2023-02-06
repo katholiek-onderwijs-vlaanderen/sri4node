@@ -36,12 +36,13 @@ import {
   startTransaction, startTask, typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp,
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
+  debugAnyChannelAllowed
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod, TSriServerInstance,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -547,7 +548,24 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
           throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
         }
         resourceDefinition.listResourceRegex = new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`);
-        resourceDefinition.validateKey = ajv.compile(resourceDefinition.schema.properties.key);
+
+
+        // TODO: add descent type!
+        // TODO: use compiled schema  or do not store it as ajv does use a cache!
+        try {
+          // Compile the JSON schema to see if there are errors + store it for later usage
+          resourceDefinition.validateKey = ajv.compile(resourceDefinition.schema.properties.key);
+          resourceDefinition.validateSchema = ajv.compile(resourceDefinition.schema);
+        } catch (err) {
+          console.log('===============================================================');
+          console.log(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
+          console.log('');
+          console.log(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
+          console.log('');
+          console.log(`Error: ${err.message}`);
+          console.log('===============================================================');
+          process.exit(1);
+        }
       }
     });
 
@@ -971,7 +989,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                             busBoyConfig = _.cloneDeep(cr.busBoyConfig);
                           }
                           busBoyConfig.headers = sriRequest.headers;
-                          const busBoy = new Busboy(busBoyConfig);
+                          const busBoy = Busboy(busBoyConfig);
                           sriRequest.busBoy = busBoy;
                         } catch (err) {
                           throw new SriError({ status: 400, errors: [{ code: 'error.initialising.busboy', msg: `Error during initialisation of busboy: ${err}` }] });
@@ -1172,14 +1190,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       return JSON.parse(JSON.stringify(result));
     };
 
-    // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
-    // if (sriConfig.trackHeapMax === true) {
-    //   app.get('/heap_max', (req, res) => {
-    //     res.set('Content-Type', 'application/json');
-    //     res.send({ maxHeapUsage });
-    //   });
-    // }
-
     console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________');
     return sriServerInstance;
   } catch (err) {
@@ -1189,12 +1199,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
   }
 }
 
+
+
+
 /* express.js application, configuration for roa4node */
 // export = // for typescript
 export {
   configure,
 
-  debug,
+  debugAnyChannelAllowed as debug,
   error,
   SriError,
 
