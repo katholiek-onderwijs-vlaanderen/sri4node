@@ -684,15 +684,6 @@ function sqlColumnNames(mapping, summary = false) {
   }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
 
-/**
- * Merge all direct properties of object 'source' into object 'target'.
- */
-function mergeObject(source, target) {
-  return {
-    ...target,
-    ...source,
-  };
-}
 
 /**
  * @param row the database row
@@ -1491,7 +1482,6 @@ export {
   typeToConfig,
   typeToMapping,
   sqlColumnNames,
-  mergeObject,
   transformObjectToRow,
   transformRowToObject,
   pgInit,

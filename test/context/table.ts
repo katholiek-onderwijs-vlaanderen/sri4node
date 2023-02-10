@@ -1,11 +1,6 @@
-import * as common from '../../js/common';
-
 module.exports = function (sri4node, extra) {
-
-
-  var $s = sri4node.schemaUtils;
-
-  var ret = {
+  const $s = sri4node.schemaUtils;
+  return {
     type: '/table',
     metaType: 'SRI4NODE_TABLE',
     'public': true, // eslint-disable-line
@@ -25,7 +20,4 @@ module.exports = function (sri4node, extra) {
       required: ['select', 'from']
     },
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

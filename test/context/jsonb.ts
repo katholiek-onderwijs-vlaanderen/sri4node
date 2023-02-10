@@ -1,11 +1,6 @@
-import * as common from '../../js/common';
-const sri4node = require('../../');
-const $m = sri4node.mapUtils;
-const $s = sri4node.schemaUtils;
-
-module.exports = function (extra) {
-
-  var ret = {
+module.exports = function (sri4node) {
+  const $s = sri4node.schemaUtils;
+  return {
     type: '/jsonb',
     metaType: 'SRI4NODE_JSONB',
     'public': true, // eslint-disable-line
@@ -26,7 +21,4 @@ module.exports = function (extra) {
       foo: {}
     }
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

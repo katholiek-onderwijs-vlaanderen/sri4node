@@ -4,10 +4,9 @@ import * as sleep from 'await-sleep';
 import * as fs from 'fs';
 import * as streamEqual from 'stream-equal';
 
-import { debug, mergeObject, pgExec } from '../../js/common';
-import { prepareSQL } from '../../js//queryObject';
+import { TSriRequest } from '../../sri4node';
 
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node) {
   const isHrefAPermalink = function (href) {
     return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };
@@ -58,29 +57,29 @@ module.exports = function (sri4node, extra) {
         // Should allways restrict to /me community.
         if (sriRequest.query.communities) {
           if (sriRequest.query.communities === sriRequest.userObject.community.href) {
-            debug('mocha', '** restrictReadPersons resolves.');
+            sri4node.debug('mocha', '** restrictReadPersons resolves.');
           } else {
-            debug('mocha', '** restrictReadPersons rejecting - can only request persons from your own community.');
+            sri4node.debug('mocha', '** restrictReadPersons rejecting - can only request persons from your own community.');
             throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
           }
         } else {
-          debug('mocha', '** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
+          sri4node.debug('mocha', '** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources');
           throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
         }
       } else {
         const key = url.split('/')[2];
         const myCommunityKey = sriRequest.userObject.community.href.split('/')[2];
-        debug('mocha', `community key = ${myCommunityKey}`);
+        sri4node.debug('mocha', `community key = ${myCommunityKey}`);
 
-        const query = prepareSQL('check-person-is-in-my-community');
+        const query = sri4node.utils.prepareSQL('check-person-is-in-my-community');
         query.sql('select count(*) from persons where key = ')
           .param(key).sql(' and community = ').param(myCommunityKey);
-        const [row] = await pgExec(tx, query);
+        const [row] = await sri4node.utils.executeSQL(tx, query);
         if (parseInt(row.count, 10) === 1) {
-          debug('mocha', '** restrictReadPersons resolves.');
+          sri4node.debug('mocha', '** restrictReadPersons resolves.');
         } else {
-          debug('mocha', `row.count = ${row.count}`);
-          debug('mocha', `** security method restrictedReadPersons denies access. ${key} ${myCommunityKey}`);
+          sri4node.debug('mocha', `row.count = ${row.count}`);
+          sri4node.debug('mocha', `** security method restrictedReadPersons denies access. ${key} ${myCommunityKey}`);
           throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
         }
       } /* end handling regular resource request */
@@ -91,7 +90,7 @@ module.exports = function (sri4node, extra) {
     return async function (tx, sriRequest, elements) {
       const { key } = sriRequest.params;
       if (key === forbiddenKey) {
-        debug('mocha', `security method disallowedOnePerson for ${forbiddenKey} denies access`);
+        sri4node.debug('mocha', `security method disallowedOnePerson for ${forbiddenKey} denies access`);
         throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
       }
     };
@@ -101,16 +100,16 @@ module.exports = function (sri4node, extra) {
     return async function (tx, sriRequest, elements) {
       const { key } = sriRequest.params;
       if (sriRequest.userObject.email === 'sam@email.be') {
-        debug('mocha', 'security method returnSriTypeForOnePerson returns sriType.');
+        sri4node.debug('mocha', 'security method returnSriTypeForOnePerson returns sriType.');
         throw new sriRequest.SriError({ status: 200, errors: [{ foo: 'bar', sriType: sriRequest.sriType, type: 'TEST' }] });
       }
     };
   }
 
   async function simpleOutput(tx, sriRequest, customMapping) {
-    const query = prepareSQL('get-simple-person');
+    const query = sri4node.utils.prepareSQL('get-simple-person');
     query.sql('select firstname, lastname from persons where key = ').param(sriRequest.params.key);
-    const rows = await pgExec(tx, query);
+    const rows = await sri4node.utils.executeSQL(tx, query);
     if (rows.length === 0) {
       throw 'NOT FOUND'; // not an SriError to test getting error 500 in such a case
     } else if (rows.length === 1) {
@@ -120,7 +119,7 @@ module.exports = function (sri4node, extra) {
     }
   }
 
-  const ret = {
+  return {
     type: '/persons',
     metaType: 'SRI4NODE_PERSON',
     'public': false, // eslint-disable-line
@@ -219,7 +218,7 @@ module.exports = function (sri4node, extra) {
           status: 200,
           headers: [
             ['Content-Disposition', 'inline; filename=test.jpg'],
-            ['Content-Type', 'image/jpeg'],
+            ['content-Type', 'image/jpeg'],
           ],
         }),
         streamingHandler: async (tx, sriRequest, stream) => {
@@ -238,39 +237,45 @@ module.exports = function (sri4node, extra) {
         beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
         // set header + http return code
         },
-        streamingHandler: async (tx, sriRequest, stream) => {
-          sriRequest.attachmentsRcvd = [];
-          sriRequest.busBoy.on('file', async (fieldname, file, filename, encoding, mimetype) => {
-            console.log(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
-            if (filename === 'test.jpg') {
-              if (mimetype !== 'image/jpeg') {
-                throw `Unexpected mimetype! got ${mimetype}`;
-              }
-              const fileRead = fs.createReadStream('test/files/test.jpg');
-              const equalPromise = streamEqual.default(file, fileRead);
-              sriRequest.attachmentsRcvd.push({ filename, equalPromise });
-            } else if (filename === 'test.pdf') {
-              if (mimetype !== 'application/pdf') {
-                throw `Unexpected mimetype! got ${mimetype}`;
-              }
-              const fileRead = fs.createReadStream('test/files/test.pdf');
-              const equalPromise = streamEqual.default(file, fileRead);
-              sriRequest.attachmentsRcvd.push({ filename, equalPromise });
-            } else {
-              throw `Unexpected file received: ${filename}`;
-            }
-          });
-          // wait until busboy is done
-          await pEvent(sriRequest.busBoy, 'finish');
-          console.log('busBoy is done');
-
-          if (sriRequest.attachmentsRcvd.length !== 2) {
-            throw `Unexpected number attachments posted ${sriRequest.attachmentsRcvd.length}`;
+        streamingHandler: async (tx, sriRequest: TSriRequest, stream) => {
+          if (sriRequest.userData) {
+            sriRequest.userData.attachmentsRcvd = [];  // TODO: set attachmentsRcvd type as { string, Promise }[]
+          } else {
+            sriRequest.userData = { attachmentsRcvd: [] };  // TODO: set attachmentsRcvd type as { string, Promise }[]
           }
-          if (sriRequest.attachmentsRcvd[0].filename !== 'test.jpg' || sriRequest.attachmentsRcvd[1].filename !== 'test.pdf') {
+          if (sriRequest.busBoy !== undefined) {
+            sriRequest.busBoy.on('file', async (fieldname, file, filename, encoding, mimetype) => {
+              console.log(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
+              if (filename === 'test.jpg') {
+                if (mimetype !== 'image/jpeg') {
+                  throw `Unexpected mimetype! got ${mimetype}`;
+                }
+                const fileRead = fs.createReadStream('test/files/test.jpg');
+                const equalPromise = streamEqual.default(file, fileRead);
+                sriRequest.userData.attachmentsRcvd.push({ filename, equalPromise });
+              } else if (filename === 'test.pdf') {
+                if (mimetype !== 'application/pdf') {
+                  throw `Unexpected mimetype! got ${mimetype}`;
+                }
+                const fileRead = fs.createReadStream('test/files/test.pdf');
+                const equalPromise = streamEqual.default(file, fileRead);
+                sriRequest.userData.attachmentsRcvd.push({ filename, equalPromise });
+              } else {
+                throw `Unexpected file received: ${filename}`;
+              }
+            });
+            // wait until busboy is done
+            await pEvent(sriRequest.busBoy, 'finish');
+            console.log('busBoy is done');
+          }
+
+          if (sriRequest.userData.attachmentsRcvd.length !== 2) {
+            throw `Unexpected number attachments posted ${sriRequest.userData.attachmentsRcvd.length}`;
+          }
+          if (sriRequest.userData.attachmentsRcvd[0].filename !== 'test.jpg' || sriRequest.userData.attachmentsRcvd[1].filename !== 'test.pdf') {
             throw 'Attachment test.jpg or test.pdf is missing';
           }
-          await pMap(sriRequest.attachmentsRcvd, async ({ filename, equalPromise }) => {
+          await pMap(sriRequest.userData.attachmentsRcvd, async ({ filename, equalPromise }) => {
             const equal = await equalPromise;
             if (equal !== true) {
               throw `Posted ${filename} does not match file on disk!`;
@@ -346,7 +351,4 @@ module.exports = function (sri4node, extra) {
     ],
 
   };
-
-  mergeObject(extra, ret);
-  return ret;
 };

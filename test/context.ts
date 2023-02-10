@@ -12,10 +12,7 @@ import * as express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
 import { TSriConfig, SriError, TSriRequest, TDebugChannel, TLogDebug } from '../js/typeDefinitions';
-import utilsFactory from './utils';
-
-const utils = utilsFactory(null);
-
+import utils from './utils';
 
 let $u;
 let configCache: any = null;
@@ -91,12 +88,12 @@ async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceF
   // Need to pass in express.js and node-postgress as dependencies.
   const app = express();
 
-  await sri4node.configure(app, theConfig);
+  const sri4nodeInstance = await sri4node.configure(app, theConfig);
 
   try {
     const server = await app.listen(port);
     console.log(`Node app is running at localhost:${port}`);
-    return server;
+    return { server, sri4nodeInstance};
   } catch (error) {
     console.log(`Node app failed to initialize: ${error}`);
     process.exit(1);

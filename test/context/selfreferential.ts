@@ -1,24 +1,19 @@
-const { utils: $u, schemaUtils: $s, queryUtils: $q, mapUtils: $m } = require('../../index');
-import * as common from '../../js/common';
-const debug = common.debug;
+module.exports = function (sri4node) {
+  const $s = sri4node.schemaUtils;
 
-
-async function allParentsOf(value, select) {
-
-  var key = value.split('/')[2];
-  var nonrecursive = $u.prepareSQL();
-  nonrecursive.sql('VALUES (').param(key).sql(')');
-  var recursive = $u.prepareSQL();
-  recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p' +
-    ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
-  select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
-  select.sql(' AND key IN (SELECT key FROM parentsof)');
-  debug('mocha', select.text);
-}
-
-module.exports = function (extra) {
-
-  var ret = {
+  async function allParentsOf(value, select) {
+    const key = value.split('/')[2];
+    const nonrecursive = sri4node.utils.executeSQL();
+    nonrecursive.sql('VALUES (').param(key).sql(')');
+    const recursive = sri4node.utils.prepareSQL();
+    recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p' +
+      ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
+    select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
+    select.sql(' AND key IN (SELECT key FROM parentsof)');
+    sri4node.debug('mocha', select.text);
+  }
+  
+  return {
     type: '/selfreferential',
     metaType: 'SRI4NODE_SELFREFERENTIAL',
     'public': true, // eslint-disable-line
@@ -43,7 +38,4 @@ module.exports = function (extra) {
       allParentsOf: allParentsOf
     },
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

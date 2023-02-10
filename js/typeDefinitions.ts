@@ -4,7 +4,7 @@
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
 import Ajv from 'ajv';
-import { BusboyConfig } from 'busboy';
+import { Busboy, BusboyConfig } from 'busboy';
 import { Request } from 'express';
 import { Operation } from 'fast-json-patch';
 import { IncomingHttpHeaders } from 'http2';
@@ -166,7 +166,7 @@ export type TSriRequest = {
   containsDeleted?: boolean,
   generateError?: boolean,
 
-  busBoy?: unknown,
+  busBoy?: Busboy,
 
   ended?: boolean,
 

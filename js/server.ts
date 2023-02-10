@@ -14,7 +14,7 @@ const dummyLogger = new Console({
 
 
 import * as sri4node from '../';
-import { TLogDebug } from '../';
+import { TLogDebug } from './typeDefinitions';
 
 const c9hostname = process.env.C9_HOSTNAME; // eslint-disable-line
 const port = process.env.PORT || 5000; //eslint-disable-line

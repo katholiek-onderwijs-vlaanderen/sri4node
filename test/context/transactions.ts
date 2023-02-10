@@ -1,13 +1,10 @@
 import * as pMap from 'p-map';
-import * as common from '../../js/common';
-import { prepareSQL } from '../../js/queryObject';
 
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
-  const $u = sri4node.utils;
 
-  const ret = {
+  return {
     type: '/transactions',
     metaType: 'SRI4NODE_TRANSACTION',
     'public': false, // eslint-disable-line
@@ -47,11 +44,11 @@ module.exports = function (sri4node, extra) {
           const { amount } = incoming;
           const tokey = incoming.toperson.href.split('/')[2];
 
-          const query = prepareSQL();
+          const query = sri4node.utils.prepareSQL();
           query.sql('update persons set balance = (balance + ')
             .param(amount).sql(') where key = ').param(tokey);
 
-          await common.pgExec(tx, query);
+          await sri4node.utils.executeSQL(tx, query);
         }, { concurrency: 1 });
       },
       async function (tx, sriRequest, elements) {
@@ -59,11 +56,11 @@ module.exports = function (sri4node, extra) {
           const { amount } = incoming;
           const fromkey = incoming.fromperson.href.split('/')[2];
 
-          const query = prepareSQL();
+          const query = sri4node.utils.prepareSQL();
           query.sql('update persons set balance = (balance - ')
             .param(amount).sql(') where key = ').param(fromkey);
 
-          await common.pgExec(tx, query);
+          await sri4node.utils.executeSQL(tx, query);
         }, { concurrency: 1 });
       },
     ],
@@ -73,7 +70,4 @@ module.exports = function (sri4node, extra) {
       },
     ],
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

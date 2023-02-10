@@ -1,16 +1,16 @@
 // Utility methods for calling the SRI interface
 import * as assert from 'assert';
-import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import * as uuid from 'uuid';
 import * as sinon from 'sinon';
-import * as request from 'request';
 import * as sleep from 'await-sleep';
 import * as pEvent from 'p-event';
 import * as fs from 'fs';
-import * as util from 'util';
 
 import { debug } from '../js/common';
-import utilsFactory from './utils';
+import utils from './utils';
+import { THttpClient } from './httpClient';
+
+const FormData = require('form-data');
 
 const nrPhasesInRequest = 7;
 const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';
@@ -37,22 +37,7 @@ function generateRandomPerson(key, communityPermalink, firstname = 'Sabine', las
 
 
 
-module.exports = function (base, dummyLogger) {
-  const sriClientConfig = {
-    baseUrl: base,
-    username: 'kevin@email.be',
-    password: 'pwd',
-  };
-  const api = sriClientFactory(sriClientConfig);
-  const doGet = function (...args) { return api.getRaw(...args) };
-  const doPut = function (...args) { return api.put(...args); };
-  const doPatch = function (...args) { return api.patch(...args); };
-  const doPost = function (...args) { return api.post(...args); };
-  const doDelete = function (...args) { return api.delete(...args); };
-
-  const utils = utilsFactory(api);
-  const { makeBasicAuthHeader } = utils;
-  const authHdrKevin = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } };
+module.exports = function (httpClient: THttpClient, dummyLogger) {
 
   describe('HOOKS', () => {
 
@@ -76,25 +61,25 @@ module.exports = function (base, dummyLogger) {
         it('single request', async () => {
           // read single
           dummyLoggerSpy.resetHistory();
-          await doGet('/store/products/1edb2754-5684-1234-ae5b-ec33c903ee4d');
+          await httpClient.get({ path: '/store/products/1edb2754-5684-1234-ae5b-ec33c903ee4d', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
 
           // read list
           dummyLoggerSpy.resetHistory();
-          await doGet('/store/products');
+          await httpClient.get({ path: '/store/products', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // create
           dummyLoggerSpy.resetHistory();
           const keyp1 = uuid.v4();
           const p1 = generateRandomPerson(keyp1, communityDendermonde, 'Sara', 'Hermelink');
-          await doPut(`/persons/${keyp1}`, p1);
+          await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // put whithout changes
           dummyLoggerSpy.resetHistory();
-          await doPut(`/persons/${keyp1}`, p1);
+          await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // update
@@ -103,7 +88,7 @@ module.exports = function (base, dummyLogger) {
             ...p1,
             firstname: 'Sarah',
           }
-          await doPut(`/persons/${keyp1}`, p1update);
+          await httpClient.put({ path: `/persons/${keyp1}`, body: p1update, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // patch
@@ -111,36 +96,36 @@ module.exports = function (base, dummyLogger) {
           const patch = [
             { op: 'replace', path: '/streetnumber', value: '25' },
           ];
-          await doPatch(`/persons/${keyp1}`, patch);
+          await httpClient.patch({ path: `/persons/${keyp1}`, body: patch, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // delete existing
           dummyLoggerSpy.resetHistory();
-          await doDelete(`/persons/${keyp1}`, {});
+          await httpClient.delete({ path: `/persons/${keyp1}`, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
           // delete already deleted
           dummyLoggerSpy.resetHistory();
-          await doDelete(`/persons/${keyp1}`, {});
+          await httpClient.delete({ path: `/persons/${keyp1}`, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
           // delete  unexisting
           dummyLoggerSpy.resetHistory();
-          await doDelete(`/persons/${uuid.v4()}`, {});
+          await httpClient.delete({ path: `/persons/${uuid.v4()}`, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
 
           // custom -- onlyCustom
           dummyLoggerSpy.resetHistory();
-          await doGet('/onlyCustom');
+          await httpClient.get({ path: '/onlyCustom', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // custom -- normal
           dummyLoggerSpy.resetHistory();
-          await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple', {});
+          await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // custom -- like
           dummyLoggerSpy.resetHistory();
-          await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike', {});
+          await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
 
@@ -150,29 +135,32 @@ module.exports = function (base, dummyLogger) {
 
           // custom -- streaming handler JSON
           dummyLoggerSpy.resetHistory();
-          const r1 = request.get(`${base}/persons/downStreamJSON`, authHdrKevin);
-          await pEvent(r1, 'end');
+          const responseGet1 = await httpClient.get({ path: `/persons/downStreamJSON`, auth: 'kevin' });
+          assert.equal(responseGet1.status, 200);
           // as we are in streaming mode, the after handler still run after closing the stream -> just wait a moment for it to complete
           await sleep(200);
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: 1`), true);
 
           // custom -- streaming handler binary
           dummyLoggerSpy.resetHistory();
-          const r2 = request.get(`${base}/persons/downStreamBinary`, authHdrKevin);
-          await pEvent(r2, 'end');
+          const responseGet2 = await httpClient.get({ path: `/persons/downStreamBinary`, auth: 'kevin' });
+          assert.equal(responseGet2.status, 200);
           // as we are in streaming mode, the after handler still run after closing the stream -> just wait a moment for it to complete
           await sleep(200);
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: 1`), true);
 
           // custom -- streaming file upload (multipart form)
           dummyLoggerSpy.resetHistory();
-          const r3 = request.post(`${base}/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a/upStream`, {
-            formData: {
-              image: fs.createReadStream('test/files/test.jpg'),
-              pdf: fs.createReadStream('test/files/test.pdf'),
-            },
+          const formData = new FormData();
+          formData.append('image', fs.createReadStream('test/files/test.jpg'));
+          formData.append('pdf', fs.createReadStream('test/files/test.pdf'));
+          const responsePost = await httpClient.post({ 
+            path: `/persons/ab0fb783-0d36-4511-8ca5-9e29390eea4a/upStream`,
+            headers: formData.getHeaders(),
+            body: formData,
+            auth: 'kevin',
           });
-          await pEvent(r3, 'end');
+          assert.equal(responsePost.status, 200);
           // as we are in streaming mode, the after handler still run after closing the stream -> just wait a moment for it to complete
           await sleep(200);
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: 1`), true);
@@ -180,38 +168,38 @@ module.exports = function (base, dummyLogger) {
 
           // isPartOf
           dummyLoggerSpy.resetHistory();
-          await doPost('/countries/isPartOf', {
+          await httpClient.post({ path: '/countries/isPartOf', body: {
             a: { href: '/countries?nameRegEx=^be.*$' },
             b: { hrefs: ['/countries'] },
-          });
+          }, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
 
           // request with internal request
           dummyLoggerSpy.resetHistory();
-          await doGet('/communities/customroute_via_internal_interface');
+          await httpClient.get({ path: '/communities/customroute_via_internal_interface', auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 2}`), true);
         });
         it('batch request - parallel', async () => {
           const keypA = uuid.v4();
           const pA = generateRandomPerson(keypA, communityDendermonde, 'Oona', 'Hazelhof');
-          await doPut(`/persons/${keypA}`, pA);
+          await httpClient.put({ path: `/persons/${keypA}`, body: pA, auth: 'kevin' });
 
           const keypB = uuid.v4();
           const pB = generateRandomPerson(keypB, communityDendermonde, 'Rosemarijn', 'van der Boon');
-          await doPut(`/persons/${keypB}`, pB);
+          await httpClient.put({ path: `/persons/${keypB}`, body: pB, auth: 'kevin' });
 
           const keypC = uuid.v4();
           const pC = generateRandomPerson(keypC, communityDendermonde, 'Sonja', 'Lambert');
-          await doPut(`/persons/${keypC}`, pC);
+          await httpClient.put({ path: `/persons/${keypC}`, body: pC, auth: 'kevin' });
 
           const keypD = uuid.v4();
           const pD = generateRandomPerson(keypD, communityDendermonde, 'Elena', 'van der Hagen');
-          await doPut(`/persons/${keypD}`, pD);
+          await httpClient.put({ path: `/persons/${keypD}`, body: pD, auth: 'kevin' });
 
           const keypE = uuid.v4();
           const pE = generateRandomPerson(keypE, communityDendermonde, 'Stijn', 'Lindhout');
-          await doPut(`/persons/${keypE}`, pE);
-          await doDelete(`/persons/${keypE}`, {});
+          await httpClient.put({ path: `/persons/${keypE}`, body: pE, auth: 'kevin' });
+          await httpClient.delete({ path: `/persons/${keypE}`, auth: 'kevin' });
 
           dummyLoggerSpy.resetHistory();
           const keypN = uuid.v4();
@@ -273,30 +261,30 @@ module.exports = function (base, dummyLogger) {
               verb: 'GET',
             },
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
         });
         it('batch request - parallel with error', async () => {
           const keypA = uuid.v4();
           const pA = generateRandomPerson(keypA, communityDendermonde, 'Oona', 'Hazelhof');
-          await doPut(`/persons/${keypA}`, pA);
+          await httpClient.put({ path: `/persons/${keypA}`, body: pA, auth: 'kevin' });
 
           const keypB = uuid.v4();
           const pB = generateRandomPerson(keypB, communityDendermonde, 'Rosemarijn', 'van der Boon');
-          await doPut(`/persons/${keypB}`, pB);
+          await httpClient.put({ path: `/persons/${keypB}`, body: pB, auth: 'kevin' });
 
           const keypC = uuid.v4();
           const pC = generateRandomPerson(keypC, communityDendermonde, 'Sonja', 'Lambert');
-          await doPut(`/persons/${keypC}`, pC);
+          await httpClient.put({ path: `/persons/${keypC}`, body: pC, auth: 'kevin' });
 
           const keypD = uuid.v4();
           const pD = generateRandomPerson(keypD, communityDendermonde, 'Elena', 'van der Hagen');
-          await doPut(`/persons/${keypD}`, pD);
+          await httpClient.put({ path: `/persons/${keypD}`, body: pD, auth: 'kevin' });
 
           const keypE = uuid.v4();
           const pE = generateRandomPerson(keypE, communityDendermonde, 'Stijn', 'Lindhout');
-          await doPut(`/persons/${keypE}`, pE);
-          await doDelete(`/persons/${keypE}`, {});
+          await httpClient.put({ path: `/persons/${keypE}`, body: pE, auth: 'kevin' });
+          await httpClient.delete({ path: `/persons/${keypE}`, auth: 'kevin' });
 
           dummyLoggerSpy.resetHistory();
           const keypN = uuid.v4();
@@ -364,13 +352,9 @@ module.exports = function (base, dummyLogger) {
               verb: 'GET',
             },
           ];
-          await utils.testForStatusCode(
-            () => doPut('/batch', batch),
-            (error) => {
-              console.log()
-              assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
-            },
-          );
+          const response = await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
+          assert.equal(response.status, 403);
+          assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`), true);
         });
         it('batch request - sequential', async () => {
           dummyLoggerSpy.resetHistory();
@@ -440,12 +424,12 @@ module.exports = function (base, dummyLogger) {
             // }
             ],
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 8}`), true);
         });
         it('internal request', async () => {
           dummyLoggerSpy.resetHistory();
-          const r = await doGet('/communities/customroute_via_internal_interface');
+          const r = await httpClient.get({ path: '/communities/customroute_via_internal_interface', auth: 'kevin' });
           // expect two cycles of beforePhase calls as they are logged in the toplevel sriRequest
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 2}`), true);
         });
@@ -458,7 +442,7 @@ module.exports = function (base, dummyLogger) {
               verb: 'GET',
             }],
           ];
-          const r = await doPut('/batch', batch);
+          const r = await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
           // expect two cycles of beforePhase calls as they are logged in the toplevel sriRequest
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 2}`), true);
         });
@@ -471,9 +455,9 @@ module.exports = function (base, dummyLogger) {
         const testKey = uuid.v4();
         it('read', async () => {
           // single
-          await doGet('/bars/5de9c352-2534-11ed-84bc-9bce6d5e13f9');
+          await httpClient.get({ path: '/bars/5de9c352-2534-11ed-84bc-9bce6d5e13f9', auth: 'kevin' });
           // list
-          await doGet('/bars');
+          await httpClient.get({ path: '/bars', auth: 'kevin' });
         });
         it('create', async () => {
           const body = {
@@ -481,9 +465,9 @@ module.exports = function (base, dummyLogger) {
             foo: 'create'
           }
           // create
-          await doPut(`/bars/${testKey}`, body);
+          await httpClient.put({ path: `/bars/${testKey}`, body, auth: 'kevin' });
           // reput
-          await doPut(`/bars/${testKey}`, body);
+          await httpClient.put({ path: `/bars/${testKey}`, body, auth: 'kevin' });
         });
 
         it('update & patch', async () => {
@@ -492,21 +476,21 @@ module.exports = function (base, dummyLogger) {
             foo: 'update'
           }
           // update
-          await doPut(`/bars/${testKey}`, body);
+          await httpClient.put({ path: `/bars/${testKey}`, body, auth: 'kevin' });
           // patch
           const patch = [
             { op: 'replace', path: '/foo', value: 'patch' },
           ];
-          await doPatch(`/bars/${testKey}`, patch);
+          await httpClient.patch({ path: `/bars/${testKey}`, body: patch, auth: 'kevin' });
         });
 
         it('delete', async () => {
           // delete existing
-          await doDelete(`/bars/${testKey}`, {});
+          await httpClient.delete({ path: `/bars/${testKey}`, auth: 'kevin' });
           // delete already deleted
-          await doDelete(`/bars/${testKey}`, {});
+          await httpClient.delete({ path: `/bars/${testKey}`, auth: 'kevin' });
           // delete existing
-          await doDelete(`/bars/${uuid.v4()}`, {});
+          await httpClient.delete({ path: `/bars/${uuid.v4()}`, auth: 'kevin' });
         });
 
         it('batch - sequential', async () => {
@@ -564,7 +548,7 @@ module.exports = function (base, dummyLogger) {
               verb: 'DELETE',
             }],
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
         });
 
         it('batch - parallel', async () => {
@@ -573,7 +557,7 @@ module.exports = function (base, dummyLogger) {
               key,
               foo: 'create'
             }
-            await doPut(`/bars/${key}`, body);
+            await httpClient.put({ path: `/bars/${key}`, body, auth: 'kevin' });
           }
           const testKeyP1 = uuid.v4(); // used for create in batch
           const testKeyP2 = uuid.v4();
@@ -586,7 +570,7 @@ module.exports = function (base, dummyLogger) {
           createTestBar(testKeyP5);
           const testKeyP6 = uuid.v4();
           createTestBar(testKeyP6);
-          await doDelete(`/bars/${testKeyP6}`, {});
+          await httpClient.delete({ path: `/bars/${testKeyP6}`, auth: 'kevin' });
 
           const batch = [
             { // single
@@ -641,7 +625,7 @@ module.exports = function (base, dummyLogger) {
               verb: 'DELETE',
             },
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
         });
 
 
@@ -649,37 +633,37 @@ module.exports = function (base, dummyLogger) {
           it('non-batch', async () => {
             const testKey2 = uuid.v4();
             // single
-            await doPost('/bars/proxy_internal_interface?method=GET&href=/bars/5de9c352-2534-11ed-84bc-9bce6d5e13f9', {});
+            await httpClient.post({ path: '/bars/proxy_internal_interface?method=GET&href=/bars/5de9c352-2534-11ed-84bc-9bce6d5e13f9', auth: 'kevin' });
             // list
-            await doPost('/bars/proxy_internal_interface?method=GET&href=/bars', {});
+            await httpClient.post({ path: '/bars/proxy_internal_interface?method=GET&href=/bars', auth: 'kevin' });
             // create
-            await doPost(`/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, {
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, body: {
               key: testKey2,
               foo: 'create'
-            });
+            }, auth: 'kevin' });
             // reput
-            await doPost(`/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, {
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, body: {
               key: testKey2,
               foo: 'create'
-            });
+            }, auth: 'kevin' });
             // update
-            await doPost(`/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, {
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=PUT&href=/bars/${testKey2}`, body: {
               key: testKey2,
               foo: 'update'
-            });
+            }, auth: 'kevin' });
             // patch
-            await doPost(`/bars/proxy_internal_interface?method=PATCH&href=/bars/${testKey2}`, [
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=PATCH&href=/bars/${testKey2}`, body: [
               { op: 'replace', path: '/foo', value: 'patch' },
-            ]);
+            ], auth: 'kevin' });
             // delete existing
-            await doPost(`/bars/proxy_internal_interface?method=DELETE&href=/bars/${testKey2}`, {});
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=DELETE&href=/bars/${testKey2}`, auth: 'kevin' });
             // delete already deleted
-            await doPost(`/bars/proxy_internal_interface?method=DELETE&href=/bars/${testKey2}`, {});
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=DELETE&href=/bars/${testKey2}`, auth: 'kevin' });
             // delete delete non-existing
-            await doPost(`/bars/proxy_internal_interface?method=DELETE&href=/bars/${uuid.v4()}`, {});
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=DELETE&href=/bars/${uuid.v4()}`, auth: 'kevin' });
 
             // custom
-            await doPost(`/bars/proxy_internal_interface?method=GET&href=/onlyCustom`, {});
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=GET&href=/onlyCustom`, auth: 'kevin' });
           });
 
           it.skip('batch', async () => {
@@ -739,14 +723,14 @@ module.exports = function (base, dummyLogger) {
                 verb: 'DELETE',
               }],
             ];
-            await doPost(`/bars/proxy_internal_interface?method=PUT&href=/batch`, batch);
+            await httpClient.post({ path: `/bars/proxy_internal_interface?method=PUT&href=/batch`, body: batch, auth: 'kevin' });
           });
         });
       });
 
       describe('beforeHandler (custom)', async () => {
         it('plain', async () => {
-          await doGet(`/onlyCustom`);
+          await httpClient.get({ path: `/onlyCustom`, auth: 'kevin' });
         });
 
         it('batch', async () => {
@@ -756,17 +740,17 @@ module.exports = function (base, dummyLogger) {
               verb: 'GET',
             },
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
         });
 
         it('internal request', async () => {
-          await doGet(`/bars/only_custom_via_internal_interface`);
+          await httpClient.get({ path: `/bars/only_custom_via_internal_interface`, auth: 'kevin' });
         });
       });
 
       describe('beforeStreamHandler (custom streaming)', async () => {
         it('plain', async () => {
-          await doGet(`/customStreaming/short`);
+          await httpClient.get({ path: `/customStreaming/short`, auth: 'kevin' });
         });
 
         // streaming req not supported in batch or internal request -> no tests
@@ -774,7 +758,7 @@ module.exports = function (base, dummyLogger) {
 
       describe('transformResponse', () => {
         it('plain', async () => {
-          await doGet(`/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike`);
+          await httpClient.get({ path: `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike`, auth: 'kevin' });
         });
 
         it('batch', async () => {
@@ -784,10 +768,10 @@ module.exports = function (base, dummyLogger) {
               verb: 'GET',
             },
           ];
-          await doPut('/batch', batch);
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
 
           // internal request
-          await doGet(`/bars/simple_like_via_internal_interface`);
+          await httpClient.get({ path: `/bars/simple_like_via_internal_interface`, auth: 'kevin' });
         });
       });
 
@@ -795,8 +779,8 @@ module.exports = function (base, dummyLogger) {
       describe('afterRead methods', () => {
         describe('should be executed on regular resources', () => {
           it('should have a correct messagecount.', async () => {
-            const response = await api.getRaw('/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849');
-            if (!response.$$messagecount || response.$$messagecount < 5) {
+            const response = await httpClient.get({ path: '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849', auth: 'kevin' });
+            if (!response.body.$$messagecount || response.body.$$messagecount < 5) {
               assert.fail('Should have at least 5 messages for community LETS Regio Dendermonde');
             }
           });
@@ -804,30 +788,30 @@ module.exports = function (base, dummyLogger) {
 
         describe('should be executed on list resources', () => {
           it('should have a correct messagecount.', async () => {
-            const response = await api.getRaw('/communities?hrefs=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849');
-            debug('mocha', response);
-            assert.equal(response.$$meta.count, 1);
-            assert.equal(response.results[0].$$expanded.$$messagecount, 5);
+            const response = await httpClient.get({ path: '/communities?hrefs=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849', auth: 'kevin' });
+            debug('mocha', response.body);
+            assert.equal(response.body.$$meta.count, 1);
+            assert.equal(response.body.results[0].$$expanded.$$messagecount, 5);
           });
         });
 
         describe('should be executed on lists with many resources', () => {
           it('should have correct messagecounts on all items', async () => {
-            const response = await api.getRaw('/communities?limit=4');
+            const response = await httpClient.get({ path: '/communities?limit=4', auth: 'kevin' });
             debug('mocha', 'response body');
-            debug('mocha', response);
-            debug('mocha', response.results[2].$$expanded);
-            debug('mocha', response.results[3].$$expanded);
-            if (response.results[0].$$expanded.$$messagecount === null) {
+            debug('mocha', response.body);
+            debug('mocha', response.body.results[2].$$expanded);
+            debug('mocha', response.body.results[3].$$expanded);
+            if (response.body.results[0].$$expanded.$$messagecount === null) {
               assert.fail('should have $$messagecount');
             }
-            if (response.results[1].$$expanded.$$messagecount === null) {
+            if (response.body.results[1].$$expanded.$$messagecount === null) {
               assert.fail('should have $$messagecount');
             }
-            if (response.results[2].$$expanded.$$messagecount === null) {
+            if (response.body.results[2].$$expanded.$$messagecount === null) {
               assert.fail('should have $$messagecount');
             }
-            if (response.results[3].$$expanded.$$messagecount === null) {
+            if (response.body.results[3].$$expanded.$$messagecount === null) {
               assert.fail('should have $$messagecount');
             }
           });
@@ -835,12 +819,9 @@ module.exports = function (base, dummyLogger) {
 
         describe('Should be able to modify response headers', () => {
           it('should have a test header when reading a specific resource', async () => {
-            await utils.testForStatusCode(
-              () => api.getRaw('/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3'),
-              (error) => {
-                assert.equal(error.getResponseHeader('test'), 'TestHeader');
-              },
-            );
+            const response = await httpClient.get({ path: '/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3', auth: 'kevin' });
+            assert.equal(response.status, 400);
+            assert.equal(response.headers['test'], 'TestHeader');
           });
         });
 

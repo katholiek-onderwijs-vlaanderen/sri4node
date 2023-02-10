@@ -8,8 +8,8 @@ import * as context from './context';
 import * as informationSchema from '../js/informationSchema';
 import { assert } from 'chai';
 import sinon from 'ts-sinon';
-// const sinonTest = require("sinon-test");
-// const test = sinonTest(sinon);
+
+import httpClientMod from './httpClient';
 
 
 const sinonSandbox = sinon.createSandbox();
@@ -30,7 +30,16 @@ const logdebug:TLogDebug = { channels: [] };
 
 const base = `http://localhost:${port}`;
 
+const httpClient = httpClientMod.httpClientFactory(base);
 
+// const undiciClient = new undici.Client(base);
+// const sriClientConfig = {
+//   baseUrl: base,
+//   fullResponse: true,
+//   raw: true,
+//   // TODO: some more options!
+// };
+// const sriClient = sriClientFactory(sriClientConfig);
 
 
 
@@ -66,20 +75,20 @@ describe('Sri4node PURE UNIT TESTS', () => {
 describe('Sri4node SCHEMA VALIDATION', function () {
   this.timeout(0);
   let server:any = null;
+  let sri4nodeInstance:any = null;
 
   after(async () => {
     sinonSandbox.restore();
-    if (server) {
-      console.log('Stopping express server (was not stopped as we stubbed process.exit !).');
-      await server.close();
-    }
+    console.log('Stopping express server (was not stopped as we stubbed process.exit !).');
+    await server.close();
+    sri4nodeInstance && sri4nodeInstance.db.$pool.end();
     console.log('Done.');
   });
 
   it('sri4node should exit with an invalid schema', async function () {
     const consoleSpy = sinonSandbox.spy(console, 'log');
     const exitStub = sinonSandbox.stub(process, 'exit');
-    server = await context.serve(sri4node, port, logdebug, dummyLogger, [ './context/invalidSchema' ]);
+    ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, [ './context/invalidSchema' ]));
     assert.isTrue(exitStub.called, 'expected process.exit to be called');
     assert.isTrue(consoleSpy.calledWith('Compiling JSON schema of /invalidschema failed:'), 'expected logging of schema compilation error');
   });
@@ -89,6 +98,7 @@ describe('Sri4node SCHEMA VALIDATION', function () {
 describe('Sri4node SERVER TESTS', function () {
   this.timeout(0);
   let server:any = null;
+  let sri4nodeInstance:any = null;
 
   before(async () => {
     try {
@@ -97,27 +107,27 @@ describe('Sri4node SERVER TESTS', function () {
        * 'Sri4node SCHEMA VALIDATION'.
        */
       informationSchema.clearCache();
-      server = await context.serve(sri4node, port, logdebug, dummyLogger, 
-[ './context/persons',
-'./context/messages',
-'./context/communities',
-'./context/transactions',
-'./context/table',
-'./context/jsonb',
-'./context/alldatatypes',
-'./context/products',
-'./context/packages',
-'./context/relations',
-'./context/personrelations',
-'./context/cities',
-'./context/selfreferential',
-'./context/countries',
-'./context/countries_with_prefix',
-'./context/onlycustom',
-'./context/customStreaming',
-'./context/foos',
-'./context/bars',
-]);
+      ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
+          [ './context/persons',
+          './context/messages',
+          './context/communities',
+          './context/transactions',
+          './context/table',
+          './context/jsonb',
+          './context/alldatatypes',
+          './context/products',
+          './context/packages',
+          './context/relations',
+          './context/personrelations',
+          './context/cities',
+          './context/selfreferential',
+          './context/countries',
+          './context/countries_with_prefix',
+          './context/onlycustom',
+          './context/customStreaming',
+          './context/foos',
+          './context/bars',
+          ]));
     } catch (err) {
       console.log(err);
     }
@@ -131,58 +141,54 @@ describe('Sri4node SERVER TESTS', function () {
     if (server) {
       await server.close();
     }
+    sri4nodeInstance && sri4nodeInstance.db.$pool.end();
     console.log('Done.');
   });
 
-  // require('./testOrderBy')(base);
-  runTestIfNeeded('./testOrderBy.ts', [base]);
-  runTestIfNeeded('./testHooks.ts', [base, dummyLogger]);
-  runTestIfNeeded('./testCTE.ts', [base]);
-  runTestIfNeeded('./testListResource.ts', [base]);
-  runTestIfNeeded('./testPublicResources.ts', [base]);
-  runTestIfNeeded('./testRegularResource.ts', [base]);
-  runTestIfNeeded('./testPutAndPatch.ts', [base]);
-  runTestIfNeeded('./testDelete.ts', [base]);
-  runTestIfNeeded('./testJSONB.ts', [base]);
+  // // require('./testOrderBy')(base);
+  runTestIfNeeded('./testOrderBy.ts', [httpClient]);
+  runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
+  runTestIfNeeded('./testCTE.ts', [httpClient]);
+  runTestIfNeeded('./testListResource.ts', [httpClient]);
+  runTestIfNeeded('./testPublicResources.ts', [httpClient]);
+  runTestIfNeeded('./testRegularResource.ts', [httpClient]);
+  runTestIfNeeded('./testPutAndPatch.ts', [httpClient]);
+  runTestIfNeeded('./testDelete.ts', [httpClient]);
+  runTestIfNeeded('./testJSONB.ts', [httpClient]);
+  runTestIfNeeded('./testQueryUtils.ts', [httpClient]);
+  runTestIfNeeded('./testModified.ts', [httpClient]);
+  runTestIfNeeded('./testResourceType.ts', [httpClient]);
+  runTestIfNeeded('./testExpand.ts', [httpClient]);
+  runTestIfNeeded('./testErrorHandling.ts', [httpClient]);
+  runTestIfNeeded('./testIsPartOf.ts', [httpClient]);
+  runTestIfNeeded('./testBatch.ts', [httpClient]);
+  runTestIfNeeded('./testInternalRequest.ts', [httpClient]);
 
-  runTestIfNeeded('./testReqId.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterCombination.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterContains.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterExact.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreater.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreaterOrEqual.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterIn.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterInvalidParameter.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLess.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLessOrEqual.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterOverlaps.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterQ.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterRegEx.ts', [httpClient]);
 
-  runTestIfNeeded('./testQueryUtils.ts', [base]);
-  runTestIfNeeded('./testModified.ts', [base]);
-  runTestIfNeeded('./testResourceType.ts', [base]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterFromTypes.ts', [httpClient]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterToTypes.ts', [httpClient]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterNoType.ts', [httpClient]);
 
-  runTestIfNeeded('./testExpand.ts', [base]);
-  runTestIfNeeded('./testErrorHandling.ts', [base]);
-  runTestIfNeeded('./testIsPartOf.ts', [base]);
-  runTestIfNeeded('./testBatch.ts', [base]);
+  runTestIfNeeded('./testReqId.ts', [httpClient]);
+  runTestIfNeeded('./testServerTiming.ts', [httpClient]);
+  runTestIfNeeded('./testLogging.ts', [httpClient]);
+  runTestIfNeeded('./testSriType.ts', [httpClient]);
 
-  runTestIfNeeded('./testInternalRequest.ts', [base]);
-
-  runTestIfNeeded('./defaultFilter/testDefaultFilterGreater.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterCombination.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterContains.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterExact.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterGreaterOrEqual.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterIn.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterLess.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterLessOrEqual.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterQ.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterRegEx.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterInvalidParameter.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterOverlaps.ts', [base]);
-
-  runTestIfNeeded('./relationsFilter/testRelationsFilterFromTypes.ts', [base]);
-  runTestIfNeeded('./relationsFilter/testRelationsFilterToTypes.ts', [base]);
-  runTestIfNeeded('./relationsFilter/testRelationsFilterNoType.ts', [base]);
-
-  runTestIfNeeded('./testServerTiming.ts', [base]);
-  runTestIfNeeded('./testLogging.ts', [base]);
-  runTestIfNeeded('./testSriType.ts', [base]);
-
-  runTestIfNeeded('./testDocs.ts', [base]);
+  runTestIfNeeded('./testDocs.ts', [httpClient]);
   runTestIfNeeded('./testInformationSchema.ts', []);
-
-  runTestIfNeeded('./testCustomRoutes.ts', [base]);
+  runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
 });
 
 export {};

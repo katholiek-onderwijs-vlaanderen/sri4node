@@ -1,30 +1,18 @@
 // Utility methods for calling the SRI interface
 var uuid = require('uuid');
 import { assert } from 'chai';
-import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
 import { debug } from '../js/common';
-import utilsFactory from './utils';
+import utils from './utils';
+import { THttpClient } from './httpClient';
 
-module.exports = function (base) {
-
-
-  const sriClientConfig = {
-    baseUrl: base
-  }
-  const api = sriClientFactory(sriClientConfig);
-
-  const doGet = function(...args) { return api.getRaw(...args) };
-  const doPut = function(...args) { return api.put(...args) };
-
-  const utils =  utilsFactory(api);
-  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
-
+module.exports = function (httpClient: THttpClient) {
 
   describe('JSONB support', function () {
     it('should allow reading JSON column as objects', async function () {
-      const response = await doGet('/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504')
-      debug('mocha', response);
-      assert.equal(response.details.productDeliveryOptions[0].product,
+      const response = await httpClient.get({ path: '/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504' });
+      assert.equal(response.status, 200);
+      debug('mocha', response.body);
+      assert.equal(response.body.details.productDeliveryOptions[0].product,
                    '/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c');
     });
 
@@ -43,13 +31,13 @@ module.exports = function (base) {
         foo: { href: '/foo/00000000-0000-0000-0000-000000000000' }
       };
 
-      const auth = makeBasicAuthHeader('sabine@email.be', 'pwd')
-      const responsePut = await doPut('/jsonb/' + key, x, { headers: { authorization: auth } })
-      assert.equal(responsePut.getStatusCode(), 201);
+      const responsePut = await httpClient.put({ path: '/jsonb/' + key, body: x, auth: 'sabine' });
+      assert.equal(responsePut.status, 201);
 
-      const responseGet = await doGet('/jsonb/' + key, null, { headers: { authorization: auth } })
-      debug('mocha', typeof responseGet.details);
-      if (typeof responseGet.details !== 'object') {
+      const responseGet = await httpClient.get({ path: '/jsonb/' + key, auth: 'sabine' });
+      assert.equal(responseGet.status, 200);
+      debug('mocha', typeof responseGet.body.details);
+      if (typeof responseGet.body.details !== 'object') {
         assert.fail('should be object');
       }
     });

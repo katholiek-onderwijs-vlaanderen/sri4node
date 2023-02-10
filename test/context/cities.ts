@@ -1,11 +1,8 @@
-import * as common from '../../js/common';
+module.exports = function (sri4node) {
 
-module.exports = function (sri4node, extra) {
+  const $s = sri4node.schemaUtils;
 
-
-  var $s = sri4node.schemaUtils;
-
-  var ret = {
+  return {
     type: '/cities',
     metaType: 'SRI4NODE_CITY',
     'public': false, // eslint-disable-line
@@ -31,7 +28,4 @@ module.exports = function (sri4node, extra) {
         }
     }]
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

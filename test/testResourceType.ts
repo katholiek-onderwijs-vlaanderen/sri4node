@@ -1,23 +1,8 @@
 import { assert } from 'chai';
-var uuid = require('uuid');
-import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+const uuid = require('uuid');
+import { THttpClient } from './httpClient';
 
-module.exports = function (base) {
-
-
-  const sriClientConfig = {
-    baseUrl: base
-  }
-  const api = sriclientFactory(sriClientConfig)
-  const doGet = function(...args) { return api.getRaw(...args) };
-  const doPut = function(...args) { return api.put(...args) };
-  const doDelete = function(...args) { return api.delete(...args) };
-
-  const utils =  utilsFactory(api);
-  const makeBasicAuthHeader = utils.makeBasicAuthHeader;
-  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('sabine@email.be', 'pwd') } }
-
+module.exports = function (httpClient: THttpClient) {
 
   function generateRandomProduct(key, packageKey) {
     return {
@@ -35,25 +20,27 @@ module.exports = function (base) {
 
     describe(' get by "key" on resource with references', function () {
       it('should succeed with correct referenced link.', async function () {
-        const response = await doGet('/store/products/1edb2754-5684-1234-ae5b-ec33c903ee4d', null, authHdrObj )
-        assert.equal(response.package.href, '/store/packages/1edb2754-5684-4996-ae5b-ec33c903ee4d');
+        const response = await httpClient.get({ path: '/store/products/1edb2754-5684-1234-ae5b-ec33c903ee4d', auth: 'sabine' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.package.href, '/store/packages/1edb2754-5684-4996-ae5b-ec33c903ee4d');
       });
     });
 
     describe(' get resource list', function () {
       it('should succeed with correct count.', async function () {
-        const response = await doGet('/store/packages', null, authHdrObj)
-        assert.equal(response.$$meta.count, 2);
+        const response = await httpClient.get({ path: '/store/packages', auth: 'sabine' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.$$meta.count, 2);
       });
     });
 
     describe(' put new resource with references', function () {
       it('should succeed with correct referenced link.', async function () {
         const key = uuid.v4();
-        const packageKey = '2edb2754-1598-4996-ae5b-ec33c903ee4d';        
+        const packageKey = '2edb2754-1598-4996-ae5b-ec33c903ee4d';
         const body = generateRandomProduct(key, packageKey);
-        const response = await doPut('/store/products/' + key, body, authHdrObj)
-        assert.equal(response.getStatusCode(), 201);
+        const response = await httpClient.put({ path: '/store/products/' + key, body, auth: 'sabine' });
+        assert.equal(response.status, 201);
       });
     });
 
@@ -70,15 +57,15 @@ module.exports = function (base) {
           };
         });
 
-        const response = await doPut('/store/products/batch', batch, authHdrObj)
-        assert.equal(response.getStatusCode(), 201);
-        response.forEach( subResponse => assert.equal(subResponse.status, 201) )
+        const response = await httpClient.put({ path: '/store/products/batch', body: batch, auth: 'sabine' });
+        assert.equal(response.status, 201);
+        response.body.forEach( subResponse => assert.equal(subResponse.status, 201) )
       });
     });
 
     describe(' batch get resources', function () {
       it('should succeed all of them with correct status.', async function () {
-        var batch = ['2f11714a-9c45-44d3-8cde-cd37eb0c048b', '692fa054-33ec-4a28-87eb-53df64e3d09d']
+        const batch = ['2f11714a-9c45-44d3-8cde-cd37eb0c048b', '692fa054-33ec-4a28-87eb-53df64e3d09d']
           .map(function (key) {
             return {
               verb: 'GET',
@@ -86,40 +73,36 @@ module.exports = function (base) {
             };
         });
 
-        const response = await doPut('/persons/batch', batch, authHdrObj)
-        response.forEach( subResponse => assert.equal(subResponse.status, 200) )
-        assert.equal(response.length, 2);
+        const response = await httpClient.put({ path: '/persons/batch', body: batch, auth: 'sabine' });
+        assert.equal(response.status, 200);
+        response.body.forEach( subResponse => assert.equal(subResponse.status, 200) )
+        assert.equal(response.body.length, 2);
       });
     });
 
     describe(' delete resource', function () {
-
-      var key = uuid.v4();
+      const key = uuid.v4();
 
       before(async function () {
-        var pack = {key: key,
-                    name: 'ToDelete-' + key};
-        return doPut('/store/packages/' + key, pack, authHdrObj)
+        const package1 = { key: key, name: 'ToDelete-' + key };
+        const response = await httpClient.put({ path: '/store/packages/' + key, body: package1, auth: 'sabine' });
+        assert.equal(response.status, 201);
       });
 
       it('should succeed with correct status.', async function () {
-        await doDelete('/store/packages/' + key, authHdrObj)
+        await httpClient.delete({ path: '/store/packages/' + key, auth: 'sabine' });
       });
 
       it('retrieving a deleted resource should return 410 - Gone', async function () {
-        await utils.testForStatusCode(
-          async () => {
-            await doGet('/store/packages/' + key, null,  authHdrObj)
-          }, 
-          (error) => {
-            assert.equal(error.status, 410);
-          })
+        const response = await httpClient.get({ path: '/store/packages/' + key, auth: 'sabine' });
+        assert.equal(response.status, 410);
       });
     });
 
     describe('get docs', function () {
       it('should succeed with correct documentation.', async function () {
-        await doGet('/docs', authHdrObj)
+        const response = await httpClient.get({ path: '/docs', auth: 'sabine' });
+        assert.equal(response.status, 200);
       });
     });
   });
@@ -130,8 +113,9 @@ module.exports = function (base) {
     // Test basic resource get
     describe(' get by "key" on resource with references', function () {
       it('should succeed with correct referenced link.', async function () {
-        const response = await doGet('/persons/9abe4102-6a29-4978-991e-2a30655030e6', null,  authHdrObj)
-        assert.equal(response.community.href, '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849');
+        const response = await httpClient.get({ path: '/persons/9abe4102-6a29-4978-991e-2a30655030e6', auth: 'sabine' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.community.href, '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849');
       });
     });
   });

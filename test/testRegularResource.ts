@@ -1,61 +1,43 @@
 // Utility methods for calling the SRI interface
 import * as assert from 'assert';
-import * as sriclientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import { THttpClient } from './httpClient';
+import utils from './utils';
 
-const makeAuthHeader = (user, pw) => 
-  'Basic ' + Buffer.from(user + ':' + pw).toString('base64');
-
-module.exports = function (base) {
-
-
-  const sriClientConfig = {
-    baseUrl: base,
-  }
-  const sriClientConfigLoggedIn = {
-    ...sriClientConfig,
-    username: 'sabine@email.be',
-    password: 'pwd',
-  }
-  const api = sriclientFactory(sriClientConfig)
-  const doGet = function(...args) { return api.getRaw(...args) };
-
-  const apiLoggedIn = sriclientFactory(sriClientConfigLoggedIn)
-  const doLoggedInGet = function(...args) { return apiLoggedIn.getRaw(...args) };
-
-  const utils =  utilsFactory(api);
-
+module.exports = function (httpClient: THttpClient) {
 
   describe('GET public regular resource', function () {
     describe('without authentication', function () {
       it('should return LETS Regio Dendermonde', async function () {
-        const response = await doGet('/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849')
-        assert.equal(response.name, 'LETS Regio Dendermonde');
+        const response = await httpClient.get({ path: '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.name, 'LETS Regio Dendermonde');
       });
     });
 
     describe('with authentication', function () {
       it('should return LETS Hamme', async function () {
-        const auth = makeAuthHeader('sabine@email.be', 'pwd')
-        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
-        // const response = await doLoggedInGetGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d' /*, null, { headers: { authorization: auth } }*/)
-        assert.equal(response.name, 'LETS Hamme');
+        const response = await httpClient.get({ path: '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', auth: 'sabine' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.name, 'LETS Hamme');
       });
     });
 
     describe('with invalid authentication - non-existing user', function () {
       it('should return LETS Hamme', async function () {
-        const auth = makeAuthHeader('unknown@email.be', 'pwd')
-        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
-        assert.equal(response.name, 'LETS Hamme');
+        const response = await httpClient.get({ path: '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', auth: 'unknown' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.name, 'LETS Hamme');
       });
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
       it('should return LETS Hamme', async function () {
-        const auth = makeAuthHeader('sabine@email.be', 'INVALID')
-        const response = await doGet('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d', null, { headers: { authorization: auth } })
-        assert.equal(response.name, 'LETS Hamme');
+        const response = await httpClient.get({
+          path: '/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d',
+          headers: { authorization: utils.makeBasicAuthHeader('sabine@email.be', 'INVALID') }
+        });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.name, 'LETS Hamme');
       });
     });
   });
@@ -63,90 +45,65 @@ module.exports = function (base) {
   describe('GET private regular resource', function () {
     describe('/persons/{key} from my community', function () {
       it('should return Kevin Boon', async function () {
-        const auth = makeAuthHeader('kevin@email.be', 'pwd')
-        const response = await doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } })          
-        assert.equal(response.firstname, 'Kevin');
-        assert.equal(response.lastname, 'Boon');
+        const response = await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', auth: 'kevin' })
+        assert.equal(response.status, 200);
+        assert.equal(response.body.firstname, 'Kevin');
+        assert.equal(response.body.lastname, 'Boon');
       });
     });
 
     describe('/persons/{key} from different community', function () {
       it('should be 403 Forbidden', async function () {
-        utils.testForStatusCode(
-          () => doLoggedInGet('/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb'),
-          (error) => {
-            assert.equal(error.status, 403);
-          })
+        const response = await httpClient.get({ path: '/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb', auth: 'sabine' });
+        assert.equal(response.status, 403);
       })
     });
 
     describe('two secure functions', function () {
       it('should disallow read on Ingrid Ohno', async function () {
-        utils.testForStatusCode(
-          () => doLoggedInGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2'),
-          (error) => {
-            assert.equal(error.status, 403);
-          })
+        const response = await httpClient.get({ path: '/persons/da6dcc12-c46f-4626-a965-1a00536131b2', auth: 'sabine' });
+        assert.equal(response.status, 403);
       });
     });
 
     describe('with invalid authentication - non-existing user', function () {
       it('should disallow read', async function () {
-        const auth = makeAuthHeader('unknown@email.be', 'pwd')
-
-        utils.testForStatusCode(
-          () => doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } }),
-          (error) => {
-            assert.equal(error.status, 401);
-          })
+        const response = await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', auth: 'unknown' });
+        assert.equal(response.status, 401);
       });
     });
 
     describe('with invalid authentication - existing user, wrong password', function () {
       it('should disallow read', async function () {
-
-        const auth = makeAuthHeader('sabine@email.be', 'INVALID')
-
-        utils.testForStatusCode(
-          () => doGet('/persons/de32ce31-af0c-4620-988e-1d0de282ee9d', null, { headers: { authorization: auth } }),
-          (error) => {
-            assert.equal(error.status, 401);
-          })
-
+        const response = await httpClient.get({
+          path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
+          headers: { authorization: utils.makeBasicAuthHeader('sabine@email.be', 'INVALID') }
+        });
+        assert.equal(response.status, 401);
       });
     });
 
     describe('without authentication', function () {
       it('should disallow read', async function () {
-
-        utils.testForStatusCode(
-          () => doGet('/persons/da6dcc12-c46f-4626-a965-1a00536131b2'),
-          (error) => {
-            assert.equal(error.status, 401);
-          })
-
+        const response = await httpClient.get({ path: '/persons/da6dcc12-c46f-4626-a965-1a00536131b2' });
+        assert.equal(response.status, 401);
       });
     });
   });
 
   describe('Prefixed resource should also work', function () {
     it('get by "key" on resource', async function () {
-        const auth = makeAuthHeader('sabine@email.be', 'pwd')
-        const response = await doGet('/prefix/countries2/be', null, { headers: { authorization: auth } })
-        assert.equal(response.name, 'Belgium');
+        const response = await httpClient.get({ path: '/prefix/countries2/be', auth: 'sabine' });
+        assert.equal(response.status, 200);
+        assert.equal(response.body.name, 'Belgium');
     });
   });
 
   describe('Invalid key should', function () {
     it('return "invalid key" error', async function () {
-        await utils.testForStatusCode(
-            async () => {
-                await doGet('/persons/abc', null, {})
-            },
-            (error) => {
-              assert.equal(error.status, 400);
-              assert.equal(error.body.errors[0].code, 'key.invalid');
-            })
+        const response = await httpClient.get({ path: '/persons/abc' })
+        assert.equal(response.status, 400);
+        assert.equal(response.body.errors[0].code, 'key.invalid');
     });
   });
 };

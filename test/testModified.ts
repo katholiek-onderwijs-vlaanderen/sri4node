@@ -1,9 +1,8 @@
-// Utility methods for calling the SRI interface
+// Utility methods for calling the SRI interfacedoGet(
 import * as assert from 'assert';
-import * as _ from 'lodash';
+const _ = require('lodash');
 import * as uuid from 'uuid';
-import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from './utils';
+import { THttpClient } from './httpClient';
 
 const { isValidISODateString } = require('iso-datestring-validator');
 
@@ -18,140 +17,153 @@ function generateRandomAllDatatypes(key) {
   };
 }
 
-module.exports = function (base) {
-  const sriClientConfig = {
-    baseUrl: base,
-  };
-  const api = sriClientFactory(sriClientConfig);
-
-  const doGet = function (...args) { return api.getRaw(...args); };
-  const doPut = function (...args) { return api.put(...args); };
-
-  const utils = utilsFactory(api);
-  const { makeBasicAuthHeader } = utils;
-  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } };
+module.exports = function (httpClient: THttpClient) {
 
   describe('Modify resource', () => {
     it('it should have the field created with a valid timestamp', async () => {
-      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-      assert.equal(response.id, 38);
-      assert(response.$$meta.created);
-      assert(isValidISODateString(response.$$meta.created), 'true');
+      const response = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+      assert.equal(response.status, 200);
+      assert.equal(response.body.id, 38);
+      assert(response.body.$$meta.created);
+      assert(isValidISODateString(response.body.$$meta.created), 'true');
     });
 
     it('it should have the field modified with a timestamp after the previous one after the resource is updated',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentModified = new Date(response.$$meta.modified).getTime();
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
         // modify with random value, PUTting same version will not alter modification date
-        response.text2 = Math.random().toString(36).substring(2);
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', response, authHdrObj);
+        responseGet1.body.text2 = Math.random().toString(36).substring(2);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: responseGet1.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newModified = new Date(response2.$$meta.modified).getTime();
-        assert(newModified > currentModified);
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newModified = new Date(responseGet2.body.$$meta.modified).getTime();
+        assert(newModified > currentModified, `${newModified} should be more recent then ${currentModified}`);
       });
 
     it('it should have the field version incremented by one after the resource is updated',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentVersion = response.$$meta.version;
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentVersion = responseGet1.body.$$meta.version;
 
         // modify with random value, PUTting same version will not alter modification date
-        response.text2 = Math.random().toString(36).substring(2);
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', response, authHdrObj);
+        responseGet1.body.text2 = Math.random().toString(36).substring(2);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: responseGet1.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newVersion = response2.$$meta.version;
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newVersion = responseGet2.body.$$meta.version;
         assert.equal(newVersion, currentVersion + 1);
       });
 
     it('it should support modifiedSince as a filter (backward compatibility)', async () => {
-      const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-      assert.equal(response.id, 38);
-      const currentModified = response.$$meta.modified;
+      const response = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+      assert.equal(response.status, 200);
+      assert.equal(response.body.id, 38);
+      const currentModified = response.body.$$meta.modified;
 
-      const response2 = await doGet(`/alldatatypes?modifiedSince=${currentModified}`, null, authHdrObj);
-      assert(response2.results.length > 0);
+      const response2 = await httpClient.get({ path: `/alldatatypes?modifiedSince=${currentModified}`, auth: 'kevin' });
+      assert.equal(response2.status, 200);
+      assert(response2.body.results.length > 0);
     });
 
     it('it should NOT have the field modified with a timestamp after the previous one after the resource is updated with the same version',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentModified = new Date(response.$$meta.modified).getTime();
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
-        const copyResponse = _.cloneDeep(response);
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj);
+        const copyResponse = _.cloneDeep(responseGet1);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: copyResponse.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newModified = new Date(response2.$$meta.modified).getTime();
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newModified = new Date(responseGet2.body.$$meta.modified).getTime();
         assert.equal(newModified, currentModified);
       });
 
     it('it should NOT have the field version incremented by one after the resource is updated with the same version',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentVersion = response.$$meta.version;
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentVersion = responseGet1.body.$$meta.version;
 
-        const copyResponse = _.cloneDeep(response);
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj);
+        const copyResponse = _.cloneDeep(responseGet1);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: copyResponse.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newVersion = response2.$$meta.version;
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newVersion = responseGet2.body.$$meta.version;
         assert.equal(newVersion, currentVersion);
       });
 
     it('$$meta does not need to be considered when deciding wether the resource is updated with the same version or not',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentModified = new Date(response.$$meta.modified).getTime();
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
-        const copyResponse = _.cloneDeep(response);
+        const copyResponse = _.cloneDeep(responseGet1);
         delete copyResponse.$$meta;
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: copyResponse.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newModified = new Date(response2.$$meta.modified).getTime();
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newModified = new Date(responseGet2.body.$$meta.modified).getTime();
         assert.equal(newModified, currentModified);
       });
 
     it('additional properties not in the schema does not need to be considered when deciding wether the resource is updated with the same version or not',
       async () => {
-        const response = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response.id, 38);
-        const currentModified = new Date(response.$$meta.modified).getTime();
+        const responseGet1 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        assert.equal(responseGet1.body.id, 38);
+        const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
-        const copyResponse = _.cloneDeep(response);
+        const copyResponse = _.cloneDeep(responseGet1);
         copyResponse.blah = 'foobar';
-        await doPut('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', copyResponse, authHdrObj);
+        const responsePut = await httpClient.put({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', body: copyResponse.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', null, authHdrObj);
-        assert.equal(response2.id, 38);
-        const newModified = new Date(response2.$$meta.modified).getTime();
+        const responseGet2 = await httpClient.get({ path: '/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        assert.equal(responseGet2.body.id, 38);
+        const newModified = new Date(responseGet2.body.$$meta.modified).getTime();
         assert.equal(newModified, currentModified);
       });
 
     it('modification date should not be updated when same resource with nested objects is put',
       async () => {
-        const response = await doGet('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', null, authHdrObj);
-        const currentModified = new Date(response.$$meta.modified).getTime();
+        const responseGet1 = await httpClient.get({ path: '/messages/cf328c0a-7793-4b01-8544-bea8854147ab', auth: 'kevin' });
+        assert.equal(responseGet1.status, 200);
+        const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
-        const copyResponse = _.cloneDeep(response);
-        await doPut('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', copyResponse, authHdrObj);
+        const copyResponse = _.cloneDeep(responseGet1);
+        const responsePut = await httpClient.put({ path: '/messages/cf328c0a-7793-4b01-8544-bea8854147ab', body: copyResponse.body, auth: 'kevin' });
+        assert.equal(responsePut.status, 200);
 
-        const response2 = await doGet('/messages/cf328c0a-7793-4b01-8544-bea8854147ab', null, authHdrObj);
-        const newModified = new Date(response2.$$meta.modified).getTime();
+        const responseGet2 = await httpClient.get({ path: '/messages/cf328c0a-7793-4b01-8544-bea8854147ab', auth: 'kevin' });
+        assert.equal(responseGet2.status, 200);
+        const newModified = new Date(responseGet2.body.$$meta.modified).getTime();
         assert.equal(newModified, currentModified);
       });
 
@@ -179,13 +191,13 @@ module.exports = function (base) {
     //     const key = uuid.v4();
     //     const body = generateRandomCommunity(key);
 
-    //     await doPut('/communities/' + key, body, authHdrObj)
+    //     await httpClient.put({ path: '/communities/' + key, body, authHdrObj)
 
     //     body.humptydumpty = '55'
 
-    //     await doPut('/communities/' + key, body, authHdrObj)
+    //     await httpClient.put({ path: '/communities/' + key, body, authHdrObj)
 
-    //     const r = await doGet('/communities/' + key, null, authHdrObj)
+    //     const r = await httpClient.get({ path: '/communities/' + key, null, authHdrObj)
 
     //     assert.notEqual(r.humptydumpty, body.humptydumpty)
     //     assert.equal(r['$$meta'].version, 0)
@@ -194,10 +206,12 @@ module.exports = function (base) {
     it('New version with float should work', async () => {
       const key = uuid.v4();
       const body = generateRandomAllDatatypes(key);
-      await doPut(`/alldatatypes/${key}`, body, authHdrObj);
+      const resultPut1 = await httpClient.put({ path: `/alldatatypes/${key}`, body, auth: 'kevin' });
+      assert.equal(resultPut1.status, 201);
 
       body.id = 40.95;
-      await doPut(`/alldatatypes/${key}`, body, authHdrObj);
+      const resultPut2 = await httpClient.put({ path: `/alldatatypes/${key}`, body, auth: 'kevin' });
+      assert.equal(resultPut2.status, 200);
     });
   });
 };
