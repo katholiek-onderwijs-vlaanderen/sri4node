@@ -23,7 +23,7 @@ import bodyParser = require('body-parser');
 import express = require('express');
 import Route = require('route-parser');
 import pMap = require('p-map');
-import Busboy = require('busboy');
+import busboy = require('busboy');
 import EventEmitter = require('events');
 import pEvent = require('p-event');
 import httpContext = require('express-http-context');
@@ -984,13 +984,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                       }
                       if (cr.busBoy) {
                         try {
-                          let busBoyConfig: any = {};
-                          if (cr.busBoyConfig) {
-                            busBoyConfig = _.cloneDeep(cr.busBoyConfig);
-                          }
-                          busBoyConfig.headers = sriRequest.headers;
-                          const busBoy = Busboy(busBoyConfig);
-                          sriRequest.busBoy = busBoy;
+                          sriRequest.busBoy = busboy({ ...cr.busBoyConfig, headers: sriRequest.headers });
                         } catch (err) {
                           throw new SriError({ status: 400, errors: [{ code: 'error.initialising.busboy', msg: `Error during initialisation of busboy: ${err}` }] });
                         }

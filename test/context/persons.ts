@@ -244,18 +244,19 @@ module.exports = function (sri4node) {
             sriRequest.userData = { attachmentsRcvd: [] };  // TODO: set attachmentsRcvd type as { string, Promise }[]
           }
           if (sriRequest.busBoy !== undefined) {
-            sriRequest.busBoy.on('file', async (fieldname, file, filename, encoding, mimetype) => {
-              console.log(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimetype}`);
+            sriRequest.busBoy.on('file', async (fieldname, file, info) => {
+              const { filename, encoding, mimeType } = info;
+              console.log(`File [${fieldname}]: filename: ${filename}, encoding: ${encoding}, mimetype: ${mimeType}`);
               if (filename === 'test.jpg') {
-                if (mimetype !== 'image/jpeg') {
-                  throw `Unexpected mimetype! got ${mimetype}`;
+                if (mimeType !== 'image/jpeg') {
+                  throw `Unexpected mimetype! got ${mimeType}`;
                 }
                 const fileRead = fs.createReadStream('test/files/test.jpg');
                 const equalPromise = streamEqual.default(file, fileRead);
                 sriRequest.userData.attachmentsRcvd.push({ filename, equalPromise });
               } else if (filename === 'test.pdf') {
-                if (mimetype !== 'application/pdf') {
-                  throw `Unexpected mimetype! got ${mimetype}`;
+                if (mimeType !== 'application/pdf') {
+                  throw `Unexpected mimetype! got ${mimeType}`;
                 }
                 const fileRead = fs.createReadStream('test/files/test.pdf');
                 const equalPromise = streamEqual.default(file, fileRead);
@@ -265,7 +266,7 @@ module.exports = function (sri4node) {
               }
             });
             // wait until busboy is done
-            await pEvent(sriRequest.busBoy, 'finish');
+            await pEvent(sriRequest.busBoy, 'close');
             console.log('busBoy is done');
           }
 
