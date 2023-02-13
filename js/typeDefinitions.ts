@@ -423,6 +423,10 @@ export type TSriResult = {
   body: any,
   headers?: Record<string, string>,
 }
+export type TOverloadProtection = {
+  maxPipelines: number,
+  retryAfter?: number,
+}
 
 export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
@@ -446,9 +450,7 @@ export type TSriConfig = {
   description?: string,
   bodyParserLimit?: string, // example 50mb
   batchConcurrency?: number,
-  overloadProtection?: {
-    retryAfter?: number,
-  },
+  overloadProtection?: TOverloadProtection,
 
   defaultlimit?: boolean,
   // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12

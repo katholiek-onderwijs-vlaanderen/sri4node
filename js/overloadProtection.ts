@@ -1,6 +1,7 @@
 import * as common from './common';
+import { TOverloadProtection } from './typeDefinitions';
 
-function overloadProtectionFactory(config) {
+function overloadProtectionFactory(config: TOverloadProtection | undefined) {
   let usedPipelines = 0;
   let extraDrop = 0;
   return {
