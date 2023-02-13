@@ -726,6 +726,32 @@ function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
 }
 
 /**
+ * Function which verifies wether for all properties specified in the sri4node configuration
+ * there exists a column in the database.
+ * An improvement might be to also check if the types 
+ * @param sriConfig sri4node configuration object
+ * @returns nothing, throw an error in case something is wrong
+ */
+
+function checkSriConfigWithDb(sriConfig: TSriConfig) {
+  sriConfig.resources.forEach((resourceMapping) => {
+    const map = resourceMapping.map || {};
+    Object.keys(map).forEach((key) => {
+      if (global.sri4node_configuration.informationSchema[resourceMapping.type][key] === undefined) {
+        const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
+        const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
+        if (caseInsensitiveIndex >= 0) {
+            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+        } else {
+            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
+        }
+        throw new Error('mismatch.between.sri.config.and.database');
+      }
+    });
+  });
+};
+
+/**
  * @param obj the api object
  * @param resourceMapping the applicable resource definition from the sriConfig object
  * @param isNewResource boolean indicating that the resource doesn't exist yet
@@ -1502,4 +1528,5 @@ export {
   getParentSriRequestFromRequestMap,
   getPgp,
   generateSriRequest,
+  checkSriConfigWithDb,
 };

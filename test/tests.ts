@@ -6,13 +6,8 @@ const { Console } = require('console');
 
 import * as context from './context';
 import * as informationSchema from '../js/informationSchema';
-import { assert } from 'chai';
-import sinon from 'ts-sinon';
 
 import httpClientMod from './httpClient';
-
-
-const sinonSandbox = sinon.createSandbox();
 
 const dummyLogger = new Console({
   stdout: devNull(),
@@ -21,28 +16,13 @@ const dummyLogger = new Console({
   colorMode: false
 });
 
-
-
 const port = 5000;
 const logdebug:TLogDebug = { channels: [] };
 // const logdebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
 const base = `http://localhost:${port}`;
-
 const httpClient = httpClientMod.httpClientFactory(base);
-
-// const undiciClient = new undici.Client(base);
-// const sriClientConfig = {
-//   baseUrl: base,
-//   fullResponse: true,
-//   raw: true,
-//   // TODO: some more options!
-// };
-// const sriClient = sriClientFactory(sriClientConfig);
-
-
-
 
 
 /**
@@ -72,26 +52,8 @@ describe('Sri4node PURE UNIT TESTS', () => {
   runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
 });
 
-describe('Sri4node SCHEMA VALIDATION', function () {
-  this.timeout(0);
-  let server:any = null;
-  let sri4nodeInstance:any = null;
-
-  after(async () => {
-    sinonSandbox.restore();
-    console.log('Stopping express server (was not stopped as we stubbed process.exit !).');
-    await server.close();
-    sri4nodeInstance && sri4nodeInstance.db.$pool.end();
-    console.log('Done.');
-  });
-
-  it('sri4node should exit with an invalid schema', async function () {
-    const consoleSpy = sinonSandbox.spy(console, 'log');
-    const exitStub = sinonSandbox.stub(process, 'exit');
-    ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, [ './context/invalidSchema' ]));
-    assert.isTrue(exitStub.called, 'expected process.exit to be called');
-    assert.isTrue(consoleSpy.calledWith('Compiling JSON schema of /invalidschema failed:'), 'expected logging of schema compilation error');
-  });
+describe('Sri4node VALIDATION AT STARTUP TESTS', function () {
+  runTestIfNeeded('./testValidationAtStartup.ts', [ port, logdebug, dummyLogger ]);
 });
 
 
@@ -102,10 +64,7 @@ describe('Sri4node SERVER TESTS', function () {
 
   before(async () => {
     try {
-      /**
-       * We need to clear the informationSchema cache as it is currently iniatialized for the configuration of
-       * 'Sri4node SCHEMA VALIDATION'.
-       */
+      // We need to clear the informationSchema cache as it is currently iniatialized for the configuration of Sri4node SCHEMA VALIDATION'.
       informationSchema.clearCache();
       ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
           [ './context/persons',

@@ -36,7 +36,8 @@ import {
   startTransaction, startTask, typeToMapping, setServerTimingHdr, sqlColumnNames, getPgp,
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
-  debugAnyChannelAllowed
+  debugAnyChannelAllowed,
+  checkSriConfigWithDb
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
@@ -610,6 +611,8 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     );
 
     global.sri4node_configuration.informationSchema = await informationSchema(dbR, sriConfig);
+
+    checkSriConfigWithDb(sriConfig);
 
     // Prepare pg-promise columnsets for multi insert/update & delete
     const pgp = getPgp();
