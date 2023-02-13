@@ -96,11 +96,9 @@ describe('Sri4node SERVER TESTS', function () {
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
-    console.log('Stopping express server.');
-    if (server) {
-      await server.close();
-    }
-    sri4nodeInstance && sri4nodeInstance.db.$pool.end();
+    console.log('Stopping the server.');
+    server && (await server.close());
+    sri4nodeInstance && (await sri4nodeInstance.close());
     console.log('Done.');
   });
 

@@ -18,8 +18,8 @@ module.exports = (port, logdebug, dummyLogger) => {
       console.log(
         'Stopping express server (was not stopped as we stubbed process.exit !).'
       )
-      await server.close()
-      sri4nodeInstance && sri4nodeInstance.db.$pool.end()
+      server && (await server.close());
+      sri4nodeInstance && (await sri4nodeInstance.close());
       // InformationSchema caches its configuration and next test will need other configuration -> clear cache
       informationSchema.clearCache();
       console.log('Done.')
@@ -55,8 +55,8 @@ module.exports = (port, logdebug, dummyLogger) => {
       console.log(
         'Stopping express server (was not stopped as we stubbed process.exit !).'
       )
-      await server.close()
-      sri4nodeInstance && sri4nodeInstance.db.$pool.end();
+      server && (await server.close());
+      sri4nodeInstance && (await sri4nodeInstance.close());
       // InformationSchema caches its configuration and next test will need other configuration -> clear cache
       informationSchema.clearCache();
       console.log('Done.')
@@ -92,8 +92,8 @@ module.exports = (port, logdebug, dummyLogger) => {
       console.log(
         'Stopping express server (was not stopped as we stubbed process.exit !).'
       )
-      await server.close()
-      sri4nodeInstance && sri4nodeInstance.db.$pool.end();
+      server && (await server.close());
+      sri4nodeInstance && (await sri4nodeInstance.close());
       // InformationSchema caches its configuration and next test will need other configuration -> clear cache
       informationSchema.clearCache();
       console.log('Done.')

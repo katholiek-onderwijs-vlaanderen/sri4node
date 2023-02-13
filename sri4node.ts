@@ -1127,6 +1127,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         pgp,
         db,
         app,
+
+        close: async () => {
+          db && (await db.$pool.end());
+        }
     }
 
     // before registering routes in express, call startUp hook
