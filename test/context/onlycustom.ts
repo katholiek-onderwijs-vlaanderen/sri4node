@@ -1,6 +1,5 @@
-module.exports = function (sri4node, extra) {
-
-  var ret = {
+module.exports = function (sri4node) {
+  return {
     type: '/onlyCustom',
     customRoutes: [
       {
@@ -15,16 +14,14 @@ module.exports = function (sri4node, extra) {
         },
         handler: async (tx, sriRequest, mapping) => {
           if (sriRequest.userObject.email === 'sam@email.be') {
-            return { status: 200, body: `{ "sriType": "${sriRequest.sriType}" }` }
+            return { status: 200, body: `{ "sriType": "${sriRequest.sriType}" }`, headers: {'content-type': 'application/json; charset=utf-8'} }
           } else {
-            return { status: 200, body: '{ "bar": "foo" }' }
+            return { status: 200, body: '{ "bar": "foo" }', headers: {'content-type': 'application/json; charset=utf-8'} }
           }
         }
       },
     ],
     onlyCustom: true
   };
-
-  return ret;
 };
 

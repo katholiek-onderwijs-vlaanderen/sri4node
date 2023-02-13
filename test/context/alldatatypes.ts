@@ -1,9 +1,6 @@
-import * as common from '../../js/common';
-import utilsFactory from '../utils';
+import utils from '../utils';
 
-const utils = utilsFactory(null);
-
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
   const $m = sri4node.mapUtils;
@@ -93,6 +90,5 @@ module.exports = function (sri4node, extra) {
     transformRequest: utils.lookForBasicAuthUser,
   };
 
-  common.mergeObject(extra, ret);
   return ret;
 };

@@ -1,13 +1,7 @@
-import * as common from '../../js/common';
-import { SriError } from '../../sri4node';
 // Messages relations
-module.exports = function (sri4node, extra) {
-
-
-  var $s = sri4node.schemaUtils;
-  var $q = sri4node.queryUtils;
-
-  var ret = {
+module.exports = function (sri4node) {
+  const $s = sri4node.schemaUtils;
+  return {
     type: '/personrelations',
     metaType: 'SRI4NODE_PERSON_RELATION',
     'public': false, // eslint-disable-line
@@ -46,7 +40,7 @@ module.exports = function (sri4node, extra) {
             );
             break;
           default:
-            throw new SriError({ status: 409, errors: [{ code: 'status.filter.value.unknown', value }] });
+            throw new sri4node.SriError({ status: 409, errors: [{ code: 'status.filter.value.unknown', value }] });
         }
       },
     },
@@ -73,7 +67,4 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'from', 'to', 'type']
     }
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

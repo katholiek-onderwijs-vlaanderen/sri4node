@@ -1,22 +1,24 @@
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
+
   return {
-    type: '/store/packages',
-    metaType: 'SRI4NODE_STORE_PACKAGE',
-    'public': false, // eslint-disable-line
+    type: '/invalidconfig1',
+    metaType: 'SRI4NODE_INVALID_CONFIG1',
+    table: 'foos',
+    public: false, // eslint-disable-line
     map: {
       key: {},
-      name: {}
+      bAr: {},
     },
     schema: {
       $schema: 'http://json-schema.org/schema#',
-      title: 'A package of products.',
+      title: 'Foo',
       type: 'object',
       properties: {
         key: $s.guid('Identifier.'),
-        name: $s.string('Name of the package.')
+        bAr: $s.numeric('Just a number.'),
       },
-      required: ['key', 'name']
+      required: ['key', 'bar']
     },
   };
 };

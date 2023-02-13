@@ -1,54 +1,20 @@
 import * as assert from 'assert';
-const { Client } = require('undici');
-import utilsFactory from './utils';
+import { THttpClient } from './httpClient';
 
-module.exports = function (base) {
-  const client = new Client(base);
-
-  const utils = utilsFactory(null);
-  const { makeBasicAuthHeader } = utils;
+module.exports = function (httpClient: THttpClient) {
+  const requestServerTimingHdr = {
+    'Request-Server-Timing': 'true',
+  };
 
   describe('ServerTiming', () => {
     it('single get', async () => {
-      const {
-        headers,
-        body,
-      } = await client.request({
-        path: '/cities/38002',
-        method: 'GET',
-        headers: {
-          'Request-Server-Timing': true,
-          authorization: makeBasicAuthHeader('sabine@email.be', 'pwd'),
-        },
-      });
-
-      const bufArr: unknown[] = [];
-      for await (const data of body) {
-        bufArr.push(data);
-      }
-
-      assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
+      const response = await httpClient.get({ path: '/cities/38002', headers: requestServerTimingHdr });
+      assert.strictEqual(response.headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
     it('list get', async () => {
-      const {
-        headers,
-        body,
-      } = await client.request({
-        path: '/cities',
-        method: 'GET',
-        headers: {
-          'Request-Server-Timing': true,
-          authorization: makeBasicAuthHeader('sabine@email.be', 'pwd'),
-        },
-      });
-
-      const bufArr: any[] = [];
-      for await (const data of body) {
-        bufArr.push(data);
-      }
-
-      assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
+      const response = await httpClient.get({ path: '/cities', headers: requestServerTimingHdr });
+      assert.strictEqual(response.headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
     it('batch', async () => {
@@ -59,26 +25,8 @@ module.exports = function (base) {
         }],
       ];
 
-      const {
-        headers,
-        body,
-      } = await client.request({
-        path: '/batch',
-        method: 'PUT',
-        headers: {
-          'Content-type': 'application/json; charset=utf-8',
-          'Request-Server-Timing': true,
-          authorization: makeBasicAuthHeader('sabine@email.be', 'pwd'),
-        },
-        body: JSON.stringify(batch),
-      });
-
-      const bufArr: any[] = [];
-      for await (const data of body) {
-        bufArr.push(data);
-      }
-
-      assert.strictEqual(headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
+      const response = await httpClient.put({ path: '/batch', body: batch, headers: requestServerTimingHdr });
+      assert.strictEqual(response.headers['server-timing'] !== undefined, true, 'Server-Timing header is missing in headers.');
     });
 
     it('batch - streaming', async () => {
@@ -88,27 +36,14 @@ module.exports = function (base) {
           verb: 'GET',
         }],
       ];
+      const response = await httpClient.put({ path: '/batch_streaming', body: batch, headers: requestServerTimingHdr, streaming: true });
 
-      const {
-        trailers,
-        body,
-      } = await client.request({
-        path: '/batch_streaming',
-        method: 'PUT',
-        headers: {
-          'Content-type': 'application/json; charset=utf-8',
-          'Request-Server-Timing': true,
-          authorization: makeBasicAuthHeader('sabine@email.be', 'pwd'),
-        },
-        body: JSON.stringify(batch),
-      });
-
-      const bufArr: any[] = [];
-      for await (const data of body) {
-        bufArr.push(data);
+      assert.strictEqual(response.trailers['server-timing'], undefined, 'Server-Timing header is set before stream is received ?!.');
+      for await (const data of response.body) {
+        // just throw away data
       }
-
-      assert.strictEqual(trailers['server-timing'] !== undefined, true, 'Server-Timing header is missing in trailers.');
+      // now, after the stream is consumed, the http trailers should be set
+      assert.strictEqual(response.trailers['server-timing'] !== undefined, true, 'Server-Timing header is missing in trailers.');
     });
   });
 };

@@ -1,28 +1,24 @@
 import * as uuid from 'uuid';
 
-import * as common from '../../js/common';
+module.exports = function (sri4node) {
 
-module.exports = function (sri4node, extra) {
+  const doBeforeHook = async (tx, sriRequest, operation) => {
+    await tx.none(`INSERT INTO hooktests VALUES ('${uuid.v4()}', '${sriRequest.id}', '${operation}');`);
+  };
 
+  const doAfterHook = async (tx, sriRequest, operation) => {
+    const result = await tx.query(`SELECT * FROM hooktests WHERE ref='${sriRequest.id}';`);
+    if (result.length !== 1) {
+      throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.nr.rows.in.hookstests' }] });
+    }
+    if (result[0].msg !== operation) {
+      throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.content.in.hookstests' }] });
+    }
+  };
 
-const doBeforeHook = async (tx, sriRequest, operation) => {
-  await tx.none(`INSERT INTO hooktests VALUES ('${uuid.v4()}', '${sriRequest.id}', '${operation}');`);
-};
+  const $s = sri4node.schemaUtils;
 
-const doAfterHook = async (tx, sriRequest, operation) => {
-  const result = await tx.query(`SELECT * FROM hooktests WHERE ref='${sriRequest.id}';`);
-  if (result.length !== 1) {
-    throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.nr.rows.in.hookstests' }] });
-  }
-  if (result[0].msg !== operation) {
-    throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.content.in.hookstests' }] });
-  }
-};
-
-
-  var $s = sri4node.schemaUtils;
-
-  var ret = {
+  return {
     type: '/bars',
     metaType: 'SRI4NODE_BAR',
     'public': false, // eslint-disable-line
@@ -115,8 +111,4 @@ const doAfterHook = async (tx, sriRequest, operation) => {
       },
     ],
   };
-
-  common.mergeObject(extra, ret);
-  console.log(ret)
-  return ret;
 };

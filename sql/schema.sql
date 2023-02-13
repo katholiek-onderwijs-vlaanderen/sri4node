@@ -195,6 +195,30 @@ CREATE TABLE "foos" (
   "$$meta.created" timestamp with time zone not null default current_timestamp
 );
 
+CREATE TABLE "invalidschema" (
+  "key" uuid primary key,
+  "bar" int,
+  "$$meta.deleted" boolean default false CHECK ("$$meta.deleted" != true),
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "invalidconfig1" (
+  "key" uuid primary key,
+  "baR" int,
+  "$$meta.deleted" boolean default false CHECK ("$$meta.deleted" != true),
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
+CREATE TABLE "invalidconfig2" (
+  "key" uuid primary key,
+  "bar" int,
+  "$$meta.deleted" boolean default false CHECK ("$$meta.deleted" != true),
+  "$$meta.modified" timestamp with time zone not null default current_timestamp,
+  "$$meta.created" timestamp with time zone not null default current_timestamp
+);
+
 CREATE TABLE "cities" (
   "key" int4 unique,
   "name" text,

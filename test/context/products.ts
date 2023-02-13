@@ -1,12 +1,8 @@
-import * as common from '../../js/common';
+module.exports = function (sri4node) {
+  const $s = sri4node.schemaUtils;
+  const $m = sri4node.mapUtils;
 
-module.exports = function (sri4node, extra) {
-
-
-  var $s = sri4node.schemaUtils;
-  var $m = sri4node.mapUtils;
-
-  var ret = {
+  return {
     type: '/store/products',
     metaType: 'SRI4NODE_STORE_PRODUCT',
     'public': false, // eslint-disable-line
@@ -40,7 +36,4 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'name', 'category', 'package']
     },
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

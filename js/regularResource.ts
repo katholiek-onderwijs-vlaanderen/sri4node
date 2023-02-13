@@ -161,17 +161,16 @@ async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mappi
   return { status: 200, body: element };
 }
 
-function getSchemaValidationErrors(json, schema) {
-  const validate = ajv.compile(schema);
-  const valid = validate(json);
+function getSchemaValidationErrors(json, schema, validateSchema) {
+  const valid = validateSchema(json);
   if (!valid) {
     console.log('Schema validation revealed errors.');
-    console.log(validate.errors);
+    console.log(validateSchema.errors);
     console.log('JSON schema was : ');
     console.log(schema);
     console.log('Document was : ');
     console.log(json);
-    return (validate.errors || []).map((e) => ({ code: errorAsCode(e.message || ''), err: e }));
+    return (validateSchema.errors || []).map((e) => ({ code: errorAsCode(e.message || ''), err: e }));
   }
   return null;
 }
@@ -252,7 +251,7 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
     }
 
     const hrstart = process.hrtime();
-    const validationErrors = getSchemaValidationErrors(obj, mapping.schema);
+    const validationErrors = getSchemaValidationErrors(obj, mapping.schema, mapping.validateSchema);
     if (validationErrors !== null) {
       const errors = { validationErrors }
       throw new SriError({ status: 409, errors: [{ code: 'validation.errors', msg: 'Validation error(s)', errors }] })

@@ -1,14 +1,10 @@
-import * as common from '../../js/common';
-import utilsFactory from '../utils';
-const utils = utilsFactory(null);
+import utils from '../utils';
 
-module.exports = function (sri4node, extra) {
-
-
-  var $m = sri4node.mapUtils;
-  var $s = sri4node.schemaUtils;
-  var $q = sri4node.queryUtils;
-  var $u = sri4node.utils;
+module.exports = function (sri4node) {
+  const $m = sri4node.mapUtils;
+  const $s = sri4node.schemaUtils;
+  const $q = sri4node.queryUtils;
+  const $u = sri4node.utils;
 
   async function messagesPostedSince(value, select) {
     select.sql(' and posted > ').param(value);
@@ -18,7 +14,7 @@ module.exports = function (sri4node, extra) {
     return async function (tx, sriRequest, elements) {
       elements.forEach( ({ incoming }) => {
         if (incoming.amount <= max) {
-          common.debug('mocha', 'Should be more, or equal to ' + max);
+          sri4node.debug('mocha', 'Should be more, or equal to ' + max);
           throw new sriRequest.SriError({status: 409, errors: [{code: 'not.enough'}]})
         }        
       } )
@@ -33,21 +29,21 @@ module.exports = function (sri4node, extra) {
     })
   }
 
-  var cteOneGuid = async function (value, select) {
-    var cte = $u.prepareSQL();
+  const cteOneGuid = async function (value, select) {
+    const cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte');
     select.sql(' AND "key" IN (SELECT key FROM cte)');
   };
 
-  var cteOneGuid2 = async function (value, select) {
-    var cte = $u.prepareSQL();
+  const cteOneGuid2 = async function (value, select) {
+    const cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte2');
     select.sql(' AND "key" IN (SELECT key FROM cte2)');
   };
 
-  var ret = {
+  return {
     type: '/messages',
     metaType: 'SRI4NODE_MESSAGE',
     'public': false, // eslint-disable-line
@@ -118,7 +114,4 @@ module.exports = function (sri4node, extra) {
 
     transformRequest: utils.lookForBasicAuthUser
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

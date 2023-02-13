@@ -1,9 +1,7 @@
 import * as sleep from 'await-sleep';
 
-exports = module.exports = function (roa, extra) {
-
-
-  var ret = {
+exports = module.exports = function (sri4node) {
+  return  {
     type: '/customStreaming',
     customRoutes: [
       { routePostfix: ''
@@ -49,7 +47,5 @@ exports = module.exports = function (roa, extra) {
     ],
     onlyCustom: true
   };
-
-  return ret;
 };
 

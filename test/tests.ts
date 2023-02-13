@@ -5,7 +5,9 @@ const devNull = require('dev-null');
 const { Console } = require('console');
 
 import * as context from './context';
+import * as informationSchema from '../js/informationSchema';
 
+import httpClientMod from './httpClient';
 
 const dummyLogger = new Console({
   stdout: devNull(),
@@ -14,43 +16,14 @@ const dummyLogger = new Console({
   colorMode: false
 });
 
-
-
 const port = 5000;
 const logdebug:TLogDebug = { channels: [] };
 // const logdebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
 const base = `http://localhost:${port}`;
+const httpClient = httpClientMod.httpClientFactory(base);
 
-const { spawn } = require('child_process');
-
-function asyncSpawn(command, args:string[] = []) {
-  return new Promise((resolve, reject) => {
-    const childProcess = spawn(command, args);
-
-    let output = '';
-    let errors = '';
-
-    childProcess.stdout.on('data', (data) => {
-      output = `${output + data}\n`;
-    });
-
-    childProcess.stderr.on('data', (data) => {
-      // console.log(`stderr: ${data}`);
-      errors = `${errors + data}\n`;
-    });
-
-    childProcess.on('close', (code) => {
-      // console.log(`child process ${command} exited with code ${code}`);
-      if (code === 0) {
-        resolve(output);
-      } else {
-        reject(errors);
-      }
-    });
-  });
-}
 
 /**
  * after --pick on the command line, list the names of test files you want to run
@@ -79,84 +52,100 @@ describe('Sri4node PURE UNIT TESTS', () => {
   runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
 });
 
+describe('Sri4node VALIDATION AT STARTUP TESTS', function () {
+  runTestIfNeeded('./testValidationAtStartup.ts', [ port, logdebug, dummyLogger ]);
+});
+
+
 describe('Sri4node SERVER TESTS', function () {
   this.timeout(0);
   let server:any = null;
+  let sri4nodeInstance:any = null;
 
   before(async () => {
-    // init testing DB
     try {
-      // OBSOLETE: assume a local postgres db instance
-      // await asyncSpawn(`${__dirname}/../createdb.sh`);
-      // > 202210: run the createdb.sh script INSIDE the docker container
-    } catch (e) {
-      console.log(`Problem while trying to initialize the testing DB: ${e}`);
-      throw new Error(`Problem while trying to initialize the testing DB: ${e}`);
+      // We need to clear the informationSchema cache as it is currently iniatialized for the configuration of Sri4node SCHEMA VALIDATION'.
+      informationSchema.clearCache();
+      ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
+          [ './context/persons',
+          './context/messages',
+          './context/communities',
+          './context/transactions',
+          './context/table',
+          './context/jsonb',
+          './context/alldatatypes',
+          './context/products',
+          './context/packages',
+          './context/relations',
+          './context/personrelations',
+          './context/cities',
+          './context/selfreferential',
+          './context/countries',
+          './context/countries_with_prefix',
+          './context/onlycustom',
+          './context/customStreaming',
+          './context/foos',
+          './context/bars',
+          ]));
+    } catch (err) {
+      console.log(err);
     }
-
-    server = await context.serve(sri4node, port, logdebug, dummyLogger);
   });
 
   after(async () => {
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
-    console.log('Stopping express server.');
-    if (server) {
-      await server.close();
-    }
+    console.log('Stopping the server.');
+    server && (await server.close());
+    sri4nodeInstance && (await sri4nodeInstance.close());
     console.log('Done.');
   });
 
-  // require('./testOrderBy')(base);
-  runTestIfNeeded('./testOrderBy.ts', [base]);
-  runTestIfNeeded('./testHooks.ts', [base, dummyLogger]);
-  runTestIfNeeded('./testCTE.ts', [base]);
-  runTestIfNeeded('./testListResource.ts', [base]);
-  runTestIfNeeded('./testPublicResources.ts', [base]);
-  runTestIfNeeded('./testRegularResource.ts', [base]);
-  runTestIfNeeded('./testPutAndPatch.ts', [base]);
-  runTestIfNeeded('./testDelete.ts', [base]);
-  runTestIfNeeded('./testJSONB.ts', [base]);
+  // // require('./testOrderBy')(base);
+  runTestIfNeeded('./testOrderBy.ts', [httpClient]);
+  runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
+  runTestIfNeeded('./testCTE.ts', [httpClient]);
+  runTestIfNeeded('./testListResource.ts', [httpClient]);
+  runTestIfNeeded('./testPublicResources.ts', [httpClient]);
+  runTestIfNeeded('./testRegularResource.ts', [httpClient]);
+  runTestIfNeeded('./testPutAndPatch.ts', [httpClient]);
+  runTestIfNeeded('./testDelete.ts', [httpClient]);
+  runTestIfNeeded('./testJSONB.ts', [httpClient]);
+  runTestIfNeeded('./testQueryUtils.ts', [httpClient]);
+  runTestIfNeeded('./testModified.ts', [httpClient]);
+  runTestIfNeeded('./testResourceType.ts', [httpClient]);
+  runTestIfNeeded('./testExpand.ts', [httpClient]);
+  runTestIfNeeded('./testErrorHandling.ts', [httpClient]);
+  runTestIfNeeded('./testIsPartOf.ts', [httpClient]);
+  runTestIfNeeded('./testBatch.ts', [httpClient]);
+  runTestIfNeeded('./testInternalRequest.ts', [httpClient]);
 
-  runTestIfNeeded('./testReqId.ts', [base]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterCombination.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterContains.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterExact.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreater.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterGreaterOrEqual.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterIn.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterInvalidParameter.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLess.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterLessOrEqual.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterOverlaps.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterQ.ts', [httpClient]);
+  runTestIfNeeded('./defaultFilter/testDefaultFilterRegEx.ts', [httpClient]);
 
-  runTestIfNeeded('./testQueryUtils.ts', [base]);
-  runTestIfNeeded('./testModified.ts', [base]);
-  runTestIfNeeded('./testResourceType.ts', [base]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterFromTypes.ts', [httpClient]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterToTypes.ts', [httpClient]);
+  runTestIfNeeded('./relationsFilter/testRelationsFilterNoType.ts', [httpClient]);
 
-  runTestIfNeeded('./testExpand.ts', [base]);
-  runTestIfNeeded('./testErrorHandling.ts', [base]);
-  runTestIfNeeded('./testIsPartOf.ts', [base]);
-  runTestIfNeeded('./testBatch.ts', [base]);
+  runTestIfNeeded('./testReqId.ts', [httpClient]);
+  runTestIfNeeded('./testServerTiming.ts', [httpClient]);
+  runTestIfNeeded('./testLogging.ts', [httpClient]);
+  runTestIfNeeded('./testSriType.ts', [httpClient]);
 
-  runTestIfNeeded('./testInternalRequest.ts', [base]);
-
-  runTestIfNeeded('./defaultFilter/testDefaultFilterGreater.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterCombination.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterContains.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterExact.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterGreaterOrEqual.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterIn.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterLess.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterLessOrEqual.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterQ.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterRegEx.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterInvalidParameter.ts', [base]);
-  runTestIfNeeded('./defaultFilter/testDefaultFilterOverlaps.ts', [base]);
-
-  runTestIfNeeded('./relationsFilter/testRelationsFilterFromTypes.ts', [base]);
-  runTestIfNeeded('./relationsFilter/testRelationsFilterToTypes.ts', [base]);
-  runTestIfNeeded('./relationsFilter/testRelationsFilterNoType.ts', [base]);
-
-  runTestIfNeeded('./testServerTiming.ts', [base]);
-  runTestIfNeeded('./testLogging.ts', [base]);
-  runTestIfNeeded('./testSriType.ts', [base]);
-
-  runTestIfNeeded('./testDocs.ts', [base]);
+  runTestIfNeeded('./testDocs.ts', [httpClient]);
   runTestIfNeeded('./testInformationSchema.ts', []);
-
-  runTestIfNeeded('./testCustomRoutes.ts', [base]);
+  runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
 });
 
 export {};

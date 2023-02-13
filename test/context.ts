@@ -12,24 +12,13 @@ import * as express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
 import { TSriConfig, SriError, TSriRequest, TDebugChannel, TLogDebug } from '../js/typeDefinitions';
-import utilsFactory from './utils';
-
-const utils = utilsFactory(null);
-
+import utils from './utils';
 
 let $u;
 let configCache: any = null;
 
-function config(sri4node, port, logdebug, dummyLogger) {
-  if (configCache !== null) {
-    console.log('config cached');
-    return configCache;
-  }
-
+function config(sri4node, logdebug, dummyLogger, resourceFiles) {
   $u = sri4node.utils;
-
-  const commonResourceConfig = {
-  };
 
   const config:TSriConfig = {
     // For debugging SQL can be logged.
@@ -40,27 +29,7 @@ function config(sri4node, port, logdebug, dummyLogger) {
       schema: 'sri4node',
     },
 
-    resources: [
-      require('./context/persons')(sri4node, commonResourceConfig),
-      require('./context/messages')(sri4node, commonResourceConfig),
-      require('./context/communities')(sri4node, commonResourceConfig),
-      require('./context/transactions')(sri4node, commonResourceConfig),
-      require('./context/table')(sri4node, commonResourceConfig),
-      require('./context/jsonb')(commonResourceConfig),
-      require('./context/alldatatypes')(sri4node, commonResourceConfig),
-      require('./context/products')(sri4node, commonResourceConfig),
-      require('./context/packages')(sri4node, commonResourceConfig),
-      require('./context/relations')(sri4node, commonResourceConfig),
-      require('./context/personrelations')(sri4node, commonResourceConfig),
-      require('./context/cities')(sri4node, commonResourceConfig),
-      require('./context/selfreferential')(commonResourceConfig),
-      require('./context/countries')(sri4node, commonResourceConfig),
-      require('./context/countries_with_prefix')(sri4node, commonResourceConfig),
-      require('./context/onlycustom')(sri4node, commonResourceConfig),
-      require('./context/customStreaming')(sri4node, commonResourceConfig),
-      require('./context/foos')(sri4node, commonResourceConfig),
-      require('./context/bars')(sri4node, commonResourceConfig),
-    ],
+    resources: resourceFiles.map( (file) => require(file)(sri4node) ),
 
     beforePhase: [
       async (sriRequestMap, jobMap, pendingJobs) => {
@@ -80,8 +49,12 @@ function config(sri4node, port, logdebug, dummyLogger) {
         // find parent sriRequest
         const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
         if (sriRequest.userData.beforePhaseCntr === undefined) {
-          sriRequest.userData = {
-            beforePhaseCntr: 0,
+          if (sriRequest.userData) {
+            sriRequest.userData.beforePhaseCntr = 0;
+          } else {
+            sriRequest.userData = {
+              beforePhaseCntr: 0,
+            }
           }
         }
         sriRequest.userData.beforePhaseCntr += 1;
@@ -109,21 +82,18 @@ function config(sri4node, port, logdebug, dummyLogger) {
   return config;
 }
 
-async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger) {
-  const theConfig = config(sri4node, port, logdebug, dummyLogger);
+async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceFiles) {
+  const theConfig = config(sri4node, logdebug, dummyLogger, resourceFiles);
 
   // Need to pass in express.js and node-postgress as dependencies.
   const app = express();
-  app.set('port', port);
 
-  await sri4node.configure(app, theConfig);
-  // app.get('/', (req, resp) => resp.end('hello world'));
+  const sri4nodeInstance = await sri4node.configure(app, theConfig);
 
   try {
-    const port = app.get('port');
     const server = await app.listen(port);
-    console.log(`Node app is running at localhost:${app.get('port')}`);
-    return server;
+    console.log(`Node app is running at localhost:${port}`);
+    return { server, sri4nodeInstance};
   } catch (error) {
     console.log(`Node app failed to initialize: ${error}`);
     process.exit(1);

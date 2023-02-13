@@ -1,150 +1,157 @@
 // Utility methods for calling the SRI interface
-import * as sriClientFactory from '@kathondvla/sri-client/node-sri-client';
-import utilsFactory from '../utils';
-
 import { assert } from 'chai';
+import { THttpClient } from '../httpClient';
 
-module.exports = function (base) {
-  const sriClientConfig = {
-    baseUrl: base,
-  };
-
-  const api = sriClientFactory(sriClientConfig);
-
-  const doGet = function (...args) { return api.getRaw(...args); };
-
-  const utils = utilsFactory(api);
-  const { makeBasicAuthHeader } = utils;
-  const authHdrObj = { headers: { authorization: makeBasicAuthHeader('kevin@email.be', 'pwd') } };
-
+module.exports = function (httpClient: THttpClient) {
   describe('Generic Filters', () => {
     describe('Overlaps', () => {
       describe('Array fields', () => {
         it('should find strings(1)', async () => {
-          const response = await doGet('/alldatatypes?textsOverlaps=Standard', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 7);
+          const response = await httpClient.get({ path: '/alldatatypes?textsOverlaps=Standard', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 7);
         });
 
         it('should find strings(2)', async () => {
-          const response = await doGet('/alldatatypes?textsOverlaps=interface', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 7);
+          const response = await httpClient.get({ path: '/alldatatypes?textsOverlaps=interface', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 7);
         });
 
         it('should find strings(3)', async () => {
-          const response = await doGet('/alldatatypes?textsOverlaps=Standard,interface', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 7);
+          const response = await httpClient.get({ path: '/alldatatypes?textsOverlaps=Standard,interface', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 7);
         });
 
         it('should not find strings', async () => {
-          const response = await doGet('/alldatatypes?textsOverlaps=foo', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?textsOverlaps=foo', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
 
         it('should find strings with a not match(1)', async () => {
-          const response = await doGet('/alldatatypes?textsNotOverlaps=Standard,interface', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 8);
+          const response = await httpClient.get({ path: '/alldatatypes?textsNotOverlaps=Standard,interface', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 8);
         });
 
         it('should find strings with a not match(2)', async () => {
-          const response = await doGet('/alldatatypes?textsNotOverlaps=interface', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 8);
+          const response = await httpClient.get({ path: '/alldatatypes?textsNotOverlaps=interface', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 8);
         });
 
         it('should find strings with a not match(3)', async () => {
-          const response = await doGet('/alldatatypes?textsNotOverlaps=Standard', null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 8);
+          const response = await httpClient.get({ path: '/alldatatypes?textsNotOverlaps=Standard', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 8);
         });
 
         it('should find numbers(1)', async () => {
-          const response = await doGet('/alldatatypes?numbersOverlaps=5,3', null, authHdrObj);
-          assert.equal(response.results.length, 2);
-          assert.equal(response.results[0].$$expanded.id, 9);
-          assert.equal(response.results[1].$$expanded.id, 10);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersOverlaps=5,3', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.id, 9);
+          assert.equal(response.body.results[1].$$expanded.id, 10);
         });
 
         it('should find numbers(2)', async () => {
-          const response = await doGet('/alldatatypes?numbersOverlaps=5', null, authHdrObj);
-          assert.equal(response.results.length, 2);
-          assert.equal(response.results[0].$$expanded.id, 9);
-          assert.equal(response.results[1].$$expanded.id, 10);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersOverlaps=5', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.id, 9);
+          assert.equal(response.body.results[1].$$expanded.id, 10);
         });
 
         it('should find numbers(3)', async () => {
-          const response = await doGet('/alldatatypes?numbersOverlaps=3', null, authHdrObj);
-          assert.equal(response.results.length, 2);
-          assert.equal(response.results[0].$$expanded.id, 9);
-          assert.equal(response.results[1].$$expanded.id, 10);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersOverlaps=3', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 2);
+          assert.equal(response.body.results[0].$$expanded.id, 9);
+          assert.equal(response.body.results[1].$$expanded.id, 10);
         });
 
         it('should not find numbers', async () => {
-          const response = await doGet('/alldatatypes?numbersOverlaps=12', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersOverlaps=12', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
 
         it('should find numbers with a not match(1)', async () => {
-          const response = await doGet('/alldatatypes?numbersNotOverlaps=5,3', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersNotOverlaps=5,3', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
         it('should find numbers with a not match(2)', async () => {
-          const response = await doGet('/alldatatypes?numbersNotOverlaps=3', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersNotOverlaps=3', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
         it('should find numbers with a not match(3)', async () => {
-          const response = await doGet('/alldatatypes?numbersNotOverlaps=5', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?numbersNotOverlaps=5', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
 
         it('should find timestamps(1)', async () => {
           const q = '/alldatatypes?publicationsOverlaps=2015-04-01T00:00:00%2B02:00,2015-01-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 11);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 11);
         });
 
         it('should find timestamps(2)', async () => {
           const q = '/alldatatypes?publicationsOverlaps=2015-01-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 11);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 11);
         });
 
         it('should find timestamps(3)', async () => {
           const q = '/alldatatypes?publicationsOverlaps=2015-04-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 11);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 11);
         });
 
         it('should not find timestamps', async () => {
-          const response = await doGet('/alldatatypes?publicationsOverlaps=2012-01-01T00:00:00%2B02:00', null, authHdrObj);
-          assert.equal(response.results.length, 0);
+          const response = await httpClient.get({ path: '/alldatatypes?publicationsOverlaps=2012-01-01T00:00:00%2B02:00', auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 0);
         });
 
         it('should find timestamps with a not match(1)', async () => {
           const q = '/alldatatypes?publicationsNotOverlaps=2015-04-01T00:00:00%2B02:00,2015-01-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 12);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 12);
         });
 
         it('should find timestamps with a not match(2)', async () => {
           const q = '/alldatatypes?publicationsNotOverlaps=2015-01-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 12);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 12);
         });
 
         it('should find timestamps with a not match(3)', async () => {
           const q = '/alldatatypes?publicationsNotOverlaps=2015-04-01T00:00:00%2B02:00';
-          const response = await doGet(q, null, authHdrObj);
-          assert.equal(response.results.length, 1);
-          assert.equal(response.results[0].$$expanded.id, 12);
+          const response = await httpClient.get({ path: q, auth: 'kevin' });
+          assert.equal(response.status, 200);
+          assert.equal(response.body.results.length, 1);
+          assert.equal(response.body.results[0].$$expanded.id, 12);
         });
       });
     });

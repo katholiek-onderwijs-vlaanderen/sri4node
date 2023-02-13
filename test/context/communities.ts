@@ -1,17 +1,13 @@
-import * as common from '../../js/common';
-import { SriError } from '../../js/typeDefinitions';
-import { prepareSQL } from '../../js/queryObject';
-
 import * as pMap from 'p-map';
 
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
   const $u = sri4node.utils;
 
   async function invalidQueryParameter() {
-    throw new SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
+    throw new sri4node.SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
   }
 
   function disallowOneCommunity(forbiddenKey) {
@@ -20,7 +16,7 @@ module.exports = function (sri4node, extra) {
         await pMap(elements, async (e:any) => {
           if (sriRequest.path === `/communities/${forbiddenKey}`
                 || (sriRequest.query.expand !== undefined && e.permalink === `/communities/${forbiddenKey}`)) {
-            common.debug('mocha', `security method disallowedOneCommunity for ${forbiddenKey} denies access`);
+            sri4node.debug('mocha', `security method disallowedOneCommunity for ${forbiddenKey} denies access`);
             throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
           }
         }, { concurrency: 1 });
@@ -31,9 +27,9 @@ module.exports = function (sri4node, extra) {
   // Don't really need the extra parameters when using CTE.
   async function parameterWithExtraQuery(value, select, param, tx, count) {
     if (count) {
-      const query = prepareSQL('create-allcommunitykeys');
+      const query = sri4node.utils.prepareSQL('create-allcommunitykeys');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query);
+      await sri4node.utils.executeSQL(tx, query);
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
     } else {
@@ -43,9 +39,9 @@ module.exports = function (sri4node, extra) {
 
   async function parameterWithExtraQuery2(value, select, param, tx, count) {
     if (count) {
-      const query = prepareSQL('create-allcommunitykeys2');
+      const query = sri4node.utils.prepareSQL('create-allcommunitykeys2');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
-      await common.pgExec(tx, query);
+      await sri4node.utils.executeSQL(tx, query);
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
     } else {
@@ -54,8 +50,8 @@ module.exports = function (sri4node, extra) {
   }
 
   async function addMessageCountToCommunities(tx, sriRequest, elements) {
-    common.debug('mocha', 'addMessageCountToCommunities');
-    common.debug('mocha', elements);
+    sri4node.debug('mocha', 'addMessageCountToCommunities');
+    sri4node.debug('mocha', elements);
 
     if (elements.length > 0) {
       // Lets do this efficiently. Remember that we receive an array of elements.
@@ -69,16 +65,16 @@ module.exports = function (sri4node, extra) {
         return key;
       });
 
-      const query = prepareSQL();
+      const query = sri4node.utils.prepareSQL();
       query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
       query.array(keys);
       query.sql(')');
-      const rows = await common.pgExec(tx, query);
+      const rows = await sri4node.utils.executeSQL(tx, query);
       rows.forEach((row) => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10));
     }
   }
 
-  const ret = {
+  return {
     type: '/communities',
     metaType: 'SRI4NODE_COMMUNITY',
     'public': false, // eslint-disable-line
@@ -168,7 +164,4 @@ module.exports = function (sri4node, extra) {
       },
     ],
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

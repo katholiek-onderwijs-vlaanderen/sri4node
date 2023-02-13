@@ -1,12 +1,7 @@
-import * as common from '../../js/common';
 // Messages relations
 module.exports = function (sri4node, extra) {
-
-
-  var $s = sri4node.schemaUtils;
-  var $q = sri4node.queryUtils;
-
-  var ret = {
+  const $s = sri4node.schemaUtils;
+  return {
     type: '/relations',
     metaType: 'SRI4NODE_RELATIONS',
     'public': false, // eslint-disable-line
@@ -41,7 +36,4 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'from', 'to', 'type']
     },
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

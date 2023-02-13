@@ -1,10 +1,7 @@
-import * as common from '../../js/common';
-
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
-  const $m = sri4node.mapUtils;
 
-  const ret = {
+  return {
     type: '/prefix/countries2',
     metaType: 'SRI4NODE_PREFIX_COUNTRIES',
     'public': false, // eslint-disable-line
@@ -37,7 +34,4 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'name'],
     },
   };
-
-  common.mergeObject(extra, ret);
-  return ret;
 };

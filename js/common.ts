@@ -48,7 +48,7 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
-const isLogChannelEnabled = (channel:TDebugChannel): boolean => {
+const isLogChannelEnabled = (channel:TDebugChannel|string): boolean => {
   return (global.sri4node_configuration === undefined
         || (global.sri4node_configuration.logdebug && (
           global.sri4node_configuration.logdebug.channels === 'all'
@@ -56,15 +56,23 @@ const isLogChannelEnabled = (channel:TDebugChannel): boolean => {
 }
 
 /**
- * Logging output (use the proper channel!)
+ * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
+ * If the 'channel' of a debug call is in the selected set of debug channels in the
+ * sri4node configuration (logdebug.channels), output (second parameter) is logged.
+ * Otherwise output is discared. 
+ * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
+ * information).
+ * 
+ * This function is available for sri4node plugins and applications using sri4, which
+ * are allowed to use logchannels of their own.
  *
- * @param channel
- * @param {String | () => String}
+ * @param channel one of the predefined log channels
+ * @param output string or string generating function to log
  */
-const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | string) => {
+const debugAnyChannelAllowed:TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId:string = httpContext.get('reqId');
-    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof x === 'function' ? x() : x}`;
+    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof output === 'function' ? output() : output}`;
     if (reqId !== undefined) {
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         if (!logBuffer[reqId]) {
@@ -80,6 +88,25 @@ const debug:TDebugLogFunction = (channel:TDebugChannel, x:(() => string) | strin
     }
   }
 };
+
+/**
+ * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
+ * If the 'channel' of a debug call is in the selected set of debug channels in the
+ * sri4node configuration (logdebug.channels), output (second parameter) is logged.
+ * Otherwise output is discared. 
+ * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
+ * information).
+ * 
+ * This function is for internal (sri4node) usage where logchannels are restricted
+ * to pre-defined debug channels. Restricting channels avoids errors and will make
+ * it possible for vscode to do auto-completion.
+ * @param channel one of the predefined log channels
+ * @param output string or string generating function to log
+ */
+const debug = (channel:TDebugChannel, output:(() => string) | string) => {
+  debugAnyChannelAllowed(channel, output);
+}
+
 
 const error:TErrorLogFunction = function (...args) {
   const reqId = httpContext.get('reqId');
@@ -657,15 +684,6 @@ function sqlColumnNames(mapping, summary = false) {
   }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
 
-/**
- * Merge all direct properties of object 'source' into object 'target'.
- */
-function mergeObject(source, target) {
-  return {
-    ...target,
-    ...source,
-  };
-}
 
 /**
  * @param row the database row
@@ -706,6 +724,32 @@ function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
 
   return element;
 }
+
+/**
+ * Function which verifies wether for all properties specified in the sri4node configuration
+ * there exists a column in the database.
+ * An improvement might be to also check if the types 
+ * @param sriConfig sri4node configuration object
+ * @returns nothing, throw an error in case something is wrong
+ */
+
+function checkSriConfigWithDb(sriConfig: TSriConfig) {
+  sriConfig.resources.forEach((resourceMapping) => {
+    const map = resourceMapping.map || {};
+    Object.keys(map).forEach((key) => {
+      if (global.sri4node_configuration.informationSchema[resourceMapping.type][key] === undefined) {
+        const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
+        const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
+        if (caseInsensitiveIndex >= 0) {
+            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+        } else {
+            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
+        }
+        throw new Error('mismatch.between.sri.config.and.database');
+      }
+    });
+  });
+};
 
 /**
  * @param obj the api object
@@ -1446,6 +1490,7 @@ function generateSriRequest(
 export {
   hrtimeToMilliseconds,
   isLogChannelEnabled,
+  debugAnyChannelAllowed,
   debug,
   error,
   sortUrlQueryParamParseTree,
@@ -1463,7 +1508,6 @@ export {
   typeToConfig,
   typeToMapping,
   sqlColumnNames,
-  mergeObject,
   transformObjectToRow,
   transformRowToObject,
   pgInit,
@@ -1484,4 +1528,5 @@ export {
   getParentSriRequestFromRequestMap,
   getPgp,
   generateSriRequest,
+  checkSriConfigWithDb,
 };
