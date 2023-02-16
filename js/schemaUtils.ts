@@ -103,7 +103,7 @@ function string(description: string, min?:number, max?:number, pattern?:string|s
   return ret;
 }
 
-function numeric(description: string, min?:number, max?:number, pattern?:string): JSONSchema4 {
+function numeric(description: string, min?:number, max?:number): JSONSchema4 {
   const ret:JSONSchema4 = {
     type: 'number',
     description,
@@ -114,14 +114,11 @@ function numeric(description: string, min?:number, max?:number, pattern?:string)
   if (max) {
     ret.maximum = max;
   }
-  if (pattern) {
-    ret.pattern = pattern;
-  }
 
   return ret;
 }
 
-function integer(description: string, min?:number, max?:number, pattern?:string): JSONSchema4 {
+function integer(description: string, min?:number, max?:number): JSONSchema4 {
   const ret:JSONSchema4 = {
     type: 'integer',
     description,
@@ -131,9 +128,6 @@ function integer(description: string, min?:number, max?:number, pattern?:string)
   }
   if (max) {
     ret.maximum = max;
-  }
-  if (pattern) {
-    ret.pattern = pattern;
   }
 
   return ret;
