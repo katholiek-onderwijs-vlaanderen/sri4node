@@ -62,7 +62,11 @@ import * as relationFilters from './js/relationsFilter';
 
 const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
 
-const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
+const ajv = new Ajv({ coerceTypes: true, logger: {
+  log: (output: string) => { debug('general', output) },
+  warn: (output: string) => { debug('general', output) },
+  error: console.error
+}});
 addFormats(ajv);
 
 /**
@@ -551,19 +555,19 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
 
         // TODO: add descent type!
-        // TODO: use compiled schema  or do not store it as ajv does use a cache!
         try {
           // Compile the JSON schema to see if there are errors + store it for later usage
+          debug('general', `Going to compile JSON schema of ${resourceDefinition.type}`);
           resourceDefinition.validateKey = ajv.compile(resourceDefinition.schema.properties.key);
           resourceDefinition.validateSchema = ajv.compile(resourceDefinition.schema);
         } catch (err) {
-          console.log('===============================================================');
-          console.log(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
-          console.log('');
-          console.log(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
-          console.log('');
-          console.log(`Error: ${err.message}`);
-          console.log('===============================================================');
+          console.error('===============================================================');
+          console.error(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
+          console.error('');
+          console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
+          console.error('');
+          console.error(`Error: ${err.message}`);
+          console.error('===============================================================');
           process.exit(1);
         }
       }
