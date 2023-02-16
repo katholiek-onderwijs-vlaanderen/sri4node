@@ -121,6 +121,24 @@ function numeric(description: string, min?:number, max?:number, pattern?:string)
   return ret;
 }
 
+function integer(description: string, min?:number, max?:number, pattern?:string): JSONSchema4 {
+  const ret:JSONSchema4 = {
+    type: 'integer',
+    description,
+  };
+  if (min || min === 0) {
+    ret.minimum = min;
+  }
+  if (max) {
+    ret.maximum = max;
+  }
+  if (pattern) {
+    ret.pattern = pattern;
+  }
+
+  return ret;
+}
+
 // email fun is used in mailer-api; 
 // sam-api creates its own schema part with pattern: "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
 //   ==> add it here ?
