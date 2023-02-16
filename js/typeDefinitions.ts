@@ -373,8 +373,8 @@ export type TResourceDefinition = {
         ) => unknown,
       beforeStreamingHandler?:
         (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown)
-          => { status: number, headers: Array<[key:string, value:string]> },
-      streamingHandler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream:unknown) => unknown,
+          => Promise<{ status: number, headers: Array<[key:string, value:string]> }>,
+      streamingHandler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream:unknown) => Promise<void>,
     }
   >
 };
