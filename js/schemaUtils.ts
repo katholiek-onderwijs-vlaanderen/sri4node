@@ -240,6 +240,7 @@ export {
   permalink,
   string,
   numeric,
+  integer,
   email,
   url,
   belgianzipcode,
