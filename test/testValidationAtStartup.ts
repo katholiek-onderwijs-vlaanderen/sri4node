@@ -26,7 +26,7 @@ module.exports = (port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with an invalid schema', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'log')
+      const consoleSpy = sinonSandbox.spy(console, 'error')
       const exitStub = sinonSandbox.stub(process, 'exit')
       ;({ server, sri4nodeInstance } = await context.serve(
         sri4node,
@@ -63,7 +63,7 @@ module.exports = (port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with invalid config (property case mismatch)', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'log')
+      const consoleSpy = sinonSandbox.spy(console, 'error')
       const exitStub = sinonSandbox.stub(process, 'exit')
       ;({ server, sri4nodeInstance } = await context.serve(
         sri4node,
@@ -100,7 +100,7 @@ module.exports = (port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with invalid config (missing property)', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'log')
+      const consoleSpy = sinonSandbox.spy(console, 'error')
       const exitStub = sinonSandbox.stub(process, 'exit')
       ;({ server, sri4nodeInstance } = await context.serve(
         sri4node,

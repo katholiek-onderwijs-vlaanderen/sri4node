@@ -741,9 +741,9 @@ function checkSriConfigWithDb(sriConfig: TSriConfig) {
         const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
-            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+            console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
         } else {
-            console.log(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
+            console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
         }
         throw new Error('mismatch.between.sri.config.and.database');
       }
