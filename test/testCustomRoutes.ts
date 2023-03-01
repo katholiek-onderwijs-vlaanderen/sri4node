@@ -26,8 +26,15 @@ module.exports = function (httpClient) {
       assert.equal(result.status, 500);
     });
 
-    it('should return the response for the custom \'like\' route', async () => {
+    it('should return the response for the custom \'like\' route with alterMapping', async () => {
       const response = await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike', auth: 'kevin' });
+      assert.equal(Object.keys(response.body).length, 2);
+      assert.equal(response.body.firstname, 'Kevin');
+      assert.equal(response.body.lastname, 'Boon');
+    });
+
+    it('should return the response for the custom \'like\' route with transformResponse', async () => {
+      const response = await httpClient.get({ path: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike2', auth: 'kevin' });
       assert.equal(Object.keys(response.body).length, 2);
       assert.equal(response.body.firstname, 'Kevin');
       assert.equal(response.body.lastname, 'Boon');

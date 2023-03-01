@@ -943,6 +943,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
             const customMapping = _.cloneDeep(mapping);
             if (cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping);
+            } else {
+              if (cr.transformResponse !== undefined) {
+                customMapping.transformResponse.push(cr.transformResponse);
+              }
             }
 
             cr.httpMethods.forEach((method) => {

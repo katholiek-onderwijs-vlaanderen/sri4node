@@ -361,6 +361,7 @@ export type TResourceDefinition = {
       busBoyConfig?: BusboyConfig,
       binaryStream?: boolean,
       alterMapping?: (unknown) => unknown,
+      transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
       like?: string,
       query?: string,
       beforeHandler?:
