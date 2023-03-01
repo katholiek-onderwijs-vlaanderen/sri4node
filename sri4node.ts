@@ -279,7 +279,6 @@ const expressWrapper = (
       'transform request',
       sriConfig.transformRequest || [],
       (f) => f(req, sriRequest, t),
-      // () => sriConfig.transformRequest(req, sriRequest, t),
       sriRequest,
     );
 
