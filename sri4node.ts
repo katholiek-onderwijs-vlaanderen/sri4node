@@ -945,9 +945,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
             if (cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping);
             } else {
-              if (cr.transformRequest !== undefined) {
-                customMapping.transformRequest.push(cr.transformRequest);
-              }
               if (cr.transformResponse !== undefined) {
                 customMapping.transformResponse.push(cr.transformResponse);
               }

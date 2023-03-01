@@ -202,6 +202,18 @@ module.exports = function (sri4node) {
         },
       },
       {
+        like: '/:key',
+        routePostfix: '/simpleLike2',
+        httpMethods: ['GET'],
+        transformResponse: async function (tx, sriRequest, result) {
+          const simple = {
+            firstname: result.body.firstname,
+            lastname: result.body.lastname,
+          };
+          result.body = simple;
+        },
+      },
+      {
         routePostfix: '/downStreamJSON',
         httpMethods: ['GET'],
         streamingHandler: async (tx, sriRequest, stream) => {
