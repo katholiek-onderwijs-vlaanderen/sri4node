@@ -59,6 +59,7 @@ import * as regularResource from './js/regularResource';
 import utilLib = require('./js/utilLib');
 import { overloadProtectionFactory } from './js/overloadProtection';
 import * as relationFilters from './js/relationsFilter';
+import { ServerResponse } from 'http';
 
 const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
 
@@ -1037,7 +1038,12 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                           sriRequest.outStream.write(' ');
                           // flush outstream, otherwise an intermediate layer such as gzip compression
                           // might keep the keep-alive write in buffer and break the keep-alive mechanism
-                          sriRequest.outStream.flush();
+                          // A cast to 'any' is needed to make typescript accept this; 'flush' is defined
+                          // and added to ServerResponse by the 'compression' middleware:
+                          // http://expressjs.com/en/resources/middleware/compression.html
+                          if (sriRequest.outStream instanceof ServerResponse) {
+                            (sriRequest.outStream as any).flush();
+                          }
                         }, sriConfig.streamingKeepAliveTimeoutMillis || 20000);
                       }
 
@@ -1048,7 +1054,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                       // Wait till busboy handler are in place (can be done in
                       // beforeStreamingHandler or streamingHandler) before piping request
                       // to busBoy (otherwise events might get lost).
-                      if (cr.busBoy) {
+                      if (cr.busBoy && sriRequest.busBoy) {
                         sriRequest.inStream.pipe(sriRequest.busBoy);
                       }
 

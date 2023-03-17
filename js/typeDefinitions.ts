@@ -15,6 +15,7 @@ import {
 import pgPromise = require('pg-promise');
 import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset';
 import pg = require('pg-promise/typescript/pg-subset');
+import stream = require('stream');
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
@@ -122,6 +123,11 @@ export type TSriServerInstance = {
    */
   db: pgPromise.IDatabase<{}, pg.IClient>,
   app: Express.Application,
+
+  /**
+   * Closes the database pool.
+   */
+  close: () => void,
 }
 
 // TODO make more strict
@@ -152,8 +158,8 @@ export type TSriRequest = {
   headers: { [key:string] : string } | IncomingHttpHeaders,
   body?: TSriRequestBody,
   dbT: IDatabase<unknown>, // db transaction
-  inStream?: any,
-  outStream?: any,
+  inStream: stream.Readable,
+  outStream: stream.Writable,
   setHeader?: (key: string, value: string) => void,
   setStatus?: (statusCode:number) => void,
   streamStarted?: () => boolean,
