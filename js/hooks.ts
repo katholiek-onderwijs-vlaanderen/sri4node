@@ -6,7 +6,7 @@ import { SriError, TSriRequest } from './typeDefinitions';
 
 async function applyHooks(
   type:string,
-  functions: Array<(...any) => any>,
+  functions: Array<(...any) => any> | undefined,
     // Array<(expressRequest:Request, sriReq:TSriRequest, dbT:unknown) => void>
     // | (sriRequest:TSriRequest) => void,
   // applyFun: (fun:(dbT:any, sriReq:TSriRequest, result:any) => any) => any,

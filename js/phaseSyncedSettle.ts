@@ -31,7 +31,7 @@ class PhaseSyncer {
   /**
    * unique identifier of each PhaseSyncer instance
    */
-   id: any;
+   id: string;
 
   /**
    * indicates the number of the phase this PhaseSyncer instance is executing
@@ -233,7 +233,7 @@ async function phaseSyncedSettle(
         error("ERROR: PhaseSyncer: unexpected startQueuedJob() call while max number of concurrent jobs is still running ! -> NOT starting queued job");
       } else {
         if (queuedJobs.size > 0) {
-          const id = queuedJobs.values().next().value;
+          const id : string = queuedJobs.values().next().value;
           const job = jobMap.get(id);
           if (job) {
             job.jobEmitter.queue('ready');
@@ -250,7 +250,7 @@ async function phaseSyncedSettle(
      * A wrapper for around the functions handling events, as they all needs the same error handling.
      * @param fun function to wrap with error handling
      */
-    const errorHandlingWrapper = (fun) => async (id, args) => {
+    const errorHandlingWrapper = (fun) => async (id: string, args) => {
       try {
         await fun(id, args);
       } catch (err) {
@@ -273,7 +273,7 @@ async function phaseSyncedSettle(
       }
     };
 
-    ctrlEmitter.on('stepDone', errorHandlingWrapper(async (id, stepnr) => {
+    ctrlEmitter.on('stepDone', errorHandlingWrapper(async (id: string, stepnr) => {
       debug_log(id, `*step ${stepnr}* done.`);
       phasePendingJobs.delete(id);
 
@@ -290,7 +290,7 @@ async function phaseSyncedSettle(
       }
     }));
 
-    ctrlEmitter.on('jobDone', errorHandlingWrapper(async (id) => {
+    ctrlEmitter.on('jobDone', errorHandlingWrapper(async (id: string) => {
       debug_log(id, '*JOB* done.');
 
       pendingJobs.delete(id);
@@ -304,7 +304,7 @@ async function phaseSyncedSettle(
       }
     }));
 
-    ctrlEmitter.on('jobFailed', errorHandlingWrapper(async (id) => {
+    ctrlEmitter.on('jobFailed', errorHandlingWrapper(async (id: string) => {
       debug_log(id, '*JOB* failed.');
 
       pendingJobs.delete(id);

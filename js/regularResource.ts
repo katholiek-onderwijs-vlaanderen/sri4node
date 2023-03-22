@@ -4,7 +4,7 @@ import addFormats from 'ajv-formats';
 import * as jsonPatch from 'fast-json-patch';
 import * as pMap from 'p-map';
 import { Operation } from 'fast-json-patch';
-import { SriError, TSriRequest } from './typeDefinitions';
+import { SriError, TSriRequest, TSriConfig, TBeforePhase, TJobMap, TResourceDefinition } from './typeDefinitions';
 import {
   debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
   errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
@@ -15,6 +15,8 @@ import { applyHooks } from './hooks';
 
 const expand = require('./expand');
 import * as schemaUtils from './schemaUtils';
+import { PhaseSyncer } from './phaseSyncedSettle';
+import { IDatabase } from 'pg-promise';
 
 const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
 addFormats(ajv);
@@ -32,15 +34,15 @@ const multiInsertError = makeMultiError('insert');
 const multiUpdateError = makeMultiError('update');
 const multiDeleteError = makeMultiError('delete');
 
-function queryByKeyRequestKey(sriRequest, mapping, key) {
+function queryByKeyRequestKey(sriRequest: TSriRequest, mapping: TResourceDefinition, key: string) {
   debug('trace', `queryByKeyRequestKey(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
-  if (mapping.schema && mapping.schema.properties.key) {
+  if (mapping.schema && mapping.schema.properties && mapping.schema.properties.key && mapping.validateKey) {
     const validKey = mapping.validateKey(key);
     if (!validKey) {
-      throw new SriError({ status: 400, errors: mapping.validateKey.errors.map((e) => ({ code: 'key.invalid', key, err: e })) });
+      throw new SriError({ status: 400, errors: mapping.validateKey.errors?.map((e) => ({ code: 'key.invalid', key, err: e })) || [] });
     }
   }
 
@@ -54,7 +56,7 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
   parentSriRequest.queryByKeyFetchList[type].push(key);
 }
 
-function queryByKeyGetResult(sriRequest:TSriRequest, mapping, key:string, wantsDeleted:boolean) {
+function queryByKeyGetResult(sriRequest:TSriRequest, mapping: TResourceDefinition, key:string, wantsDeleted:boolean) {
   debug('trace', `queryByKeyGetResult(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
@@ -80,7 +82,7 @@ function queryByKeyGetResult(sriRequest:TSriRequest, mapping, key:string, wantsD
   return { code: 'not.found' };
 }
 
-async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
+const beforePhaseQueryByKey : TBeforePhase = async function (sriRequestMap, _jobMap, _pendingJobs) {
   const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
   if (sriRequest.queryByKeyFetchList !== undefined) {
     const types = Object.keys(sriRequest.queryByKeyFetchList);
@@ -106,7 +108,7 @@ async function beforePhaseQueryByKey(sriRequestMap, jobMap, pendingJobs) {
   }
 }
 
-async function getRegularResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
+async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest:TSriRequest, mapping: TResourceDefinition) {
   const { key } = sriRequest.params;
 
   await phaseSyncer.phase();
@@ -178,10 +180,10 @@ function getSchemaValidationErrors(json, schema, validateSchema) {
 /**
  * Will fetch the previous version from DB, patch it, then continue as if it were a regular PUT
  *
- * @param {*} phaseSyncer
- * @param {*} tx
- * @param {*} sriRequest
- * @param {*} mapping
+ * @param {PhaseSyncer} phaseSyncer
+ * @param {IDatabase} tx
+ * @param {TSriRequest} sriRequest
+ * @param {TResourceDefinition} mapping
  * @param {*} previousQueriedByKey
  */
 async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
@@ -386,10 +388,11 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, jobMap, pendingJobs)
   delete sriRequest.multiDeleteFailed;
 
   // INSERT
-  if (sriRequest.putRowsToInsert !== undefined) {
-    const types = Object.keys(sriRequest.putRowsToInsert);
+  const putRowsToInsert = sriRequest.putRowsToInsert;
+  if (putRowsToInsert !== undefined) {
+    const types = Object.keys(putRowsToInsert);
     await pMap(types, async (type) => {
-      const rows = sriRequest.putRowsToInsert[type];
+      const rows = putRowsToInsert[type];
       const table = tableFromMapping(typeToMapping(type));
       const cs = global.sri4node_configuration.pgColumns[table].insert;
 
@@ -412,10 +415,11 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, jobMap, pendingJobs)
   sriRequest.putRowsToInsert = undefined;
 
   // UPDATE
-  if (sriRequest.putRowsToUpdate !== undefined) {
-    const types = Object.keys(sriRequest.putRowsToUpdate);
+  const putRowsToUpdate = sriRequest.putRowsToUpdate;
+  if (putRowsToUpdate !== undefined) {
+    const types = Object.keys(putRowsToUpdate);
     await pMap(types, async (type) => {
-      const rows = sriRequest.putRowsToUpdate[type];
+      const rows = putRowsToUpdate[type];
 
       const table = tableFromMapping(typeToMapping(type));
       const cs = global.sri4node_configuration.pgColumns[table].update;
@@ -439,10 +443,11 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, jobMap, pendingJobs)
   sriRequest.putRowsToUpdate = undefined;
 
   // DELETE
-  if (sriRequest.rowsToDelete !== undefined) {
-    const types = Object.keys(sriRequest.rowsToDelete);
+  const rowsToDelete = sriRequest.rowsToDelete;
+  if (rowsToDelete !== undefined) {
+    const types = Object.keys(rowsToDelete);
     await pMap(types, async (type) => {
-      const rows = sriRequest.rowsToDelete[type];
+      const rows = rowsToDelete[type];
 
       const table = tableFromMapping(typeToMapping(type));
       const cs = global.sri4node_configuration.pgColumns[table].delete;

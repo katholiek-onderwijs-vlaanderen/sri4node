@@ -48,7 +48,11 @@ module.exports = function (httpClient) {
       const result = await httpClient.get({ path:'/persons/da6dcc12-c46f-4626-a965-1a00536131b2/simpleLike', auth: null });
       assert.equal(result.status, 401);
     });
-
+    it('"query" overwrite should worki for the custom \'like\' route', async () => {
+      const result = await httpClient.get({ path:'http://localhost:5000/persons/likeWithCommunitiesError?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849', auth: 'sabine' });
+      assert.equal(result.status, 404);
+      assert.equal(result.body.errors[0].code, 'invalid.query.parameter');
+    });
     it('streaming is not allowed in batch', async () => {
       // create a batch array
       const batch = [

@@ -213,6 +213,18 @@ module.exports = function (sri4node) {
           result.body = simple;
         },
       },
+      // a custom 'like' route to check if 'query' overwrite is working
+      {
+        like: '',
+        routePostfix: '/likeWithCommunitiesError',
+        httpMethods: ['GET'],
+        alterMapping: (mapping) => mapping,
+        query: {
+          communities: () => {
+            throw new sri4node.SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
+          }
+        }
+      },
       {
         routePostfix: '/downStreamJSON',
         httpMethods: ['GET'],
