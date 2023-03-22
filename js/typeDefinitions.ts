@@ -3,7 +3,6 @@
 // have  a type definition, so it'll be easier to use for developers.
 // Also internally sri4node would benfit from more strict types for the shared data structures.
 
-import Ajv from 'ajv';
 import { Busboy, BusboyConfig } from 'busboy';
 import { Request } from 'express';
 import { Operation } from 'fast-json-patch';
@@ -18,6 +17,8 @@ import pg = require('pg-promise/typescript/pg-subset');
 import stream = require('stream');
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
+
+import Ajv, { ValidateFunction } from "ajv"
 
 export type TPluginConfig = Record<string, unknown>;
 
@@ -121,7 +122,7 @@ export type TSriServerInstance = {
   /**
    * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
    */
-  db: pgPromise.IDatabase<{}, pg.IClient>,
+  db: pgPromise.IDatabase<unknown, pg.IClient>,
   app: Express.Application,
 
   /**
@@ -176,20 +177,23 @@ export type TSriRequest = {
 
   ended?: boolean,
 
-  queryByKeyFetchList?: any, // Record<string, unknown>,
+  queryByKeyFetchList?: Record<string, Array<string>>,
   queryByKeyResults?: Record<string, string>,
 
-  putRowsToInsert?: any, // Record<string, unknown>,
+  putRowsToInsert?: Record<string, Array<any>>,
   putRowsToInsertIDs?: Array<string>,
   multiInsertFailed?: boolean,
   multiInsertError?: any,
 
-  putRowsToUpdate?: any,
+  putRowsToUpdate?: Record<string, Array<any>>,
   putRowsToUpdateIDs?: Array<string>,
   multiUpdateFailed?: boolean,
   multiUpdateError?: any,
 
-  rowsToDelete?: any, // Record<string, unknown>,
+  rowsToDelete?: Record<string, Array<{
+    key: string
+    '$$meta.modified': Date,
+    '$$meta.deleted': boolean }>>,
   rowsToDeleteIDs?: Array<string>,
   multiDeleteFailed?: boolean,
   multiDeleteError?: any,
@@ -218,6 +222,94 @@ export type TInternalSriRequest = {
 
 export type TResourceMetaType = Uppercase<string>;
 
+
+/** properties that always apply in ALL customRoute scenario's */
+export type TCustomRouteGeneralProperties = {
+  routePostfix: TUriPath,
+  httpMethods: THttpMethod[],
+  readOnly?: boolean, // might only be used internally, in that case should be removed here
+};
+
+/**
+ * 'like' scenario (cfr README: https://github.com/katholiek-onderwijs-vlaanderen/sri4node#custom-routes)
+ *
+ * example if resourceDefinition.type = /things and like = '/:id' and
+ * routePostfix = '/todo', then the custom route /things/<key>/todo will be
+ * created that will respond only to the given htttpMethods.
+ * The handler of the main resource will be called, and the alterMapping
+ * or transformReponse methods will be used to modify the response just enough.
+ *
+ * Used in audit-broadcast api in the 'alterMapping' version.
+ * Used in mailer-api and traing-api in the 'transformResponse' version.
+ *
+ * This feature CAN PROBABLY BE REMOVED, and solved with a simple customRoute
+ * combined with an SriInternalRequest.
+ */
+export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
+  {
+    like: string,
+    /** this will define where the customRoute listens relative to the resource base */
+    query?: (valueEnc: string, query: TPreparedSql, parameter: any, mapping: TResourceDefinition,
+      database: IDatabase<unknown, IClient>) => void,
+  }
+  &
+  (
+    {
+      alterMapping: (mapping: TResourceDefinition) => void,
+    }
+    |
+    {
+      transformResponse: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
+    }
+  )
+)
+
+/** NON streaming input & NON streaming output */
+export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
+  /** this will define where the customRoute listens relative to the resource base */
+  beforeHandler?:
+    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition) => void,
+  handler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition) => unknown,
+  /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
+  transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
+  afterHandler?: (
+      tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, result:unknown
+    ) => void,
+}
+
+/** streaming input & streaming output */
+export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
+  /** indicates that busboy will be used, which helps with handling multipart form data */
+  busBoy?: boolean,
+  busBoyConfig?: BusboyConfig,
+  /** indicates that the output stream is a binary stream (otherwise a response header Content-Type: 'application/json' will be set) */
+  binaryStream?: boolean,
+  beforeStreamingHandler?:
+    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition)
+      => Promise<{ status: number, headers: Array<[key:string, value:string]> }>,
+  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Readable) => Promise<void>,
+}
+
+/**
+ * This is the part of TResourceDefinition where the customRoutes are defined
+ * Currently there are 3 possible scenario's for custom routes that work differently.
+ */
+export type TCustomRoute =
+  TLikeCustomRoute | TNonStreamingCustomRoute | TStreamingCustomRoute
+
+
+export function isLikeCustomRouteDefinition(cr: TCustomRoute): cr is TLikeCustomRoute {
+  return 'like' in cr;
+}
+
+export function isNonStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TNonStreamingCustomRoute {
+  return 'handler' in cr;
+}
+
+export function isStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TStreamingCustomRoute {
+  return 'streamingHandler' in cr;
+}
+
 export type TResourceDefinition = {
   type: TUriPath,
   metaType: TResourceMetaType,
@@ -229,8 +321,8 @@ export type TResourceDefinition = {
   // these next lines are put onto the same object afterwards, not by the user
   singleResourceRegex?: RegExp,
   listResourceRegex?: RegExp,
-  validateKey?: (key:string) => boolean,
-  validateSchema?: (key:string) => boolean;
+  validateKey?: ValidateFunction,
+  validateSchema?: ValidateFunction,
 
   listResultDefaultIncludeCount?: boolean,
   maxlimit?: number,
@@ -358,30 +450,7 @@ export type TResourceDefinition = {
     }
   },
   onlyCustom?: boolean,
-  customRoutes?: Array<
-    {
-      routePostfix: TUriPath,
-      httpMethods: THttpMethod[],
-      readOnly?: boolean,
-      busBoy?: boolean,
-      busBoyConfig?: BusboyConfig,
-      binaryStream?: boolean,
-      alterMapping?: (unknown) => unknown,
-      transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
-      like?: string,
-      query?: string,
-      beforeHandler?:
-        (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown) => unknown,
-      handler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown) => unknown,
-      afterHandler?: (
-          tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown, result:unknown
-        ) => unknown,
-      beforeStreamingHandler?:
-        (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:unknown)
-          => Promise<{ status: number, headers: Array<[key:string, value:string]> }>,
-      streamingHandler?: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream:unknown) => Promise<void>,
-    }
-  >
+  customRoutes?: Array<TCustomRoute>
 };
 
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
@@ -433,6 +502,10 @@ export type TOverloadProtection = {
   retryAfter?: number,
 }
 
+export type TJobMap = Map<string, PhaseSyncer>
+
+export type TBeforePhase = (sriRequestMap:Map<string,TSriRequest>, jobMap:TJobMap, pendingJobs:Set<string>) => Promise<void>
+
 export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: unknown,
@@ -473,11 +546,7 @@ export type TSriConfig = {
    * they are used to synchronize between executing batch operations in parallel, see Batch execution order in the README.
    */
   beforePhase?:
-    Array<
-      //(sriRequestMap:Array<[string, TSriRequest]>, jobMap:unknown, pendingJobs:Set<string>)
-      (sriRequestMap:Map<string,TSriRequest>, jobMap:unknown, pendingJobs:Set<string>)
-        => unknown
-    >,
+    Array<TBeforePhase>,
 
   /**
    * This is a global hook. This function is called at the very start of each http request (i.e. for batch only once).

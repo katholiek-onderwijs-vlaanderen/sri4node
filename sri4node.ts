@@ -43,7 +43,7 @@ import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -157,7 +157,14 @@ const middlewareErrorWrapper = (fun) => async (req, resp) => {
 
 process.on('unhandledRejection', (err) => { console.log(err); throw err; });
 
-const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, mapping) => {
+const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, mapping: TResourceDefinition | null) : Promise<{
+  status: number,
+  headers?: Record<string, string>
+  body?: {
+    $$meta?: any
+    results: Array<any>
+  } | any
+}> => {
   const { dbT } = sriRequest;
   let result;
   if (sriRequest.isBatchRequest) {
@@ -176,7 +183,7 @@ const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, ma
 
     if (sriRequest.streamStarted === undefined || !sriRequest.streamStarted()) {
       await applyHooks('transform response',
-        mapping.transformResponse,
+        mapping?.transformResponse,
         (f) => f(dbT, sriRequest, result),
         sriRequest);
     }
@@ -341,7 +348,9 @@ const expressWrapper = (
         // writableJsonsStream.end();
 
         // VERSION WHERE I SIMPLY PUT EACH ARRAY ITEM ON THE STREAM MYSELF (is this faster than JSONStream.striingify which seems slow looking at my first tests)
-        resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [\n`);
+        if (result.body.$$meta) {
+          resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [\n`);
+        }
         const total = result.body.results.length;
         result.body.results.forEach(
           (record, index) => resp.write(`${JSON.stringify(record)}${index + 1 < total ? ',' : ''}\n`),
@@ -941,19 +950,23 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
           // TODO: check customRoutes have required fields and make sense ==> use json schema for validation
 
           mapping.customRoutes?.forEach((cr) => {
-            const customMapping = _.cloneDeep(mapping);
-            if (cr.alterMapping !== undefined) {
+            const customMapping: TResourceDefinition = _.cloneDeep(mapping) as TResourceDefinition;
+            if (isLikeCustomRouteDefinition(cr) && 'alterMapping' in cr && cr.alterMapping !== undefined) {
               cr.alterMapping(customMapping);
-            } else {
-              if (cr.transformResponse !== undefined) {
-                customMapping.transformResponse.push(cr.transformResponse);
-              }
+            } else if ('transformResponse' in cr && cr.transformResponse) {
+              customMapping.transformResponse = [
+                ...(customMapping.transformResponse || []),
+                cr.transformResponse,
+              ];
             }
 
             cr.httpMethods.forEach((method) => {
-              if (cr.like !== undefined) {
+              if (isLikeCustomRouteDefinition(cr)) {
                 const crudPath = mapping.type + cr.like;
-                Object.assign(customMapping.query, cr.query);
+                customMapping.query = {
+                  ...customMapping.query,
+                  ...cr.query,
+                }
 
                 const likeMatches: TBatchHandlerRecord[] = crudRoutes.filter(
                   ({ route, verb }) => (route === crudPath && verb === method.toUpperCase()),
@@ -975,7 +988,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                     isBatch: false,
                   });
                 }
-              } else if (cr.streamingHandler !== undefined) {
+              } else if (isStreamingCustomRouteDefinition(cr)) {
                 const { streamingHandler } = cr;
                 acc.push({
                   route: mapping.type + cr.routePostfix,

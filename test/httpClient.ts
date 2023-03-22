@@ -4,7 +4,7 @@ import utils from './utils';
 const FormData = require('form-data');
 
 export type THttpHeaders = {
-  [key: string]: string | string[]
+  [key: string]: string | string[] | undefined
 }
 
 export type THttpRequest = {
