@@ -3,7 +3,6 @@ module.exports = function (sri4node) {
   return {
     type: '/foos',
     metaType: 'SRI4NODE_FOO',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       bar: {},

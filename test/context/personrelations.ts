@@ -4,7 +4,6 @@ module.exports = function (sri4node) {
   return {
     type: '/personrelations',
     metaType: 'SRI4NODE_PERSON_RELATION',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       from: {references: '/persons'},

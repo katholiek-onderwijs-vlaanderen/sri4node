@@ -5,7 +5,6 @@ module.exports = function (sri4node) {
   return {
     type: '/cities',
     metaType: 'SRI4NODE_CITY',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       name: {},

@@ -25,7 +25,6 @@ module.exports = function (sri4node) {
   const ret = {
     type: '/alldatatypes',
     metaType: 'SRI4NODE_ALLDATATYPES',
-    public: false, // eslint-disable-line
     cache: {
       ttl: 60,
       type: 'local',

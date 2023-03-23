@@ -10,13 +10,13 @@ import * as httpContext from 'express-http-context';
 import { IDatabase } from 'pg-promise';
 
 import { applyHooks } from './hooks';
-import { phaseSyncedSettle, PhaseSyncer } from './phaseSyncedSettle';
+import { phaseSyncedSettle } from './phaseSyncedSettle';
 import {
   debug, startTransaction, settleResultsToSriResults, generateSriRequest,
 } from './common';
 import {
   THttpMethod, SriError, TBatchHandlerRecord, TResourceDefinition, TSriRequest,
-  TSriBatchElement, TSriBatchArray,
+  TSriBatchElement, TSriBatchArray, TSriResult,
 } from './typeDefinitions';
 
 const maxSubListLen = (a) =>
@@ -126,7 +126,7 @@ function matchBatch(req) {
   handleBatchForMatchBatch(reqBody);
 }
 
-async function batchOperation(sriRequest:TSriRequest) {
+async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
   const reqBody:Array<TSriBatchElement> = sriRequest.body as Array<TSriBatchElement> || [];
   const batchConcurrency = Math.min(
     maxSubListLen(reqBody),
@@ -213,7 +213,7 @@ async function batchOperation(sriRequest:TSriRequest) {
       throw new SriError({ status: 400, errors: [{ code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.' }] });
     };
 
-    const batchResults = _.flatten(await handleBatchInBatchOperation(reqBody, sriRequest.dbT));
+    const batchResults : any[] = _.flatten(await handleBatchInBatchOperation(reqBody, sriRequest.dbT));
 
     // spec: The HTTP status code of the response must be the highest values of the responses
     // of the operations inside of the original batch, unless at least one 403 Forbidden response
@@ -228,7 +228,10 @@ async function batchOperation(sriRequest:TSriRequest) {
   }
 }
 
-async function batchOperationStreaming(sriRequest:TSriRequest) {
+/**
+ * It will return an object only containing status and no body, because the body is being streamed.
+ */
+async function batchOperationStreaming(sriRequest:TSriRequest) : Promise<TSriResult> {
   let keepAliveTimer:NodeJS.Timer | null = null;
   const reqBody = sriRequest.body;
   const batchConcurrency = global.overloadProtection.startPipeline(

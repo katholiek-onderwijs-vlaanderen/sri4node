@@ -213,8 +213,11 @@ export type TInternalSriRequest = {
   // In case of a streaming request, following fields are also required:
   inStream?: any,
   outStream?: any,
+  /** function called to set headers before streaming */
   setHeader?: (key: string, value: string) => void,
+  /** function called to set status before streaming */
   setStatus?: (statusCode:number) => void,
+  /** function which should return true when streaming is started */
   streamStarted?: () => boolean,
 
   serverTiming: { [key:string]: unknown },
@@ -222,6 +225,23 @@ export type TInternalSriRequest = {
 
 export type TResourceMetaType = Uppercase<string>;
 
+/**
+ * We invented this object that contains some utility functions that can come in handy
+ * when writing hooks and custom route handlers.
+ * We saw that some projects (and our own tests) were using global.sri4node_internal_interface
+ * but that doesn't feel right in terms of the interface.
+ *
+ * So we decided to pass an object with extra useful functions (starting with internalSriRequest)
+ * to every handler and hook that we have in the configuration.
+ *
+ * By adding it as the last patrameter, this should not break anything on existing projects,
+ * but at least we can start using this new way of doing things right away.
+ *
+ * If we find more useful functions later, we can also easily add them to this object in the future.
+ */
+export type TSriInternalUtils = {
+  internalSriRequest: (internalReq: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'>) => Promise<TSriResult>,
+}
 
 /** properties that always apply in ALL customRoute scenario's */
 export type TCustomRouteGeneralProperties = {
@@ -259,7 +279,7 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
     }
     |
     {
-      transformResponse: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
+      transformResponse: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => Promise<void>,
     }
   )
 )
@@ -268,13 +288,13 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
 export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** this will define where the customRoute listens relative to the resource base */
   beforeHandler?:
-    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition) => void,
-  handler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition) => unknown,
+    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<void>,
+  handler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<TSriResult>,
   /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
-  transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void,
+  transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult, internalUtils: TSriInternalUtils) => Promise<void>,
   afterHandler?: (
-      tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, result:unknown
-    ) => void,
+      tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, result:TSriResult, internalUtils: TSriInternalUtils
+    ) => Promise<void>,
 }
 
 /** streaming input & streaming output */
@@ -285,9 +305,9 @@ export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** indicates that the output stream is a binary stream (otherwise a response header Content-Type: 'application/json' will be set) */
   binaryStream?: boolean,
   beforeStreamingHandler?:
-    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition)
+    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils)
       => Promise<{ status: number, headers: Array<[key:string, value:string]> }>,
-  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Readable) => Promise<void>,
+  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Readable, internalUtils: TSriInternalUtils) => Promise<void>,
 }
 
 /**
@@ -311,26 +331,26 @@ export function isStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TStrea
 }
 
 export type TResourceDefinition = {
-  type: TUriPath,
-  metaType: TResourceMetaType,
-  methods?: THttpMethod[],
+  type: TUriPath;
+  metaType: TResourceMetaType;
+  methods?: THttpMethod[];
 
   /** the database table to store the records, optional, inferred from typeif missing */
-  table?: string,
+  table?: string;
 
   // these next lines are put onto the same object afterwards, not by the user
-  singleResourceRegex?: RegExp,
-  listResourceRegex?: RegExp,
-  validateKey?: ValidateFunction,
-  validateSchema?: ValidateFunction,
+  singleResourceRegex?: RegExp;
+  listResourceRegex?: RegExp;
+  validateKey?: ValidateFunction;
+  validateSchema?: ValidateFunction;
 
-  listResultDefaultIncludeCount?: boolean,
-  maxlimit?: number,
-  defaultlimit?: number,
-  defaultexpansion?: boolean,
+  listResultDefaultIncludeCount?: boolean;
+  maxlimit?: number;
+  defaultlimit?: number;
+  defaultexpansion?: boolean;
   // THIS SHOULD BE A JSON SCHEMA SO MAYBE https://github.com/json-schema-tools/meta-schema
   // WILL HELP TO CORRECTLY TYPE JSON SCHEMA'S INISDE OUT CODE
-  schema: JSONSchema4,
+  schema: JSONSchema4;
   // {
   //   $schema: "http://json-schema.org/schema#",
   //   title: "activities on a plan",
@@ -406,26 +426,111 @@ export type TResourceDefinition = {
   //     "period"
   //   ]
   // },
-  beforeUpdate?: ((p:unknown) => unknown)[],
-  beforeInsert?: ((p:unknown) => unknown)[],
-  beforeRead?: ((p:unknown) => unknown)[],
-  afterRead?: ((p:unknown) => unknown)[],
+  beforeUpdate?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: Record<string, any>;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  beforeInsert?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: Record<string, any>;
+      stored: null;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  beforeRead?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  beforeDelete?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: null;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  afterRead?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: null;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  afterUpdate?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: Record<string, any>;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  afterInsert?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: Record<string, any>;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
+  afterDelete?: Array<(
+    tx: IDatabase<unknown>,
+    sriRequest: TSriRequest,
+    data: Array<{
+      permalink: string;
+      incoming: null;
+      stored: Record<string, any>;
+    }>,
+    internalUtils: TSriInternalUtils
+  ) => void>;
   transformResponse?: Array<
-    (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => void
-  >
+    (
+      dbT: IDatabase<unknown>,
+      sriRequest: TSriRequest,
+      sriResult: TSriResult,
+      internalUtils: TSriInternalUtils
+    ) => void
+  >;
 
   // current query
-  query?: {
-    defaultFilter?:
-      (valueEnc: string, query: TPreparedSql, parameter: any, mapping: TResourceDefinition,
-        database: IDatabase<unknown, IClient>) => void,
-  }
-  |
-  {
-    [key:string]:
-    (value: string, select: TPreparedSql, key: string, database: IDatabase<unknown, IClient>,
-      count: number, mapping: TResourceDefinition) => void,
-  },
+  query?:
+    | {
+        defaultFilter?: (
+          valueEnc: string,
+          query: TPreparedSql,
+          parameter: any,
+          mapping: TResourceDefinition,
+          database: IDatabase<unknown, IClient>
+        ) => void;
+      }
+    | {
+        [key: string]: (
+          value: string,
+          select: TPreparedSql,
+          key: string,
+          database: IDatabase<unknown, IClient>,
+          count: number,
+          mapping: TResourceDefinition
+        ) => void;
+      };
 
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,
@@ -444,20 +549,23 @@ export type TResourceDefinition = {
   //   handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
   // },
   map?: {
-    [k:string]: {
-      columnToField?: Array<(key:string, element:Record<string, unknown>) => void>,
-      [k:string]: any,
-    }
-  },
-  onlyCustom?: boolean,
-  customRoutes?: Array<TCustomRoute>
+    [k: string]: {
+      columnToField?: Array<
+        (key: string, element: Record<string, unknown>) => void
+      >;
+      [k: string]: any;
+    };
+  };
+  onlyCustom?: boolean;
+  customRoutes?: Array<TCustomRoute>;
 };
 
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
-  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:unknown) => unknown
+  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<TSriResult>
 
-export type TSriRequestHandler = ((sriRequest:TSriRequest) => unknown)
-  | TSriRequestHandlerForPhaseSyncer;
+export type TSriRequestHandlerForBatch = (sriRequest:TSriRequest, internalUtils: TSriInternalUtils) => Promise<TSriResult>
+
+export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
 
 export type TBatchHandlerRecord = {
   route: unknown,
@@ -472,7 +580,7 @@ export type TBatchHandlerRecord = {
 }
 
 /**
- * I believe schema should be set on the cionnection level and not the library level
+ * I believe schema should be set on the connection level and not the library level
  * so I am supporting it here already...
  *
  * Also adding an option here to run some sql when getting a new connection.
@@ -494,9 +602,13 @@ export interface IExtendedDatabaseInitOptions extends IInitOptions {
 
 export type TSriResult = {
   status: number,
-  body: any,
   headers?: Record<string, string>,
+  body?: {
+    $$meta?: any
+    results: Array<any>
+  } | any
 }
+
 export type TOverloadProtection = {
   maxPipelines: number,
   retryAfter?: number,
@@ -504,7 +616,7 @@ export type TOverloadProtection = {
 
 export type TJobMap = Map<string, PhaseSyncer>
 
-export type TBeforePhase = (sriRequestMap:Map<string,TSriRequest>, jobMap:TJobMap, pendingJobs:Set<string>) => Promise<void>
+export type TBeforePhase = (sriRequestMap:Map<string,TSriRequest>, jobMap:TJobMap, pendingJobs:Set<string>, internalUtils: TSriInternalUtils) => Promise<void>
 
 export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
@@ -539,7 +651,7 @@ export type TSriConfig = {
   /**
    * This is a global hook. It is called during configuration, just before routes are registered in express.
    */
-  startUp?: Array<(dbT:IDatabase<unknown>, sriServerInstance: TSriServerInstance) => void>,
+  startUp?: Array<(dbT:IDatabase<unknown>, sriServerInstance: TSriServerInstance, internalUtils: TSriInternalUtils) => void>,
 
   /**
    * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests, 
@@ -553,7 +665,7 @@ export type TSriConfig = {
    * Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe
    * add the user's identity if it can be deducted from the headers).
    */
-  transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:IDatabase<unknown>)
+  transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:IDatabase<unknown>, internalUtils: TSriInternalUtils)
     => void>,
 
   /**
@@ -570,7 +682,7 @@ export type TSriConfig = {
    * After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
    * Warning: in case of an early error, sriRequest might be undefined!
   */
-  errorHandler?: Array<(sriRequest:TSriRequest, error: Error) => void>,
+  errorHandler?: Array<(sriRequest:TSriRequest, error: Error, internalUtils: TSriInternalUtils) => void>,
 
   /**
    * This is a global hook. It will be called after the request is handled (without errors). At the moment this handler is called,

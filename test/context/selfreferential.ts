@@ -16,7 +16,6 @@ module.exports = function (sri4node) {
   return {
     type: '/selfreferential',
     metaType: 'SRI4NODE_SELFREFERENTIAL',
-    'public': true, // eslint-disable-line
     map: {
       key: {},
       name: {},

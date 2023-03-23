@@ -5,7 +5,6 @@ module.exports = function (sri4node) {
   return {
     type: '/store/products',
     metaType: 'SRI4NODE_STORE_PRODUCT',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       name: {},

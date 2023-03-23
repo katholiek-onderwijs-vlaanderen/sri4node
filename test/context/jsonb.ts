@@ -3,7 +3,6 @@ module.exports = function (sri4node) {
   return {
     type: '/jsonb',
     metaType: 'SRI4NODE_JSONB',
-    'public': true, // eslint-disable-line
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'jsonb test context.',

@@ -17,10 +17,10 @@ import * as flatUrlParser from './url_parsing/flat_url_parser';
 import * as schemaUtils from './schemaUtils';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
-  TDebugChannel, TInternalSriRequest, THttpMethod, TBatchHandlerRecord, TDebugLogFunction,
+  TDebugChannel, TInternalSriRequest, THttpMethod, TDebugLogFunction,
   TErrorLogFunction, SriError, TLogDebug,
 } from './typeDefinitions';
-import { generateNonFlatQueryStringParser, generateNonFlatQueryStringParserGrammar } from './url_parsing/non_flat_url_parser';
+import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
 import url = require('url');
 import EventEmitter = require('events');
 import pEvent = require('p-event');
@@ -749,7 +749,7 @@ function checkSriConfigWithDb(sriConfig: TSriConfig) {
       }
     });
   });
-};
+}
 
 /**
  * @param obj the api object
@@ -1295,11 +1295,11 @@ function generateSriRequest(
   batchHandlerAndParams:any = undefined,
   parentSriRequest:TSriRequest | undefined = undefined,
   batchElement:any = undefined,
-  internalSriRequest:TInternalSriRequest | undefined = undefined,
+  internalSriRequest:Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined = undefined,
 ):TSriRequest {
   const baseSriRequest:TSriRequest = {
     id: uuidv4(),
-    logDebug: debug,
+    logDebug: debug, // (ch, message) => debug(requestId, ch, message)
     logError: error,
     SriError,
     // context: {},

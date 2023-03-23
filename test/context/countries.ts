@@ -4,7 +4,6 @@ module.exports = function (sri4node) {
   return {
     type: '/countries',
     metaType: 'SRI4NODE_COUNTRIES',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       name: {},

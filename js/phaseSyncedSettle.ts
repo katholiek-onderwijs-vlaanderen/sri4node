@@ -4,12 +4,13 @@ import * as pMap from 'p-map';
 import * as queue from 'emitter-queue';
 import * as Emitter from 'events';
 import * as _ from 'lodash';
-import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition } from './typeDefinitions';
+import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
 import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';
 import { applyHooks } from './hooks';
 
-const { v4: uuidv4 } = require('uuid');
+import { v4 as uuidv4 } from 'uuid';
+import pg = require('pg-promise/typescript/pg-subset');
 
 
 const debug_log = (id, msg) => {
@@ -60,7 +61,7 @@ class PhaseSyncer {
 
   constructor(
     fun: TSriRequestHandlerForPhaseSyncer,
-    args: [IDatabase<unknown>, TSriRequest, TResourceDefinition],
+    args: [IDatabase<unknown>, TSriRequest, TResourceDefinition, TSriInternalUtils],
     ctrlEmitter:Emitter,
   ) {
     this.ctrlEmitter = ctrlEmitter;
@@ -125,7 +126,7 @@ const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
  * @returns
  */
 async function phaseSyncedSettle(
-  jobList,
+  jobList //: [TSriRequestHandlerForPhaseSyncer, IDatabase<unknown, pg.IClient>, TSriRequest, TResourceDefinition, TSriInternalUtils],
   { concurrency, beforePhaseHooks }:
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},

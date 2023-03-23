@@ -1,6 +1,7 @@
 import * as uuid from 'uuid';
+import { THttpMethod, TResourceDefinition, TSriResult } from '../../sri4node';
 
-module.exports = function (sri4node) {
+module.exports = function (sri4node) : TResourceDefinition {
 
   const doBeforeHook = async (tx, sriRequest, operation) => {
     await tx.none(`INSERT INTO hooktests VALUES ('${uuid.v4()}', '${sriRequest.id}', '${operation}');`);
@@ -18,10 +19,9 @@ module.exports = function (sri4node) {
 
   const $s = sri4node.schemaUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/bars',
     metaType: 'SRI4NODE_BAR',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       foo: {},
@@ -67,16 +67,15 @@ module.exports = function (sri4node) {
       {
         routePostfix: '/only_custom_via_internal_interface',
         httpMethods: ['GET'],
-        handler: async (tx, sriRequest, customMapping) => {
+        handler: async (tx, sriRequest, customMapping, internalUtils) => {
           const getRequest = {
             href: '/onlyCustom',
-            verb: 'GET',
+            verb: 'GET' as THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
-            body: '',
           };
 
-          return global.sri4node_internal_interface(getRequest);
+          return internalUtils.internalSriRequest(getRequest);
         },
       },
       {
@@ -111,4 +110,5 @@ module.exports = function (sri4node) {
       },
     ],
   };
+  return r;
 };

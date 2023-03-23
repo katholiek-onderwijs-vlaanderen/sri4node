@@ -3,7 +3,6 @@ module.exports = function (sri4node, extra) {
   return {
     type: '/table',
     metaType: 'SRI4NODE_TABLE',
-    'public': true, // eslint-disable-line
     map: {
       select: {},
       from: {}

@@ -7,7 +7,6 @@ module.exports = function (sri4node) {
   return {
     type: '/transactions',
     metaType: 'SRI4NODE_TRANSACTION',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       transactiontimestamp: {

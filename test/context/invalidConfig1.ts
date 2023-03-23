@@ -5,7 +5,6 @@ module.exports = function (sri4node) {
     type: '/invalidconfig1',
     metaType: 'SRI4NODE_INVALID_CONFIG1',
     table: 'foos',
-    public: false, // eslint-disable-line
     map: {
       key: {},
       bAr: {},

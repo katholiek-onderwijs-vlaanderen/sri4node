@@ -77,7 +77,6 @@ module.exports = function (sri4node) {
   return {
     type: '/communities',
     metaType: 'SRI4NODE_COMMUNITY',
-    'public': false, // eslint-disable-line
     cache: {
       ttl: 0,
       type: 'local',

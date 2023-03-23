@@ -46,7 +46,6 @@ module.exports = function (sri4node) {
   return {
     type: '/messages',
     metaType: 'SRI4NODE_MESSAGE',
-    'public': false, // eslint-disable-line
     listResultDefaultIncludeCount: false,
     
     map: {

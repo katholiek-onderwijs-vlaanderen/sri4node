@@ -4,7 +4,6 @@ module.exports = function (sri4node) {
   return {
     type: '/invalidschema',
     metaType: 'SRI4NODE_INVALID_SCHEMA',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       bar: {},

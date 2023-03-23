@@ -29,7 +29,7 @@ async function informationSchema(db:IDatabase<unknown>, sriConfig:TSriConfig) {
     const tableNames = _.uniq(sriConfig.resources.map(mapping => common.tableFromMapping(mapping)));
     const query = prepareSQL('information-schema');
     const { schema } = sriConfig.databaseConnectionParameters;
-    let schemaParam:string = 'public';
+    let schemaParam = 'public';
     if (Array.isArray(schema)) {
       // eslint-disable-next-line prefer-destructuring
       schemaParam = schema[0];

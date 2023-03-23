@@ -18,7 +18,7 @@ const dummyLogger = new Console({
 
 const port = 5000;
 const logdebug:TLogDebug = { channels: [] };
-// const logdebug = { channels: 'all' };
+// const logdebug : TLogDebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
 const base = `http://localhost:${port}`;
