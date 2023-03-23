@@ -16,7 +16,7 @@ import {
 } from './common';
 import {
   THttpMethod, SriError, TBatchHandlerRecord, TResourceDefinition, TSriRequest,
-  TSriBatchElement, TSriBatchArray, TSriResult,
+  TSriBatchElement, TSriBatchArray, TSriResult, TSriInternalUtils, TSriRequestHandler, TSriRequestHandlerForBatch, TSriRequestHandlerForPhaseSyncer,
 } from './typeDefinitions';
 
 const maxSubListLen = (a) =>
@@ -126,7 +126,7 @@ function matchBatch(req) {
   handleBatchForMatchBatch(reqBody);
 }
 
-async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
+const batchOperation : TSriRequestHandlerForBatch = async function batchOperation(sriRequest, internalUtils) : Promise<TSriResult> {
   const reqBody:Array<TSriBatchElement> = sriRequest.body as Array<TSriBatchElement> || [];
   const batchConcurrency = Math.min(
     maxSubListLen(reqBody),
@@ -154,10 +154,12 @@ async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
             return result;
           },
           { concurrency: 1 });
-      } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
+      }
+
+      if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
           const batchJobs:Array<[
-            any, [IDatabase<unknown>, TSriRequest, TResourceDefinition]
+            TSriRequestHandlerForPhaseSyncer, [IDatabase<unknown>, TSriRequest, TResourceDefinition, TSriInternalUtils]
           ]> = await pMap(batch, async (batchElement:TSriBatchElement) => {
             if (!batchElement.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
@@ -173,7 +175,8 @@ async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
             );
 
             if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
-            return [match.handler.func, [tx, innerSriRequest, match.handler.mapping]];
+            // WARNING: using "as TSriRequestHandlerForPhaseSyncer" assumes that they will be correct without proper type checking!
+            return [match.handler.func as TSriRequestHandlerForPhaseSyncer, [tx, innerSriRequest, match.handler.mapping, internalUtils]];
           }, { concurrency: 1 });
 
           const results = settleResultsToSriResults(
@@ -189,13 +192,13 @@ async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
 
           await pEachSeries(results,
             async (res:any, idx) => {
-              const [_tx, innerSriRequest, mapping]:[
-                /* PhaseSyncer, */ IDatabase<unknown>, TSriRequest, TResourceDefinition
+              const [_tx, innerSriRequest, mapping, internalUtils]:[
+                IDatabase<unknown>, TSriRequest, TResourceDefinition, TSriInternalUtils
               ] = batchJobs[idx][1];
               if (!(res instanceof SriError || res?.__proto__?.constructor?.name === 'SriError')) {
                 await applyHooks('transform response',
                   mapping.transformResponse || [],
-                  (f) => f(tx, innerSriRequest, res));
+                  (f) => f(tx, innerSriRequest, res, internalUtils));
               }
             });
           return results.map((res, idx) => {
@@ -231,7 +234,7 @@ async function batchOperation(sriRequest:TSriRequest) : Promise<TSriResult> {
 /**
  * It will return an object only containing status and no body, because the body is being streamed.
  */
-async function batchOperationStreaming(sriRequest:TSriRequest) : Promise<TSriResult> {
+const batchOperationStreaming:TSriRequestHandlerForBatch = async (sriRequest, internalUtils) : Promise<TSriResult> => {
   let keepAliveTimer:NodeJS.Timer | null = null;
   const reqBody = sriRequest.body;
   const batchConcurrency = global.overloadProtection.startPipeline(
@@ -257,7 +260,7 @@ async function batchOperationStreaming(sriRequest:TSriRequest) : Promise<TSriRes
       } if (batch.every((element) => (typeof (element) === 'object') && (!Array.isArray(element)))) {
         if (!batchFailed) {
           const batchJobs:Array<[
-            any, [IDatabase<unknown>, TSriRequest, TResourceDefinition]
+            TSriRequestHandlerForPhaseSyncer, [IDatabase<unknown>, TSriRequest, TResourceDefinition, TSriInternalUtils]
           ]> = await pMap(batch, async (batchElement:TSriBatchElement) => {
             if (!batchElement.verb) {
               throw new SriError({ status: 400, errors: [{ code: 'verb.missing', msg: 'VERB is not specified.' }] });
@@ -288,7 +291,8 @@ async function batchOperationStreaming(sriRequest:TSriRequest) : Promise<TSriRes
             //   undefined, undefined, undefined, match, sriRequest, batchElement,
             // );
             if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
-            return [match.handler.func, [tx, innerSriRequest, match.handler.mapping]];
+            // WARNING: using "as TSriRequestHandlerForPhaseSyncer" assumes that they will be correct without proper type checking!
+            return [match.handler.func as TSriRequestHandlerForPhaseSyncer, [tx, innerSriRequest, match.handler.mapping, internalUtils]];
           }, { concurrency: 1 });
 
           const results = settleResultsToSriResults(await phaseSyncedSettle(batchJobs, {
@@ -338,7 +342,9 @@ async function batchOperationStreaming(sriRequest:TSriRequest) : Promise<TSriRes
       sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
     const stream2 = new Stream.Readable({ objectMode: true });
-    stream2._read = function () {};
+    stream2._read = function () {
+      // do nothing
+    };
     stream2.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, { end: false });
     keepAliveTimer = setInterval(() => { sriRequest.outStream.write(''); }, 15000);
 

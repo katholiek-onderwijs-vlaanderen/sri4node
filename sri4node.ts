@@ -43,7 +43,7 @@ import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition, TSriResult, TSriRequestHandlerForBatch, TSriInternalUtils,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition, TSriResult, TSriRequestHandlerForBatch, TSriInternalUtils, TSriRequestHandlerForPhaseSyncer,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -163,11 +163,11 @@ const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, ma
   if (sriRequest.isBatchRequest) {
     result = await (func as TSriRequestHandlerForBatch)(sriRequest, global.sriInternalUtils as TSriInternalUtils);
   } else {
-    const jobs = [[func, [dbT, sriRequest, mapping]]];
+    const job = [func as TSriRequestHandlerForPhaseSyncer, [dbT, sriRequest, mapping, global.sriInternalUtils as TSriInternalUtils]] as const;
 
     [result] = settleResultsToSriResults(
       await phaseSyncedSettle(
-        jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase },
+        [job], { beforePhaseHooks: global.sri4node_configuration.beforePhase },
       ),
     );
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
@@ -355,7 +355,7 @@ const expressWrapper = (
           .forEach(([key, value]) => resp.write(`,\n"${key}": ${JSON.stringify(value)}`));
         resp.write('\n}');
         resp.end();
-      } else if (result.body) {
+      } else if (result.body !== undefined) {
         resp.send(result.body);
       } else {
         resp.send();

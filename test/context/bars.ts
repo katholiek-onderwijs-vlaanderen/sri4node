@@ -1,5 +1,5 @@
 import * as uuid from 'uuid';
-import { THttpMethod, TResourceDefinition, TSriResult } from '../../sri4node';
+import { THttpMethod, TInternalSriRequest, TResourceDefinition, TSriRequestBody, TSriResult } from '../../sri4node';
 
 module.exports = function (sri4node) : TResourceDefinition {
 
@@ -81,31 +81,30 @@ module.exports = function (sri4node) : TResourceDefinition {
       {
         routePostfix: '/simple_like_via_internal_interface',
         httpMethods: ['GET'],
-        handler: async (tx, sriRequest, customMapping) => {
+        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
           const getRequest = {
             href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike',
-            verb: 'GET',
+            verb: 'GET' as THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
-            body: '',
           };
 
-          return global.sri4node_internal_interface(getRequest);
+          return internalUtils.internalSriRequest(getRequest);
         },
       },
       {
         routePostfix: '/proxy_internal_interface',
         httpMethods: ['POST'],
-        handler: async (tx, sriRequest, customMapping) => {
+        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
           const intRequest = {
             href: sriRequest.query.href,
-            verb: sriRequest.query.method,
+            verb: sriRequest.query.method as THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
             body: sriRequest.body,
           };
 
-          return global.sri4node_internal_interface(intRequest);
+          return internalUtils.internalSriRequest(intRequest);
         },
       },
     ],

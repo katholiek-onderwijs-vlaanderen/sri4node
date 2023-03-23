@@ -61,7 +61,7 @@ class PhaseSyncer {
 
   constructor(
     fun: TSriRequestHandlerForPhaseSyncer,
-    args: [IDatabase<unknown>, TSriRequest, TResourceDefinition, TSriInternalUtils],
+    args: readonly [IDatabase<unknown>, TSriRequest, TResourceDefinition | null, TSriInternalUtils],
     ctrlEmitter:Emitter,
   ) {
     this.ctrlEmitter = ctrlEmitter;
@@ -126,7 +126,7 @@ const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
  * @returns
  */
 async function phaseSyncedSettle(
-  jobList //: [TSriRequestHandlerForPhaseSyncer, IDatabase<unknown, pg.IClient>, TSriRequest, TResourceDefinition, TSriInternalUtils],
+  jobList: Array<readonly [TSriRequestHandlerForPhaseSyncer, readonly [IDatabase<unknown, pg.IClient>, TSriRequest, TResourceDefinition | null, TSriInternalUtils]]>,
   { concurrency, beforePhaseHooks }:
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},
@@ -189,7 +189,7 @@ async function phaseSyncedSettle(
    * when an error has encoutered. The boolean failureHasBeenBroadcasted is used to indicate wether the
    * notification is already happened or not.
    */
-  let failureHasBeenBroadcasted : boolean = false;
+  let failureHasBeenBroadcasted = false;
 
   try {
     /**

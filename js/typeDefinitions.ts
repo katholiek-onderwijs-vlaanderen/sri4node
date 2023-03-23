@@ -208,7 +208,7 @@ export type TInternalSriRequest = {
   dbT: IDatabase<unknown>, // transaction or task object of pg promise
   parentSriRequest: TSriRequest,
   headers?: { [key:string] : string } | IncomingHttpHeaders,
-  body?: Array<{ href: string, verb: THttpMethod, body: TSriRequestBody }>,
+  body?: Array<{ href: string, verb: THttpMethod, body: TSriRequestBody }> | TSriRequestBody,
 
   // In case of a streaming request, following fields are also required:
   inStream?: any,
@@ -561,9 +561,10 @@ export type TResourceDefinition = {
 };
 
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
-  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<TSriResult>
+  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition | null, internalUtils: TSriInternalUtils) => Promise<TSriResult>
 
-export type TSriRequestHandlerForBatch = (sriRequest:TSriRequest, internalUtils: TSriInternalUtils) => Promise<TSriResult>
+export type TSriRequestHandlerForBatch = (sriRequest:TSriRequest,
+  internalUtils: TSriInternalUtils) => Promise<TSriResult>
 
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
 
