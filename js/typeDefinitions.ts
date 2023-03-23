@@ -18,7 +18,7 @@ import stream = require('stream');
 import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
-import Ajv, { ValidateFunction } from "ajv"
+import { ValidateFunction } from "ajv"
 
 export type TPluginConfig = Record<string, unknown>;
 
@@ -569,7 +569,7 @@ export type TSriRequestHandlerForBatch = (sriRequest:TSriRequest,
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
 
 export type TBatchHandlerRecord = {
-  route: unknown,
+  route: string,
   verb: THttpMethod,
   func: TSriRequestHandler,
   // eslint-disable-next-line no-use-before-define
@@ -579,6 +579,13 @@ export type TBatchHandlerRecord = {
   readOnly: boolean,
   isBatch: boolean,
 }
+// EXPERIMENT: I think it would be better to separate func, which can have 2 types, into 2 separate
+// properties, one for each type. This would make the type system more precise.
+// & (
+//   { requestHandlerForBatch: TSriRequestHandlerForBatch }
+//   |
+//   { requestHandlerForPhaseSyncer: TSriRequestHandlerForPhaseSyncer }
+// )
 
 /**
  * I believe schema should be set on the connection level and not the library level
@@ -646,7 +653,18 @@ export type TSriConfig = {
   defaultlimit?: boolean,
   // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
   // trackHeapMax?: boolean,
-  batchHandlerMap?: TBatchHandlerRecord,
+  /**
+   * DO NOT USE! This is generated when configure() is called,
+   * and then added to the sriConfig object, which is bad practice.
+   *
+   * This is a map generated when configure() is called.
+   * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
+   */
+  batchHandlerMap?: {
+    [K in THttpMethod]: Array<
+      Omit<TBatchHandlerRecord, 'route'> & { route: Record<string, any> }
+    >
+  },
   resources: TResourceDefinition[],
 
   /**

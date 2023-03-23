@@ -16,7 +16,7 @@ import {
 } from './common';
 import {
   THttpMethod, SriError, TBatchHandlerRecord, TResourceDefinition, TSriRequest,
-  TSriBatchElement, TSriBatchArray, TSriResult, TSriInternalUtils, TSriRequestHandler, TSriRequestHandlerForBatch, TSriRequestHandlerForPhaseSyncer,
+  TSriBatchElement, TSriBatchArray, TSriResult, TSriInternalUtils, TSriRequestHandlerForBatch, TSriRequestHandlerForPhaseSyncer, TSriConfig,
 } from './typeDefinitions';
 
 const maxSubListLen = (a) =>
@@ -42,7 +42,7 @@ type TMatchedHref = {
  * like path, routeParams (example /resources/:id) and queryParams (?key=value)
  *
  * @param {String} href
- * @param {'GET' | 'PUT' | 'PATCH' | 'DELETE' | 'POST'} verb: GET,PUT,PATCH,DELETE,POST
+ * @param {THttpMethod} verb: GET,PUT,PATCH,DELETE,POST
  * @returns an object of the form { path, routeParams, queryParams, handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
  */
 function matchHref(href:string, verb:THttpMethod):TMatchedHref {
@@ -54,7 +54,8 @@ function matchHref(href:string, verb:THttpMethod):TMatchedHref {
   const queryParams = parsedUrl.query;
   const path = (parsedUrl.pathname || '').replace(/\/$/, ''); // replace eventual trailing slash
 
-  const matches = global.sri4node_configuration.batchHandlerMap[verb]
+  const batchHandlerMap:NonNullable<TSriConfig['batchHandlerMap']> = global.sri4node_configuration.batchHandlerMap;
+  const matches = batchHandlerMap[verb]
     .map((handler) => ({ handler, match: handler.route.match(path) }))
     .filter(({ match }) => match !== false);
 
@@ -134,7 +135,6 @@ const batchOperation : TSriRequestHandlerForBatch = async function batchOperatio
   );
   global.overloadProtection.startPipeline(batchConcurrency);
   try {
-    const contextInsideBatch = {};
     let batchFailed = false;
 
     const handleBatchInBatchOperation = async (batch:Array<TSriBatchElement>, tx) => {

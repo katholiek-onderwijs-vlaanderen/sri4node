@@ -43,7 +43,7 @@ import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition, TSriResult, TSriRequestHandlerForBatch, TSriInternalUtils, TSriRequestHandlerForPhaseSyncer,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition, TSriResult, TSriRequestHandlerForBatch, TSriInternalUtils, TSriRequestHandlerForPhaseSyncer,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -1206,6 +1206,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     );
 
     // transform map with 'routes' to be usable in batch (translate and group by verb)
+    // TODO: do not modify the sriConfig provided to us by the user!
     sriConfig.batchHandlerMap = _.groupBy(
       batchHandlerMap.map(
         ({
