@@ -1,7 +1,9 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/invalidconfig2',
     metaType: 'SRI4NODE_INVALID_CONFIG2',
     table: 'foos',
@@ -22,4 +24,5 @@ module.exports = function (sri4node) {
       required: ['key', 'bar', 'foo']
     },
   };
+  return r;
 };

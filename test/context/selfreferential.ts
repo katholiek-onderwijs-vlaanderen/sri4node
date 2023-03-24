@@ -1,3 +1,5 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
 
@@ -12,8 +14,8 @@ module.exports = function (sri4node) {
     select.sql(' AND key IN (SELECT key FROM parentsof)');
     sri4node.debug('mocha', select.text);
   }
-  
-  return {
+
+  const r : TResourceDefinition = {
     type: '/selfreferential',
     metaType: 'SRI4NODE_SELFREFERENTIAL',
     map: {
@@ -37,4 +39,5 @@ module.exports = function (sri4node) {
       allParentsOf: allParentsOf
     },
   };
+  return r;
 };

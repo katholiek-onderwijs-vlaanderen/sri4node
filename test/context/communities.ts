@@ -1,4 +1,5 @@
 import * as pMap from 'p-map';
+import { TResourceDefinition } from '../../sri4node';
 
 module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
@@ -74,13 +75,9 @@ module.exports = function (sri4node) {
     }
   }
 
-  return {
+  const r : TResourceDefinition = {
     type: '/communities',
     metaType: 'SRI4NODE_COMMUNITY',
-    cache: {
-      ttl: 0,
-      type: 'local',
-    },
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'A local group in the LETS system.',
@@ -163,4 +160,5 @@ module.exports = function (sri4node) {
       },
     ],
   };
+  return r;
 };

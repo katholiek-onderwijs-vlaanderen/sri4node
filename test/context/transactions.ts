@@ -1,10 +1,11 @@
 import * as pMap from 'p-map';
+import { TResourceDefinition } from '../../sri4node';
 
 module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/transactions',
     metaType: 'SRI4NODE_TRANSACTION',
     map: {
@@ -69,4 +70,5 @@ module.exports = function (sri4node) {
       },
     ],
   };
+  return r;
 };

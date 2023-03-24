@@ -1,3 +1,4 @@
+import { TResourceDefinition } from '../../sri4node';
 import utils from '../utils';
 
 module.exports = function (sri4node) {
@@ -43,7 +44,7 @@ module.exports = function (sri4node) {
     select.sql(' AND "key" IN (SELECT key FROM cte2)');
   };
 
-  return {
+  const r : TResourceDefinition = {
     type: '/messages',
     metaType: 'SRI4NODE_MESSAGE',
     listResultDefaultIncludeCount: false,
@@ -110,7 +111,6 @@ module.exports = function (sri4node) {
       validateMoreThan('amount', 10),
       validateMoreThan('amount', 20)
     ],
-
-    transformRequest: utils.lookForBasicAuthUser
   };
+  return r;
 };

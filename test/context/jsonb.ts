@@ -1,6 +1,8 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/jsonb',
     metaType: 'SRI4NODE_JSONB',
     schema: {
@@ -20,4 +22,5 @@ module.exports = function (sri4node) {
       foo: {}
     }
   };
+  return r;
 };

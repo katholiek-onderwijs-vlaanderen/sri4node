@@ -19,6 +19,7 @@ import { PhaseSyncer } from './phaseSyncedSettle';
 // import * as pgPromise from 'pg-promise';
 
 import { ValidateFunction } from "ajv"
+import { ParsedUrlQuery } from 'querystring';
 
 export type TPluginConfig = Record<string, unknown>;
 
@@ -82,7 +83,7 @@ export type TSriBatchElement = {
   body: TSriRequestBody,
   match?: {
     path: string,
-    queryParams: any,
+    queryParams: ParsedUrlQuery,
     routeParams: any,
     handler: TBatchHandlerRecord,
   }
@@ -95,6 +96,8 @@ export type TSriRequestBody =
   TSriBatchArray
   |
   Array<Operation> // json patch
+  |
+  any
 
 export type TPreparedSql = {
   name?:string,
@@ -148,7 +151,7 @@ export type TSriRequest = {
   originalUrl?: string,
 
   path: TUriPath,
-  query: Record<string, string>, // batchHandlerAndParams.queryParams,
+  query: ParsedUrlQuery, //Record<string, string>, // batchHandlerAndParams.queryParams,
   params: Record<string, string>, // batchHandlerAndParams.routeParams,
 
   sriType?: string, // batchHandlerAndParams.handler.mapping.type,
@@ -199,6 +202,7 @@ export type TSriRequest = {
   multiDeleteError?: any,
 
   userData: Record<string, any>,
+  userObject?: any,
 };
 
 export type TInternalSriRequest = {
@@ -243,6 +247,28 @@ export type TSriInternalUtils = {
   internalSriRequest: (internalReq: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'>) => Promise<TSriResult>,
 }
 
+export type TSriQueryFun =
+  | {
+    defaultFilter?: (
+      valueEnc: string,
+      query: TPreparedSql,
+      parameter: any,
+      mapping: TResourceDefinition,
+      database: IDatabase<unknown, IClient>
+    ) => void;
+  }
+  | {
+    [key: string]: (
+      value: string,
+      select: TPreparedSql,
+      key: string,
+      database: IDatabase<unknown, IClient>,
+      count: number,
+      mapping: TResourceDefinition
+    ) => void;
+  };
+
+
 /** properties that always apply in ALL customRoute scenario's */
 export type TCustomRouteGeneralProperties = {
   routePostfix: TUriPath,
@@ -269,8 +295,7 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
   {
     like: string,
     /** this will define where the customRoute listens relative to the resource base */
-    query?: (valueEnc: string, query: TPreparedSql, parameter: any, mapping: TResourceDefinition,
-      database: IDatabase<unknown, IClient>) => void,
+    query?: TSriQueryFun,
   }
   &
   (
@@ -306,8 +331,8 @@ export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
   binaryStream?: boolean,
   beforeStreamingHandler?:
     (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils)
-      => Promise<{ status: number, headers: Array<[key:string, value:string]> }>,
-  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Readable, internalUtils: TSriInternalUtils) => Promise<void>,
+      => Promise<{ status: number, headers: Array<[key:string, value:string]> } | undefined>,
+  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Duplex, internalUtils: TSriInternalUtils) => Promise<void>,
 }
 
 /**
@@ -511,26 +536,7 @@ export type TResourceDefinition = {
   >;
 
   // current query
-  query?:
-    | {
-        defaultFilter?: (
-          valueEnc: string,
-          query: TPreparedSql,
-          parameter: any,
-          mapping: TResourceDefinition,
-          database: IDatabase<unknown, IClient>
-        ) => void;
-      }
-    | {
-        [key: string]: (
-          value: string,
-          select: TPreparedSql,
-          key: string,
-          database: IDatabase<unknown, IClient>,
-          count: number,
-          mapping: TResourceDefinition
-        ) => void;
-      };
+  query?: TSriQueryFun
 
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,

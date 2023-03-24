@@ -1,5 +1,5 @@
 import * as uuid from 'uuid';
-import { THttpMethod, TInternalSriRequest, TResourceDefinition, TSriRequestBody, TSriResult } from '../../sri4node';
+import { THttpMethod, TResourceDefinition } from '../../sri4node';
 
 module.exports = function (sri4node) : TResourceDefinition {
 
@@ -96,6 +96,18 @@ module.exports = function (sri4node) : TResourceDefinition {
         routePostfix: '/proxy_internal_interface',
         httpMethods: ['POST'],
         handler: async (tx, sriRequest, _customMapping, internalUtils) => {
+          if (!sriRequest.query.href || Array.isArray(sriRequest.query.href)) {
+            return {
+              status: 500,
+              body: 'One "href" query value is required.'
+            }
+          }
+          if (!sriRequest.query.method || Array.isArray(sriRequest.query.method)) {
+            return {
+              status: 500,
+              body: 'One "verb" query value is required.'
+            }
+          }
           const intRequest = {
             href: sriRequest.query.href,
             verb: sriRequest.query.method as THttpMethod,

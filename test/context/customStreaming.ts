@@ -1,8 +1,11 @@
 import * as sleep from 'await-sleep';
+import { TResourceDefinition } from '../../sri4node';
 
 exports = module.exports = function (sri4node) {
-  return  {
+  const r : TResourceDefinition = {
     type: '/customStreaming',
+    metaType: 'SRI4NODE_CUSTOM_STREAMING',
+    schema: {},
     customRoutes: [
       { routePostfix: ''
       , httpMethods: ['GET']
@@ -39,6 +42,7 @@ exports = module.exports = function (sri4node) {
           if (result[0].foo !== 1) {
             throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.before.streaming.handler' }] });
           }
+          return undefined;
         }
       , streamingHandler: async (tx, sriRequest, stream) => {
           stream.push('done');
@@ -47,5 +51,6 @@ exports = module.exports = function (sri4node) {
     ],
     onlyCustom: true
   };
+  return r;
 };
 

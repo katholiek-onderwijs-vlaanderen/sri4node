@@ -3,7 +3,6 @@ import * as pEvent from 'p-event';
 import * as pMap from 'p-map';
 import * as queue from 'emitter-queue';
 import * as Emitter from 'events';
-import * as _ from 'lodash';
 import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
 import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';
@@ -374,7 +373,7 @@ async function phaseSyncedSettle(
       );
     });
     await pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-    return [...jobMap.values()].map((phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
+    return [...jobMap.values()].map((_phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
   }
 }
 

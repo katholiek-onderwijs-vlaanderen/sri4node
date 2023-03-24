@@ -271,28 +271,33 @@ const batchOperationStreaming:TSriRequestHandlerForBatch = async (sriRequest, in
 
             const { match } = batchElement;
 
-            const innerSriRequest:TSriRequest = {
-              ...sriRequest,
-              parentSriRequest: sriRequest,
-              path: match?.path || '',
-              originalUrl: batchElement.href,
-              query: match?.queryParams,
-              params: match?.routeParams,
-              httpMethod: batchElement.verb,
-              body: batchElement.body,
-              // element.body === undefined || _.isObject(element.body)
-              //   ? element.body
-              //   : JSON.parse(element.body),
-              sriType: match?.handler.mapping.type,
-              isBatchPart: true,
-              // context,
-            };
-            // const innerSriRequest:TSriRequest = generateSriRequest(
-            //   undefined, undefined, undefined, match, sriRequest, batchElement,
-            // );
-            if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
-            // WARNING: using "as TSriRequestHandlerForPhaseSyncer" assumes that they will be correct without proper type checking!
-            return [match.handler.func as TSriRequestHandlerForPhaseSyncer, [tx, innerSriRequest, match.handler.mapping, internalUtils]];
+            if (match) {
+              const innerSriRequest:TSriRequest = {
+                ...sriRequest,
+                parentSriRequest: sriRequest,
+                path: match.path || '',
+                originalUrl: batchElement.href,
+                query: match.queryParams,
+                params: match.routeParams,
+                httpMethod: batchElement.verb,
+                body: batchElement.body,
+                // element.body === undefined || _.isObject(element.body)
+                //   ? element.body
+                //   : JSON.parse(element.body),
+                sriType: match.handler.mapping.type,
+                isBatchPart: true,
+                // context,
+              };
+              // const innerSriRequest:TSriRequest = generateSriRequest(
+              //   undefined, undefined, undefined, match, sriRequest, batchElement,
+              // );
+              if (!match?.handler?.func) throw new Error('match.handler.func is undefined');
+              // WARNING: using "as TSriRequestHandlerForPhaseSyncer" assumes that they will be correct without proper type checking!
+              return [match.handler.func as TSriRequestHandlerForPhaseSyncer, [tx, innerSriRequest, match.handler.mapping, internalUtils]];
+            } else {
+              // should not occur
+              throw new SriError({ status: 500, errors: [{ code: 'batch.missing.match', msg: '' }] });
+            }
           }, { concurrency: 1 });
 
           const results = settleResultsToSriResults(await phaseSyncedSettle(batchJobs, {

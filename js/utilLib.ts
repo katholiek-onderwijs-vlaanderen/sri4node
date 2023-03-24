@@ -1,6 +1,6 @@
 import * as pMap from 'p-map';
 import { typeToConfig, pgExec, transformRowToObject } from './common';
-import { TSriRequest } from './typeDefinitions';
+import { SriError, TSriRequest } from './typeDefinitions';
 import { prepareSQL } from './queryObject';
 
 /*
@@ -17,6 +17,11 @@ function addReferencingResources(
     const { resources } = global.sri4node_configuration;
     const typeToMapping = typeToConfig(resources);
     const mapping = typeToMapping[type];
+
+    if (Array.isArray(sriRequest.query.expand)) {
+      throw new SriError({ status: 500, errors: [{ code: 'multiple.expand.query.parameters.not.allowed', msg: 'Only one "expand" query parameter value can be specified.' }] });
+    }
+
     const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : 'full';
 
     if (elements && elements.length && elements.length > 0 && expand !== 'none'

@@ -61,7 +61,8 @@ import { overloadProtectionFactory } from './js/overloadProtection';
 import * as relationFilters from './js/relationsFilter';
 import { ServerResponse } from 'http';
 
-const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
+import { JsonStreamStringify } from 'json-stream-stringify';
+
 
 const ajv = new Ajv({ coerceTypes: true, logger: {
   log: (output: string) => { debug('general', output) },

@@ -1,6 +1,8 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node, extra) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/table',
     metaType: 'SRI4NODE_TABLE',
     map: {
@@ -19,4 +21,5 @@ module.exports = function (sri4node, extra) {
       required: ['select', 'from']
     },
   };
+  return r;
 };

@@ -1,6 +1,10 @@
-module.exports = function (sri4node) {
-  return {
+import { TResourceDefinition } from "../../sri4node";
+
+module.exports = function (_sri4node) {
+  const r : TResourceDefinition = {
     type: '/onlyCustom',
+    metaType: 'SRI4NODE_ONLY_CUSTOM',
+    schema: {},
     customRoutes: [
       {
         routePostfix: '',
@@ -23,5 +27,6 @@ module.exports = function (sri4node) {
     ],
     onlyCustom: true
   };
+  return r;
 };
 

@@ -1,7 +1,9 @@
+import { TResourceDefinition } from "../../sri4node";
+
 // Messages relations
 module.exports = function (sri4node, extra) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/relations',
     metaType: 'SRI4NODE_RELATIONS',
     map: {
@@ -35,4 +37,5 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'from', 'to', 'type']
     },
   };
+  return r;
 };

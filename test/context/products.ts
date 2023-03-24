@@ -1,8 +1,10 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
   const $m = sri4node.mapUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/store/products',
     metaType: 'SRI4NODE_STORE_PRODUCT',
     map: {
@@ -35,4 +37,5 @@ module.exports = function (sri4node) {
       required: ['key', 'name', 'category', 'package']
     },
   };
+  return r;
 };
