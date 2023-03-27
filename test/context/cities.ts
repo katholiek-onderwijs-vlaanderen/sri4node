@@ -23,7 +23,7 @@ module.exports = function (sri4node) {
       },
       required: ['key', 'name', 'nisCode']
     },
-    beforeInsert: [ (tx, sriRequest, elements) => { 
+    beforeInsert: [ (_tx, sriRequest, _elements) => { 
         if (sriRequest.body?.key === 100001) {
             sriRequest.generateError = true;
         }

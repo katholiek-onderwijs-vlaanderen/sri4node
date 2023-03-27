@@ -16,7 +16,7 @@ module.exports = function (_sri4node) {
             throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.before.handler' }] });
           }
         },
-        handler: async (tx, sriRequest, mapping) => {
+        handler: async (_tx, sriRequest, _mapping) => {
           if (sriRequest.userObject.email === 'sam@email.be') {
             return { status: 200, body: `{ "sriType": "${sriRequest.sriType}" }`, headers: {'content-type': 'application/json; charset=utf-8'} }
           } else {

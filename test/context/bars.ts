@@ -67,7 +67,7 @@ module.exports = function (sri4node) : TResourceDefinition {
       {
         routePostfix: '/only_custom_via_internal_interface',
         httpMethods: ['GET'],
-        handler: async (tx, sriRequest, customMapping, internalUtils) => {
+        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
           const getRequest = {
             href: '/onlyCustom',
             verb: 'GET' as THttpMethod,

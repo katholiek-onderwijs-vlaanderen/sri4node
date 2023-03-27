@@ -9,17 +9,6 @@ import { SriError, TResourceDefinition, TSriRequest } from './typeDefinitions';
 import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
-async function executeSecureFunctionsOnExpandedElements(db, expandedElements, targetMapping, me) {
-  if (targetMapping.secure && targetMapping.secure.length) {
-    const batch = expandedElements.map((e) => ({
-      href: e.$$meta.permalink,
-      verb: 'GET',
-    }));
-    return pMap(targetMapping.secure, (fun:any) => fun(db, me, batch));
-  }
-  return [];
-}
-
 const checkRecurse = (expandpath) => {
   const parts = expandpath.split('.');
   if (parts.length > 1) {
@@ -173,7 +162,7 @@ async function executeExpansion(db, sriRequest, elements, mapping) {
     const paths = parseExpand(expand);
     if (paths && paths.length > 0) {
       const expandedElements = elements.map((element) => element.$$expanded || element);
-      const results = await pMap(
+      await pMap(
         paths,
         (path:string) => (
           executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path)

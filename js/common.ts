@@ -163,7 +163,7 @@ function pegSyntaxErrorToErrorMessage(e:{[prop:string]: any}, input = '') {
     )
       .split('\n')
       .map((l, lineNr) => `${(`0000${lineNr}`).slice(-3)} ${l}`)
-      .filter((l, lineNr) => lineNr > e.location.start.line - 3 && lineNr < e.location.start.line + 3)
+      .filter((_l, lineNr) => lineNr > e.location.start.line - 3 && lineNr < e.location.start.line + 3)
       .join('\n');
 
     return `${e.message} at line ${e.location.start.line}, column ${e.location.start.column}\n\n${markedErrorString}`;
@@ -190,7 +190,6 @@ function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDef
   const DEFAULT_MAX_LIMIT = 500; // if not configured in mapping file
   const DEFAULT_EXPANSION = 'FULL';
   const DEFAULT_INCLUDECOUNT = false;
-  const DEFAULT_$$meta_deleted_IN = [false];
   const DEFAULT_LIST_ORDER_BY = ['$$meta.created', 'key'];
   const DEFAULT_LIST_ORDER_DESCENDING = false;
 
@@ -441,7 +440,7 @@ function hrefToParsedObjectFactory(
 
         const normalizedParseTree = sortUrlQueryParamParseTree([...parseTree, ...missingDefaultsParseTree])
           // remove 'expectedValue' to make sure tests still work
-          .map((x) => { const { expectedValue, ...rest } = x; return rest; });
+          .map((x) => { const { expectedValue: _expectedValue, ...rest } = x; return rest; });
 
         const parsedUrlObject = {
           parseTree: normalizedParseTree,
@@ -505,7 +504,8 @@ function getParentSriRequest(sriRequest:TSriRequest, recurse = false) {
 }
 
 function installEMT(app:Application) {
-  app.use(emt.init((req:Express.Request, res:Express.Response) => {
+  app.use(emt.init((_req:Express.Request, _res:Express.Response) => {
+    // Do nothing (empty function provided to avoid stdout logging for each request)
   }));
   return emt;
 }
@@ -525,7 +525,7 @@ function setServerTimingHdr(sriRequest:TSriRequest, property, value) {
 function emtReportToServerTiming(req:Request, res:Response, sriRequest:TSriRequest) {
   try {
     const report = emt.calculate(req, res);
-    const timerLogs = Object.keys(report.timers).forEach((timer) => {
+    Object.keys(report.timers).forEach((timer) => {
       const duration = report.timers[timer].took;
       if (duration > 0 && timer !== 'express-wrapper') {
         setServerTimingHdr(sriRequest, timer, duration);
@@ -937,29 +937,6 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
   return pgp(cn);
 }
 
-/**
- * TODO: finish how this should be exposed to the user in order to be used
- */
-async function pgDeallocateAllPreparedStatements(pgClients) {
-  throw new Error('[pgDeallocateAllPreparedStatements] Not implemented');
-//   // <<<<<<<<<< START HACK
-//   // The 'pg' library has currently no possibility to release prepared statements and since version 7.8.2
-//   // the lib starts throwing errors when using a prepared statement with same name and changed sql compared
-//   // with early usage of the prepared statement.
-//   //  ==> Use the configuration hash in the name of the prepared statement to void changed sql for the same
-//   // prepated statement name and execute 'DEALLOCATE ALL' at the database to release prepared statements at
-//   // server side before creating new ones. This way there only remain prepared statements state at the
-//   // 'pg' client side.
-//   // There seems no way to get the pgClient from the dbR object, store pgClient via connect handler in a
-//   // global variable. This will work as long as we use ONE database connection. If a master/follower db
-//   // is needed, this code will need some changes; probably the pg-promise 'dc' ( = Database Context ) can
-//   // be used for this.
-//   for (const pgClient of pgClients) {
-//     pgClient.connection.parsedStatements = {};
-//   }
-//   await dbR.query('DEALLOCATE ALL;')
-//   // >>>>>>>>>> END HACK
-}
 
 /**
  * @type {{ name: string, text: string }} details
@@ -1081,7 +1058,6 @@ async function startTransaction(
 }
 
 async function startTask(db) {
-  const hrstart = process.hrtime();
   debug('db', '++ Starting database task.');
 
   const emitter = new EventEmitter();
@@ -1121,7 +1097,6 @@ async function startTask(db) {
         throw res;
       }
     };
-    const hrElapsed = process.hrtime(hrstart);
 
     return ({ t, endTask });
   } catch (err) {
@@ -1194,7 +1169,7 @@ function tableFromMapping(mapping:TResourceDefinition) {
 function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
 
-  function customizer(val, key, obj) {
+  function customizer(val, key, _obj) {
     if (mapping.schema.properties[key] && mapping.schema.properties[key].format === 'date-time') {
       return (new Date(val)).getTime();
     }
@@ -1240,7 +1215,9 @@ function settleResultsToSriResults(results) {
 
 function createReadableStream(objectMode = true) {
   const s = new Readable({ objectMode });
-  s._read = function () {};
+  s._read = function () {
+    // Do nothing
+  };
   return s;
 }
 
@@ -1515,7 +1492,6 @@ export {
   pgExec,
   pgResult,
   createPreparedStatement,
-  pgDeallocateAllPreparedStatements,
   startTransaction,
   startTask,
   installVersionIncTriggerOnTable,

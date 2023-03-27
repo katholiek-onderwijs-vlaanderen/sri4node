@@ -64,7 +64,7 @@ async function informationSchema(db:IDatabase<unknown>, sriConfig:TSriConfig) {
         }));
   }
   return cache;
-};
+}
 
 /**
  * For testing purposes, when trying to start multiple sri4node instances, there is need to be able to clear the

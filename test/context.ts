@@ -11,15 +11,12 @@ context.serve();
 import * as express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
-import { TSriConfig, SriError, TSriRequest, TDebugChannel, TLogDebug } from '../js/typeDefinitions';
+import { TSriConfig, SriError, TSriRequest, TLogDebug } from '../js/typeDefinitions';
 import utils from './utils';
 
-let $u;
 let configCache: any = null;
 
 function config(sri4node, logdebug, dummyLogger, resourceFiles) {
-  $u = sri4node.utils;
-
   const config:TSriConfig = {
     // For debugging SQL can be logged.
     logdebug,
@@ -32,7 +29,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     resources: resourceFiles.map( (file) => require(file)(sri4node) ),
 
     beforePhase: [
-      async (sriRequestMap, jobMap, pendingJobs) => {
+      async (sriRequestMap, _jobMap, pendingJobs) => {
         (Array.from(sriRequestMap) as Array<[string, TSriRequest]>)
           .forEach(([psId, sriRequest]) => {
             if (pendingJobs.has(psId)) {
@@ -45,7 +42,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       },
 
       // count the number of calls to beforePhase
-      async (sriRequestMap: Map<string,TSriRequest>, jobMap, pendingJobs) => {
+      async (sriRequestMap: Map<string,TSriRequest>, _jobMap, _pendingJobs) => {
         // find parent sriRequest
         const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
         if (sriRequest.userData.beforePhaseCntr === undefined) {

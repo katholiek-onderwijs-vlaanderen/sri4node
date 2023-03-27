@@ -202,7 +202,7 @@ export type TSriRequest = {
   multiDeleteError?: any,
 
   userData: Record<string, any>,
-  userObject?: any,
+  userObject?: any, // can be used to store information of the user
 };
 
 export type TInternalSriRequest = {

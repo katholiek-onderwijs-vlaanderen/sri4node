@@ -90,7 +90,7 @@ module.exports = function (httpClient: THttpClient) {
         const response = await httpClient.get({ path: '/communities?hrefs=/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d' +
                      ',/communities/6531e471-7514-43cc-9a19-a72cf6d27f4c', auth: 'sabine' });
         assert.equal(response.body.$$meta.count, 2);
-        var hrefs = [response.body.results[0].href, response.body.results[1].href];
+        const hrefs = [response.body.results[0].href, response.body.results[1].href];
         if (hrefs.indexOf('/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d') === -1) {
           assert.fail();
         }

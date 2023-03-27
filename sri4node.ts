@@ -9,7 +9,6 @@
 process.env.TIMER = 'true';
 
 import { Application, Request, Response } from 'express';
-import { Stream } from 'stream';
 import * as _ from 'lodash';
 import * as util from 'util';
 
@@ -37,7 +36,8 @@ import {
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
   debugAnyChannelAllowed,
-  checkSriConfigWithDb
+  checkSriConfigWithDb,
+  createReadableStream
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
@@ -53,7 +53,6 @@ import { informationSchema } from './js/informationSchema';
 import { phaseSyncedSettle } from './js/phaseSyncedSettle';
 import { applyHooks } from './js/hooks';
 
-// const listResource = require('./js/listResource')
 import * as listResource from './js/listResource';
 import * as regularResource from './js/regularResource';
 import utilLib = require('./js/utilLib');
@@ -111,7 +110,7 @@ function getDocs(req, resp) {
   }
 }
 
-const getResourcesOverview = (req, resp) => {
+const getResourcesOverview = (_req, resp) => {
   resp.set('Content-Type', 'application/json');
   const resourcesToSend = {};
   global.sri4node_configuration.resources.forEach((resource) => {
@@ -192,7 +191,7 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
   if ((logEnabled || hdrEnable) && (sriRequest.serverTiming !== undefined)) {
     emtReportToServerTiming(req, resp, sriRequest);
     const notNullEntries = Object.entries(sriRequest.serverTiming)
-      .filter(([property, value]) => value as number > 0);
+      .filter(([_property, value]) => value as number > 0);
 
     if (notNullEntries.length > 0) {
       serverTiming = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value as number * 100) / 100).toFixed(2)}`).join(', ');
@@ -216,7 +215,7 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
 const expressWrapper = (
   dbR, dbW, func:TSriRequestHandler, sriConfig:TSriConfig, mapping:TResourceDefinition | null,
   isStreamingRequest:boolean, isBatchRequest:boolean, readOnly0:boolean,
-) => async function (req:Request, resp:Response, next) {
+) => async function (req:Request, resp:Response, _next) {
   let t: any = null; let endTask; let resolveTx; let rejectTx; let
     readOnly;
   const reqMsgStart = `${req.method} ${req.path}`;
@@ -273,7 +272,7 @@ const expressWrapper = (
     });
     setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsedStartTransaction));
 
-    req.on('close', (err) => {
+    req.on('close', (_err) => {
       sriRequest.reqCancelled = true;
     });
 
@@ -698,7 +697,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
     // set the overload protection as first middleware to drop requests as soon as possible
     global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
-    app.use(async (req, res, next) => {
+    app.use(async (_req, res, next) => {
       if (global.overloadProtection.canAccept()) {
         next();
       } else {
@@ -737,7 +736,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     app.get('/docs', middlewareErrorWrapper(getDocs));
     app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
-    app.post('/setlogdebug', (req, resp, next) => {
+    app.post('/setlogdebug', (req, resp, _next) => {
       global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
       resp.send('OK');
     });
@@ -990,8 +989,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase() as THttpMethod,
                   func:
-                    async (phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest,
-                      mapping1) => {
+                    async (_phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest, _mapping1) => {
                       if (sriRequest.isBatchPart) {
                         throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] });
                       }
@@ -1039,8 +1037,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                         if (sriRequest.setHeader) {
                           sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
                         }
-                        stream = new Stream.Readable({ objectMode: true });
-                        stream._read = function () { };
+                        stream = createReadableStream(true);
                         const JsonStream = new JsonStreamStringify(stream);
                         JsonStream.pipe(sriRequest.outStream);
                         keepAliveTimer = setInterval(() => {
@@ -1098,7 +1095,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase() as THttpMethod,
                   func:
-                    async (phaseSyncer, tx, sriRequest:TSriRequest, mapping) => {
+                    async (phaseSyncer, tx, sriRequest:TSriRequest, _mapping) => {
                       await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       await phaseSyncer.phase();
@@ -1237,7 +1234,6 @@ export {
 
   debugAnyChannelAllowed as debug, // debugAnyChannelAllowed(ch, msg) => debug(null, ch, msg)
   error,
-  SriError,
 
   queryUtils,
   mapUtils,

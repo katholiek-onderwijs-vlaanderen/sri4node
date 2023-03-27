@@ -6,11 +6,11 @@ import * as streamEqual from 'stream-equal';
 
 import { TSriRequest } from '../../sri4node';
 
-import { TResourceDefinition, TStreamingCustomRoute } from '../../js/typeDefinitions'
+import { TResourceDefinition } from '../../js/typeDefinitions'
 
 module.exports = function (sri4node) {
   const isHrefAPermalink = function (href) {
-    return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
+    return href.match(/^\/[a-z/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };
 
   const $m = sri4node.mapUtils;
@@ -203,7 +203,7 @@ module.exports = function (sri4node) {
         like: '/:key',
         routePostfix: '/simpleLike2',
         httpMethods: ['GET'],
-        transformResponse: async function (tx, sriRequest, result) {
+        transformResponse: async function (_tx, _sriRequest, result) {
           const simple = {
             firstname: result.body.firstname,
             lastname: result.body.lastname,
@@ -226,7 +226,7 @@ module.exports = function (sri4node) {
       {
         routePostfix: '/downStreamJSON',
         httpMethods: ['GET'],
-        streamingHandler: async (tx, sriRequest, stream) => {
+        streamingHandler: async (_tx, _sriRequest, stream) => {
           stream.push({ firstname: 'Rita', lastname: 'James' });
           await sleep(2000);
           stream.push({ firstname: 'Regina', lastname: 'Sullivan' });
@@ -243,7 +243,7 @@ module.exports = function (sri4node) {
             ['content-Type', 'image/jpeg'],
           ],
         }),
-        streamingHandler: async (tx, sriRequest, stream) => {
+        streamingHandler: async (_tx, _sriRequest, stream) => {
           const fstream = fs.createReadStream('test/files/test.jpg');
           fstream.pipe(stream);
 

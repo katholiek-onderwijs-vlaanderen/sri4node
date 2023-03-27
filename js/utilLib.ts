@@ -42,9 +42,9 @@ function addReferencingResources(
         element[targetkey] = [];
       });
 
-      query.sql(`select *, \"${column}\" as fkey from ${
-        tablename} where \"${column}\" in (`).array(elementKeys)
-        .sql(') and \"$$meta.deleted\" = false');
+      query.sql(`select *, "${column}" as fkey from ${
+        tablename} where "${column}" in (`).array(elementKeys)
+        .sql(') and "$$meta.deleted" = false');
       const rows = await pgExec(tx, query);
       await pMap(rows, async (row:Record<string,any>) => {
         const element = elementKeysToElement[row.fkey];

@@ -236,7 +236,7 @@ function parsedQueryStringToParseTreeWithDefaults(
     const flatParseTreeOfCurrentType = Object.values(flatParseTree)
       .filter((item) => (item as any).type === type)
       .map((item) => {
-        const { type: itemType, ...restOfTheItem } = item as any;
+        const { type: _itemType, ...restOfTheItem } = item as any;
         return restOfTheItem;
       });
     retVal[subTreeName] = mergeArrays(

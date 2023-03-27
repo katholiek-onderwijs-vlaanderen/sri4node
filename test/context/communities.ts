@@ -5,14 +5,13 @@ module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
-  const $u = sri4node.utils;
 
   async function invalidQueryParameter() {
     throw new sri4node.SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
   }
 
   function disallowOneCommunity(forbiddenKey) {
-    return async function (tx, sriRequest, elements) {
+    return async function (_tx, sriRequest, elements) {
       if (sriRequest.httpMethod === 'GET') {
         await pMap(elements, async (e:any) => {
           if (sriRequest.path === `/communities/${forbiddenKey}`
@@ -26,7 +25,7 @@ module.exports = function (sri4node) {
   }
 
   // Don't really need the extra parameters when using CTE.
-  async function parameterWithExtraQuery(value, select, param, tx, count) {
+  async function parameterWithExtraQuery(_value, select, _param, tx, count) {
     if (count) {
       const query = sri4node.utils.prepareSQL('create-allcommunitykeys');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
@@ -38,7 +37,7 @@ module.exports = function (sri4node) {
     }
   }
 
-  async function parameterWithExtraQuery2(value, select, param, tx, count) {
+  async function parameterWithExtraQuery2(_value, select, _param, tx, count) {
     if (count) {
       const query = sri4node.utils.prepareSQL('create-allcommunitykeys2');
       query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
@@ -50,7 +49,7 @@ module.exports = function (sri4node) {
     }
   }
 
-  async function addMessageCountToCommunities(tx, sriRequest, elements) {
+  async function addMessageCountToCommunities(tx, _sriRequest, elements) {
     sri4node.debug('mocha', 'addMessageCountToCommunities');
     sri4node.debug('mocha', elements);
 
@@ -146,7 +145,7 @@ module.exports = function (sri4node) {
       {
         routePostfix: '/customroute_via_internal_interface',
         httpMethods: ['GET'],
-        handler: async (tx, sriRequest, customMapping) => {
+        handler: async (tx, sriRequest, _customMapping) => {
           const getRequest = {
             href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
             verb: 'GET',

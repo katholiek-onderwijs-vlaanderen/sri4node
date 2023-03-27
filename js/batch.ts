@@ -1,4 +1,3 @@
-import { Stream } from 'stream';
 import * as _ from 'lodash';
 import * as pMap from 'p-map';
 import * as pEachSeries from 'p-each-series';
@@ -12,7 +11,7 @@ import { IDatabase } from 'pg-promise';
 import { applyHooks } from './hooks';
 import { phaseSyncedSettle } from './phaseSyncedSettle';
 import {
-  debug, startTransaction, settleResultsToSriResults, generateSriRequest,
+  debug, startTransaction, settleResultsToSriResults, generateSriRequest, createReadableStream
 } from './common';
 import {
   THttpMethod, SriError, TBatchHandlerRecord, TResourceDefinition, TSriRequest,
@@ -22,7 +21,7 @@ import {
 const maxSubListLen = (a) =>
   // this code works as long as a batch array contain either all objects or all (sub)arrays
   // (which is required by batchOpertation, otherwise a 'batch.invalid.type.mix' error is sent)
-  a.reduce((max, e, idx, arr) => {
+  a.reduce((max, e, _idx, arr) => {
     if (Array.isArray(e)) {
       return Math.max(maxSubListLen(e), max);
     }
@@ -210,7 +209,7 @@ const batchOperation : TSriRequestHandlerForBatch = async function batchOperatio
           });
         }
         // TODO: generate correct error json with refering element in it!
-        return batch.map((e) => new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] }));
+        return batch.map((_e) => new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] }));
       }
       batchFailed = true;
       throw new SriError({ status: 400, errors: [{ code: 'batch.invalid.type.mix', msg: 'A batch array should contain either all objects or all (sub)arrays.' }] });
@@ -241,7 +240,6 @@ const batchOperationStreaming:TSriRequestHandlerForBatch = async (sriRequest, in
     Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency),
   );
   try {
-    const context = {};
     let batchFailed = false;
 
     const handleBatchStreaming = async (batch:TSriBatchArray, tx:IDatabase<unknown>) => {
@@ -346,10 +344,7 @@ const batchOperationStreaming:TSriRequestHandlerForBatch = async (sriRequest, in
       }
       sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
-    const stream2 = new Stream.Readable({ objectMode: true });
-    stream2._read = function () {
-      // do nothing
-    };
+    const stream2 = createReadableStream(true);
     stream2.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, { end: false });
     keepAliveTimer = setInterval(() => { sriRequest.outStream.write(''); }, 15000);
 

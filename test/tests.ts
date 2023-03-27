@@ -1,8 +1,8 @@
-import { TDebugChannel, TLogDebug } from '../js/typeDefinitions';
+import { TLogDebug } from '../js/typeDefinitions';
 
 import * as sri4node from '..';
 const devNull = require('dev-null');
-const { Console } = require('console');
+import { Console } from 'console';
 
 import * as context from './context';
 import * as informationSchema from '../js/informationSchema';
@@ -43,7 +43,9 @@ function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined
     }
   } else {
     describe(`tests ${testFileName}`, () => {
-      it(`will not run because not found in ${testsToRun.join()}`, () => {});
+      it(`will not run because not found in ${testsToRun.join()}`, () => {
+        // Do nothing
+      });
     });
   }
 }

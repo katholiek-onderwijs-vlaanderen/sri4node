@@ -1,6 +1,6 @@
 import { TResourceDefinition } from "../../sri4node";
 
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, _extra) {
   const $s = sri4node.schemaUtils;
   const r : TResourceDefinition = {
     type: '/table',

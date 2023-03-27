@@ -19,7 +19,7 @@
     "test_performance": "mocha --config .mocharc_performance.js --exit",
     "test_common": "./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts --pick $(cd ./test && find ./common -iname '*')",
     "createdb": "./createdb.sh",
-    "lint": "eslint sri4node.ts ts test",
+    "lint": "eslint sri4node.ts js test",
     "dev": "nodemon  --watch ./js js/server.ts"
   },
   "dependencies": {
@@ -62,7 +62,7 @@
     "@types/route-parser": "^0.1.4",
     "@types/sinon": "^10.0.13",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
-    "@typescript-eslint/parser": "^5.10.2",
+    "@typescript-eslint/parser": "^5.56.0",
     "await-sleep": "0.0.1",
     "chai": "^4.3.4",
     "dev-null": "^0.1.1",

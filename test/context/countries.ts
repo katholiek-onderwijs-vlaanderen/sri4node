@@ -23,11 +23,11 @@ module.exports = function (sri4node) {
           properties: {
             latitude: {
               type: 'number',
-              pattern: '^(\-?\d+(\.\d+)?)$',
+              pattern: /^(-?\d+(\.\d+)?)$/.source,
             },
             longitude: {
               type: 'number',
-              pattern: '^(\-?\d+(\.\d+)?)$',
+              pattern: /^(-?\d+(\.\d+)?)$/.source,
             },
           },
         },
