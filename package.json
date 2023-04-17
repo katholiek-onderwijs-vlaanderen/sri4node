@@ -1,17 +1,25 @@
 {
   "name": "sri4node",
   "description": "An implementation of SRI (Standard ROA Interface) on Node.js.",
-  "main": "dist/index.js",
+  "main": "dist/sri4node.cjs.js",
+  "module": "dist/sri4node.esm.js",
   "types": "dist/index.d.ts",
   "files": [
     "/dist"
   ],
+  "exports": {
+    ".": {
+      "require": "./dist/sri4node.cjs.js",
+      "import": "./dist/sri4node.esm.js"
+    }
+  },
   "scripts": {
     "//start": "node index.js",
-    "prepare": "npm run build",
+    "prepare": "npm run build:esbuild",
     "prebuild": "npm run clean",
     "build": "tsc --project .",
     "postbuild": "cp -r ./js/docs ./dist/js",
+    "build:esbuild": "node esbuild.config.js && tsc --emitDeclarationOnly --declaration",
     "clean": "rm -rf ./dist",
     "pretest": "npm run clean && mkdir -p ./dist/js && npm run postbuild && (npm run testcleanup || /bin/true)",
     "test": "./node_modules/kov-docker-utils/kov-docker-utils postgres start sri4node_postgresdbfortests 15432 ./docker/postgres_initdb && ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts; R=$?; ./node_modules/kov-docker-utils/kov-docker-utils postgres stop sri4node_postgresdbfortests; exit $R",
@@ -66,6 +74,8 @@
     "await-sleep": "0.0.1",
     "chai": "^4.3.4",
     "dev-null": "^0.1.1",
+    "esbuild": "^0.17.17",
+    "esbuild-node-externals": "^1.7.0",
     "eslint": "^8.8.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.4",

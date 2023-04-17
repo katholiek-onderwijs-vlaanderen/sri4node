@@ -1,9 +1,9 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
-import * as sleep from 'await-sleep';
-import * as fs from 'fs';
+import assert from 'assert';
+import sleep from 'await-sleep';
+import fs from 'fs';
 import * as streamEqual from 'stream-equal';
-import * as zlib from 'zlib';
+import zlib from 'zlib';
 const FormData = require('form-data');
 const { performance } = require('perf_hooks');
 

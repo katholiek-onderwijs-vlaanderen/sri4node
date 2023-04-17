@@ -1,8 +1,8 @@
-import * as pSettle from 'p-settle';
-import * as pEvent from 'p-event';
-import * as pMap from 'p-map';
-import * as queue from 'emitter-queue';
-import * as Emitter from 'events';
+import pSettle from 'p-settle';
+import pEvent from 'p-event';
+import pMap from 'p-map';
+import queue from 'emitter-queue';
+import Emitter from 'events';
 import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
 import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';

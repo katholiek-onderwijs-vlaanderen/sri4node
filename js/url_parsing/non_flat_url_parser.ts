@@ -1,4 +1,4 @@
-import * as peggy from 'peggy';
+import peggy from 'peggy';
 import { flattenJsonSchema } from '../schemaUtils';
 import {
   FlattenedJsonSchema, ParseTree, ParseTreeFilter, ParseTreeOperator, ParseTreeProperty,

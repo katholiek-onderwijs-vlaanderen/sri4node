@@ -1,7 +1,7 @@
-import * as _ from 'lodash';
-import * as pMap from 'p-map';
-import * as pFilter from 'p-filter';
-import * as url from 'url';
+import _ from 'lodash';
+import pMap from 'p-map';
+import pFilter from 'p-filter';
+import url from 'url';
 import {
   debug, sqlColumnNames, getCountResult,
   transformRowToObject, tableFromMapping, pgExec,

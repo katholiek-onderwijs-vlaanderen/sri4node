@@ -1,4 +1,4 @@
-import * as pMap from 'p-map';
+import pMap from 'p-map';
 import {
   errorAsCode, debug, stringifyError, setServerTimingHdr,
 } from './common';

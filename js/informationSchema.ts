@@ -12,7 +12,7 @@ if(type === 'text') {
   // do something.
 }
 */
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import { prepareSQL } from './queryObject';
 import * as common from './common';

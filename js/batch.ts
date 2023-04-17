@@ -1,11 +1,11 @@
-import * as _ from 'lodash';
-import * as pMap from 'p-map';
-import * as pEachSeries from 'p-each-series';
-import * as url from 'url';
-import * as JSONStream from 'JSONStream';
-import * as EventEmitter from 'events';
-import * as pEvent from 'p-event';
-import * as httpContext from 'express-http-context';
+import _ from 'lodash';
+import pMap from 'p-map';
+import pEachSeries from 'p-each-series';
+import url from 'url';
+import JSONStream from 'JSONStream';
+import EventEmitter from 'events';
+import pEvent from 'p-event';
+import httpContext from 'express-http-context';
 import { IDatabase } from 'pg-promise';
 
 import { applyHooks } from './hooks';

@@ -16,7 +16,7 @@ import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset'
 import pg = require('pg-promise/typescript/pg-subset');
 import stream = require('stream');
 import { PhaseSyncer } from './phaseSyncedSettle';
-// import * as pgPromise from 'pg-promise';
+// import pqPromise from 'pg-promise';
 
 import { ValidateFunction } from "ajv"
 import { ParsedUrlQuery } from 'querystring';

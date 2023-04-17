@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {

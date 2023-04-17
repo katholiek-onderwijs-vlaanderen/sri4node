@@ -1,7 +1,7 @@
-import * as pMap from 'p-map';
-import * as pEvent from 'p-event';
-import * as sleep from 'await-sleep';
-import * as fs from 'fs';
+import pMap from 'p-map';
+import pEvent from 'p-event';
+import sleep from 'await-sleep';
+import fs from 'fs';
 import * as streamEqual from 'stream-equal';
 
 import { TSriRequest } from '../../sri4node';

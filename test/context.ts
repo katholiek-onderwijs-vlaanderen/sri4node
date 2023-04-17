@@ -8,7 +8,7 @@ context.serve();
 
 // External includes
 // var express = require('express');
-import * as express from 'express';
+import express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
 import { TSriConfig, SriError, TSriRequest, TLogDebug } from '../js/typeDefinitions';

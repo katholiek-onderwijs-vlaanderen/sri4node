@@ -1,9 +1,9 @@
 /* Internal utilities for sri4node */
 import { URL } from 'url';
-import * as Express from 'express';
+import Express from 'express';
 import { IInitOptions } from 'pg-promise';
-import * as pgPromise from 'pg-promise';
-import * as monitor from 'pg-monitor';
+import pgPromise from 'pg-promise';
+import monitor from 'pg-monitor';
 import { Application, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,7 +11,7 @@ import { Readable } from 'stream';
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import * as flatUrlParser from './url_parsing/flat_url_parser';
 import * as schemaUtils from './schemaUtils';

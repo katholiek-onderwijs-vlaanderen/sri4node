@@ -1,4 +1,4 @@
-import * as pMap from 'p-map';
+import pMap from 'p-map';
 import { typeToConfig, pgExec, transformRowToObject } from './common';
 import { SriError, TSriRequest } from './typeDefinitions';
 import { prepareSQL } from './queryObject';

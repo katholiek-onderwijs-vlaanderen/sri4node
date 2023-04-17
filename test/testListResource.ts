@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
+import assert from 'assert';
 const _ = require('lodash');
 import { THttpClient, THttpResponse } from './httpClient';
 

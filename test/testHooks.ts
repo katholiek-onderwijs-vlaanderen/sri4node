@@ -1,9 +1,9 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
+import assert from 'assert';
 import * as uuid from 'uuid';
-import * as sinon from 'sinon';
-import * as sleep from 'await-sleep';
-import * as fs from 'fs';
+import sinon from 'sinon';
+import sleep from 'await-sleep';
+import fs from 'fs';
 
 import { debug } from '../js/common';
 import { THttpClient } from './httpClient';
