@@ -60,13 +60,13 @@ if (fs.existsSync("./dist")) {
 
 esbuild
   .build({
+    format: "esm",
+    outfile: "dist/sri4node.esm.js",
     platform: "node",
     entryPoints: ["./index.ts"],
     bundle: true,
     minify: true,
     sourcemap: true,
-    format: "esm",
-    outfile: "dist/sri4node.esm.js",
     plugins: [nodeExternalsPlugin()],
     tsconfig: "tsconfig.json", // to generate the type definitions file
   })
@@ -74,13 +74,13 @@ esbuild
 
 esbuild
   .build({
+    format: "cjs",
+    outfile: "dist/sri4node.cjs.js",
     platform: "node",
     entryPoints: ["./index.ts"],
     bundle: true,
     minify: true,
     sourcemap: true,
-    format: "cjs",
-    outfile: "dist/sri4node.cjs.js",
     plugins: [nodeExternalsPlugin()],
     tsconfig: "tsconfig.json", // to generate the type definitions file
   })
