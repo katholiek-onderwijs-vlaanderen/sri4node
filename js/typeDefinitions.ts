@@ -8,15 +8,10 @@ import { Request } from 'express';
 import { Operation } from 'fast-json-patch';
 import { IncomingHttpHeaders } from 'http2';
 import { JSONSchema4 } from 'json-schema';
-import {
-  IDatabase, IInitOptions, ValidSchema,
-} from 'pg-promise';
-import pgPromise = require('pg-promise');
+import pgPromise from 'pg-promise';
 import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset';
-import pg = require('pg-promise/typescript/pg-subset');
-import stream = require('stream');
+import stream from 'stream';
 import { PhaseSyncer } from './phaseSyncedSettle';
-// import pqPromise from 'pg-promise';
 
 import { ValidateFunction } from "ajv"
 import { ParsedUrlQuery } from 'querystring';
@@ -125,7 +120,7 @@ export type TSriServerInstance = {
   /**
    * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
    */
-  db: pgPromise.IDatabase<unknown, pg.IClient>,
+  db: pgPromise.IDatabase<unknown, IClient>,
   app: Express.Application,
 
   /**
@@ -161,7 +156,7 @@ export type TSriRequest = {
 
   headers: { [key:string] : string } | IncomingHttpHeaders,
   body?: TSriRequestBody,
-  dbT: IDatabase<unknown>, // db transaction
+  dbT: pgPromise.IDatabase<unknown>, // db transaction
   inStream: stream.Readable,
   outStream: stream.Writable,
   setHeader?: (key: string, value: string) => void,
@@ -209,7 +204,7 @@ export type TInternalSriRequest = {
   protocol: '_internal_',
   href: string,
   verb: THttpMethod,
-  dbT: IDatabase<unknown>, // transaction or task object of pg promise
+  dbT: pgPromise.IDatabase<unknown>, // transaction or task object of pg promise
   parentSriRequest: TSriRequest,
   headers?: { [key:string] : string } | IncomingHttpHeaders,
   body?: Array<{ href: string, verb: THttpMethod, body: TSriRequestBody }> | TSriRequestBody,
@@ -254,7 +249,7 @@ export type TSriQueryFun =
       query: TPreparedSql,
       parameter: any,
       mapping: TResourceDefinition,
-      database: IDatabase<unknown, IClient>
+      database: pgPromise.IDatabase<unknown, IClient>
     ) => void;
   }
   | {
@@ -262,7 +257,7 @@ export type TSriQueryFun =
       value: string,
       select: TPreparedSql,
       key: string,
-      database: IDatabase<unknown, IClient>,
+      database: pgPromise.IDatabase<unknown, IClient>,
       count: number,
       mapping: TResourceDefinition
     ) => void;
@@ -304,7 +299,7 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
     }
     |
     {
-      transformResponse: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => Promise<void>,
+      transformResponse: (dbT:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult) => Promise<void>,
     }
   )
 )
@@ -313,12 +308,12 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & (
 export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** this will define where the customRoute listens relative to the resource base */
   beforeHandler?:
-    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<void>,
-  handler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<TSriResult>,
+    (tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<void>,
+  handler: (tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils) => Promise<TSriResult>,
   /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
-  transformResponse?: (dbT:IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult, internalUtils: TSriInternalUtils) => Promise<void>,
+  transformResponse?: (dbT:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, sriResult:TSriResult, internalUtils: TSriInternalUtils) => Promise<void>,
   afterHandler?: (
-      tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, result:TSriResult, internalUtils: TSriInternalUtils
+      tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, result:TSriResult, internalUtils: TSriInternalUtils
     ) => Promise<void>,
 }
 
@@ -330,9 +325,9 @@ export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** indicates that the output stream is a binary stream (otherwise a response header Content-Type: 'application/json' will be set) */
   binaryStream?: boolean,
   beforeStreamingHandler?:
-    (tx:IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils)
+    (tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, customMapping:TResourceDefinition, internalUtils: TSriInternalUtils)
       => Promise<{ status: number, headers: Array<[key:string, value:string]> } | undefined>,
-  streamingHandler: (tx:IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Duplex, internalUtils: TSriInternalUtils) => Promise<void>,
+  streamingHandler: (tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, stream: import('stream').Duplex, internalUtils: TSriInternalUtils) => Promise<void>,
 }
 
 /**
@@ -452,7 +447,7 @@ export type TResourceDefinition = {
   //   ]
   // },
   beforeUpdate?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -462,7 +457,7 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   beforeInsert?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -472,12 +467,12 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   beforeRead?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     internalUtils: TSriInternalUtils
   ) => void>;
   beforeDelete?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -487,7 +482,7 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   afterRead?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -497,7 +492,7 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   afterUpdate?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -507,7 +502,7 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   afterInsert?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -517,7 +512,7 @@ export type TResourceDefinition = {
     internalUtils: TSriInternalUtils
   ) => void>;
   afterDelete?: Array<(
-    tx: IDatabase<unknown>,
+    tx: pgPromise.IDatabase<unknown>,
     sriRequest: TSriRequest,
     data: Array<{
       permalink: string;
@@ -528,7 +523,7 @@ export type TResourceDefinition = {
   ) => void>;
   transformResponse?: Array<
     (
-      dbT: IDatabase<unknown>,
+      dbT: pgPromise.IDatabase<unknown>,
       sriRequest: TSriRequest,
       sriResult: TSriResult,
       internalUtils: TSriInternalUtils
@@ -567,7 +562,7 @@ export type TResourceDefinition = {
 };
 
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
-  tx:IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition | null, internalUtils: TSriInternalUtils) => Promise<TSriResult>
+  tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition | null, internalUtils: TSriInternalUtils) => Promise<TSriResult>
 
 export type TSriRequestHandlerForBatch = (sriRequest:TSriRequest,
   internalUtils: TSriInternalUtils) => Promise<TSriResult>
@@ -602,12 +597,12 @@ export type TBatchHandlerRecord = {
  * EXAMPLE: "set random_page_cost = 1.1;"
  */
 export interface IExtendedDatabaseConnectionParameters extends IConnectionParameters {
-  schema?: ValidSchema | ((dc: unknown) => ValidSchema),
+  schema?: pgPromise.ValidSchema | ((dc: unknown) => pgPromise.ValidSchema),
   // will be run
   connectionInitSql?: string, // example "set random_page_cost = 1.1;",
 }
 
-export interface IExtendedDatabaseInitOptions extends IInitOptions {
+export interface IExtendedDatabaseInitOptions extends pgPromise.IInitOptions {
   /**
    * Do we attach the pgMonitor plugin?
    */
@@ -635,9 +630,9 @@ export type TBeforePhase = (sriRequestMap:Map<string,TSriRequest>, jobMap:TJobMa
 export type TSriConfig = {
   // these next lines are put onto the same object afterwards, not by the user
   utils?: unknown,
-  db?: IDatabase<unknown>,
-  dbR?: IDatabase<unknown>,
-  dbW?: IDatabase<unknown>,
+  db?: pgPromise.IDatabase<unknown>,
+  dbR?: pgPromise.IDatabase<unknown>,
+  dbW?: pgPromise.IDatabase<unknown>,
   informationSchema?: unknown,
   /** a short string that will be added to every request id while logging
    * (tis can help to differentiate between different api's while searching thourgh logs)
@@ -676,7 +671,7 @@ export type TSriConfig = {
   /**
    * This is a global hook. It is called during configuration, just before routes are registered in express.
    */
-  startUp?: Array<(dbT:IDatabase<unknown>, sriServerInstance: TSriServerInstance, internalUtils: TSriInternalUtils) => void>,
+  startUp?: Array<(dbT:pgPromise.IDatabase<unknown>, sriServerInstance: TSriServerInstance, internalUtils: TSriInternalUtils) => void>,
 
   /**
    * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests, 
@@ -690,7 +685,7 @@ export type TSriConfig = {
    * Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe
    * add the user's identity if it can be deducted from the headers).
    */
-  transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:IDatabase<unknown>, internalUtils: TSriInternalUtils)
+  transformRequest?: Array<(expressRequest:Request, sriRequest:TSriRequest, dbT:pgPromise.IDatabase<unknown>, internalUtils: TSriInternalUtils)
     => void>,
 
   /**
@@ -699,7 +694,7 @@ export type TSriConfig = {
    * via the 'internal' interface.
    */
   transformInternalRequest?: Array<
-    (dbT:IDatabase<unknown>, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest)
+    (dbT:pgPromise.IDatabase<unknown>, internalSriRequest:TInternalSriRequest, parentSriRequest:TSriRequest)
       => void>,
 
   /**

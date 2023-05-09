@@ -6,10 +6,10 @@ import Emitter from 'events';
 import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
 import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';
+import { IClient } from 'pg-promise/typescript/pg-subset';
 import { applyHooks } from './hooks';
 
 import { v4 as uuidv4 } from 'uuid';
-import pg = require('pg-promise/typescript/pg-subset');
 
 
 const debug_log = (id, msg) => {
@@ -125,7 +125,7 @@ const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
  * @returns
  */
 async function phaseSyncedSettle(
-  jobList: Array<readonly [TSriRequestHandlerForPhaseSyncer, readonly [IDatabase<unknown, pg.IClient>, TSriRequest, TResourceDefinition | null, TSriInternalUtils]]>,
+  jobList: Array<readonly [TSriRequestHandlerForPhaseSyncer, readonly [IDatabase<unknown, IClient>, TSriRequest, TResourceDefinition | null, TSriInternalUtils]]>,
   { concurrency, beforePhaseHooks }:
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},
