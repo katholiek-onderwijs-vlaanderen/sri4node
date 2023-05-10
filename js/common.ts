@@ -21,14 +21,14 @@ import {
   TErrorLogFunction, SriError, TLogDebug,
 } from './typeDefinitions';
 import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
-import url = require('url');
-import EventEmitter = require('events');
-import pEvent = require('p-event');
-import path = require('path');
-import stream = require('stream');
-import peggy = require('peggy');
-import httpContext = require('express-http-context');
-import emt = require('express-middleware-timer');
+import url from 'url';
+import EventEmitter from 'events';
+import pEvent from 'p-event';
+import path from 'path';
+import stream from 'stream';
+import peggy from 'peggy';
+import httpContext from 'express-http-context';
+import emt from 'express-middleware-timer';
 
 let pgp:pgPromise.IMain; // will be initialized at pgConnect
 
