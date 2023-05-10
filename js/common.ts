@@ -30,9 +30,9 @@ import peggy from 'peggy';
 import httpContext from 'express-http-context';
 import emt from 'express-middleware-timer';
 
-let pgp:pgPromise.IMain; // will be initialized at pgConnect
+let pgp: pgPromise.IMain; // will be initialized at pgConnect
 
-const logBuffer:{ [k:string]: string[]} = {};
+const logBuffer: { [k: string]: string[] } = {};
 
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
@@ -44,15 +44,15 @@ const logBuffer:{ [k:string]: string[]} = {};
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]):number {
+function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
-const isLogChannelEnabled = (channel:TDebugChannel|string): boolean => {
+const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
   return (global.sri4node_configuration === undefined
-        || (global.sri4node_configuration.logdebug && (
-          global.sri4node_configuration.logdebug.channels === 'all'
-          || global.sri4node_configuration.logdebug.channels.has(channel))));
+    || (global.sri4node_configuration.logdebug && (
+      global.sri4node_configuration.logdebug.channels === 'all'
+      || global.sri4node_configuration.logdebug.channels.has(channel))));
 }
 
 /**
@@ -69,9 +69,9 @@ const isLogChannelEnabled = (channel:TDebugChannel|string): boolean => {
  * @param channel one of the predefined log channels
  * @param output string or string generating function to log
  */
-const debugAnyChannelAllowed:TDebugLogFunction = (channel, output) => {
+const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
-    const reqId:string = httpContext.get('reqId');
+    const reqId: string = httpContext.get('reqId');
     const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof output === 'function' ? output() : output}`;
     if (reqId !== undefined) {
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
@@ -103,12 +103,12 @@ const debugAnyChannelAllowed:TDebugLogFunction = (channel, output) => {
  * @param channel one of the predefined log channels
  * @param output string or string generating function to log
  */
-const debug = (channel:TDebugChannel, output:(() => string) | string) => {
+const debug = (channel: TDebugChannel, output: (() => string) | string) => {
   debugAnyChannelAllowed(channel, output);
 }
 
 
-const error:TErrorLogFunction = function (...args) {
+const error: TErrorLogFunction = function (...args) {
   const reqId = httpContext.get('reqId');
   if (reqId) {
     console.error(`[reqId:${reqId}]`, ...args);
@@ -123,7 +123,7 @@ const error:TErrorLogFunction = function (...args) {
  * @param {*} grammar
  * @returns
  */
-function generateQueryStringParser(grammar:string, allowedStartRules:string[] | undefined = undefined): any {
+function generateQueryStringParser(grammar: string, allowedStartRules: string[] | undefined = undefined): any {
   const pegConf = allowedStartRules
     ? {
       // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
@@ -139,7 +139,7 @@ function generateQueryStringParser(grammar:string, allowedStartRules:string[] | 
  * @param {String} input
  * @returns a string
  */
-function pegSyntaxErrorToErrorMessage(e:{[prop:string]: any}, input = '') {
+function pegSyntaxErrorToErrorMessage(e: { [prop: string]: any }, input = '') {
   if (e.location) {
     const searchParams = input;
 
@@ -158,8 +158,8 @@ function pegSyntaxErrorToErrorMessage(e:{[prop:string]: any}, input = '') {
 
     const markedErrorString = (
       searchParams.slice(0, e.location.start.offset)
-        + markedPart
-        + searchParams.slice(e.location.end.offset)
+      + markedPart
+      + searchParams.slice(e.location.end.offset)
     )
       .split('\n')
       .map((l, lineNr) => `${(`0000${lineNr}`).slice(-3)} ${l}`)
@@ -185,7 +185,7 @@ function pegSyntaxErrorToErrorMessage(e:{[prop:string]: any}, input = '') {
  * @param {} mapping
  * @returns {UrlQueryParamsParseTree}
  */
-function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDefinition) {
+function generateMissingDefaultsForParseTree(parseTree: any, mapping: TResourceDefinition) {
   const DEFAULT_LIMIT = 30; // if not configured in mapping file
   const DEFAULT_MAX_LIMIT = 500; // if not configured in mapping file
   const DEFAULT_EXPANSION = 'FULL';
@@ -193,27 +193,27 @@ function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDef
   const DEFAULT_LIST_ORDER_BY = ['$$meta.created', 'key'];
   const DEFAULT_LIST_ORDER_DESCENDING = false;
 
-  const retVal:any[] = [];
+  const retVal: any[] = [];
 
-  if (!parseTree.find((f:any) => f.operator === 'LIST_LIMIT')) {
+  if (!parseTree.find((f: any) => f.operator === 'LIST_LIMIT')) {
     retVal.push({
       operator: 'LIST_LIMIT',
       value: Math.min(mapping.defaultlimit || DEFAULT_LIMIT, mapping.maxlimit || DEFAULT_MAX_LIMIT),
     });
   }
-  if (!parseTree.find((f:any) => f.operator === 'EXPANSION')) {
+  if (!parseTree.find((f: any) => f.operator === 'EXPANSION')) {
     retVal.push({
       operator: 'EXPANSION',
       value: mapping.defaultexpansion || DEFAULT_EXPANSION,
     });
   }
-  if (!parseTree.find((f:any) => f.operator === 'LIST_META_INCLUDE_COUNT')) {
+  if (!parseTree.find((f: any) => f.operator === 'LIST_META_INCLUDE_COUNT')) {
     retVal.push({
       operator: 'LIST_META_INCLUDE_COUNT',
       value: DEFAULT_INCLUDECOUNT,
     });
   }
-  if (!parseTree.find((f:any) => f.property === '$$meta.deleted' && f.operator === 'IN')) {
+  if (!parseTree.find((f: any) => f.property === '$$meta.deleted' && f.operator === 'IN')) {
     retVal.push({
       property: '$$meta.deleted',
       operator: 'IN',
@@ -222,13 +222,13 @@ function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDef
       invertOperator: false,
     });
   }
-  if (!parseTree.find((f:any) => f.operator === 'LIST_ORDER_BY')) {
+  if (!parseTree.find((f: any) => f.operator === 'LIST_ORDER_BY')) {
     retVal.push({
       operator: 'LIST_ORDER_BY',
       value: DEFAULT_LIST_ORDER_BY,
     });
   }
-  if (!parseTree.find((f:any) => f.operator === 'LIST_ORDER_DESCENDING')) {
+  if (!parseTree.find((f: any) => f.operator === 'LIST_ORDER_DESCENDING')) {
     retVal.push({
       operator: 'LIST_ORDER_DESCENDING',
       value: DEFAULT_LIST_ORDER_DESCENDING,
@@ -243,8 +243,8 @@ function generateMissingDefaultsForParseTree(parseTree:any, mapping:TResourceDef
  * @param {*} parseTree
  * @returns the in-place sorted parseTree
  */
-function sortUrlQueryParamParseTree(parseTree:any[]) {
-  const compareProperties = (a:any, b:any, properties:string[]) => properties.reduce((acc, cur) => {
+function sortUrlQueryParamParseTree(parseTree: any[]) {
+  const compareProperties = (a: any, b: any, properties: string[]) => properties.reduce((acc, cur) => {
     if (acc !== 0) return acc;
     if (a[cur] === b[cur]) return acc;
     if ((a[cur] || '') > (b[cur] || '')) {
@@ -254,7 +254,7 @@ function sortUrlQueryParamParseTree(parseTree:any[]) {
     // console.log(a[cur], '<', b[cur], ' => return -1', a, b);
     return -1;
   },
-  0);
+    0);
 
   return parseTree.sort((a, b) => compareProperties(
     a,
@@ -263,7 +263,7 @@ function sortUrlQueryParamParseTree(parseTree:any[]) {
   ));
 }
 
-const hrefToParsedObjectFactoryThis:any = {};
+const hrefToParsedObjectFactoryThis: any = {};
 
 /**
  * This factory function will return a function that can parse an href
@@ -336,7 +336,7 @@ const hrefToParsedObjectFactoryThis:any = {};
  *                       (filters grouped per type) will be generated
  */
 function hrefToParsedObjectFactory(
-  sriConfig:TSriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
+  sriConfig: TSriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
 ) {
   const parseQueryStringPartByPart = 'PART_BY_PART' as 'NORMAL' | 'PART_BY_PART' | 'VALUES_APART'; // 'PARTBYPART';
 
@@ -406,7 +406,7 @@ function hrefToParsedObjectFactory(
   }
 
   if (flat) {
-    return function hrefToFlatParsedObject(href:string) {
+    return function hrefToFlatParsedObject(href: string) {
       const urlToWorkOn = new URL(`https://domain.com${href}`);
       const searchParamsToWorkOn = urlToWorkOn.searchParams;
 
@@ -456,7 +456,7 @@ function hrefToParsedObjectFactory(
     };
   }
 
-  return function hrefToNonFlatParsedObject(href:string) {
+  return function hrefToNonFlatParsedObject(href: string) {
     const urlToWorkOn = new URL(href, 'https://domain.com');
     const searchParamsToWorkOn = urlToWorkOn.searchParams;
 
@@ -495,22 +495,22 @@ function hrefToParsedObjectFactory(
  * @param recurse if set, return top sriRequest
  * @returns the parent sri request if it exists (otherwise the same request is returned!)
  */
-function getParentSriRequest(sriRequest:TSriRequest, recurse = false) {
+function getParentSriRequest(sriRequest: TSriRequest, recurse = false) {
   return sriRequest.parentSriRequest
-    ? ( recurse
-          ? getParentSriRequest(sriRequest.parentSriRequest)
-          : sriRequest.parentSriRequest )
+    ? (recurse
+      ? getParentSriRequest(sriRequest.parentSriRequest)
+      : sriRequest.parentSriRequest)
     : sriRequest;
 }
 
-function installEMT(app:Application) {
-  app.use(emt.init((_req:Express.Request, _res:Express.Response) => {
+function installEMT(app: Application) {
+  app.use(emt.init((_req: Express.Request, _res: Express.Response) => {
     // Do nothing (empty function provided to avoid stdout logging for each request)
   }));
   return emt;
 }
 
-function setServerTimingHdr(sriRequest:TSriRequest, property, value) {
+function setServerTimingHdr(sriRequest: TSriRequest, property, value) {
   const parentSriRequest = getParentSriRequest(sriRequest);
   if ((parentSriRequest as TSriRequest).serverTiming === undefined) {
     parentSriRequest.serverTiming = {};
@@ -522,7 +522,7 @@ function setServerTimingHdr(sriRequest:TSriRequest, property, value) {
   }
 }
 
-function emtReportToServerTiming(req:Request, res:Response, sriRequest:TSriRequest) {
+function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRequest) {
   try {
     const report = emt.calculate(req, res);
     Object.keys(report.timers).forEach((timer) => {
@@ -537,23 +537,23 @@ function emtReportToServerTiming(req:Request, res:Response, sriRequest:TSriReque
   }
 }
 
-function createDebugLogConfigObject(logdebug:TLogDebug | boolean):TLogDebug {
+function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
   if (logdebug === true) {
     // for backwards compability
     console.warn(
       '\n\n\n------------------------------------------------------------------------------------------------------------------\n'
-          + 'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n'
-          + 'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n'
-          + 'sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, \n'
-          + 'but please specify the preferred channels for which logging is requested.\n'
-          + '------------------------------------------------------------------------------------------------------------------\n\n\n',
+      + 'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n'
+      + 'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n'
+      + 'sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, \n'
+      + 'but please specify the preferred channels for which logging is requested.\n'
+      + '------------------------------------------------------------------------------------------------------------------\n\n\n',
     );
     return { channels: new Set(['general', 'trace', 'requests', 'server-timing']) };
   }
   if (logdebug === false) {
     return { channels: new Set() };
   }
-  const tempLogDebug:TLogDebug = {
+  const tempLogDebug: TLogDebug = {
     channels: logdebug.channels === 'all' ? 'all' : new Set(logdebug.channels),
   };
   if (logdebug.statuses) {
@@ -562,7 +562,7 @@ function createDebugLogConfigObject(logdebug:TLogDebug | boolean):TLogDebug {
   return tempLogDebug;
 }
 
-function handleRequestDebugLog(status:number) {
+function handleRequestDebugLog(status: number) {
   const reqId = httpContext.get('reqId');
   if (global.sri4node_configuration.logdebug.statuses.has(status)) {
     logBuffer[reqId].forEach((e) => console.log(e));
@@ -570,7 +570,7 @@ function handleRequestDebugLog(status:number) {
   delete logBuffer[reqId];
 }
 
-function urlToTypeAndKey(urlToParse:string) {
+function urlToTypeAndKey(urlToParse: string) {
   if (typeof urlToParse !== 'string') {
     throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
   }
@@ -593,7 +593,7 @@ function urlToTypeAndKey(urlToParse:string) {
  * @param uuid
  * @returns true or false
  */
-function isUuid(uuid:string):boolean {
+function isUuid(uuid: string): boolean {
   return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
 }
 
@@ -608,7 +608,7 @@ function isUuid(uuid:string):boolean {
  * @param u: an href
  * @returns the parsed url
  */
-function parseResource(u:string) {
+function parseResource(u: string) {
   if (!u) {
     return null;
   }
@@ -643,7 +643,7 @@ function parseResource(u:string) {
   };
 }
 
-function errorAsCode(s:string) {
+function errorAsCode(s: string) {
   // return any string as code for REST API error object.
   let ret = s;
 
@@ -659,7 +659,7 @@ function errorAsCode(s:string) {
 /**
  * Converts the configuration object for sri4node into an array per resource type
  */
-function typeToConfig(config:TResourceDefinition[]) {
+function typeToConfig(config: TResourceDefinition[]) {
   return config.reduce((acc, c) => {
     acc[c.type] = c;
     return acc;
@@ -670,7 +670,7 @@ function typeToConfig(config:TResourceDefinition[]) {
  * @param type the string used as 'type' in the sriConfig resources
  * @returns the resource definition record from the active sriConfig
  */
-function typeToMapping(type:string):TResourceDefinition {
+function typeToMapping(type: string): TResourceDefinition {
   return typeToConfig(global.sri4node_configuration.resources)[type];
 }
 
@@ -680,8 +680,8 @@ function sqlColumnNames(mapping, summary = false) {
     : Object.keys(mapping.map);
 
   return `${(columnNames.includes('key') ? '' : '"key",')
-          + (columnNames.map((c) => `"${c}"`).join(','))
-  }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
+    + (columnNames.map((c) => `"${c}"`).join(','))
+    }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
 
 
@@ -690,9 +690,9 @@ function sqlColumnNames(mapping, summary = false) {
  * @param resourceMapping the applicable resource definition from the sriConfig object
  * @returns the json object as returned by the api
  */
-function transformRowToObject(row:any, resourceMapping:TResourceDefinition) {
+function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
   const map = resourceMapping.map || {};
-  const element:any = {};
+  const element: any = {};
   element.$$meta = {};
   Object.keys(map).forEach((key) => {
     if (map[key].references) {
@@ -741,9 +741,9 @@ function checkSriConfigWithDb(sriConfig: TSriConfig) {
         const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
-            console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+          console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
         } else {
-            console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
+          console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
         }
         throw new Error('mismatch.between.sri.config.and.database');
       }
@@ -758,7 +758,7 @@ function checkSriConfigWithDb(sriConfig: TSriConfig) {
  * @returns a row to be saved on the database
  */
 function transformObjectToRow(
-  obj:Record<string, any>, resourceMapping:TResourceDefinition, isNewResource:boolean,
+  obj: Record<string, any>, resourceMapping: TResourceDefinition, isNewResource: boolean,
 ) {
   const map = resourceMapping.map || {};
   const row = {};
@@ -813,28 +813,27 @@ function transformObjectToRow(
  * @param extraOptions
  */
 async function pgInit(
-  pgpInitOptions:IInitOptions = {},
+  pgpInitOptions: IInitOptions = {},
   extraOptions: {
     schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined,
     connectionInitSql?: string,
     monitor: boolean,
   },
 ) {
-  const pgpInitOptionsUpdated:IInitOptions = {
+  const pgpInitOptionsUpdated: IInitOptions = {
     schema: extraOptions.schema,
     ...pgpInitOptions,
+    connect: extraOptions.connectionInitSql === undefined
+      ? pgpInitOptions.connect
+      : (client, dc, useCount) => {
+        if (useCount === 0) {
+          client.query(extraOptions.connectionInitSql);
+        }
+        if (pgpInitOptions.connect) {
+          pgpInitOptions.connect(client, dc, useCount);
+        }
+      },
   };
-  if (extraOptions.connectionInitSql !== undefined) {
-    const existingConnect = pgpInitOptions.connect;
-    pgpInitOptions.connect = (client, dc, useCount) => {
-      if (useCount === 0) {
-        client.query(extraOptions.connectionInitSql);
-      }
-      if (existingConnect) {
-        existingConnect(client, dc, useCount);
-      }
-    };
-  }
 
   pgp = pgPromise(pgpInitOptionsUpdated);
 
@@ -860,7 +859,7 @@ async function pgInit(
 
       const isoWithoutMicroseconds = (new Date(s)).toISOString();
       const isoWithMicroseconds = `${isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1)
-                                        + microseconds}Z`;
+        + microseconds}Z`;
       return isoWithMicroseconds;
     });
 
@@ -893,7 +892,7 @@ async function pgInit(
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-async function pgConnect(sri4nodeConfig:TSriConfig) {
+async function pgConnect(sri4nodeConfig: TSriConfig) {
   // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
   if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
     console.warn('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
@@ -924,7 +923,7 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
 
   // this should ideally be be a simple clone of sri4nodeConfig.databaseConnectionParameters but
   // there is a bit of messing about going on afterwards to turn it into the actual connection object
-  const cn:IExtendedDatabaseConnectionParameters = {
+  const cn: IExtendedDatabaseConnectionParameters = {
     // first some defaults, but override them with whatever is in the config
     max: 16,
     connectionTimeoutMillis: 2_000, // 2 seconds
@@ -942,7 +941,7 @@ async function pgConnect(sri4nodeConfig:TSriConfig) {
  * @type {{ name: string, text: string }} details
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
-function createPreparedStatement(details:pgPromise.IPreparedStatement | undefined) {
+function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined) {
   return new pgp.PreparedStatement(details);
 }
 
@@ -993,7 +992,7 @@ async function startTransaction(
 
   const eventEmitter = new EventEmitter();
 
-  const txWrapper = async (emitter:EventEmitter) => {
+  const txWrapper = async (emitter: EventEmitter) => {
     // This wrapper run async without being awaited. This has some consequences:
     //   * errors are not passed the usual way, but via the 'tDone' event
     //   * debug() does not log the correct reqId
@@ -1017,7 +1016,7 @@ async function startTransaction(
   };
 
   try {
-    const tx:pgPromise.ITask<any> = await new Promise((resolve, reject) => {
+    const tx: pgPromise.ITask<any> = await new Promise((resolve, reject) => {
       let resolved = false;
       eventEmitter.on('txEvent', (tx) => {
         resolve(tx);
@@ -1106,7 +1105,7 @@ async function startTask(db) {
   }
 }
 
-async function installVersionIncTriggerOnTable(db, tableName:string, schemaName?:string) {
+async function installVersionIncTriggerOnTable(db, tableName: string, schemaName?: string) {
   const tgname = `vsko_resource_version_trigger_${(schemaName !== undefined ? schemaName : '')}_${tableName}`;
 
   const plpgsql = `
@@ -1119,8 +1118,8 @@ async function installVersionIncTriggerOnTable(db, tableName:string, schemaName?
         WHERE table_name = '${tableName}'
           AND column_name = '$$meta.version'
           ${(schemaName !== undefined
-    ? `AND table_schema = '${schemaName}'`
-    : '')}
+      ? `AND table_schema = '${schemaName}'`
+      : '')}
       ) THEN
         ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
       END IF;
@@ -1129,8 +1128,8 @@ async function installVersionIncTriggerOnTable(db, tableName:string, schemaName?
       IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                       WHERE proname = 'vsko_resource_version_inc_function'
                       ${(schemaName !== undefined
-    ? `AND nspname = '${schemaName}'`
-    : 'AND nspname = \'public\'')}
+      ? `AND nspname = '${schemaName}'`
+      : 'AND nspname = \'public\'')}
                     ) THEN
         CREATE FUNCTION ${(schemaName !== undefined ? schemaName : 'public')}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
         BEGIN
@@ -1162,7 +1161,7 @@ async function getCountResult(tx, countquery, sriRequest) {
  * @param mapping
  * @returns the correponding database table name
  */
-function tableFromMapping(mapping:TResourceDefinition) {
+function tableFromMapping(mapping: TResourceDefinition) {
   return mapping.table || _.last(mapping.type.split('/'));
 }
 
@@ -1175,7 +1174,7 @@ function isEqualSriObject(obj1, obj2, mapping) {
     }
 
     if (global.sri4node_configuration.informationSchema[mapping.type][key]
-          && global.sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
+      && global.sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
       return BigInt(val);
     }
   }
@@ -1221,7 +1220,7 @@ function createReadableStream(objectMode = true) {
   return s;
 }
 
-function getParentSriRequestFromRequestMap(sriRequestMap:Map<string,TSriRequest>, recurse=false) {
+function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse = false) {
   const sriRequest = Array.from(sriRequestMap.values())[0];
   return getParentSriRequest(sriRequest, recurse);
 }
@@ -1262,19 +1261,19 @@ function getPgp() {
  * @returns {TSriRequest}
  */
 function generateSriRequest(
-  expressRequest:Express.Request | undefined = undefined,
-  expressResponse:Express.Response | any | undefined = undefined,
-  basicConfig:{
-      isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean,
-      mapping?:TResourceDefinition,
-      dbT: any,
-    } | undefined = undefined,
-  batchHandlerAndParams:any = undefined,
-  parentSriRequest:TSriRequest | undefined = undefined,
-  batchElement:any = undefined,
-  internalSriRequest:Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined = undefined,
-):TSriRequest {
-  const baseSriRequest:TSriRequest = {
+  expressRequest: Express.Request | undefined = undefined,
+  expressResponse: Express.Response | any | undefined = undefined,
+  basicConfig: {
+    isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean,
+    mapping?: TResourceDefinition,
+    dbT: any,
+  } | undefined = undefined,
+  batchHandlerAndParams: any = undefined,
+  parentSriRequest: TSriRequest | undefined = undefined,
+  batchElement: any = undefined,
+  internalSriRequest: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined = undefined,
+): TSriRequest {
+  const baseSriRequest: TSriRequest = {
     id: uuidv4(),
     logDebug: debug, // (ch, message) => debug(requestId, ch, message)
     logError: error,
@@ -1369,7 +1368,7 @@ function generateSriRequest(
       isBatchPart: true,
     };
   } if (expressRequest) { // a 'normal' request
-    const generatedSriRequest:TSriRequest = {
+    const generatedSriRequest: TSriRequest = {
       ...baseSriRequest,
 
       path: expressRequest.path,

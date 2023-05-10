@@ -24,6 +24,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       connectionString: 'postgres://sri4node:sri4node@localhost:15432/postgres',
       ssl: false,
       schema: 'sri4node',
+      connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),

@@ -9,7 +9,6 @@ const devNull = require('dev-null');
 import { Console } from 'console';
 
 import * as context from './context';
-import * as informationSchema from '../js/informationSchema';
 
 import httpClientMod from './httpClient';
 import { Server } from 'http';
@@ -114,6 +113,8 @@ describe('Sri4node SERVER TESTS', function () {
     console.log('Done.');
   });
 
+  runTestIfNeeded('./testConnectionInitSql.ts', [testContext, httpClient]);
+  
   // // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [httpClient]);
   runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
