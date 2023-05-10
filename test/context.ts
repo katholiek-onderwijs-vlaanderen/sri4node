@@ -7,17 +7,17 @@ context.serve();
 */
 
 // External includes
-// var express = require('express');
-import * as express from 'express';
+import express from 'express';
 import { getParentSriRequestFromRequestMap } from '../js/common';
 
-import { TSriConfig, SriError, TSriRequest, TLogDebug } from '../js/typeDefinitions';
+import { TSriConfig, SriError, TSriRequest, TLogDebug, TSriServerInstance } from '../js/typeDefinitions';
 import utils from './utils';
+import { Server } from 'http';
 
 let configCache: any = null;
 
 function config(sri4node, logdebug, dummyLogger, resourceFiles) {
-  const config:TSriConfig = {
+  const config: TSriConfig = {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
@@ -26,7 +26,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       schema: 'sri4node',
     },
 
-    resources: resourceFiles.map( (file) => require(file)(sri4node) ),
+    resources: resourceFiles.map((file) => require(file)(sri4node)),
 
     beforePhase: [
       async (sriRequestMap, _jobMap, pendingJobs) => {
@@ -42,7 +42,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       },
 
       // count the number of calls to beforePhase
-      async (sriRequestMap: Map<string,TSriRequest>, _jobMap, _pendingJobs) => {
+      async (sriRequestMap: Map<string, TSriRequest>, _jobMap, _pendingJobs) => {
         // find parent sriRequest
         const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
         if (sriRequest.userData.beforePhaseCntr === undefined) {
@@ -61,10 +61,10 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     transformRequest: [utils.lookForBasicAuthUser],
     transformInternalRequest: [utils.copyUserInfo],
 
-    afterRequest: [ (sriRequest) => {
+    afterRequest: [(sriRequest) => {
       dummyLogger.log(`afterRequest hook of ${sriRequest.id}`)
       dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`)
-    } ],
+    }],
 
 
     // temporarily global batch for samenscholing
@@ -79,18 +79,18 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
   return config;
 }
 
-async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceFiles) {
+async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceFiles): Promise<{ server: Server, sriServerInstance: TSriServerInstance }> {
   const theConfig = config(sri4node, logdebug, dummyLogger, resourceFiles);
 
   // Need to pass in express.js and node-postgress as dependencies.
   const app = express();
 
-  const sri4nodeInstance = await sri4node.configure(app, theConfig);
+  const sriServerInstance = await sri4node.configure(app, theConfig);
 
   try {
     const server = await app.listen(port);
     console.log(`Node app is running at localhost:${port}`);
-    return { server, sri4nodeInstance};
+    return { server, sriServerInstance };
   } catch (error) {
     console.log(`Node app failed to initialize: ${error}`);
     process.exit(1);

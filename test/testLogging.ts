@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { stdout } from 'test-console';
 import { THttpClient } from './httpClient';
 

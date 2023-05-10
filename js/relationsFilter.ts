@@ -1,4 +1,4 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { IDatabase } from 'pg-promise';
 import * as common from './common';
 import { TPreparedSql, TResourceDefinition } from './typeDefinitions';

@@ -1,8 +1,8 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import * as jsonPatch from 'fast-json-patch';
-import * as pMap from 'p-map';
+import jsonPatch from 'fast-json-patch';
+import pMap from 'p-map';
 import { Operation } from 'fast-json-patch';
 import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from './typeDefinitions';
 import {
@@ -13,7 +13,7 @@ import {
 import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
-const expand = require('./expand');
+import * as expand from './expand';
 // import { expand } from './expand';
 import * as schemaUtils from './schemaUtils';
 import { PhaseSyncer } from './phaseSyncedSettle';

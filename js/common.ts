@@ -1,9 +1,9 @@
 /* Internal utilities for sri4node */
 import { URL } from 'url';
-import * as Express from 'express';
+import Express from 'express';
 import { IInitOptions } from 'pg-promise';
-import * as pgPromise from 'pg-promise';
-import * as monitor from 'pg-monitor';
+import pgPromise from 'pg-promise';
+import monitor from 'pg-monitor';
 import { Application, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,7 +11,7 @@ import { Readable } from 'stream';
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 
 import * as flatUrlParser from './url_parsing/flat_url_parser';
 import * as schemaUtils from './schemaUtils';
@@ -21,14 +21,14 @@ import {
   TErrorLogFunction, SriError, TLogDebug,
 } from './typeDefinitions';
 import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
-import url = require('url');
-import EventEmitter = require('events');
-import pEvent = require('p-event');
-import path = require('path');
-import stream = require('stream');
-import peggy = require('peggy');
-import httpContext = require('express-http-context');
-import emt = require('express-middleware-timer');
+import url from 'url';
+import EventEmitter from 'events';
+import pEvent from 'p-event';
+import path from 'path';
+import stream from 'stream';
+import peggy from 'peggy';
+import httpContext from 'express-http-context';
+import emt from 'express-middleware-timer';
 
 let pgp:pgPromise.IMain; // will be initialized at pgConnect
 

@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import * as pMap from 'p-map';
+import pMap from 'p-map';
 import { assert } from 'chai';
 import * as uuid from 'uuid';
 import { THttpClient } from './httpClient';

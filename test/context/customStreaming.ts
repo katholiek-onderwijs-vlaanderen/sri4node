@@ -1,4 +1,4 @@
-import * as sleep from 'await-sleep';
+import sleep from 'await-sleep';
 import { TResourceDefinition } from '../../sri4node';
 
 exports = module.exports = function (_sri4node) {

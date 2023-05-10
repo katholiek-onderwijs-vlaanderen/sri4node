@@ -4,9 +4,8 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
-// needed for express-middleware-timer to actually do something !!!
-// And it must be set before importing ./js/common !!!
-process.env.TIMER = 'true';
+// seperate module, because bundling would cause incorrect order otherwise
+import './js/setEnvVariableForExpressMiddlewareTimer';
 
 import { Application, Request, Response } from 'express';
 import * as _ from 'lodash';
@@ -17,17 +16,17 @@ import addFormats from 'ajv-formats';
 import { IDatabase } from 'pg-promise';
 
 // External dependencies.
-import compression = require('compression');
-import bodyParser = require('body-parser');
-import express = require('express');
-import Route = require('route-parser');
-import pMap = require('p-map');
-import busboy = require('busboy');
-import EventEmitter = require('events');
-import pEvent = require('p-event');
-import httpContext = require('express-http-context');
-import shortid = require('shortid');
-import pug = require('pug');
+import compression from 'compression';
+import bodyParser from 'body-parser';
+import express from 'express';
+import Route from 'route-parser';
+import pMap from 'p-map';
+import busboy from 'busboy';
+import EventEmitter from 'events';
+import pEvent from 'p-event';
+import httpContext from 'express-http-context';
+import shortid from 'shortid';
+import pug from 'pug';
 
 import {
   debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError,
@@ -55,7 +54,7 @@ import { applyHooks } from './js/hooks';
 
 import * as listResource from './js/listResource';
 import * as regularResource from './js/regularResource';
-import utilLib = require('./js/utilLib');
+import * as utilLib from './js/utilLib';
 import { overloadProtectionFactory } from './js/overloadProtection';
 import * as relationFilters from './js/relationsFilter';
 import { ServerResponse } from 'http';
@@ -618,7 +617,8 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       }, { concurrency: 1 },
     );
 
-    global.sri4node_configuration.informationSchema = await informationSchema(dbR, sriConfig);
+    const currentInformationSchema = await informationSchema(dbR, sriConfig);
+    global.sri4node_configuration.informationSchema = currentInformationSchema;
 
     checkSriConfigWithDb(sriConfig);
 
@@ -1181,6 +1181,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       pgp,
       db,
       app,
+      // informationSchema: currentInformationSchema, // maybe later
 
       close: async () => {
         db && (await db.$pool.end());

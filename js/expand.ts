@@ -1,6 +1,7 @@
 /* Handles the ?expand parameter */
-import * as _ from 'lodash';
-import * as pMap from 'p-map';
+import _ from 'lodash';
+import pMap from 'p-map';
+// import pMap from 'p-map'; // This module is declared with 'export =', and can only be used with a default import when using the 'esModuleInterop' flag.
 import {
   debug, typeToConfig, sqlColumnNames, transformRowToObject,
   tableFromMapping, pgExec,

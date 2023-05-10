@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
-import * as pMap from 'p-map';
-import * as assert from 'assert';
+import pMap from 'p-map';
+import assert from 'assert';
 import * as uuid from 'uuid';
 import { debug } from '../js/common';
 import { THttpClient } from './httpClient';
