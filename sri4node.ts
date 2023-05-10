@@ -4,9 +4,8 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
-// needed for express-middleware-timer to actually do something !!!
-// And it must be set before importing ./js/common !!!
-process.env.TIMER = 'true';
+// seperate module, because bundling would cause incorrect order otherwise
+import './js/setEnvVariableForExpressMiddlewareTimer';
 
 import { Application, Request, Response } from 'express';
 import * as _ from 'lodash';
