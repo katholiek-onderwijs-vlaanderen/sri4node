@@ -617,7 +617,8 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       }, { concurrency: 1 },
     );
 
-    global.sri4node_configuration.informationSchema = await informationSchema(dbR, sriConfig);
+    const currentInformationSchema = await informationSchema(dbR, sriConfig);
+    global.sri4node_configuration.informationSchema = currentInformationSchema;
 
     checkSriConfigWithDb(sriConfig);
 
@@ -1180,6 +1181,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       pgp,
       db,
       app,
+      // informationSchema: currentInformationSchema, // maybe later
 
       close: async () => {
         db && (await db.$pool.end());

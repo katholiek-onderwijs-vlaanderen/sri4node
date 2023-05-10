@@ -109,6 +109,20 @@ export type TPreparedSql = {
   toParameterizedSql: () => { sql: string, values: Array<any> },
 }
 
+export type TInformationSchema = {
+  [resourcePath: string]: {
+    [columnName: string]:   {
+      type: 'ARRAY',
+      element_type: string
+    }
+    |
+    {
+      type: string
+      element_type: null,
+    }
+  }
+}
+
 /**
  * This will be returned by sri4node.configure() and it contains instance specific properties
  */
@@ -122,6 +136,12 @@ export type TSriServerInstance = {
    */
   db: pgPromise.IDatabase<unknown, IClient>,
   app: Express.Application,
+
+  // maybe later
+  // /**
+  //  * Will hold the current db structure
+  //  */
+  // informationSchema: any,
 
   /**
    * Closes the database pool.
