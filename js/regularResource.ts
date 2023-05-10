@@ -13,7 +13,7 @@ import {
 import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
-const expand = require('./expand');
+import * as expand from './expand';
 // import { expand } from './expand';
 import * as schemaUtils from './schemaUtils';
 import { PhaseSyncer } from './phaseSyncedSettle';

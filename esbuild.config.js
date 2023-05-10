@@ -65,7 +65,7 @@ esbuild
     platform: "node",
     entryPoints: ["./index.ts"],
     bundle: true,
-    minify: true,
+    // minify: false, // if set to false, it still minifies the code, but removing the property works
     sourcemap: true,
     plugins: [nodeExternalsPlugin()],
     tsconfig: "tsconfig.json", // to generate the type definitions file
@@ -79,7 +79,7 @@ esbuild
     platform: "node",
     entryPoints: ["./index.ts"],
     bundle: true,
-    minify: true,
+    // minify: false, // if set to false, it still minifies the code, but removing the property works
     sourcemap: true,
     plugins: [nodeExternalsPlugin()],
     tsconfig: "tsconfig.json", // to generate the type definitions file
