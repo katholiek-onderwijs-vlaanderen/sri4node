@@ -390,13 +390,24 @@ const expressWrapper = (
     if (resp.headersSent) {
       error('____________________________ E R R O R (expressWrapper)____________________________________');
       error(err);
+      error(JSON.stringify(err, null, 2));
       error('STACK:');
       error(err.stack);
       error('___________________________________________________________________________________________');
       error('NEED TO DESTROY STREAMING REQ');
-      // TODO: HTTP trailer
-      // next(err)
-      req.destroy();
+      resp.write('\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n')
+      resp.write(err.toString());
+      resp.write(JSON.stringify(err, null, 2));
+      resp.write('\n___________________________________________________________________________________________\n');
+
+      await new Promise((resolve, _reject) => {
+        setImmediate(async () => {
+          // use setImmediate to make sure also the error message is written on the socker before closing it
+          await resp.destroy();
+          resolve(undefined);
+          error('Stream is destroyed.');
+        });
+      });
     } else if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
       if (err.status > 0) {
         const reqId = httpContext.get('reqId');

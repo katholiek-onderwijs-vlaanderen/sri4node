@@ -315,7 +315,29 @@ module.exports = function (sri4node) {
           stream.push('OK');
         },
       },
-
+      {
+        routePostfix: '/bad_request',
+        httpMethods: ['POST'],
+        streamingHandler: async (_tx, sriRequest: TSriRequest, _stream) => {
+          throw new sriRequest.SriError({ status: 400, errors: [{ code: 'customroute.bad.request', msg: 'Just an error for testing.' }] });
+        }
+      },
+      {
+        routePostfix: '/test_before_streaming_handler',
+        httpMethods: ['POST'],
+        readOnly: false,
+        beforeStreamingHandler: async (_tx, _sriRequest, _customMapping, _internalUtils) => {
+          return {
+            status: 204,
+            headers: [
+              [ 'MyTestHeader', 'MyTestValue']
+            ],
+          }
+        },
+        streamingHandler: async (_tx, _sriRequest, _stream) => {
+          // do nothing
+        }
+      }
     ],
     schema: {
       $schema: 'http://json-schema.org/schema#',

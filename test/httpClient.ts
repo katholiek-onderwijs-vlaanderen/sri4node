@@ -63,7 +63,7 @@ const handleHttpRequest = async (method: THttpMethod, req: THttpRequest, undiciC
   } catch(err) {
     console.log('Http request FAILED:')
     console.log(err)
-    throw new Error('htpclient.failure');
+    throw 'httpclient.failure';
   }
 }
 
