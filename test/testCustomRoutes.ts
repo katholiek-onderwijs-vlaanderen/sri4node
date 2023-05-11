@@ -1,9 +1,9 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
-import * as sleep from 'await-sleep';
-import * as fs from 'fs';
+import assert from 'assert';
+import sleep from 'await-sleep';
+import fs from 'fs';
 import * as streamEqual from 'stream-equal';
-import * as zlib from 'zlib';
+import zlib from 'zlib';
 const FormData = require('form-data');
 const { performance } = require('perf_hooks');
 
@@ -147,6 +147,31 @@ module.exports = function (httpClient) {
     it('onlyCustom should work', async () => {
       const response = await httpClient.get({ path: '/onlyCustom', auth: 'kevin' });
       assert.equal(response.body.bar, 'foo');
+    });
+
+    it('streaming custom route: status and headers set via beforeStreamingHandler should be returned to client', async () => {
+      const { status, headers } = await httpClient.post({ path: '/persons/test_before_streaming_handler', body: {}, auth: 'kevin', streaming: true });
+      assert.equal(status, 204);
+      assert.equal(headers['MyTestHeader'.toLowerCase()], 'MyTestValue', 'expected header is missing')
+    });
+
+    it('streaming custom route: error handling of error in streamingHandler', async () => {
+      const bufArr: any[] = [];
+      let catchedErr = null;
+      try {
+        const { body } = await httpClient.post({ path: '/persons/bad_request', body: {}, auth: 'kevin', streaming: true });
+        for await (const data of body) {
+          bufArr.push(data);
+        }
+      } catch (err) {
+        catchedErr = err;
+      }
+      assert.equal(catchedErr !== null, true, 'expected a http error')
+      assert.equal((catchedErr as any).code, 'UND_ERR_SOCKET', 'expected a connection reset error')
+
+      const partialBody = bufArr.toString();
+      assert.equal(partialBody.includes('"status": 400'), true, 'expected status code 400 missing in partial body');
+      assert.equal(partialBody.includes('"code": "customroute.bad.request"'), true, 'expected error code missing in partial body');
     });
 
     describe('keep-alive mechanism (send something on a regular interval to keep the connection alive)', () => {

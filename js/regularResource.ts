@@ -1,10 +1,10 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import * as jsonPatch from 'fast-json-patch';
-import * as pMap from 'p-map';
+import jsonPatch from 'fast-json-patch';
+import pMap from 'p-map';
 import { Operation } from 'fast-json-patch';
-import { SriError, TSriRequest, TSriConfig, TBeforePhase, TJobMap, TResourceDefinition } from './typeDefinitions';
+import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from './typeDefinitions';
 import {
   debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
   errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
@@ -13,7 +13,8 @@ import {
 import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
 
-const expand = require('./expand');
+import * as expand from './expand';
+// import { expand } from './expand';
 import * as schemaUtils from './schemaUtils';
 import { PhaseSyncer } from './phaseSyncedSettle';
 import { IDatabase } from 'pg-promise';
@@ -226,7 +227,6 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriReq
  * run the same query again. Useful for implementing a PATCH which will simply behave as if it were
  * a PUT after patching.
  */
-/* eslint-disable */
 async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey: any = undefined) {
 
   const key = sriRequest.params.key;
@@ -369,9 +369,8 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
   }
 
 }
-/* eslint-enable */
 
-async function beforePhaseInsertUpdateDelete(sriRequestMap, jobMap, pendingJobs) {
+async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
   const sriRequest:TSriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
 
   const throwIfDbTUndefined = (sriReq: TSriRequest):void => {
@@ -585,7 +584,6 @@ async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
       await phaseSyncer.phase();
       await phaseSyncer.phase();
     } else {
-      const table = tableFromMapping(mapping);
       sriRequest.containsDeleted = false;
 
       await phaseSyncer.phase();

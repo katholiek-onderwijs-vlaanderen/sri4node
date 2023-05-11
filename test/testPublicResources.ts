@@ -1,6 +1,5 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
-import utils from './utils';
+import assert from 'assert';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {

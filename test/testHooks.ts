@@ -1,13 +1,11 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
+import assert from 'assert';
 import * as uuid from 'uuid';
-import * as sinon from 'sinon';
-import * as sleep from 'await-sleep';
-import * as pEvent from 'p-event';
-import * as fs from 'fs';
+import sinon from 'sinon';
+import sleep from 'await-sleep';
+import fs from 'fs';
 
 import { debug } from '../js/common';
-import utils from './utils';
 import { THttpClient } from './httpClient';
 
 const FormData = require('form-data');
@@ -429,7 +427,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger) {
         });
         it('internal request', async () => {
           dummyLoggerSpy.resetHistory();
-          const r = await httpClient.get({ path: '/communities/customroute_via_internal_interface', auth: 'kevin' });
+          await httpClient.get({ path: '/communities/customroute_via_internal_interface', auth: 'kevin' });
           // expect two cycles of beforePhase calls as they are logged in the toplevel sriRequest
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 2}`), true);
         });
@@ -442,7 +440,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger) {
               verb: 'GET',
             }],
           ];
-          const r = await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
+          await httpClient.put({ path: '/batch', body: batch, auth: 'kevin' });
           // expect two cycles of beforePhase calls as they are logged in the toplevel sriRequest
           assert.equal(dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest * 2}`), true);
         });

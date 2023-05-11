@@ -1,4 +1,4 @@
-const { error } = require('./common');
+import { error } from './common';
 import { TPreparedSql } from './typeDefinitions';
 /*
 A query object used to allow multiple functions to annotate a common piece for SQL
@@ -54,13 +54,13 @@ function prepareSQL(name?:string):TPreparedSql {
       let j;
 
       for (key in o) {
-        if (o.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(o, key)) {
           columnNames.push(key);
         }
       }
       let sqlColumnNames = '';
       for (j = 0; j < columnNames.length; j++) {
-        sqlColumnNames += `\"${columnNames[j]}\"`;
+        sqlColumnNames += `"${columnNames[j]}"`;
         if (j < columnNames.length - 1) {
           sqlColumnNames += ',';
         }
@@ -76,7 +76,7 @@ function prepareSQL(name?:string):TPreparedSql {
 
       let firstcolumn = true;
       for (key in o) {
-        if (o.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(o, key)) {
           if (!firstcolumn) {
             this.text += ',';
           } else {

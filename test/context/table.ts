@@ -1,9 +1,10 @@
-module.exports = function (sri4node, extra) {
+import { TResourceDefinition } from "../../sri4node";
+
+module.exports = function (sri4node, _extra) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/table',
     metaType: 'SRI4NODE_TABLE',
-    'public': true, // eslint-disable-line
     map: {
       select: {},
       from: {}
@@ -20,4 +21,5 @@ module.exports = function (sri4node, extra) {
       required: ['select', 'from']
     },
   };
+  return r;
 };

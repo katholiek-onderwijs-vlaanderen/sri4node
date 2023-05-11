@@ -1,13 +1,17 @@
-import { TDebugChannel, TLogDebug } from '../js/typeDefinitions';
+import { TLogDebug, TSriServerInstance } from '../js/typeDefinitions';
 
-import * as sri4node from '..';
+// option 1: use the typescript files to test against
+// import * as sri4node from '../index'; // index is needed, otherwise it will use what is indicated in package.json/main !!!
+// option 2: use the compiled bundle to test against
+import * as sri4node from '../dist/sri4node.cjs';
+
 const devNull = require('dev-null');
-const { Console } = require('console');
+import { Console } from 'console';
 
 import * as context from './context';
-import * as informationSchema from '../js/informationSchema';
 
 import httpClientMod from './httpClient';
+import { Server } from 'http';
 
 const dummyLogger = new Console({
   stdout: devNull(),
@@ -18,7 +22,7 @@ const dummyLogger = new Console({
 
 const port = 5000;
 const logdebug:TLogDebug = { channels: [] };
-// const logdebug = { channels: 'all' };
+// const logdebug : TLogDebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
 const base = `http://localhost:${port}`;
@@ -43,7 +47,9 @@ function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined
     }
   } else {
     describe(`tests ${testFileName}`, () => {
-      it(`will not run because not found in ${testsToRun.join()}`, () => {});
+      it(`will not run because not found in ${testsToRun.join()}`, () => {
+        // Do nothing
+      });
     });
   }
 }
@@ -53,20 +59,22 @@ describe('Sri4node PURE UNIT TESTS', () => {
 });
 
 describe('Sri4node VALIDATION AT STARTUP TESTS', function () {
-  runTestIfNeeded('./testValidationAtStartup.ts', [ port, logdebug, dummyLogger ]);
+  runTestIfNeeded('./testValidationAtStartup.ts', [ sri4node, port, logdebug, dummyLogger ]);
 });
 
 
 describe('Sri4node SERVER TESTS', function () {
   this.timeout(0);
-  let server:any = null;
-  let sri4nodeInstance:any = null;
+  // let server:any = null;
+  // let sriServerInstance:TSriServerInstance | null = null;
+  const testContext: { server: null | Server, sriServerInstance: null | TSriServerInstance } = {
+    server: null,
+    sriServerInstance: null,
+  }
 
   before(async () => {
     try {
-      // We need to clear the informationSchema cache as it is currently iniatialized for the configuration of Sri4node SCHEMA VALIDATION'.
-      informationSchema.clearCache();
-      ({server, sri4nodeInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
+      const {server, sriServerInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
           [ './context/persons',
           './context/messages',
           './context/communities',
@@ -86,22 +94,27 @@ describe('Sri4node SERVER TESTS', function () {
           './context/customStreaming',
           './context/foos',
           './context/bars',
-          ]));
+          ]);
+      testContext.server = server;
+      testContext.sriServerInstance = sriServerInstance;
     } catch (err) {
       console.log(err);
     }
   });
 
   after(async () => {
+    const { server, sriServerInstance } = testContext;
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
     console.log('Stopping the server.');
     server && (await server.close());
-    sri4nodeInstance && (await sri4nodeInstance.close());
+    sriServerInstance && (await sriServerInstance.close());
     console.log('Done.');
   });
 
+  runTestIfNeeded('./testConnectionInitSql.ts', [testContext, httpClient]);
+  
   // // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [httpClient]);
   runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
@@ -144,7 +157,7 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testSriType.ts', [httpClient]);
 
   runTestIfNeeded('./testDocs.ts', [httpClient]);
-  runTestIfNeeded('./testInformationSchema.ts', []);
+  runTestIfNeeded('./testInformationSchema.ts', [testContext]);
   runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
 });
 

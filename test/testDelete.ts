@@ -1,8 +1,7 @@
 // Utility methods for calling the SRI interface
-import * as assert from 'assert';
+import assert from 'assert';
 import * as uuid from 'uuid';
 const _ = require('lodash');
-import utils from './utils';
 import { THttpClient } from './httpClient';
 
 
@@ -24,9 +23,8 @@ module.exports = function (httpClient: THttpClient) {
   }
 
   describe('DELETE regular resource', function () {
-
-    var key = uuid.v4();
-    var body = generateRandomCommunity(key);
+    const key = uuid.v4();
+    const body = generateRandomCommunity(key);
 
     before(async function () {
       const response = await httpClient.put({ path: '/communities/' + key, body, auth: 'sabine' });

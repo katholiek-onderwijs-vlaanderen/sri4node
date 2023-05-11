@@ -1,13 +1,13 @@
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { IDatabase } from 'pg-promise';
 import * as common from './common';
 import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
 
 function fromTypesFilter(
-  value:string, select:TPreparedSql, key:string, database:IDatabase<unknown>,
-  count:number, mapping:TResourceDefinition,
+  value:string, select:TPreparedSql, _key:string, _database:IDatabase<unknown>,
+  _count:number, mapping:TResourceDefinition,
 ) {
-  let sql; let fromCondition; let whereCondition; let table; let fromTable; let
+  let sql; let fromCondition; let whereCondition; let fromTable; let
     types;
 
   if (value && mapping.map?.from?.references) {
@@ -29,8 +29,8 @@ function fromTypesFilter(
 }
 
 function toTypesFilter(
-  value:string, select:TPreparedSql, key:string, database:IDatabase<unknown>,
-  count:number, mapping:TResourceDefinition,
+  value:string, select:TPreparedSql, _key:string, _database:IDatabase<unknown>,
+  _count:number, mapping:TResourceDefinition,
 ) {
   let sql; let fromCondition; let whereCondition; let toTable: string; let
     types: string;
@@ -53,7 +53,7 @@ function toTypesFilter(
   }
 }
 
-function fromsFilter(value:string, select:TPreparedSql, key, database:IDatabase<unknown>, count, mapping) {
+function fromsFilter(value:string, select:TPreparedSql, _key, _database:IDatabase<unknown>, _count, mapping) {
   if (value) {
     const table = common.tableFromMapping(mapping);
 
@@ -63,7 +63,7 @@ function fromsFilter(value:string, select:TPreparedSql, key, database:IDatabase<
   }
 }
 
-function tosFilter(value:string, select:TPreparedSql, key, database:IDatabase<unknown>, count, mapping) {
+function tosFilter(value:string, select:TPreparedSql, _key, _database:IDatabase<unknown>, _count, mapping) {
   if (value) {
     const table = common.tableFromMapping(mapping);
 

@@ -1,12 +1,15 @@
-import * as sleep from 'await-sleep';
+import sleep from 'await-sleep';
+import { TResourceDefinition } from '../../sri4node';
 
-exports = module.exports = function (sri4node) {
-  return  {
+exports = module.exports = function (_sri4node) {
+  const r : TResourceDefinition = {
     type: '/customStreaming',
+    metaType: 'SRI4NODE_CUSTOM_STREAMING',
+    schema: {},
     customRoutes: [
       { routePostfix: ''
       , httpMethods: ['GET']
-      , streamingHandler: async (tx, sriRequest, stream) => {
+      , streamingHandler: async (_tx, sriRequest, stream) => {
         if (sriRequest.query['slowstart'] !== undefined) {
           await sleep(5_000);
           stream.push("foo");
@@ -39,13 +42,15 @@ exports = module.exports = function (sri4node) {
           if (result[0].foo !== 1) {
             throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.before.streaming.handler' }] });
           }
+          return undefined;
         }
-      , streamingHandler: async (tx, sriRequest, stream) => {
+      , streamingHandler: async (_tx, _sriRequest, stream) => {
           stream.push('done');
         }
       }
     ],
     onlyCustom: true
   };
+  return r;
 };
 

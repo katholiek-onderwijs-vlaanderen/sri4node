@@ -107,7 +107,7 @@ function filterString(select, filter, value, mapping) {
 }
 
 // filter function for fields of type numeric or timestamp (the logic is the same)
-function filterNumericOrTimestamp(select, filter, value, mapping, baseType) {
+function filterNumericOrTimestamp(select, filter, value, _mapping, baseType) {
   if (!filter.postfix && filter.operator === 'Less' || filter.operator === 'Greater' && filter.postfix === 'Not') {
     select.sql(` AND "${filter.key}" < `).param(value);
   } else if (!filter.postfix && (filter.operator === 'LessOrEqual' || filter.operator === 'Before')
@@ -190,7 +190,7 @@ function filterBoolean(select, filter, value) {
   }
 }
 
-function filterJson(select, filter, value, mapping) {
+function filterJson(select, filter, value, _mapping) {
   const { path } = filter;
   if (path == null) {
     throw new SriError({
@@ -282,7 +282,9 @@ function getTextFieldsFromTable(informationSchema) {
   let type:string;
 
   for (field in informationSchema) {
-    if (informationSchema.hasOwnProperty(field)) {
+    if (Object.prototype.hasOwnProperty.call(informationSchema, field)) {
+    //if (informationSchema.hasOwnProperty(field)) {
+    // if (field in informationSchema) {
       type = informationSchema[field].type;
 
       if (type === 'text' || type === 'varchar' || type === 'character varying' || type === 'char'
@@ -372,10 +374,9 @@ function getFieldBaseType(fieldType) {
  * @param {String} valueEnc: the search param value (after the = sign)
  * @param {String} query: the sqlQuery object that gets modified by this function (mostly adding 'AND ...' to the where clause)!!!
  * @param {String} parameter: the search param name (before the = sign)
- * @param {*} mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
- * @param {*} database: ?
+ * @param {TResourceDefinition} mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
  */
-function defaultFilter (valueEnc:string, query:TPreparedSql, parameter, mapping, database) {
+function defaultFilter (valueEnc:string, query:TPreparedSql, parameter, mapping) {
   const value = decodeURIComponent(valueEnc);
 
   // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.

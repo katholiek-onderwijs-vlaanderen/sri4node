@@ -5,7 +5,7 @@ module.exports = function (sri4node) {
   const $q = sri4node.queryUtils;
   const $m = sri4node.mapUtils;
 
-  const checkRead = function (tx, sriRequest, elements) {
+  const checkRead = function (_tx, sriRequest, _elements) {
     const publicRoutes = [
       '/alldatatypes?textIn=value',
       '/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16',
@@ -16,7 +16,7 @@ module.exports = function (sri4node) {
     }
   };
 
-  const returnTestHeader = function (tx, sriRequest, elements) {
+  const returnTestHeader = function (_tx, sriRequest, _elements) {
     if (sriRequest.path === '/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3') {
       throw new sriRequest.SriError({ status: 400, headers: { test: 'TestHeader' }, errors: [{ code: 'a.test.error.with.header' }] });
     }
@@ -25,7 +25,6 @@ module.exports = function (sri4node) {
   const ret = {
     type: '/alldatatypes',
     metaType: 'SRI4NODE_ALLDATATYPES',
-    public: false, // eslint-disable-line
     cache: {
       ttl: 60,
       type: 'local',

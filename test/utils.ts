@@ -1,5 +1,4 @@
-import * as assert from 'assert'
-import { Client } from 'pg-promise/typescript/pg-subset';
+import assert from 'assert'
 import * as sri4node from '../sri4node'
 
 
@@ -62,7 +61,7 @@ export default {
   },
   testForStatusCode: async (func: () => any, assertFunc: (any) => any) => {
     try {
-      const resp = await func()
+      await func()
       throw 'Func() execution did not raise any error, but an error was expected.'
     } catch (error) {
       if (error.status && error.body && error.headers) {

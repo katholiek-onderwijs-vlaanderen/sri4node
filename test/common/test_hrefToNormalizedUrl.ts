@@ -1,13 +1,11 @@
 import { TSriConfig } from "../../js/typeDefinitions";
 
-// const { assert } = require('chai');
 import { assert } from 'chai';
 import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../js/common';
-const { flattenJsonSchema } = require('../../js/schemaUtils');
 
 // const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
 
-const $u = require('../../js/schemaUtils');
+import * as $u from '../../js/schemaUtils';
 
 const sriConfig:TSriConfig = {
   resources: [
@@ -1078,13 +1076,10 @@ const sriConfig:TSriConfig = {
 };
 
 
-const hrefToFlatParsedObject = hrefToParsedObjectFactory(sriConfig, true);
-// let hrefToFlatParsedObjectExecutionTimes = [];
-
 
 const hrefToNonFlatParsedObject = hrefToParsedObjectFactory(sriConfig);
 
-let hrefToNonFlatParsedObjectExecutionTimes:number[] = [];
+const hrefToNonFlatParsedObjectExecutionTimes:number[] = [];
 /**
  * This wraps the parse function to keep track of the execution times, so we can add
  * some tests add the end that check if the average execution speeds were high enough...
@@ -1098,64 +1093,6 @@ const hrefToNonFlatParsedObjectWrapped = (input) => {
   const hrElapsed = process.hrtime(hrstart);
   hrefToNonFlatParsedObjectExecutionTimes.push(hrtimeToMilliseconds(hrElapsed));
   return normalizedUrl;
-}
-
-
-/**
- * Checks if hrefToParsedObject of input (with our 'global' sriConfig)
- * returns the same 'normalizedUrl' as the expected string.
- *
- * We are not checking the 'parse tree' (but since the normalized URL is generated
- * from that, we can be pretty confident that the parsing happened correctly)
- *
- * Especially if we test the 'parseTreeToNormalizedSearchParams' function separately.
- *
- * @param {String} input
- * @param {String} expected
- */
-function checkHrefToFlatParsedObject(input, expected) {
-  // try {
-    const hrstart = process.hrtime();
-    const normalizedUrl = hrefToFlatParsedObject(input);
-    const hrElapsed = process.hrtime(hrstart);
-    // console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
-
-    const expectedSorted = {
-      ...expected,
-      parseTree: sortUrlQueryParamParseTree([...expected.parseTree]),
-    };
-    assert.deepStrictEqual(
-      normalizedUrl,
-      expectedSorted,
-    );
-  // } catch (e) {
-  //   console.log('href parse error', e.message, e, e.stack);
-  //   throw e;
-  // }
-}
-
-/**
- * Only check if the expected param gets added, and whether its value is as expected
- *
- * @param {String} input
- * @param {String} paramName
- * @param {String} expectedParamValue: should be the default, either as configured in sriConfig or the sri4node default
- * @returns
- */
-function checkhrefToFlatParsedObjectAddsMissing(input, paramName, expectedParamValue) {
-  const hrstart = process.hrtime();
-  const parsedUrl = hrefToFlatParsedObject(input);
-  const hrElapsed = process.hrtime(hrstart);
-  console.log('                hrefToFlatParsedObject took', hrtimeToMilliseconds(hrElapsed), 'ms');
-  assert.isTrue(
-    parsedUrl.parseTree.findIndex(f => f.operator === paramName) >= 0,
-    `The expected query parameter '${paramName}' has not been added to the normalized url`,
-  );
-  assert.deepEqual(
-    parsedUrl.parseTree.find(f => f.operator === paramName).value,
-    expectedParamValue,
-    `The expected query parameter '${paramName}' from the normalized url doesn't have the expected value ${Array.isArray(expectedParamValue) ? expectedParamValue.join() : expectedParamValue}`,
-  );
 }
 
 
@@ -1187,7 +1124,7 @@ ${JSON.stringify(parsedUrl.parseTree[expectedSubTreeName], null, 2)}`,
 describe('commons.js: flattenJsonSchema(...)', () => {
   it('should produce a flattened json schema', () => {
     assert.deepEqual(
-      flattenJsonSchema(
+      $u.flattenJsonSchema(
         {
           type: 'object',
           properties: {
@@ -1206,7 +1143,7 @@ describe('commons.js: flattenJsonSchema(...)', () => {
     );
 
     assert.deepEqual(
-      flattenJsonSchema({
+      $u.flattenJsonSchema({
         type: 'object',
         properties: {
           a: {
@@ -1236,7 +1173,7 @@ describe('commons.js: flattenJsonSchema(...)', () => {
     );
 
     assert.deepEqual(
-      flattenJsonSchema({
+      $u.flattenJsonSchema({
         type: 'object',
         properties: {
           a: {
@@ -1311,8 +1248,6 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
  * instead of adding a second step for adding the mssing defaults
  */
 describe('non_flat_url_parser.ts', () => {
-  const parse = hrefToParsedObjectFactory(sriConfig);
-
   describe('parsing of standard filters', () => {
     // it('mergeArrays (used for adding defaults) should work as expected', () => {
     //   assert.deepEqual(
@@ -1665,11 +1600,21 @@ describe('non_flat_url_parser.ts', () => {
 
   // cfr. common/pg_connect for how some data is being translated different than pg's defaults.
   describe('check all supported datatypes like BigInt, integer, boolean, string, ...', () => {
-    it.skip('should support integer', () => {});
-    it.skip('should support BigInt', () => {});
-    it.skip('should support number', () => {});
-    it.skip('should support boolean', () => {});
-    it.skip('should support string', () => {});
+    it.skip('should support integer', () => {
+      // todo
+    });
+    it.skip('should support BigInt', () => {
+      // todo
+    });
+    it.skip('should support number', () => {
+      // todo
+    });
+    it.skip('should support boolean', () => {
+      // todo
+    });
+    it.skip('should support string', () => {
+      // todo
+    });
   });
 
   describe('special cases related to backwards compatibilty', () => {
@@ -1888,223 +1833,3 @@ describe('non_flat_url_parser.ts', () => {
   });
 
 });
-
-
-// OBSOLETE
-// describe('common: hrefToParsedObject(...)', () => {
-
-//   it('should add _LIST_LIMIT if missing', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John',
-//       'LIST_LIMIT',
-//       100,
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
-//       'LIST_LIMIT',
-//       20,
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/responsibilities?organisation.href=/organisations/123',
-//       'LIST_LIMIT',
-//       30,
-//     );
-//   });
-
-//   it('should translate limit to LIST_LIMIT', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John&limit=33',
-//       'LIST_LIMIT',
-//       33,
-//     );
-//   });
-
-//   it('should add EXPANSION if missing', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John',
-//       'EXPANSION',
-//       'FULL',
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
-//       'EXPANSION',
-//       'FULL',
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/responsibilities?organisation.href=/organisations/123',
-//       'EXPANSION',
-//       'FULL',
-//     );
-//   });
-
-//   it('should translate expand to _EXPANSION', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John&limit=33&expand=NONE',
-//       'EXPANSION',
-//       'NONE',
-//     );
-//   });
-
-//   it('should add _LIST_ORDER_BY if missing', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John',
-//       'LIST_ORDER_BY',
-//       ['$$meta.created', 'key'],
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
-//       'LIST_ORDER_BY',
-//       ['$$meta.created', 'key'],
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/responsibilities?organisation.href=/organisations/123',
-//       'LIST_ORDER_BY',
-//       ['$$meta.created','key'], // what is the defaults sort order?
-//     );
-//   });
-
-//   it('should translate orderBy to LIST_ORDER_BY', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John&orderBy=lastName',
-//       'LIST_ORDER_BY',
-//       ['lastName'],
-//     );
-
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John&orderBy=lastName,firstName',
-//       'LIST_ORDER_BY',
-//       ['lastName', 'firstName'],
-//     );
-//   });
-
-//   it('should add _LIST_ORDER_DESCENDING if missing', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John',
-//       'LIST_ORDER_DESCENDING',
-//       false,
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/organisations?details%5B*%5D.name=Katholiek Onderwijs Vlaanderen',
-//       'LIST_ORDER_DESCENDING',
-//       false,
-//     );
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/responsibilities?organisation.href=/organisations/123',
-//       'LIST_ORDER_DESCENDING',
-//       false,
-//     );
-//   });
-
-//   it('should translate descending to LIST_ORDER_DESCENDING', () => {
-//     checkhrefToFlatParsedObjectAddsMissing(
-//       '/persons?firstName=John&orderBy=firstName',
-//       'LIST_ORDER_DESCENDING',
-//       false,
-//     );
-//   });
-
-
-
-
-//   const defaultParseTreePart = (path) => [
-//     { operator: 'EXPANSION', value: sriConfig.resources.find(r => r.type === path).defaultexpansion || 'FULL' },
-//     { operator: 'LIST_LIMIT', value: sriConfig.resources.find(r => r.type === path).defaultlimit },
-//     { operator: 'LIST_META_INCLUDE_COUNT', value: false },
-//     { operator: 'LIST_ORDER_BY', value: ['$$meta.created', 'key'] },
-//     { operator: 'LIST_ORDER_DESCENDING', value: false },
-//     { property: '$$meta.deleted', operator: 'IN', value: [ false ], caseInsensitive: true, invertOperator: false },
-//   ];
-
-//   it('should return the parameters sorted alphabetically', () => {
-//     checkHrefToFlatParsedObject(
-//       '/persons?_LIST_LIMIT=30&$$meta.deleted_IN=false&_EXPANSION=FULL',
-//       // '$$meta.deleted_IN=false&_EXPANSION=FULL&_LIST_LIMIT=30'
-//       {
-//         parseTree: [
-//           // value could be a boolean if we make the parser even smarter based on the schema
-//           { property: '$$meta.deleted', operator: 'IN', invertOperator: false, value: [false], caseInsensitive: true },
-//           { operator: 'EXPANSION', value: 'FULL' },
-//           // value could be a number if we make the parser even smarter
-//           { operator: 'LIST_LIMIT', value: 30 },
-//           { operator: 'LIST_META_INCLUDE_COUNT', value: false },
-//           { operator: 'LIST_ORDER_BY', value: ['$$meta.created', 'key'] },
-//           { operator: 'LIST_ORDER_DESCENDING', value: false },
-//         ],
-//       },
-//     );
-//   });
-
-//   describe('should return the value(s) as the expected type (string, number, bool) depending on the configuration', () => {
-//     it('should return a string property filter as a string value', () => {
-//       checkHrefToFlatParsedObject(
-//         '/persons?firstName=John', // assuming defaults for limit & expansion
-//         {
-//           parseTree: [
-//             ...defaultParseTreePart('/persons'),
-//             { property: 'firstName', operator: "IN", invertOperator: false, value: ['John'], caseInsensitive: true },
-//           ],
-//         },
-//       );
-//     });
-
-//     // it('should not consider an argument as an array only because it contains a comma, but only if an array is expected', () => {
-//     //   checkHrefToParsedObject(
-//     //     '/persons?firstName=Bosco,%20Don', // assuming defaults for limit & expansion
-//     //     {
-//     //       parseTree: [
-//     //         ...defaultParseTreePart('/persons'),
-//     //         { property: 'firstName', operator: "IN", invertOperator: false, value: ['Bosco, Don'], caseInsensitive: true },
-//     //       ],
-//     //     },
-//     //   );
-//     // });
-
-//     // it('should return a boolean property filter as a boolean value', () => {
-//     //   checkHrefToParsedObject(
-//     //     '/persons?deceased=true', // assuming defaults for limit & expansion
-//     //     {
-//     //       parseTree: [
-//     //         ...defaultParseTreePart('/persons'),
-//     //         { property: 'deceased', operator: "IN", invertOperator: false, value: [true], caseInsensitive: true },
-//     //       ],
-//     //     },
-//     //   );
-
-//     //   checkHrefToParsedObject(
-//     //     '/persons?$$meta.deleted=any', // assuming defaults for limit & expansion
-//     //     {
-//     //       parseTree: [
-//     //         ...defaultParseTreePart('/persons'),
-//     //         { property: '$$meta.deleted', operator: "IN", invertOperator: false, value: [true, false], caseInsensitive: true },
-//     //       ],
-//     //     },
-//     //   );
-//     // });
-
-//     // it('should return an integer property filter as a number', () => {
-//     //   checkHrefToParsedObject(
-//     //     '/organisations?telecoms.websites[*].priority=2', // assuming defaults for limit & expansion
-//     //     {
-//     //       parseTree: [
-//     //         ...defaultParseTreePart('/organisations'),
-//     //         { property: 'telecoms.websites[*].priority', operator: "IN", invertOperator: false, value: [2], caseInsensitive: true },
-//     //       ],
-//     //     },
-//     //   );
-//     // });
-
-//     // it('should return a string array property filter as a array of strings value ', () => {
-//     //   checkHrefToParsedObject(
-//     //     '/persons?firstNameIn=John,Peter', // assuming defaults for limit & expansion
-//     //     {
-//     //       parseTree: [
-//     //         ...defaultParseTreePart('/persons'),
-//     //         { property: 'firstName', operator: "IN", invertOperator: false, value: ['John', 'Peter'], caseInsensitive: true },
-//     //       ],
-//     //     },
-//     //   );
-//     // });
-
-//   });
-
-// });

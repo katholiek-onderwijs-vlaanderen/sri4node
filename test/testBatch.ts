@@ -1,9 +1,8 @@
 // Utility methods for calling the SRI interface
-import * as pMap from 'p-map';
+import pMap from 'p-map';
 import { assert } from 'chai';
 import * as uuid from 'uuid';
 import { THttpClient } from './httpClient';
-import { response } from 'express';
 const expect = require('expect.js')
 
 /**
@@ -446,7 +445,7 @@ module.exports = function (httpClient: THttpClient) {
       // create a batch array
       const batch = await pMap(
         Array(100),
-        async (i) => {
+        async () => {
           const keyC1 = uuid.v4();
           const bodyC1 = generateRandomCommunity(keyC1);
           return {
@@ -465,7 +464,7 @@ module.exports = function (httpClient: THttpClient) {
       // create a batch array
       const batch = await pMap(
         Array(100),
-        async (i) => {
+        async () => {
           const keyC1 = uuid.v4();
           const bodyC1 = generateRandomCommunity(keyC1);
           return [{

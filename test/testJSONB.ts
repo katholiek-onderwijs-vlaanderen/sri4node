@@ -1,8 +1,7 @@
 // Utility methods for calling the SRI interface
-var uuid = require('uuid');
+import * as uuid from 'uuid';
 import { assert } from 'chai';
 import { debug } from '../js/common';
-import utils from './utils';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {
@@ -17,8 +16,8 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it('should support PUT with sub-objects', async function () {
-      var key = uuid.v4();
-      var x = {
+      const key = uuid.v4();
+      const x = {
         key: key,
         details: {
           productDeliveryOptions: [

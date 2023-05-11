@@ -1,15 +1,15 @@
-import * as pSettle from 'p-settle';
-import * as pEvent from 'p-event';
-import * as pMap from 'p-map';
-import * as queue from 'emitter-queue';
-import * as Emitter from 'events';
-import * as _ from 'lodash';
-import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition } from './typeDefinitions';
+import pSettle from 'p-settle';
+import pEvent from 'p-event';
+import pMap from 'p-map';
+import queue from 'emitter-queue';
+import Emitter from 'events';
+import { SriError, TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
 import { debug, error, getParentSriRequestFromRequestMap } from './common';
 import { IDatabase } from 'pg-promise';
+import { IClient } from 'pg-promise/typescript/pg-subset';
 import { applyHooks } from './hooks';
 
-const { v4: uuidv4 } = require('uuid');
+import { v4 as uuidv4 } from 'uuid';
 
 
 const debug_log = (id, msg) => {
@@ -60,7 +60,7 @@ class PhaseSyncer {
 
   constructor(
     fun: TSriRequestHandlerForPhaseSyncer,
-    args: [IDatabase<unknown>, TSriRequest, TResourceDefinition],
+    args: readonly [IDatabase<unknown>, TSriRequest, TResourceDefinition | null, TSriInternalUtils],
     ctrlEmitter:Emitter,
   ) {
     this.ctrlEmitter = ctrlEmitter;
@@ -125,7 +125,7 @@ const splitListAt = (list, index) => [list.slice(0, index), list.slice(index)];
  * @returns
  */
 async function phaseSyncedSettle(
-  jobList,
+  jobList: Array<readonly [TSriRequestHandlerForPhaseSyncer, readonly [IDatabase<unknown, IClient>, TSriRequest, TResourceDefinition | null, TSriInternalUtils]]>,
   { concurrency, beforePhaseHooks }:
     { concurrency?:number, beforePhaseHooks?:any[] }
   = {},
@@ -188,7 +188,7 @@ async function phaseSyncedSettle(
    * when an error has encoutered. The boolean failureHasBeenBroadcasted is used to indicate wether the
    * notification is already happened or not.
    */
-  let failureHasBeenBroadcasted : boolean = false;
+  let failureHasBeenBroadcasted = false;
 
   try {
     /**
@@ -373,7 +373,7 @@ async function phaseSyncedSettle(
       );
     });
     await pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-    return [...jobMap.values()].map((phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
+    return [...jobMap.values()].map((_phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
   }
 }
 

@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {
@@ -39,7 +39,7 @@ module.exports = function (httpClient: THttpClient) {
       const response = await httpClient.put({ path: '/batch_streaming', body: batch, headers: requestServerTimingHdr, streaming: true });
 
       assert.strictEqual(response.trailers['server-timing'], undefined, 'Server-Timing header is set before stream is received ?!.');
-      for await (const data of response.body) {
+      for await (const _data of response.body) {
         // just throw away data
       }
       // now, after the stream is consumed, the http trailers should be set

@@ -1,14 +1,16 @@
-import * as pMap from 'p-map';
-import * as pEvent from 'p-event';
-import * as sleep from 'await-sleep';
-import * as fs from 'fs';
+import pMap from 'p-map';
+import pEvent from 'p-event';
+import sleep from 'await-sleep';
+import fs from 'fs';
 import * as streamEqual from 'stream-equal';
 
 import { TSriRequest } from '../../sri4node';
 
+import { TResourceDefinition } from '../../js/typeDefinitions'
+
 module.exports = function (sri4node) {
   const isHrefAPermalink = function (href) {
-    return href.match(/^\/[a-z\/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
+    return href.match(/^\/[a-z/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };
 
   const $m = sri4node.mapUtils;
@@ -16,33 +18,31 @@ module.exports = function (sri4node) {
   const $q = sri4node.queryUtils;
   const $u = sri4node.utils;
 
-  const checkMe = async function (tx, sriRequest, elements) {
+  const checkMe = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject === undefined) {
       throw new sriRequest.SriError({ status: 401, errors: [{ code: 'unauthorized' }] });
     }
   };
 
-  const failOnBadUser = async function (tx, sriRequest, elements) {
+  const failOnBadUser = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject.email === 'daniella@email.be') {
       throw new Error('BAD User');
     }
   };
 
-  const forbidUser = async function (tx, sriRequest, elements) {
+  const forbidUser = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject.email === 'ingrid@email.be') {
       throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
     }
   };
 
-  const checkElements = async function (tx, sriRequest, elements) {
-    let element;
+  const checkElements = async function (_tx, _sriRequest, elements) {
     if (!Array.isArray(elements)) {
       throw new Error('`elements` is not an array');
     }
 
-    element = elements[0];
-    if (!element.hasOwnProperty('permalink') || !isHrefAPermalink(element.permalink)
-          || !element.hasOwnProperty('incoming') || !element.hasOwnProperty('stored')) {
+    const element = elements[0];
+    if (!('permalink' in element && 'incoming' in element && 'stored' in element) || !isHrefAPermalink(element.permalink)) {
       throw new Error('`elements` object in the array has wrong format');
     }
   };
@@ -87,7 +87,7 @@ module.exports = function (sri4node) {
   };
 
   function disallowOnePerson(forbiddenKey) {
-    return async function (tx, sriRequest, elements) {
+    return async function (_tx, sriRequest, _elements) {
       const { key } = sriRequest.params;
       if (key === forbiddenKey) {
         sri4node.debug('mocha', `security method disallowedOnePerson for ${forbiddenKey} denies access`);
@@ -97,8 +97,7 @@ module.exports = function (sri4node) {
   }
 
   function returnSriTypeForOnePerson() {
-    return async function (tx, sriRequest, elements) {
-      const { key } = sriRequest.params;
+    return async function (_tx, sriRequest, _elements) {
       if (sriRequest.userObject.email === 'sam@email.be') {
         sri4node.debug('mocha', 'security method returnSriTypeForOnePerson returns sriType.');
         throw new sriRequest.SriError({ status: 200, errors: [{ foo: 'bar', sriType: sriRequest.sriType, type: 'TEST' }] });
@@ -106,7 +105,7 @@ module.exports = function (sri4node) {
     };
   }
 
-  async function simpleOutput(tx, sriRequest, customMapping) {
+  async function simpleOutput(tx, sriRequest, _customMapping) {
     const query = sri4node.utils.prepareSQL('get-simple-person');
     query.sql('select firstname, lastname from persons where key = ').param(sriRequest.params.key);
     const rows = await sri4node.utils.executeSQL(tx, query);
@@ -119,10 +118,9 @@ module.exports = function (sri4node) {
     }
   }
 
-  return {
+  const r : TResourceDefinition = {
     type: '/persons',
     metaType: 'SRI4NODE_PERSON',
-    'public': false, // eslint-disable-line
     map: {
       firstname: {},
       lastname: {},
@@ -189,7 +187,7 @@ module.exports = function (sri4node) {
               const qResult = await tx.query('SELECT 1 AS foo;');
               if (qResult[0].foo !== 1) {
                 throw new sriRequest.SriError({ status: 500, errors: [{ code: 'unexpected.query.result.in.transform.response' }] });
-              };
+              }
 
               const simple = {
                 firstname: result.body.firstname,
@@ -205,7 +203,7 @@ module.exports = function (sri4node) {
         like: '/:key',
         routePostfix: '/simpleLike2',
         httpMethods: ['GET'],
-        transformResponse: async function (tx, sriRequest, result) {
+        transformResponse: async function (_tx, _sriRequest, result) {
           const simple = {
             firstname: result.body.firstname,
             lastname: result.body.lastname,
@@ -228,7 +226,7 @@ module.exports = function (sri4node) {
       {
         routePostfix: '/downStreamJSON',
         httpMethods: ['GET'],
-        streamingHandler: async (tx, sriRequest, stream) => {
+        streamingHandler: async (_tx, _sriRequest, stream) => {
           stream.push({ firstname: 'Rita', lastname: 'James' });
           await sleep(2000);
           stream.push({ firstname: 'Regina', lastname: 'Sullivan' });
@@ -238,14 +236,14 @@ module.exports = function (sri4node) {
         routePostfix: '/downStreamBinary',
         httpMethods: ['GET'],
         binaryStream: true,
-        beforeStreamingHandler: async (tx, sriRequest, customMapping) => ({
+        beforeStreamingHandler: async (_tx, _sriRequest, _customMapping) => ({
           status: 200,
           headers: [
             ['Content-Disposition', 'inline; filename=test.jpg'],
             ['content-Type', 'image/jpeg'],
           ],
         }),
-        streamingHandler: async (tx, sriRequest, stream) => {
+        streamingHandler: async (_tx, _sriRequest, stream) => {
           const fstream = fs.createReadStream('test/files/test.jpg');
           fstream.pipe(stream);
 
@@ -258,9 +256,9 @@ module.exports = function (sri4node) {
         httpMethods: ['POST'],
         busBoy: true,
         readOnly: false,
-        beforeStreamingHandler: async (tx, sriRequest, customMapping) => {
-        // set header + http return code
-        },
+        // beforeStreamingHandler: async (_tx, _sriRequest, _customMapping) => {
+        // // set header + http return code
+        // },
         streamingHandler: async (tx, sriRequest: TSriRequest, stream) => {
           if (sriRequest.userData) {
             sriRequest.userData.attachmentsRcvd = [];  // TODO: set attachmentsRcvd type as { string, Promise }[]
@@ -317,7 +315,29 @@ module.exports = function (sri4node) {
           stream.push('OK');
         },
       },
-
+      {
+        routePostfix: '/bad_request',
+        httpMethods: ['POST'],
+        streamingHandler: async (_tx, sriRequest: TSriRequest, _stream) => {
+          throw new sriRequest.SriError({ status: 400, errors: [{ code: 'customroute.bad.request', msg: 'Just an error for testing.' }] });
+        }
+      },
+      {
+        routePostfix: '/test_before_streaming_handler',
+        httpMethods: ['POST'],
+        readOnly: false,
+        beforeStreamingHandler: async (_tx, _sriRequest, _customMapping, _internalUtils) => {
+          return {
+            status: 204,
+            headers: [
+              [ 'MyTestHeader', 'MyTestValue']
+            ],
+          }
+        },
+        streamingHandler: async (_tx, _sriRequest, _stream) => {
+          // do nothing
+        }
+      }
     ],
     schema: {
       $schema: 'http://json-schema.org/schema#',
@@ -376,4 +396,5 @@ module.exports = function (sri4node) {
     ],
 
   };
+  return r;
 };

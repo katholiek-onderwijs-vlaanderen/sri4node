@@ -1,11 +1,12 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/invalidconfig1',
     metaType: 'SRI4NODE_INVALID_CONFIG1',
     table: 'foos',
-    public: false, // eslint-disable-line
     map: {
       key: {},
       bAr: {},
@@ -21,4 +22,5 @@ module.exports = function (sri4node) {
       required: ['key', 'bar']
     },
   };
+  return r;
 };

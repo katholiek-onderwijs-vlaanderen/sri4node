@@ -1,10 +1,11 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
 
-  return {
+  const r : TResourceDefinition = {
     type: '/prefix/countries2',
     metaType: 'SRI4NODE_PREFIX_COUNTRIES',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       name: {},
@@ -22,11 +23,11 @@ module.exports = function (sri4node) {
           properties: {
             latitude: {
               type: 'number',
-              pattern: '^(\-?\d+(\.\d+)?)$',
+              pattern: /^(-?\d+(\.\d+)?)$/.source,
             },
             longitude: {
               type: 'number',
-              pattern: '^(\-?\d+(\.\d+)?)$',
+              pattern: /^(-?\d+(\.\d+)?)$/.source,
             },
           },
         },
@@ -34,4 +35,5 @@ module.exports = function (sri4node) {
       required: ['key', 'name'],
     },
   };
+  return r;
 };

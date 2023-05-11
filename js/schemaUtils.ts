@@ -205,7 +205,7 @@ function array(description: string): JSONSchema4 {
     description,
   };
   return ret;
-};
+}
 
 function enumeration(description: string, values: string[]): JSONSchema4 {
   const ret:JSONSchema4 = {
@@ -214,7 +214,7 @@ function enumeration(description: string, values: string[]): JSONSchema4 {
     enum: values,
   };
   return ret;
-};
+}
 
 
 function patchSchemaToDisallowAdditionalProperties(schema) {

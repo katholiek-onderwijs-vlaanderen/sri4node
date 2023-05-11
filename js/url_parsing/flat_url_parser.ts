@@ -22,17 +22,17 @@
  */
 function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, v]) => k.endsWith('[*]'))
-    .map(([k, v]) => encodeURIComponent(k))
+    .filter(([k, _v]) => k.endsWith('[*]'))
+    .map(([k, _v]) => encodeURIComponent(k))
     .sort()
     .reverse();
   const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, v]) => !k.endsWith('[*]'))
-    .map(([k, v]) => encodeURIComponent(k))
+    .filter(([k, _v]) => !k.endsWith('[*]'))
+    .map(([k, _v]) => encodeURIComponent(k))
     .sort()
     .reverse();
   const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .map(([k, v]) => encodeURIComponent(k))
+    .map(([k, _v]) => encodeURIComponent(k))
     .sort().reverse();
 
   const hasMultiValuedProperties = allMultiValuedPropertyNamesSortedInReverse.length > 0;
@@ -43,7 +43,7 @@ function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const propertyNameToOtherThanStringTypeMap = {
     ...Object.fromEntries(
       Object.entries(flattenedJsonSchema)
-        .filter(([k, v]:[string, Record<string, unknown>]) => !v.enum && v.type !== 'string')
+        .filter(([_k, v]:[string, Record<string, unknown>]) => !v.enum && v.type !== 'string')
         .map(([k, v]:[string, Record<string, unknown>]) => [k, v.type]),
     ),
     '$$meta.deleted': 'boolean',

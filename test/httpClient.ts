@@ -31,7 +31,7 @@ export type THttpClient = {
 };
 
 
-const handleRequest = async (method: THttpMethod, req: THttpRequest, undiciClient: undici.Client): Promise<THttpResponse> => {
+const handleHttpRequest = async (method: THttpMethod, req: THttpRequest, undiciClient: undici.Client): Promise<THttpResponse> => {
   const reqHeaders = {
     'content-type': 'application/json; charset=utf-8',
     ...(req.auth
@@ -63,7 +63,7 @@ const handleRequest = async (method: THttpMethod, req: THttpRequest, undiciClien
   } catch(err) {
     console.log('Http request FAILED:')
     console.log(err)
-    throw 'htpclient.failure';
+    throw 'httpclient.failure';
   }
 }
 
@@ -71,11 +71,11 @@ export default {
   httpClientFactory: (base: string): THttpClient => {
     const undiciClient = new undici.Client(base)
     return {
-      get: (req: THttpRequest): Promise<THttpResponse> => handleRequest('GET', req, undiciClient),
-      put: (req: THttpRequest): Promise<THttpResponse> => handleRequest('PUT', req, undiciClient),
-      delete: (req: THttpRequest): Promise<THttpResponse> => handleRequest('DELETE', req, undiciClient),
-      post: (req: THttpRequest): Promise<THttpResponse> => handleRequest('POST', req, undiciClient),
-      patch: (req: THttpRequest): Promise<THttpResponse> => handleRequest('PATCH', req, undiciClient)
+      get: (req: THttpRequest): Promise<THttpResponse> => handleHttpRequest('GET', req, undiciClient),
+      put: (req: THttpRequest): Promise<THttpResponse> => handleHttpRequest('PUT', req, undiciClient),
+      delete: (req: THttpRequest): Promise<THttpResponse> => handleHttpRequest('DELETE', req, undiciClient),
+      post: (req: THttpRequest): Promise<THttpResponse> => handleHttpRequest('POST', req, undiciClient),
+      patch: (req: THttpRequest): Promise<THttpResponse> => handleHttpRequest('PATCH', req, undiciClient)
     }
   }
 }

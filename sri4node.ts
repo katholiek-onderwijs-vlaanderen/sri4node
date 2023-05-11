@@ -4,12 +4,10 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
-// needed for express-middleware-timer to actually do something !!!
-// And it must be set before importing ./js/common !!!
-process.env.TIMER = 'true';
+// seperate module, because bundling would cause incorrect order otherwise
+import './js/setEnvVariableForExpressMiddlewareTimer';
 
 import { Application, Request, Response } from 'express';
-import { Stream } from 'stream';
 import * as _ from 'lodash';
 import * as util from 'util';
 
@@ -18,17 +16,17 @@ import addFormats from 'ajv-formats';
 import { IDatabase } from 'pg-promise';
 
 // External dependencies.
-import compression = require('compression');
-import bodyParser = require('body-parser');
-import express = require('express');
-import Route = require('route-parser');
-import pMap = require('p-map');
-import busboy = require('busboy');
-import EventEmitter = require('events');
-import pEvent = require('p-event');
-import httpContext = require('express-http-context');
-import shortid = require('shortid');
-import pug = require('pug');
+import compression from 'compression';
+import bodyParser from 'body-parser';
+import express from 'express';
+import Route from 'route-parser';
+import pMap from 'p-map';
+import busboy from 'busboy';
+import EventEmitter from 'events';
+import pEvent from 'p-event';
+import httpContext from 'express-http-context';
+import shortid from 'shortid';
+import pug from 'pug';
 
 import {
   debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError,
@@ -37,13 +35,14 @@ import {
   handleRequestDebugLog, createDebugLogConfigObject, installEMT, emtReportToServerTiming,
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
   debugAnyChannelAllowed,
-  checkSriConfigWithDb
+  checkSriConfigWithDb,
+  createReadableStream
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, TInternalSriRequest, TSriRequestHandler, SriError,
-  TBatchHandlerRecord, THttpMethod, TSriServerInstance, TDebugChannel, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition,
+  TBatchHandlerRecord, THttpMethod, TSriServerInstance, isLikeCustomRouteDefinition, isStreamingCustomRouteDefinition, TSriResult, TSriRequestHandlerForBatch, TSriInternalUtils, TSriRequestHandlerForPhaseSyncer,
 } from './js/typeDefinitions';
 import * as queryUtils from './js/queryUtils';
 import * as schemaUtils from './js/schemaUtils';
@@ -53,15 +52,15 @@ import { informationSchema } from './js/informationSchema';
 import { phaseSyncedSettle } from './js/phaseSyncedSettle';
 import { applyHooks } from './js/hooks';
 
-// const listResource = require('./js/listResource')
 import * as listResource from './js/listResource';
 import * as regularResource from './js/regularResource';
-import utilLib = require('./js/utilLib');
+import * as utilLib from './js/utilLib';
 import { overloadProtectionFactory } from './js/overloadProtection';
 import * as relationFilters from './js/relationsFilter';
 import { ServerResponse } from 'http';
 
-const JsonStreamStringify = require('json-stream-stringify'); // not working with import?
+import { JsonStreamStringify } from 'json-stream-stringify';
+
 
 const ajv = new Ajv({ coerceTypes: true, logger: {
   log: (output: string) => { debug('general', output) },
@@ -110,7 +109,7 @@ function getDocs(req, resp) {
   }
 }
 
-const getResourcesOverview = (req, resp) => {
+const getResourcesOverview = (_req, resp) => {
   resp.set('Content-Type', 'application/json');
   const resourcesToSend = {};
   global.sri4node_configuration.resources.forEach((resource) => {
@@ -157,24 +156,17 @@ const middlewareErrorWrapper = (fun) => async (req, resp) => {
 
 process.on('unhandledRejection', (err) => { console.log(err); throw err; });
 
-const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, mapping: TResourceDefinition | null) : Promise<{
-  status: number,
-  headers?: Record<string, string>
-  body?: {
-    $$meta?: any
-    results: Array<any>
-  } | any
-}> => {
+const handleRequest = async (sriRequest:TSriRequest, func:TSriRequestHandler, mapping: TResourceDefinition | null) : Promise<TSriResult> => {
   const { dbT } = sriRequest;
   let result;
   if (sriRequest.isBatchRequest) {
-    result = await (func as ((r:TSriRequest) => unknown))(sriRequest);
+    result = await (func as TSriRequestHandlerForBatch)(sriRequest, global.sriInternalUtils as TSriInternalUtils);
   } else {
-    const jobs = [[func, [dbT, sriRequest, mapping]]];
+    const job = [func as TSriRequestHandlerForPhaseSyncer, [dbT, sriRequest, mapping, global.sriInternalUtils as TSriInternalUtils]] as const;
 
     [result] = settleResultsToSriResults(
       await phaseSyncedSettle(
-        jobs, { beforePhaseHooks: global.sri4node_configuration.beforePhase },
+        [job], { beforePhaseHooks: global.sri4node_configuration.beforePhase },
       ),
     );
     if (result instanceof SriError || result?.__proto__?.constructor?.name === 'SriError') {
@@ -198,7 +190,7 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
   if ((logEnabled || hdrEnable) && (sriRequest.serverTiming !== undefined)) {
     emtReportToServerTiming(req, resp, sriRequest);
     const notNullEntries = Object.entries(sriRequest.serverTiming)
-      .filter(([property, value]) => value as number > 0);
+      .filter(([_property, value]) => value as number > 0);
 
     if (notNullEntries.length > 0) {
       serverTiming = notNullEntries.map(([property, value]) => `${property};dur=${(Math.round(value as number * 100) / 100).toFixed(2)}`).join(', ');
@@ -222,7 +214,7 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
 const expressWrapper = (
   dbR, dbW, func:TSriRequestHandler, sriConfig:TSriConfig, mapping:TResourceDefinition | null,
   isStreamingRequest:boolean, isBatchRequest:boolean, readOnly0:boolean,
-) => async function (req:Request, resp:Response, next) {
+) => async function (req:Request, resp:Response, _next) {
   let t: any = null; let endTask; let resolveTx; let rejectTx; let
     readOnly;
   const reqMsgStart = `${req.method} ${req.path}`;
@@ -279,7 +271,7 @@ const expressWrapper = (
     });
     setServerTimingHdr(sriRequest, 'db-starttask', hrtimeToMilliseconds(hrElapsedStartTransaction));
 
-    req.on('close', (err) => {
+    req.on('close', (_err) => {
       sriRequest.reqCancelled = true;
     });
 
@@ -362,8 +354,10 @@ const expressWrapper = (
           .forEach(([key, value]) => resp.write(`,\n"${key}": ${JSON.stringify(value)}`));
         resp.write('\n}');
         resp.end();
-      } else {
+      } else if (result.body !== undefined) {
         resp.send(result.body);
+      } else {
+        resp.send();
       }
     }
     await applyHooks('afterRequest',
@@ -396,13 +390,24 @@ const expressWrapper = (
     if (resp.headersSent) {
       error('____________________________ E R R O R (expressWrapper)____________________________________');
       error(err);
+      error(JSON.stringify(err, null, 2));
       error('STACK:');
       error(err.stack);
       error('___________________________________________________________________________________________');
       error('NEED TO DESTROY STREAMING REQ');
-      // TODO: HTTP trailer
-      // next(err)
-      req.destroy();
+      resp.write('\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n')
+      resp.write(err.toString());
+      resp.write(JSON.stringify(err, null, 2));
+      resp.write('\n___________________________________________________________________________________________\n');
+
+      await new Promise((resolve, _reject) => {
+        setImmediate(async () => {
+          // use setImmediate to make sure also the error message is written on the socker before closing it
+          await resp.destroy();
+          resolve(undefined);
+          error('Stream is destroyed.');
+        });
+      });
     } else if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
       if (err.status > 0) {
         const reqId = httpContext.get('reqId');
@@ -623,7 +628,8 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       }, { concurrency: 1 },
     );
 
-    global.sri4node_configuration.informationSchema = await informationSchema(dbR, sriConfig);
+    const currentInformationSchema = await informationSchema(dbR, sriConfig);
+    global.sri4node_configuration.informationSchema = currentInformationSchema;
 
     checkSriConfigWithDb(sriConfig);
 
@@ -702,7 +708,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
     // set the overload protection as first middleware to drop requests as soon as possible
     global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
-    app.use(async (req, res, next) => {
+    app.use(async (_req, res, next) => {
       if (global.overloadProtection.canAccept()) {
         next();
       } else {
@@ -741,7 +747,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     app.get('/docs', middlewareErrorWrapper(getDocs));
     app.get('/resources', middlewareErrorWrapper(getResourcesOverview));
 
-    app.post('/setlogdebug', (req, resp, next) => {
+    app.post('/setlogdebug', (req, resp, _next) => {
       global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
       resp.send('OK');
     });
@@ -994,8 +1000,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase() as THttpMethod,
                   func:
-                    async (phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest,
-                      mapping1) => {
+                    async (_phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest, _mapping1) => {
                       if (sriRequest.isBatchPart) {
                         throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] });
                       }
@@ -1010,7 +1015,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                       if (cr.beforeStreamingHandler !== undefined) {
                         try {
                           const result = await cr.beforeStreamingHandler(
-                            tx, sriRequest, customMapping,
+                            tx, sriRequest, customMapping, global.sriInternalUtils as TSriInternalUtils
                           );
                           if (result !== undefined) {
                             const { status, headers } = result;
@@ -1043,8 +1048,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                         if (sriRequest.setHeader) {
                           sriRequest.setHeader('Content-Type', 'application/json; charset=utf-8');
                         }
-                        stream = new Stream.Readable({ objectMode: true });
-                        stream._read = function () { };
+                        stream = createReadableStream(true);
                         const JsonStream = new JsonStreamStringify(stream);
                         JsonStream.pipe(sriRequest.outStream);
                         keepAliveTimer = setInterval(() => {
@@ -1062,7 +1066,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
                       sriRequest.outStream.on('close', () => streamEndEmitter.emit('done'));
 
-                      const streamingHandlerPromise = streamingHandler(tx, sriRequest, stream);
+                      const streamingHandlerPromise = streamingHandler(tx, sriRequest, stream, global.sriInternalUtils as TSriInternalUtils);
 
                       // Wait till busboy handler are in place (can be done in
                       // beforeStreamingHandler or streamingHandler) before piping request
@@ -1102,19 +1106,19 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase() as THttpMethod,
                   func:
-                    async (phaseSyncer, tx, sriRequest:TSriRequest, mapping) => {
+                    async (phaseSyncer, tx, sriRequest:TSriRequest, _mapping) => {
                       await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       if (cr.beforeHandler !== undefined) {
-                        await cr.beforeHandler(tx, sriRequest, customMapping);
+                        await cr.beforeHandler(tx, sriRequest, customMapping, global.sriInternalUtils as TSriInternalUtils);
                       }
                       await phaseSyncer.phase();
-                      const result = await handler(tx, sriRequest, customMapping);
+                      const result = await handler(tx, sriRequest, customMapping, global.sriInternalUtils as TSriInternalUtils);
                       await phaseSyncer.phase();
                       await phaseSyncer.phase();
                       if (cr.afterHandler !== undefined) {
-                        await cr.afterHandler(tx, sriRequest, customMapping, result);
+                        await cr.afterHandler(tx, sriRequest, customMapping, result, global.sriInternalUtils as TSriInternalUtils);
                       }
                       await phaseSyncer.phase();
                       return result;
@@ -1142,14 +1146,57 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         [] as Array<TBatchHandlerRecord>,
       );
 
-    const sriServerInstance = {
-        pgp,
-        db,
-        app,
+    /**
+     * Sometimes one wants to do sri4node operations on its own API, but within the state
+     * of the current transaction. Internal requests can be used for this purpose.
+     * You provide similar input as a http request in a javascript object with the
+     * database transaction to execute it on. The internal calls follow the same code path
+     * as http requests (inclusive plugins like for example security checks or version tracking).
+     *
+     * @param internalReq
+     * @returns
+     */
+    const internalSriRequest = async (internalReq: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'>) : Promise<TSriResult> => {
+      const match = batch.matchHref(internalReq.href, internalReq.verb);
 
-        close: async () => {
-          db && (await db.$pool.end());
-        }
+      const sriRequest = generateSriRequest(
+        undefined, undefined, undefined, match, undefined, undefined, internalReq,
+      );
+
+      await applyHooks('transform internal sriRequest',
+        match.handler.config.transformInternalRequest || [],
+        (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
+        sriRequest);
+
+      const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
+      // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
+      // in string format instead of Date objects
+      return JSON.parse(JSON.stringify(result));
+    };
+
+    global.sri4node_internal_interface = internalSriRequest;
+
+    // so we can add it to every sriRequest via expressRequest.app.get('sriInternalRequest')
+    const sriInternalUtils : TSriInternalUtils = {
+      internalSriRequest,
+    };
+    // we don't like passing this around via the global object (we also lose the typing)
+    // but for now we'll stick with it because there are plenty of other cases where the global
+    // has been used
+    // so where we want to pass this object to a hook or handler function we'll need to use
+    //  global.sriInternalUtils as TSriInternalUtils
+    global.sriInternalUtils = sriInternalUtils;
+
+    /** THIS WILL BE THE RETURN VALUE !!! */
+    const sriServerInstance = {
+      pgp,
+      db,
+      app,
+      // informationSchema: currentInformationSchema, // maybe later
+
+      close: async () => {
+        db && (await db.$pool.end());
+      }
     }
 
     // before registering routes in express, call startUp hook
@@ -1169,6 +1216,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     );
 
     // transform map with 'routes' to be usable in batch (translate and group by verb)
+    // TODO: do not modify the sriConfig provided to us by the user!
     sriConfig.batchHandlerMap = _.groupBy(
       batchHandlerMap.map(
         ({
@@ -1182,34 +1230,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
     app.get('/', (_req: Request, res: Response) => res.redirect('/resources'));
 
-    /**
-     * Sometimes one wants to do sri4node operations on its own API, but within the state
-     * of the current transaction. Internal requests can be used for this purpose.
-     * You provide similar input as a http request in a javascript object with the
-     * database transaction to execute it on. The internal calls follow the same code path
-     * as http requests (inclusive plugins like for example security checks or version tracking).
-     *
-     * @param internalReq
-     * @returns
-     */
-    global.sri4node_internal_interface = async (internalReq: TInternalSriRequest) => {
-      const match = batch.matchHref(internalReq.href, internalReq.verb);
-
-      const sriRequest = generateSriRequest(
-        undefined, undefined, undefined, match, undefined, undefined, internalReq,
-      );
-
-      await applyHooks('transform internal sriRequest',
-        match.handler.config.transformInternalRequest || [],
-        (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
-        sriRequest);
-
-      const result = await handleRequest(sriRequest, match.handler.func, match.handler.mapping);
-      // we do a JSON stringify/parse cycle because certain fields like Date fields are expected
-      // in string format instead of Date objects
-      return JSON.parse(JSON.stringify(result));
-    };
-
     console.log('___________________________ SRI4NODE INITIALIZATION DONE _____________________________');
     return sriServerInstance;
   } catch (err) {
@@ -1219,17 +1239,13 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
   }
 }
 
-
-
-
 /* express.js application, configuration for roa4node */
 // export = // for typescript
 export {
   configure,
 
-  debugAnyChannelAllowed as debug,
+  debugAnyChannelAllowed as debug, // debugAnyChannelAllowed(ch, msg) => debug(null, ch, msg)
   error,
-  SriError,
 
   queryUtils,
   mapUtils,

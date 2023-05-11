@@ -1,9 +1,10 @@
+import { TResourceDefinition } from "../../sri4node";
+
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/jsonb',
     metaType: 'SRI4NODE_JSONB',
-    'public': true, // eslint-disable-line
     schema: {
       $schema: 'http://json-schema.org/schema#',
       title: 'jsonb test context.',
@@ -21,4 +22,5 @@ module.exports = function (sri4node) {
       foo: {}
     }
   };
+  return r;
 };

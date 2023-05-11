@@ -1,4 +1,4 @@
-import utils from '../utils';
+import { TResourceDefinition } from '../../sri4node';
 
 module.exports = function (sri4node) {
   const $m = sri4node.mapUtils;
@@ -10,8 +10,8 @@ module.exports = function (sri4node) {
     select.sql(' and posted > ').param(value);
   }
 
-  function validateMoreThan(field, max) {
-    return async function (tx, sriRequest, elements) {
+  function validateMoreThan(_field, max) {
+    return async function (_tx, sriRequest, elements) {
       elements.forEach( ({ incoming }) => {
         if (incoming.amount <= max) {
           sri4node.debug('mocha', 'Should be more, or equal to ' + max);
@@ -21,7 +21,7 @@ module.exports = function (sri4node) {
     };
   }
 
-  async function addExtraKeysAfterRead( tx, sriRequest, elements ) {
+  async function addExtraKeysAfterRead( _tx, _sriRequest, elements ) {
     elements.forEach( ({ stored }) => {
       if (stored!=null) {
         stored.$$afterread = 'added by afterread method';
@@ -29,24 +29,23 @@ module.exports = function (sri4node) {
     })
   }
 
-  const cteOneGuid = async function (value, select) {
+  const cteOneGuid = async function (_value, select) {
     const cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte');
     select.sql(' AND "key" IN (SELECT key FROM cte)');
   };
 
-  const cteOneGuid2 = async function (value, select) {
+  const cteOneGuid2 = async function (_value, select) {
     const cte = $u.prepareSQL();
     cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
     select.with(cte, 'cte2');
     select.sql(' AND "key" IN (SELECT key FROM cte2)');
   };
 
-  return {
+  const r : TResourceDefinition = {
     type: '/messages',
     metaType: 'SRI4NODE_MESSAGE',
-    'public': false, // eslint-disable-line
     listResultDefaultIncludeCount: false,
     
     map: {
@@ -111,7 +110,6 @@ module.exports = function (sri4node) {
       validateMoreThan('amount', 10),
       validateMoreThan('amount', 20)
     ],
-
-    transformRequest: utils.lookForBasicAuthUser
   };
+  return r;
 };

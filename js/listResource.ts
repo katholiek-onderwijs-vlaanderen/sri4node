@@ -1,7 +1,7 @@
-import * as _ from 'lodash';
-import * as pMap from 'p-map';
-import * as pFilter from 'p-filter';
-import * as url from 'url';
+import _ from 'lodash';
+import pMap from 'p-map';
+import pFilter from 'p-filter';
+import url from 'url';
 import {
   debug, sqlColumnNames, getCountResult,
   transformRowToObject, tableFromMapping, pgExec,
@@ -144,7 +144,7 @@ const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, 
     query.sql(` AND (${orderKeys.map((k) => `"${table}"."${k}"`).join()}) ${orderKeyOp} (`);
 
     orderKeys.forEach(
-      (k, idx) => {
+      (_k, idx) => {
         if (idx > 0) {
           query.sql(',');
         }
@@ -204,7 +204,6 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
   const { originalUrl } = sriRequest;
   const queryParams = sriRequest.query;
 
-  const table = tableFromMapping(mapping);
   const tableInformation = global.sri4node_configuration.informationSchema[mapping.type];
 
   // const elements = [];
@@ -313,7 +312,6 @@ async function getListResource(phaseSyncer, tx, sriRequest:TSriRequest, mapping:
     if (queryParams.$$includeCount !== undefined) {
       includeCount = (queryParams.$$includeCount === 'true');
     }
-    const startTime = Date.now();
     if (includeCount) {
       const countquery = prepareSQL();
       await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
@@ -391,8 +389,8 @@ const matchUrl = (url, mapping) => {
 
 // POST /[resource]/isPartOf
 // {
-//  "a": { "href": [urlA] }
-//  "b": { "hrefs": [ [urlB1], [urlB2], [urlB3] ] }
+//  "a": { "href": [urlA] }
+//  "b": { "hrefs": [ [urlB1], [urlB2], [urlB3] ] }
 // }
 // ==> [ [urlB2] ]  (all raw urls from list B for which url A is a subset)
 

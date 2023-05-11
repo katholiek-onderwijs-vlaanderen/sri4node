@@ -1,10 +1,11 @@
+import { TResourceDefinition } from "../../sri4node";
+
 // Messages relations
-module.exports = function (sri4node, extra) {
+module.exports = function (sri4node, _extra) {
   const $s = sri4node.schemaUtils;
-  return {
+  const r : TResourceDefinition = {
     type: '/relations',
     metaType: 'SRI4NODE_RELATIONS',
-    'public': false, // eslint-disable-line
     map: {
       key: {},
       from: {references: '/messages'},
@@ -36,4 +37,5 @@ module.exports = function (sri4node, extra) {
       required: ['key', 'from', 'to', 'type']
     },
   };
+  return r;
 };

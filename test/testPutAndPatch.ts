@@ -1,9 +1,8 @@
 // Utility methods for calling the SRI interface
-import * as pMap from 'p-map';
-import * as assert from 'assert';
+import pMap from 'p-map';
+import assert from 'assert';
 import * as uuid from 'uuid';
 import { debug } from '../js/common';
-import utils from './utils';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {
@@ -309,9 +308,9 @@ module.exports = function (httpClient: THttpClient) {
 
   describe('PUT of 100 items ', () => {
     it('should be allowed in parallel.', async () => {
-      const results = await pMap(
+      await pMap(
         Array(100),
-        async (i) => {
+        async () => {
           const key = uuid.v4();
           const person = generateRandomPerson(key, communityDendermonde);
           const response = await httpClient.put({ path: `/persons/${key}`, body: person, auth: 'sabine' });
