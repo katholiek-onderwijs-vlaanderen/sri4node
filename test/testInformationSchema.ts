@@ -1,5 +1,4 @@
 import assert from 'assert';
-import { IDatabase } from 'pg-promise';
 import { debug } from '../js/common';
 import { informationSchema } from '../js/informationSchema';
 

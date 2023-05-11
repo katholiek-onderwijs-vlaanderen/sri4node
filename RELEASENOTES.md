@@ -1,5 +1,54 @@
 # Release Notes
 
+## version 2.3.20 (11-05-2023)
+
+We'll list all changes since version 2.3.
+
+Bugs fixed:
+ * Pass error message when error occurs during streaming and destroy connection with testcases
+ * Broken sriConfig.databaseConnectionParameters.connectionInitSql (it was not being executed)
+ * A lot of typing fixes
+ * Fix on custom routes: transformRequest has been moved from resource mapping to general sri4node config (is a global hook now), so make no sense anymore on custom routes + test case for customroute with transformResponse
+ * Fix schemautils: pattern is only valid for strings
+ * Fix custom query parameter combined with from/to relation
+ * Fixed bug which caused a silent error (and hanging requests) in case logdebug was not defined
+ * Fixed bug where expand=none was producing invalid next links.
+ * Fixed a bug in phasesyncer (phaseSyncedSettle) in case of error
+ * Fixes to be able to enable pg-monitor on sri4node 2.3
+ * Fixed generating config object based on connectionString if it contains ssl=false
+ * Fixed a bug where generateSriRequest in case of a batch element would have an undefined dbT property
+ * Removed gc-stats does (not support node > 12)
+
+Other improvements:
+ * Added esbuild in order to release both an ESM and a CJS version. sri4node-security-api plugin has been updated as well to 2.3.7 in order to work with this version.
+ * A lot of typing improvemnts (stricter typing)
+ * Tests have been improved
+   * Added test cases for all hooks + some fixes
+   * Tests are using a docker database now (by using kov-docker-utils to make it easy to setup such a test DB)
+ * Upgraded most dependencies to recent versions
+ * Removed obsolete dependencies
+ * Ajv: add debugline when starting to compile schema, redirect log/warn of ajv to sri4node node
+ * Improved schemaUtils:
+    * added typing
+    * added integer()
+    * extra 'pattern' parameter
+    * new enum function
+ * Removal of obsolete test server.js
+ * Added close function on sri4nodeInstance (and use it in tests)
+ * Added check at startup to check if sri4node resource configuration and database table have same properties
+ * Upgrade busboy with breaking changes
+ * Refactor tests: remove sri-client dep and use new internal wrapper httpClient
+ * Added schema validation at startup (and test case) + changed debug function typing to allow any channel when called from outside sri4node (in a plugin or an application using sri4node) while still resticting internal usage to the predefined channels (typo's avoided and vscode can do autocompletion)
+ * Cleanup some obsolete code
+ * changed pretest to do cleanup of db before testing
+ * README.md Updates
+ * Removed manipulation of cn in pgConnect function. As a result connectionStrings containing ssl=false are not supported anymore (use the ssl: false flag inside the connection object)
+ * Added sriServerInstance as return on configure(sri4nodeConfig), new hooks startUp and errorHandler and added userData object to sriRequest
+ * Removed double meta fields
+
+Known issues:
+ * orderBy a field containing NULL values crashes the keyOffset
+
 ## version 2.3.5 (06-10-2022)
 
 * added sriServerInstance as return on configure(sri4nodeConfig) containing pgp, db and app associated with the configured sri4node server instanc

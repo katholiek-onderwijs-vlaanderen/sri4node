@@ -241,3 +241,11 @@ CREATE TABLE "hooktests" (
   "ref" uuid,
   "msg" text
 );
+
+/*
+This table is used to test the sriConfig.databaseConnectionParameters.connectionInitSql
+feature, and we will configure the tests so that a new row is added on every connection.
+*/
+CREATE TABLE "db_connections" (
+  "connect_time" timestamp with time zone not null default current_timestamp
+);
