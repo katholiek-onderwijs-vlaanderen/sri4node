@@ -61,7 +61,7 @@ if (fs.existsSync("./dist")) {
 esbuild
   .build({
     format: "esm",
-    outfile: "dist/sri4node.esm.js",
+    outfile: "dist/sri4node.esm.mjs",
     platform: "node",
     entryPoints: ["./index.ts"],
     bundle: true,
@@ -71,6 +71,7 @@ esbuild
     tsconfig: "tsconfig.json", // to generate the type definitions file
   })
   .catch(() => process.exit(1));
+
 
 esbuild
   .build({
