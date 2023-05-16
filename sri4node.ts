@@ -4,11 +4,8 @@
   It is configurable, and provides a simple framework for creating REST interfaces.
 */
 
-// seperate module, because bundling would cause incorrect order otherwise
-import './js/setEnvVariableForExpressMiddlewareTimer';
-
 import { Application, Request, Response } from 'express';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import * as util from 'util';
 
 import Ajv from 'ajv';
@@ -60,7 +57,10 @@ import * as relationFilters from './js/relationsFilter';
 import { ServerResponse } from 'http';
 
 import { JsonStreamStringify } from 'json-stream-stringify';
+import path from 'path';
 
+// when bundling as an ecmascript module, NodeJS's __dirname might not be available
+const dirname = path.resolve(process.cwd());
 
 const ajv = new Ajv({ coerceTypes: true, logger: {
   log: (output: string) => { debug('general', output) },
@@ -732,10 +732,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     // use option 'strict: false' to allow also valid JSON like a single boolean
 
     // to parse html pages
-    app.use('/docs/static', express.static(`${__dirname}/js/docs/static`));
+    app.use('/docs/static', express.static(`${dirname}/js/docs/static`));
     app.engine('.pug', pug.__express);
     app.set('view engine', 'pug');
-    app.set('views', `${__dirname}/js/docs`);
+    app.set('views', `${dirname}/js/docs`);
 
     app.put('/log', middlewareErrorWrapper((req, resp) => {
       const err = req.body;
@@ -805,7 +805,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
           // register docs for this type
           app.get(`${mapping.type}/docs`, middlewareErrorWrapper(getDocs));
-          app.use(`${mapping.type}/docs/static`, express.static(`${__dirname}/js/docs/static`));
+          app.use(`${mapping.type}/docs/static`, express.static(`${dirname}/js/docs/static`));
         }
       }, { concurrency: 1 },
     );

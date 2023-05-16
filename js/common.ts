@@ -28,7 +28,7 @@ import path from 'path';
 import stream from 'stream';
 import peggy from 'peggy';
 import httpContext from 'express-http-context';
-import emt from 'express-middleware-timer';
+import * as emt from './express-middleware-timer';
 
 let pgp: pgPromise.IMain; // will be initialized at pgConnect
 
@@ -532,7 +532,7 @@ function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRe
       }
     });
   } catch (err) {
-    error('[emtReportToServerTiming] it does not work anymore but why???');
+    error('[emtReportToServerTiming] it does not work anymore but why???', err);
     throw err;
   }
 }

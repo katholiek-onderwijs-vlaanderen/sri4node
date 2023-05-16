@@ -1,17 +1,19 @@
 import { TLogDebug, TSriServerInstance } from '../js/typeDefinitions';
 
-// option 1: use the typescript files to test against
-// import * as sri4node from '../index'; // index is needed, otherwise it will use what is indicated in package.json/main !!!
-// option 2: use the compiled bundle to test against
-import * as sri4node from '../dist/sri4node.cjs';
-
-const devNull = require('dev-null');
+import devNull from 'dev-null';
 import { Console } from 'console';
 
 import * as context from './context';
 
 import httpClientMod from './httpClient';
 import { Server } from 'http';
+
+// option 1: use the typescript files to test against
+import * as sri4nodeTS from '../index'; // index is needed, otherwise it will use what is indicated in package.json/main !!!
+// option 2: use the CommonJS Module compiled bundle to test against
+import * as sri4nodeCJS from '../dist/sri4node.cjs.js';
+// option 3: use the EcmaScript Module compiled bundle to test against
+// import * as sri4nodeESM from '../dist/sri4node.esm.mjs';
 
 const dummyLogger = new Console({
   stdout: devNull(),
@@ -21,7 +23,7 @@ const dummyLogger = new Console({
 });
 
 const port = 5000;
-const logdebug:TLogDebug = { channels: [] };
+const logdebug: TLogDebug = { channels: [] };
 // const logdebug : TLogDebug = { channels: 'all' };
 // const logdebug:{ channels: TDebugChannel[] } = { channels: ['phaseSyncer', 'hooks'] };
 
@@ -37,7 +39,7 @@ const httpClient = httpClientMod.httpClientFactory(base);
  * @param testFileName
  * @param args
  */
-function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined) {
+function runTestIfNeeded(testFileName: string, args: any[] | undefined = undefined) {
   const underscoresIndex = process.argv.indexOf('--pick');
   const testsToRun = underscoresIndex >= 0 ? process.argv.slice(underscoresIndex + 1) : [];
   if (underscoresIndex < 0 || testsToRun.includes(testFileName)) {
@@ -54,12 +56,41 @@ function runTestIfNeeded(testFileName:string, args:any[] | undefined = undefined
   }
 }
 
+/**
+ * This is needed in case sri4node is loaded asynchronously!
+ */
+const sri4nodeHolder = {
+  sri4node: sri4nodeCJS, // the default, but can be replaced in the before() method!
+};
+
+/**
+ * In the before() function, we will decide which sri4node to use
+ * based on the process.env.SRI4NODE_TEST_MODULE_TYPE environment variable
+ *
+ * This way we can run the tests on all bundled versions of the library
+ * in order to make sure the bundling went well for all versions!
+ */
+before(async () => {
+  // process.env.SRI4NODE_TEST_MODULE_TYPE = 'ESM';
+
+  const sri4nodeModuleMap = {
+    TS: sri4nodeTS,
+    CJS: sri4nodeCJS,
+    // ESM: sri4nodeESM,
+    ESM: await import("../dist/sri4node.esm.mjs"),
+  }
+
+  const moduleType = process.env.SRI4NODE_TEST_MODULE_TYPE || 'CJS';
+  sri4nodeHolder.sri4node = sri4nodeModuleMap[moduleType];
+  console.log(`>>>>>>>> sri4node '${moduleType}' module has been loaded successfully <<<<<<<<`);
+});
+
 describe('Sri4node PURE UNIT TESTS', () => {
   runTestIfNeeded('./common/test_hrefToNormalizedUrl.ts');
 });
 
 describe('Sri4node VALIDATION AT STARTUP TESTS', function () {
-  runTestIfNeeded('./testValidationAtStartup.ts', [ sri4node, port, logdebug, dummyLogger ]);
+  runTestIfNeeded('./testValidationAtStartup.ts', [sri4nodeHolder, port, logdebug, dummyLogger]);
 });
 
 
@@ -74,8 +105,8 @@ describe('Sri4node SERVER TESTS', function () {
 
   before(async () => {
     try {
-      const {server, sriServerInstance} = await context.serve(sri4node, port, logdebug, dummyLogger, 
-          [ './context/persons',
+      const { server, sriServerInstance } = await context.serve(sri4nodeHolder.sri4node, port, logdebug, dummyLogger,
+        ['./context/persons',
           './context/messages',
           './context/communities',
           './context/transactions',
@@ -94,7 +125,7 @@ describe('Sri4node SERVER TESTS', function () {
           './context/customStreaming',
           './context/foos',
           './context/bars',
-          ]);
+        ]);
       testContext.server = server;
       testContext.sriServerInstance = sriServerInstance;
     } catch (err) {
@@ -114,7 +145,7 @@ describe('Sri4node SERVER TESTS', function () {
   });
 
   runTestIfNeeded('./testConnectionInitSql.ts', [testContext, httpClient]);
-  
+
   // // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [httpClient]);
   runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
@@ -161,4 +192,4 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
 });
 
-export {};
+export { };

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "lib": [
-      "ES6",
+      "ES6"
       // "DOM"
     ],
     "target": "ES6",
@@ -9,15 +9,21 @@
     "strictNullChecks": true,
     "outDir": "./dist",
     "rootDir": "./",
-    "module": "commonjs",
+
+    "module": "CommonJS",
+    "moduleResolution": "nodenext",
+
     "sourceMap": true,
+    "sourceRoot": "./",
     "declaration": true,
     // "isolatedModules": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true
   },
-  "exclude": [
-    "dist",
-    "node_modules",
-    "test"
-  ]
+  "exclude": ["dist*", "node_modules", "test"],
+  // the next  2 lines should fix the error 'Unknown file extension ".ts"'
+  // when trying to import the ESM bundle in our tests, but it does not work
+  // "ts-node": {
+  //   "esm": true,
+  //   "experimentalSpecifierResolution": "node"
+  // }
 }

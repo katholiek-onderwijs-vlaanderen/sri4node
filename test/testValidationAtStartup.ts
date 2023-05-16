@@ -5,7 +5,7 @@ import sinon from 'ts-sinon';
 const sinonSandbox = sinon.createSandbox();
 
 
-module.exports = (sri4node, port, logdebug, dummyLogger) => {
+module.exports = (sri4nodeHolder: { sri4node: any }, port, logdebug, dummyLogger) => {
   describe('Sri4node SCHEMA VALIDATION', function () {
     this.timeout(0)
     let server: any = null
@@ -22,10 +22,10 @@ module.exports = (sri4node, port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with an invalid schema', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'error')
-      const exitStub = sinonSandbox.stub(process, 'exit')
-      ;({ server, sriServerInstance } = await context.serve(
-        sri4node,
+      const consoleSpy = sinonSandbox.spy(console, 'error');
+      const exitStub = sinonSandbox.stub(process, 'exit');
+      ({ server, sriServerInstance } = await context.serve(
+        sri4nodeHolder.sri4node,
         port,
         logdebug,
         dummyLogger,
@@ -57,10 +57,10 @@ module.exports = (sri4node, port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with invalid config (property case mismatch)', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'error')
-      const exitStub = sinonSandbox.stub(process, 'exit')
-      ;({ server, sriServerInstance } = await context.serve(
-        sri4node,
+      const consoleSpy = sinonSandbox.spy(console, 'error');
+      const exitStub = sinonSandbox.stub(process, 'exit');
+      ({ server, sriServerInstance } = await context.serve(
+        sri4nodeHolder.sri4node,
         port,
         logdebug,
         dummyLogger,
@@ -92,10 +92,10 @@ module.exports = (sri4node, port, logdebug, dummyLogger) => {
     })
 
     it('sri4node should exit with invalid config (missing property)', async function () {
-      const consoleSpy = sinonSandbox.spy(console, 'error')
-      const exitStub = sinonSandbox.stub(process, 'exit')
-      ;({ server, sriServerInstance } = await context.serve(
-        sri4node,
+      const consoleSpy = sinonSandbox.spy(console, 'error');
+      const exitStub = sinonSandbox.stub(process, 'exit');
+      ({ server, sriServerInstance } = await context.serve(
+        sri4nodeHolder.sri4node,
         port,
         logdebug,
         dummyLogger,
