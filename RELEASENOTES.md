@@ -1,5 +1,16 @@
 # Release Notes
 
+## version 2.3.21 (16-05-2023)
+
+We'll list all changes since version 2.3.20
+
+Bugs fixed:
+ * ESM module should now also work correctly (tests are run against both bundles)
+ * Note: it will not work anymore on Node 12, please use > Node 16
+
+Other improvements:
+ * cleanup a few old dependencies
+
 ## version 2.3.20 (11-05-2023)
 
 We'll list all changes since version 2.3.
