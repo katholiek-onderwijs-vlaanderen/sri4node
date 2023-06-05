@@ -970,7 +970,7 @@ async function pgExec(db, query, sriRequest?: TSriRequest) {
   return result;
 }
 
-async function pgResult(db, query, sriRequest = null) {
+async function pgResult(db, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
   debug('sql', () => pgp.as.format(sql, values));

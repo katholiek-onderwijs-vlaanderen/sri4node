@@ -550,8 +550,11 @@ export type TResourceDefinition = {
     ) => void
   >;
 
-  // current query
+  // all supported query parameters, with a function that will modify the preparedSQL so far
+  // to make sure only the relevant results are returned
   query?: TSriQueryFun
+  // uses the same jeys as in 'query', to make sure the custom filters are documented as well
+  queryDocs?: Record<string, string>,
 
   // "POSSIBLE_FUTURE_QUERY": {
   //   // THIS SHOULD ALWAYS WORK defaultFilter,

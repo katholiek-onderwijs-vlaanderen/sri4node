@@ -15,7 +15,6 @@ import { applyHooks } from './hooks';
 
 import * as expand from './expand';
 // import { expand } from './expand';
-import * as schemaUtils from './schemaUtils';
 import { PhaseSyncer } from './phaseSyncedSettle';
 import { IDatabase } from 'pg-promise';
 
@@ -57,7 +56,7 @@ function queryByKeyRequestKey(sriRequest: TSriRequest, mapping: TResourceDefinit
   parentSriRequest.queryByKeyFetchList[type].push(key);
 }
 
-function queryByKeyGetResult(sriRequest:TSriRequest, mapping: TResourceDefinition, key:string, wantsDeleted:boolean) {
+function queryByKeyGetResult(sriRequest: TSriRequest, mapping: TResourceDefinition, key: string, wantsDeleted: boolean) {
   debug('trace', `queryByKeyGetResult(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
@@ -83,7 +82,7 @@ function queryByKeyGetResult(sriRequest:TSriRequest, mapping: TResourceDefinitio
   return { code: 'not.found' };
 }
 
-const beforePhaseQueryByKey : TBeforePhase = async function (sriRequestMap, _jobMap, _pendingJobs) {
+const beforePhaseQueryByKey: TBeforePhase = async function (sriRequestMap, _jobMap, _pendingJobs) {
   const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
   if (sriRequest.queryByKeyFetchList !== undefined) {
     const types = Object.keys(sriRequest.queryByKeyFetchList);
@@ -109,7 +108,7 @@ const beforePhaseQueryByKey : TBeforePhase = async function (sriRequestMap, _job
   }
 }
 
-async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest:TSriRequest, mapping: TResourceDefinition) {
+async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
   const { key } = sriRequest.params;
 
   await phaseSyncer.phase();
@@ -187,7 +186,7 @@ function getSchemaValidationErrors(json, schema, validateSchema) {
  * @param {TResourceDefinition} mapping
  * @param {*} previousQueriedByKey
  */
-async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriRequest, mapping) {
+async function preparePatchInsideTransaction(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
   const { key } = sriRequest.params;
   const patch = (sriRequest.body || []) as Operation[];
   // const patch:Operation[] = sriRequest.body?.map((b) => b.body as unknown as Operation) || [];
@@ -227,8 +226,8 @@ async function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest:TSriReq
  * run the same query again. Useful for implementing a PATCH which will simply behave as if it were
  * a PUT after patching.
  */
-async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey: any = undefined) {
-
+async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sriRequest: TSriRequest,
+  mapping: TResourceDefinition, previousQueriedByKey: any = undefined) {
   const key = sriRequest.params.key;
   const obj = sriRequest.body
   const table = tableFromMapping(mapping);
@@ -248,9 +247,9 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 
   debug('trace', 'Validating schema.');
   if (mapping.schema) {
-    if (!mapping.schemaWithoutAdditionalProperties) {
-      mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
-    }
+    // if (!mapping.schemaWithoutAdditionalProperties) {
+    //   mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
+    // }
 
     const hrstart = process.hrtime();
     const validationErrors = getSchemaValidationErrors(obj, mapping.schema, mapping.validateSchema);
@@ -371,9 +370,9 @@ async function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping,
 }
 
 async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
-  const sriRequest:TSriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
+  const sriRequest: TSriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
 
-  const throwIfDbTUndefined = (sriReq: TSriRequest):void => {
+  const throwIfDbTUndefined = (sriReq: TSriRequest): void => {
     if (sriReq?.dbT === undefined) {
       throw new Error('[beforePhaseInsertUpdateDelete] Expected sriRequest.dbT to be defined');
     }
@@ -470,7 +469,7 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
   sriRequest.rowsToDelete = undefined;
 }
 
-async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
+async function handlePutResult(phaseSyncer: PhaseSyncer, sriRequest: TSriRequest, mapping: TResourceDefinition, state) {
   const parentSriRequest = getParentSriRequest(sriRequest);
   if (state.opType === 'insert') {
     if (parentSriRequest.multiInsertFailed) {
@@ -514,7 +513,7 @@ async function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
   return { status: 200 };
 }
 
-async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+async function createOrUpdateRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
   await phaseSyncer.phase();
   debug('trace', '* sri4node PUT processing invoked.');
   try {
@@ -538,7 +537,7 @@ async function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mappin
   }
 }
 
-async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+async function patchRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
   await phaseSyncer.phase();
   debug('trace', '* sri4node PATCH processing invoked.');
   try {
@@ -562,7 +561,7 @@ async function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
   }
 }
 
-async function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
   try {
     await phaseSyncer.phase();
 
