@@ -271,7 +271,7 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
         } else if (o === null) {
           return null;
         }
-        return o.toString();
+        return encodeURIComponent(o.toString());
       })
       .join(',');
     output.$$meta.next = addOrReplaceParameter(originalUrl, 'keyOffset', keyOffset);

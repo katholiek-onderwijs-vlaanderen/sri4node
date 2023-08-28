@@ -278,6 +278,26 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(_.isEqual(_.reverse(ids), _.sortBy(ids)), true );
     });
 
+
+    it('orderBy should produce url-encoded next links', async function () {
+      const hrefsFound:string[] = []
+      let count = 0
+      const traverse = async (url) => {
+        const response = await httpClient.get({ path: url, auth: 'kevin' });
+        hrefsFound.push(...response.body.results.map( e => e.href ))
+        if (response.body.$$meta.next !== undefined ) {
+          await traverse(response.body.$$meta.next)
+        } else {
+          count = response.body.$$meta.count
+        }
+      }
+      // all community names in the test data contain spaces in their names and result in incorrect urls when not url-encoded
+      //   ==> traverse will fail if next url is not url-encoded
+      await traverse('/communities?orderBy=name&limit=2')
+      assert.equal(count, _.uniq(hrefsFound).length);
+    });
+
+
     it('should forbid a limit over the maximum', async function () {
       const response = await httpClient.get({ path: '/alldatatypes?limit=100', auth: 'kevin' });
       assert.equal(response.status, 409);
