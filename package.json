@@ -15,7 +15,7 @@
   },
   "scripts": {
     "//start": "node index.js",
-    "prepare": "[[ \"$(ls ./dist)\" == \"\" ]] && npm run build:esbuild",
+    "prepare": "[[ \"$(ls ./dist)\" == \"\" ]] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE",
     "prebuild": "npm run clean",
     "build": "tsc --project .",
     "postbuild": "cp -r ./js/docs ./dist/js",

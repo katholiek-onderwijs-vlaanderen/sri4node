@@ -3,6 +3,7 @@ npm-debug.log
 .env
 .idea
 # dist/
+./dist/CREATED_BY_NPM_PREPARE
 env.js
 .vscode
 sri4node_postgresdbfortests.*
