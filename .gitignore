@@ -2,7 +2,7 @@ node_modules
 npm-debug.log
 .env
 .idea
-dist/
+# dist/
 env.js
 .vscode
 sri4node_postgresdbfortests.*

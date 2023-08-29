@@ -1,0 +1,78 @@
+doctype html
+html(lang='en')
+    head
+        title API Documentation
+        link(href='../docs/static/bootstrap.min.css', rel='stylesheet')
+        link(href='../docs/static/custom.css', rel='stylesheet')
+    body
+        .container
+            .header.clearfix
+                h3.text-primary API Documentation
+            .row.well!= config.description
+            .row
+                .panel.panel-primary
+                    .panel-heading
+                        h3.panel-title Resources
+                    .panel-body
+                        each resource in config.resources
+                            .panel.panel-default
+                                .panel-heading
+                                    h3.panel-title
+                                        a(href='#{resource.type }/docs') #{resource.type }
+                                    .pull-right(style='margin-top: -20px')
+                                        if resource.methods
+                                            each method in resource.methods
+                                                span.label.label-success(style='margin-left: 5px') #{ method }
+                                        else
+                                            span.label.label-success(style='margin-left: 5px') GET
+                                            span.label.label-success(style='margin-left: 5px') PUT
+                                            span.label.label-success(style='margin-left: 5px') DELETE
+                                if resource.schema
+                                    if resource.schema.title
+                                        .panel-body!= resource.schema.title
+            .row
+                .panel.panel-primary
+                    .panel-heading
+                        h3.panel-title Endpoints
+                    .panel-body
+                        .panel.panel-default
+                            .panel-heading
+                                h3.panel-title
+                                    a(href='/me') /me
+                                span.label.label-success.pull-right(style='margin-top: -15px') GET
+                            .panel-body
+                                | Get information about the current user.
+                        .panel.panel-default
+                            .panel-heading
+                                h3.panel-title /batch
+                                span.label.label-success.pull-right(style='margin-top: -15px') PUT
+                            .panel-body
+                                | Send a batch request to the server. You can find more documentation&nbsp;
+                                a(href='https://github.com/dimitrydhondt/sri#batch-operations', target='_blank') here
+                                | .
+                        .panel.panel-default
+                            .panel-heading
+                                h3.panel-title /log
+                                span.label.label-success.pull-right(style='margin-top: -15px') PUT
+                            .panel-body
+                                | Send logs to the server.
+                        .panel.panel-default
+                            .panel-heading
+                                h3.panel-title
+                                    a(href='/resources') /resources
+                                span.label.label-success.pull-right(style='margin-top: -15px') GET
+                            .panel-body
+                                | See all available resources in json format.
+                        .panel.panel-default
+                            .panel-heading
+                                h3.panel-title
+                                    a(href='/docs') /docs
+                                span.label.label-success.pull-right(style='margin-top: -15px') GET
+                            .panel-body
+                                | This documentation about the API, generated from the configuration.
+            footer.footer
+                p
+                    | Powered by&nbsp;
+                    a(href='https://github.com/dimitrydhondt/sri4node', target='_blank') sir4node
+                    |  based on the&nbsp;
+                    a(href='https://github.com/dimitrydhondt/sri', target='_blank') sri specification
