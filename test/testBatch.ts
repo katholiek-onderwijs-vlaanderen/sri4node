@@ -460,6 +460,25 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(response.status, 201);
     });
 
+    it('\'big\' batch_streaming', async () => {
+      // create a batch array
+      const batch = await pMap(
+        Array(1000),
+        async () => {
+          const keyC1 = uuid.v4();
+          const bodyC1 = generateRandomCommunity(keyC1);
+          return {
+            href: `/communities/${keyC1}`,
+            verb: 'PUT',
+            body: bodyC1,
+          };
+        },
+      );
+
+      const response = await httpClient.put({ path:'/batch_streaming', body: batch, auth: 'sabine' });
+      assert.equal(response.body.status, 201); // in streaming mode responsePut.status will always be 200 -> check response.body.status
+    });
+
     it('\'big\' batch with sub-batches', async () => {
       // create a batch array
       const batch = await pMap(

@@ -370,7 +370,16 @@ const batchOperationStreaming:TSriRequestHandlerForBatch = async (sriRequest, in
 
     // signal end to JSON stream
     stream2.push(null);
-    stream2.destroy();
+    // Removed stream2.destroy() here. It was not needed and there was a potentially very bad interaction between
+    // stream2.push(null) and stream2.destroy(): in case enough data has been written on the stream, the destroy()
+    // call destroyed the stream before all data could have been consumed. In that case the 'end' event was never
+    // emitted (from the nodejs docs:
+    //      The 'end' event is emitted when there is no more data to be consumed from the stream.
+    //      The 'end' event will not be emitted unless the data is completely consumed.
+    // ) and so 'await streamDonePromise' was hanging forever.
+    //
+    // The newly added test case "'big' batch_streaming" seemed to generate enough response data to always
+    // trigger the bad interaction between push(null) and destroy().
 
     // wait until JSON stream is ended
     await streamDonePromise;
