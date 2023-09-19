@@ -1,5 +1,13 @@
 # Release Notes
 
+## version 2.3.23 (11-09-2023)
+
+Bugfix: fix (+ new testcase) on streaming_batch code where potentially very bad interaction between stream2.push(null) and stream2.destroy() occured when enough data had been written on the stream. If the stream got destroyed before all data could have been consumed the 'end' event was never emitted and the request kept hanging forever.
+
+## version 2.3.20 (28-08-2023)
+
+Bugfix for list resources: url-encode the keys of the next urls (+ test case).
+
 ## version 2.3.21 (16-05-2023)
 
 We'll list all changes since version 2.3.20
