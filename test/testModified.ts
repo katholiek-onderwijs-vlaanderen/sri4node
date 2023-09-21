@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interfacedoGet(
 import assert from 'assert';
-const _ = require('lodash');
+import _ from 'lodash';
 import * as uuid from 'uuid';
 import { THttpClient } from './httpClient';
 

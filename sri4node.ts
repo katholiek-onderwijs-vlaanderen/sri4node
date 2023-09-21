@@ -15,7 +15,6 @@ import { IDatabase } from 'pg-promise';
 // External dependencies.
 import compression from 'compression';
 import bodyParser from 'body-parser';
-import express from 'express';
 import Route from 'route-parser';
 import pMap from 'p-map';
 import busboy from 'busboy';
@@ -23,7 +22,6 @@ import EventEmitter from 'events';
 import pEvent from 'p-event';
 import httpContext from 'express-http-context';
 import shortid from 'shortid';
-import pug from 'pug';
 
 import {
   debug, error, pgConnect, pgExec, typeToConfig, installVersionIncTriggerOnTable, stringifyError,
@@ -57,10 +55,8 @@ import * as relationFilters from './js/relationsFilter';
 import { ServerResponse } from 'http';
 
 import { JsonStreamStringify } from 'json-stream-stringify';
-import path from 'path';
 
-// when bundling as an ecmascript module, NodeJS's __dirname might not be available
-const dirname = path.resolve(process.cwd());
+import * as pugTpl from './js/docs/pugTemplates';
 
 const ajv = new Ajv({ coerceTypes: true, logger: {
   log: (output: string) => { debug('general', output) },
@@ -95,15 +91,19 @@ function getSchema(req, resp) {
 /**
  * Handle GET /docs and /{type}/docs
  */
-function getDocs(req, resp) {
+function getDocs(req, resp: Response) {
   const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
   const type = req.route.path.split('/').slice(0, req.route.path.split('/').length - 1).join('/');
   if (type in typeToMappingMap) {
     const mapping = typeToMappingMap[type];
     resp.locals.path = req._parsedUrl.pathname;
-    resp.render('resource', { resource: mapping, queryUtils });
+    // resp.render('resource', { resource: mapping, queryUtils });
+    resp.write(pugTpl.resource({ resource: mapping, queryUtils }));
+    resp.end();
   } else if (req.route.path === '/docs') {
-    resp.render('index', { config: global.sri4node_configuration });
+    // resp.render('index', { config: global.sri4node_configuration });
+    resp.write(pugTpl.index({ config: global.sri4node_configuration }));
+    resp.end();
   } else {
     resp.status(404).send('Not Found');
   }
@@ -731,11 +731,17 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     app.use(emt.instrument(bodyParser.json({ limit: sriConfig.bodyParserLimit, strict: false }), 'mw-bodyparser'));
     // use option 'strict: false' to allow also valid JSON like a single boolean
 
-    // to parse html pages
-    app.use('/docs/static', express.static(`${dirname}/js/docs/static`));
-    app.engine('.pug', pug.__express);
-    app.set('view engine', 'pug');
-    app.set('views', `${dirname}/js/docs`);
+    /// 2023: docs were broken because __dirname does not exist in ESM modules,
+    /// and we used pwd which is incorrect.
+    /// In order to fix this, we stopped using static files stored relative to this file
+    /// and instead hardcoded the few files (.pug and .css) we need for the docs
+    /// inside the docs/pugTemplates.ts module
+    const returnFileFromDocsStatic = (_req: Request, res: Response) => {
+      res.write(pugTpl.staticFiles[_req.params.file]);
+      res.end();
+    }
+
+    app.get("/docs/static/:file", returnFileFromDocsStatic);
 
     app.put('/log', middlewareErrorWrapper((req, resp) => {
       const err = req.body;
@@ -805,7 +811,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
 
           // register docs for this type
           app.get(`${mapping.type}/docs`, middlewareErrorWrapper(getDocs));
-          app.use(`${mapping.type}/docs/static`, express.static(`${dirname}/js/docs/static`));
+          app.get(`${mapping.type}/docs/static/:file`, returnFileFromDocsStatic);
         }
       }, { concurrency: 1 },
     );

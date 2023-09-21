@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 import assert from 'assert';
 import * as uuid from 'uuid';
-const _ = require('lodash');
+import _ from 'lodash';
 import { THttpClient } from './httpClient';
 
 

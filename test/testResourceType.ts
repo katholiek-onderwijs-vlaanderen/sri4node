@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-const uuid = require('uuid');
+import * as uuid from 'uuid';
 import { THttpClient } from './httpClient';
 
 module.exports = function (httpClient: THttpClient) {

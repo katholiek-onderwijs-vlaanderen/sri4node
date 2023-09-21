@@ -1,6 +1,7 @@
-import utils from '../utils';
+import { TResourceDefinition } from '../../sri4node';
+// import utils from '../utils';
 
-module.exports = function (sri4node) {
+module.exports = function (sri4node) : TResourceDefinition {
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
   const $m = sri4node.mapUtils;
@@ -22,38 +23,38 @@ module.exports = function (sri4node) {
     }
   };
 
-  const ret = {
-    type: '/alldatatypes',
-    metaType: 'SRI4NODE_ALLDATATYPES',
-    cache: {
-      ttl: 60,
-      type: 'local',
-    },
+  const ret: TResourceDefinition = {
+    type: "/alldatatypes",
+    metaType: "SRI4NODE_ALLDATATYPES",
+    // cache: {
+    //   ttl: 60,
+    //   type: "local",
+    // },
     schema: {
-      $schema: 'http://json-schema.org/schema#',
-      title: 'A set of resources for the generic filters',
-      type: 'object',
+      $schema: "http://json-schema.org/schema#",
+      title: "A set of resources for the generic filters",
+      type: "object",
       properties: {
-        key: $s.guid('GUID for this alldatatype.'),
-        id: $s.numeric('Identificator'),
-        text: $s.string('A text field.'),
-        textvarchar: $s.string('A text field.'),
-        textchar: $s.string('A text field.'),
-        text2: $s.string('Another text field.'),
-        texts: $s.array('A collection of text.'),
-        publication: $s.timestamp('A timestamp field.'),
-        publications: $s.array('A collection of timestamps.'),
-        number: $s.numeric('A numeric field.'),
-        numbers: $s.array('A collection of numbers.'),
-        numberint: $s.numeric('A numeric field.'),
-        numberbigint: $s.numeric('A numeric field.'),
-        numbersmallint: $s.numeric('A numeric field.'),
-        numberdecimal: $s.numeric('A numeric field.'),
-        numberreal: $s.numeric('A numeric field.'),
-        numberdoubleprecision: $s.numeric('A numeric field.'),
-        numbersmallserial: $s.numeric('A numeric field.'),
-        numberserial: $s.numeric('A numeric field.'),
-        numberbigserial: $s.numeric('A numeric field.'),
+        key: $s.guid("GUID for this alldatatype."),
+        id: $s.numeric("Identificator"),
+        text: $s.string("A text field."),
+        textvarchar: $s.string("A text field."),
+        textchar: $s.string("A text field."),
+        text2: $s.string("Another text field."),
+        texts: $s.array("A collection of text."),
+        publication: $s.timestamp("A timestamp field."),
+        publications: $s.array("A collection of timestamps."),
+        number: $s.numeric("A numeric field."),
+        numbers: $s.array("A collection of numbers."),
+        numberint: $s.numeric("A numeric field."),
+        numberbigint: $s.numeric("A numeric field."),
+        numbersmallint: $s.numeric("A numeric field."),
+        numberdecimal: $s.numeric("A numeric field."),
+        numberreal: $s.numeric("A numeric field."),
+        numberdoubleprecision: $s.numeric("A numeric field."),
+        numbersmallserial: $s.numeric("A numeric field."),
+        numberserial: $s.numeric("A numeric field."),
+        numberbigserial: $s.numeric("A numeric field."),
       },
       required: [],
     },
@@ -86,7 +87,7 @@ module.exports = function (sri4node) {
     defaultlimit: 5,
     maxlimit: 50,
 
-    transformRequest: utils.lookForBasicAuthUser,
+    // transformRequest: utils.lookForBasicAuthUser,
   };
 
   return ret;

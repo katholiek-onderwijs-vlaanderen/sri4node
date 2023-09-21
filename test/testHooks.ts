@@ -8,7 +8,7 @@ import fs from 'fs';
 import { debug } from '../js/common';
 import { THttpClient } from './httpClient';
 
-const FormData = require('form-data');
+import FormData from 'form-data';
 
 const nrPhasesInRequest = 7;
 const communityDendermonde = '/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849';

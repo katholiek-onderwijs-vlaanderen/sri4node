@@ -4,8 +4,8 @@ import sleep from 'await-sleep';
 import fs from 'fs';
 import * as streamEqual from 'stream-equal';
 import zlib from 'zlib';
-const FormData = require('form-data');
-const { performance } = require('perf_hooks');
+import FormData from 'form-data';
+import { performance } from 'perf_hooks';
 
 
 module.exports = function (httpClient) {

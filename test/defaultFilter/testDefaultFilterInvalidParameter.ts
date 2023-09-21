@@ -1,11 +1,13 @@
 // Utility methods for calling the SRI interface
 import assert from 'assert';
-const _ = require('lodash');
+import _ from 'lodash';
 
 import { THttpClient } from '../httpClient';
 
-const sri4node = require('../..');
-const alldatatypes = require('../context/alldatatypes')(sri4node, {});
+import * as sri4node from '../../index';
+// import * as alldatatypesFactory from '../context/alldatatypes';
+const alldatatypesFactory = require('../context/alldatatypes'); // importing a function not possible
+const alldatatypes = alldatatypesFactory(sri4node);
 
 module.exports = function (httpClient: THttpClient) {
   describe('Generic Filters', () => {

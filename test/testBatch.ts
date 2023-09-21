@@ -3,7 +3,6 @@ import pMap from 'p-map';
 import { assert } from 'chai';
 import * as uuid from 'uuid';
 import { THttpClient } from './httpClient';
-const expect = require('expect.js')
 
 /**
  * BATCH should work like this (and now it works the other way around):
@@ -837,7 +836,7 @@ module.exports = function (httpClient: THttpClient) {
       assert.strictEqual(response.body[0].body.errors[0].code, 'multi.insert.failed');
       assert.strictEqual(response.body[1].status, 409);
       assert.strictEqual(response.body[1].body.errors[0].code, 'multi.insert.failed');
-      expect([200, 202]).to.contain(response.body[2].status);
+      assert.isTrue([200, 202].includes(response.body[2].status));
       assert.strictEqual(response.body[0].href, `/persons/${keyp1}`);
       assert.strictEqual(response.body[1].href, `/persons/${keyp2}`);
       assert.strictEqual(response.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
@@ -867,7 +866,7 @@ module.exports = function (httpClient: THttpClient) {
       const response = await httpClient.put({ path: '/batch', body: batch2, auth: 'sabine' });
       // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
       // and all insert elements will receive a 409 error explaining this.
-      expect([200, 202]).to.contain(response.body[0].status);
+      assert.isTrue([200, 202].includes(response.body[0].status));
       assert.equal(response.status, 409);
       assert.strictEqual(response.body[1].status, 409);
       assert.strictEqual(response.body[1].body.errors[0].code, 'multi.insert.failed');
@@ -917,7 +916,7 @@ module.exports = function (httpClient: THttpClient) {
       assert.strictEqual(responsePut2.body[0].body.errors[0].code, 'multi.update.failed');
       assert.strictEqual(responsePut2.body[1].status, 409);
       assert.strictEqual(responsePut2.body[1].body.errors[0].code, 'multi.update.failed');
-      expect([200, 202]).to.contain(responsePut2.body[2].status);
+      assert.isTrue([200, 202].includes(responsePut2.body[2].status));
       assert.strictEqual(responsePut2.body[0].href, `/persons/${keyp1}`);
       assert.strictEqual(responsePut2.body[1].href, `/persons/${keyp2}`);
       assert.strictEqual(responsePut2.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
@@ -946,7 +945,7 @@ module.exports = function (httpClient: THttpClient) {
       assert.strictEqual(response.body[0].body.errors[0].code, 'multi.delete.failed');
       assert.strictEqual(response.body[1].status, 409);
       assert.strictEqual(response.body[1].body.errors[0].code, 'multi.delete.failed');
-      expect([200, 202]).to.contain(response.body[2].status);
+      assert.isTrue([200, 202].includes(response.body[2].status));
       assert.strictEqual(response.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
       assert.strictEqual(response.body[1].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
       assert.strictEqual(response.body[2].href, '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple');
@@ -982,8 +981,8 @@ module.exports = function (httpClient: THttpClient) {
       // this is a multi delete for which one row fails -> sri4node cannot determine which rows failed
       // and all delete elements will receive a 409 error explaining this.
       assert.equal(response.status, 409);
-      expect([200, 202]).to.contain(response.body[0].status);
-      expect([200, 202]).to.contain(response.body[1].status);
+      assert.isTrue([200, 202].includes(response.body[0].status));
+      assert.isTrue([200, 202].includes(response.body[1].status));
       assert.strictEqual(response.body[2].status, 409);
       assert.strictEqual(response.body[2].body.errors[0].code, 'multi.delete.failed');
       assert.strictEqual(response.body[3].status, 409);
@@ -1028,8 +1027,9 @@ module.exports = function (httpClient: THttpClient) {
       assert.strictEqual(response.body[0].body.errors[0].code, 'multi.delete.failed');
       assert.strictEqual(response.body[1].status, 409);
       assert.strictEqual(response.body[1].body.errors[0].code, 'multi.delete.failed');
-      expect([200, 202]).to.contain(response.body[2].status);
-      expect([200, 202]).to.contain(response.body[3].status);
+      assert.isTrue([200, 202].includes(response.body[2].status));
+      assert.isTrue([200, 202].includes(response.body[3].status));
+
       assert.strictEqual(response.body[0].href, '/foos/7c85b45a-7ddd-11ec-8a3d-4742839ee2fd');
       assert.strictEqual(response.body[1].href, '/foos/cd6a4678-7dcf-11ec-b41e-0faad76b288d');
       assert.strictEqual(response.body[2].href, `/persons/${keyp1}`);
@@ -1070,8 +1070,8 @@ module.exports = function (httpClient: THttpClient) {
       assert.strictEqual(response.body[0].body.errors[0].code, 'multi.insert.failed');
       assert.strictEqual(response.body[1].status, 409);
       assert.strictEqual(response.body[1].body.errors[0].code, 'multi.insert.failed');
-      expect([200, 202]).to.contain(response.body[2].status);
-      expect([200, 202]).to.contain(response.body[3].status);
+      assert.isTrue([200, 202].includes(response.body[2].status));
+      assert.isTrue([200, 202].includes(response.body[3].status));
       assert.strictEqual(response.body[0].href, `/persons/${keyp1}`);
       assert.strictEqual(response.body[1].href, `/persons/${keyp2}`);
       assert.strictEqual(response.body[2].href, '/cities/61003');
@@ -1108,8 +1108,8 @@ module.exports = function (httpClient: THttpClient) {
       // this is a multi insert for which one row fails -> sri4node cannot determine which rows failed
       // and all insert elements will receive a 409 error explaining this.
       assert.equal(response.status, 409);
-      expect([200, 202]).to.contain(response.body[0].status);
-      expect([200, 202]).to.contain(response.body[1].status);
+      assert.isTrue([200, 202].includes(response.body[0].status));
+      assert.isTrue([200, 202].includes(response.body[1].status));
       assert.strictEqual(response.body[2].status, 409);
       assert.strictEqual(response.body[2].body.errors[0].code, 'multi.insert.failed');
       assert.strictEqual(response.body[3].status, 409);
