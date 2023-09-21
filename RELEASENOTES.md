@@ -1,5 +1,11 @@
 # Release Notes
 
+## version 2.3.24 (21-09-2023)
+
+Bugfix: fix docs, which were broken because since the release of an ESM module version,
+  we could not use __dirname anymore to find some .pug and .css files (and we incorrectly
+  used pwd instead).
+
 ## version 2.3.23 (11-09-2023)
 
 Bugfix: fix (+ new testcase) on streaming_batch code where potentially very bad interaction between stream2.push(null) and stream2.destroy() occured when enough data had been written on the stream. If the stream got destroyed before all data could have been consumed the 'end' event was never emitted and the request kept hanging forever.
