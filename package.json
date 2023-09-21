@@ -35,9 +35,9 @@
     "createdb": "./createdb.sh",
     "lint": "eslint sri4node.ts js test",
     "dev": "nodemon  --watch ./js js/server.ts",
-    "preversion": "if [ $( git symbolic-ref --short HEAD ) != 'main' ]; then echo '[version] Bumping the version should only be done on the main branch.' && exit 1; fi && npm run test && npm run test:bundles && npm run build && git add -f dist/",
-    "version": "if [ $( git symbolic-ref --short HEAD ) != 'main' ]; then echo '[version] Bumping the version should only be done on the main branch.' && exit 1; fi # && NEW_VERSION=$(node -p 'require(\"./package.json\").version') # && echo \"Commit a new version v${NEW_VERSION}\" && git commit -m \"Bump version to v${NEW_VERSION}\" && echo \"Tag the new version v${NEW_VERSION}\" && echo git tag --annotate '\"v${NEW_VERSION}\"' --message '\"Version v${NEW_VERSION}\"'",
-    "postversion": "if [ $( git symbolic-ref --short HEAD ) != 'main' ]; then echo '[version] Bumping the version should only be done on the main branch.' && exit 1; fi && git push && git push --tags",
+    "preversion": "if [ $( git symbolic-ref --short HEAD ) != 'master' ]; then echo '[version] Bumping the version should only be done on the master branch.' && exit 1; fi && npm run test && npm run test:bundles && npm run build && git add -f dist/",
+    "version": "if [ $( git symbolic-ref --short HEAD ) != 'master' ]; then echo '[version] Bumping the version should only be done on the master branch.' && exit 1; fi # && NEW_VERSION=$(node -p 'require(\"./package.json\").version') # && echo \"Commit a new version v${NEW_VERSION}\" && git commit -m \"Bump version to v${NEW_VERSION}\" && echo \"Tag the new version v${NEW_VERSION}\" && echo git tag --annotate '\"v${NEW_VERSION}\"' --message '\"Version v${NEW_VERSION}\"'",
+    "postversion": "if [ $( git symbolic-ref --short HEAD ) != 'master' ]; then echo '[version] Bumping the version should only be done on the master branch.' && exit 1; fi && git push && git push --tags",
     "release": "release() {\n echo \"[release] $1\"; [ \"$1\" != 'major' ] && [ \"$1\" != 'minor' ] && [ \"$1\" != 'patch' ] && echo \"We need 1 parameter with value major|minor|patch instead of '$1'.\nExample: npm run release -- minor\" && exit 1;\n npm version $1 --message \"Version %s\n\nChanges:\n\n\" \n }\n\nrelease"
   },
   "dependencies": {
