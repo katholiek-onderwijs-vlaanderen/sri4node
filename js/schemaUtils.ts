@@ -1,4 +1,4 @@
-import { JSONSchema4 } from 'json-schema';
+import { JSONSchema4, JSONSchema4Object } from 'json-schema';
 import { FlattenedJsonSchema } from './typeDefinitions';
 
 /**
@@ -199,11 +199,18 @@ function boolean(description: string): JSONSchema4 {
   };
 }
 
-function array(description: string): JSONSchema4 {
+function array(description: string, type?: "string" | "number" | "boolean" | JSONSchema4Object): JSONSchema4 {
   const ret:JSONSchema4 = {
     type: 'array',
     description,
   };
+  if (type!==undefined) {
+    if (type instanceof Object) {
+      ret.items = { ...type }
+    } else {
+      ret.items =  { type };
+    }
+  }
   return ret;
 }
 
