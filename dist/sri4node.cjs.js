@@ -281,11 +281,18 @@ function boolean(description) {
     description
   };
 }
-function array(description) {
+function array(description, type) {
   const ret = {
     type: "array",
     description
   };
+  if (type !== void 0) {
+    if (type instanceof Object) {
+      ret.items = __spreadValues({}, type);
+    } else {
+      ret.items = { type };
+    }
+  }
   return ret;
 }
 function enumeration(description, values) {
@@ -2978,9 +2985,9 @@ function getSchemaValidationErrors(json, schema, validateSchema) {
     console.log("Schema validation revealed errors.");
     console.log(validateSchema.errors);
     console.log("JSON schema was : ");
-    console.log(schema);
+    console.log(JSON.stringify(schema, null, 2));
     console.log("Document was : ");
-    console.log(json);
+    console.log(JSON.stringify(json, null, 2));
     return (validateSchema.errors || []).map((e) => ({ code: errorAsCode(e.message || ""), err: e }));
   }
   return null;
@@ -3025,7 +3032,8 @@ function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previ
       const validationErrors = getSchemaValidationErrors(obj, mapping.schema, mapping.validateSchema);
       if (validationErrors !== null) {
         const errors = { validationErrors };
-        throw new SriError({ status: 409, errors: [{ code: "validation.errors", msg: "Validation error(s)", errors }] });
+        const schemaUrl = `https://${sriRequest.headers["host"]}${mapping.type}/schema`;
+        throw new SriError({ status: 409, errors: [{ code: "validation.errors", msg: "Validation error(s)", errors, schemaUrl }] });
       } else {
         debug("trace", "Schema validation passed.");
       }

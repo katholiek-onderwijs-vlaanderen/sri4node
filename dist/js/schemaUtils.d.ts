@@ -1,4 +1,4 @@
-import { JSONSchema4 } from 'json-schema';
+import { JSONSchema4, JSONSchema4Object } from 'json-schema';
 import { FlattenedJsonSchema } from './typeDefinitions';
 /**
  * This will make sure we can easily find all possible dot-separated property names
@@ -44,7 +44,7 @@ declare function phone(description: string): JSONSchema4;
 declare function guid(description: string): JSONSchema4;
 declare function timestamp(description: string): JSONSchema4;
 declare function boolean(description: string): JSONSchema4;
-declare function array(description: string): JSONSchema4;
+declare function array(description: string, type?: "string" | "number" | "boolean" | JSONSchema4Object): JSONSchema4;
 declare function enumeration(description: string, values: string[]): JSONSchema4;
 declare function patchSchemaToDisallowAdditionalProperties(schema: any): any;
 export { flattenJsonSchema, permalink, string, numeric, integer, email, url, belgianzipcode, phone, guid, timestamp, boolean, array, enumeration, patchSchemaToDisallowAdditionalProperties, };
