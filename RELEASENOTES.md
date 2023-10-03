@@ -1,5 +1,8 @@
 # Release Notes
 
+## version 2.3.25 (02-10-2023)
+
+Improvement on JSON Schema utils and validation: add possibility to provide array type to schemUtils.array + do full logging of schema and document object in case of validation errors + add link to schema in http validation error reply.
 ## version 2.3.24 (21-09-2023)
 
 Bugfix: fix docs, which were broken because since the release of an ESM module version,
