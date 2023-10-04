@@ -395,19 +395,28 @@ const expressWrapper = (
       error(err.stack);
       error('___________________________________________________________________________________________');
       error('NEED TO DESTROY STREAMING REQ');
+      resp.on('drain', async () => {
+        await resp.destroy();
+        error('[drain event] Stream is destroyed.');
+      });
+      resp.on('finish', async () => {
+        await resp.destroy();
+        error('[finish event] Stream is destroyed.');
+      });
       resp.write('\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n')
       resp.write(err.toString());
       resp.write(JSON.stringify(err, null, 2));
       resp.write('\n___________________________________________________________________________________________\n');
+      
+      // keep sending data until the buffer is full, which will trigger a drain event,
+      // at which point the stream will be destroyed instead of closing it gracefully
+      // (because we want tosignal to the user that something went wrong, even if a
+      // 200 OK header has already been sent)
+      while (resp.write('       ')) {
+        // do nothing besides writing some more
+      }
 
-      await new Promise((resolve, _reject) => {
-        setImmediate(async () => {
-          // use setImmediate to make sure also the error message is written on the socker before closing it
-          await resp.destroy();
-          resolve(undefined);
-          error('Stream is destroyed.');
-        });
-      });
+
     } else if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
       if (err.status > 0) {
         const reqId = httpContext.get('reqId');
