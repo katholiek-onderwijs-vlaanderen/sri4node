@@ -1148,7 +1148,12 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
       DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
 
       -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
-      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
+      IF NOT EXISTS (
+          SELECT 1 FROM information_schema.triggers
+          WHERE trigger_name = '${tgname}'
+	          AND trigger_schema = '${schemaNameOrPublic}'
+          -- SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
+        ) THEN
           CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
           FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
       END IF;
