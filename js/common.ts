@@ -1123,9 +1123,10 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
         FROM information_schema.columns
         WHERE table_name = '${tableName}'
           AND column_name = '$$meta.version'
-          ${(schemaName !== undefined
-      ? `AND table_schema = '${schemaName}'`
-      : '')}
+          AND table_schema = '${schemaNameOrPublic}'
+          -- ${
+            schemaName !== undefined ? `AND table_schema = '${schemaName}'` : ""
+          }
       ) THEN
         ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
       END IF;
@@ -1133,9 +1134,7 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
       -- 2. create func vsko_resource_version_inc_function if not yet present
       IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                       WHERE proname = 'vsko_resource_version_inc_function'
-                      ${(schemaName !== undefined
-      ? `AND nspname = '${schemaName}'`
-      : 'AND nspname = \'public\'')}
+                        AND nspname = '${schemaNameOrPublic}'
                     ) THEN
         CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS OPAQUE AS '
         BEGIN
@@ -1152,7 +1151,8 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
           SELECT 1 FROM information_schema.triggers
           WHERE trigger_name = '${tgname}'
 	          AND trigger_schema = '${schemaNameOrPublic}'
-          -- SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
+            AND event_object_table = '${tableName}'
+          -- OBSOLETE (does not check for schema and tablenam): SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
         ) THEN
           CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
           FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
