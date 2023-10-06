@@ -13,6 +13,8 @@ import { getParentSriRequestFromRequestMap } from '../js/common';
 import { TSriConfig, SriError, TSriRequest, TLogDebug, TSriServerInstance } from '../js/typeDefinitions';
 import utils from './utils';
 import { Server } from 'http';
+import { IDatabase, IMain } from 'pg-promise';
+import { IClient } from 'pg-promise/typescript/pg-subset';
 
 let configCache: any = null;
 
@@ -21,52 +23,78 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
-      connectionString: 'postgres://sri4node:sri4node@localhost:15432/postgres',
+      connectionString: "postgres://sri4node:sri4node@localhost:15432/postgres",
       ssl: false,
-      schema: 'sri4node',
-      connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+      schema: "sri4node",
+      connectionInitSql:
+        'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),
 
+    startUp: [
+      async (db: IDatabase<unknown, IClient>, _pgp: IMain) => {
+        const results = await db.query(`
+          SELECT * FROM information_schema.triggers
+          WHERE trigger_schema = 'sri4node'
+            AND event_object_table = 'alldatatypes'
+        `);
+        console.log("TRIGGERS", JSON.stringify(results, null, 2));
+      },
+    ],
     beforePhase: [
       async (sriRequestMap, _jobMap, pendingJobs) => {
-        (Array.from(sriRequestMap) as Array<[string, TSriRequest]>)
-          .forEach(([psId, sriRequest]) => {
+        (Array.from(sriRequestMap) as Array<[string, TSriRequest]>).forEach(
+          ([psId, sriRequest]) => {
             if (pendingJobs.has(psId)) {
               if (sriRequest.generateError === true) {
                 sriRequest.generateError = false;
-                throw new SriError({ status: 400, errors: [{ code: 'foo' }], sriRequestID: sriRequest.id });
+                throw new SriError({
+                  status: 400,
+                  errors: [{ code: "foo" }],
+                  sriRequestID: sriRequest.id,
+                });
               }
             }
-          });
+          }
+        );
       },
 
       // count the number of calls to beforePhase
-      async (sriRequestMap: Map<string, TSriRequest>, _jobMap, _pendingJobs) => {
+      async (
+        sriRequestMap: Map<string, TSriRequest>,
+        _jobMap,
+        _pendingJobs
+      ) => {
         // find parent sriRequest
-        const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
+        const sriRequest = getParentSriRequestFromRequestMap(
+          sriRequestMap,
+          true
+        );
         if (sriRequest.userData.beforePhaseCntr === undefined) {
           if (sriRequest.userData) {
             sriRequest.userData.beforePhaseCntr = 0;
           } else {
             sriRequest.userData = {
               beforePhaseCntr: 0,
-            }
+            };
           }
         }
         sriRequest.userData.beforePhaseCntr += 1;
-      }
+      },
     ],
 
     transformRequest: [utils.lookForBasicAuthUser],
     transformInternalRequest: [utils.copyUserInfo],
 
-    afterRequest: [(sriRequest) => {
-      dummyLogger.log(`afterRequest hook of ${sriRequest.id}`)
-      dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`)
-    }],
-
+    afterRequest: [
+      (sriRequest) => {
+        dummyLogger.log(`afterRequest hook of ${sriRequest.id}`);
+        dummyLogger.log(
+          `final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`
+        );
+      },
+    ],
 
     // temporarily global batch for samenscholing
     enableGlobalBatch: true,

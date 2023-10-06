@@ -63,6 +63,15 @@ module.exports = function (httpClient: THttpClient) {
         assert.equal(responseGet2.status, 200);
         assert.equal(responseGet2.body.id, 38);
         const newVersion = responseGet2.body.$$meta.version;
+
+        // Between 2018 and 2023-10 the auto-created-at-startup triggers to increment the version
+        // contained the name of the schema
+        // This was problematic because it could lead to duplicated triggers when copying
+        // an api to another schema
+        // The fix from 2023-10 will try to remove the 'old' trigger first, and this is why we will add
+        // such an old trigger here, in order to make sure that it gets removed properly.
+        // in sql/schema.sql on the alladatatypes table we added a trigger with this old name
+        // in order to make sure that the trigger gets removed properly.
         assert.equal(newVersion, currentVersion + 1);
       });
 

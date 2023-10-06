@@ -623,6 +623,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     const dbR = db;
     const dbW = db;
 
+    const pgp = getPgp();
+
+    // before registering routes in express, call startUp hook
+    await applyHooks('start up', sriConfig.startUp || [], (f) => f(db, pgp) );
+
+    const currentInformationSchema = await informationSchema(dbR, sriConfig);
+    global.sri4node_configuration.informationSchema = currentInformationSchema;
+
+    // Do automatic DB updates that are part of sri4node's standard behavior (like adding version triggers)
     await pMap(
       sriConfig.resources,
       async (mapping) => {
@@ -637,14 +646,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       }, { concurrency: 1 },
     );
 
-    const currentInformationSchema = await informationSchema(dbR, sriConfig);
-    global.sri4node_configuration.informationSchema = currentInformationSchema;
 
-    checkSriConfigWithDb(sriConfig);
+    checkSriConfigWithDb(sriConfig, currentInformationSchema);
 
     // Prepare pg-promise columnsets for multi insert/update & delete
-    const pgp = getPgp();
-
     const generatePgColumnSet = (columnNames, type, table) => {
       const columns = columnNames.map((cname) => {
         const col: any = { name: cname };
@@ -1213,9 +1218,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         db && (await db.$pool.end());
       }
     }
-
-    // before registering routes in express, call startUp hook
-    await applyHooks('start up', sriConfig.startUp || [], (f) => f(db, sriServerInstance) );
 
     // register individual routes in express
     batchHandlerMap.forEach(

@@ -25,4 +25,22 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
     });
 
   });
+
+  describe('sriConfig.startUp hook', function () {
+    it.skip('startup hook should be executed', async () => {
+      // TODO
+    });
+  });
+
+  describe('sri4node should do some DB changes if needed', function () {
+    it.skip('add $$meta.version fields if missing', async () => {
+      // TODO
+    });
+    it.skip('add version update trigger if missing', async () => {
+      // TODO
+    });
+    it.skip('remove OLD version update trigger (the one with schema in the name) if missing', async () => {
+      // TODO
+    });
+  });
 };

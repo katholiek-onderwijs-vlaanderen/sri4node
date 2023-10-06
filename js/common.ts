@@ -18,7 +18,7 @@ import * as schemaUtils from './schemaUtils';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
   TDebugChannel, TInternalSriRequest, THttpMethod, TDebugLogFunction,
-  TErrorLogFunction, SriError, TLogDebug,
+  TErrorLogFunction, SriError, TLogDebug, TInformationSchema,
 } from './typeDefinitions';
 import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
 import url from 'url';
@@ -733,12 +733,12 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
  * @returns nothing, throw an error in case something is wrong
  */
 
-function checkSriConfigWithDb(sriConfig: TSriConfig) {
+function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema) {
   sriConfig.resources.forEach((resourceMapping) => {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
-      if (global.sri4node_configuration.informationSchema[resourceMapping.type][key] === undefined) {
-        const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
+      if (informationSchema[resourceMapping.type][key] === undefined) {
+        const dbFields = Object.keys(informationSchema[resourceMapping.type]).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
           console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
@@ -1144,7 +1144,7 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
       END IF;
 
       -- 3. drop old triggers if they exist
-      DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
+      -- DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
 
       -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
       IF NOT EXISTS (

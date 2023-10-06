@@ -283,7 +283,10 @@ Gobal hooks can be defined in the root of the sri4node config and are called for
 startUp(db, sriServerInstance)
 ```
 
-This function is called during sri4node configuration, just before routes are registered in express. It is only called once during the lifetiem of an sri4node instance.
+This function is called during sri4node configuration, before anything is registered in express.
+It is only called once during the lifetime of an sri4node instance.
+It can be used to check and update the db schema before starting the API,
+or to do very specific stuff on the pgp library instance.
 
 #### transformRequest
 
