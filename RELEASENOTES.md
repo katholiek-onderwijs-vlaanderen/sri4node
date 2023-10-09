@@ -1,6 +1,6 @@
 # Release Notes
 
-## version 2.3.26 (..-10-2023)
+## version 2.3.26 (09-10-2023)
 
 * startUp hook changed: it gets db and pgp as paramters now instead of a 'half-baked' sriServerInstance
   and is called even earlier as a consequence.
@@ -12,6 +12,9 @@
   * Added some code to cleanup OLD version update triggers that contained the schema name.
     This could lead to (harmless because identical) double triggers when dumping an api's
     schema to another schema, which is confusing.
+* Added sriRequest.outStream.write('') in streaming custom JSON routes to force sending the headers
+  early even if nothing has been written to the stream yet.
+
 ## version 2.3.25 (02-10-2023)
 
 Improvement on JSON Schema utils and validation: add possibility to provide array type to schemUtils.array + do full logging of schema and document object in case of validation errors + add link to schema in http validation error reply.

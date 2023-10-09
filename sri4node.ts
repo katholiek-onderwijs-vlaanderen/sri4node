@@ -1071,6 +1071,11 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                         stream = createReadableStream(true);
                         const JsonStream = new JsonStreamStringify(stream);
                         JsonStream.pipe(sriRequest.outStream);
+                        // after an upgrade of JsonStreamStringify, we seem to have to call this
+                        // to make sure the headers will be sent already (even if nothing is
+                        // written to the stream yet)
+                        sriRequest.outStream.write('');
+
                         keepAliveTimer = setInterval(() => {
                           sriRequest.outStream.write(' ');
                           // flush outstream, otherwise an intermediate layer such as gzip compression

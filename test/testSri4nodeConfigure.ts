@@ -82,7 +82,7 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
       );
     });
 
-    it("remove OLD version update trigger (the one with schema in the name) if missing", async () => {
+    it("remove OLD version update trigger (the one with schema in the name) if it exists (but no other triggers)", async () => {
       assert.equal(
         (
           await testContext.sriServerInstance?.db.one(`
