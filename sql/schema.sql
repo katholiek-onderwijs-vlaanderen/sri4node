@@ -143,6 +143,17 @@ CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
 CREATE TRIGGER vsko_resource_version_trigger_sri4node_alldatatypes BEFORE UPDATE ON "alldatatypes"
 FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
 
+-- In order to test whether the other triggers will not be touched, create another function
+-- that does nothing, and use it in a trigger with another name
+CREATE FUNCTION vsko_do_nothing_function() RETURNS OPAQUE AS '
+  BEGIN
+    RETURN NEW;
+  END' LANGUAGE 'plpgsql';
+
+CREATE TRIGGER vsko_do_nothing_trigger_alldatatypes BEFORE UPDATE ON "alldatatypes"
+FOR EACH ROW EXECUTE PROCEDURE vsko_do_nothing_function();
+
+
 
 
 CREATE TABLE "packages" (

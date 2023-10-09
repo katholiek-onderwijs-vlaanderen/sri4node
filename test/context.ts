@@ -33,13 +33,35 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     resources: resourceFiles.map((file) => require(file)(sri4node)),
 
     startUp: [
-      async (db: IDatabase<unknown, IClient>, _pgp: IMain) => {
-        const results = await db.query(`
-          SELECT * FROM information_schema.triggers
-          WHERE trigger_schema = 'sri4node'
-            AND event_object_table = 'alldatatypes'
-        `);
-        console.log("TRIGGERS", JSON.stringify(results, null, 2));
+      async (db: IDatabase<unknown, IClient>, pgp: IMain) => {
+        // crash if either db or pgp is undefined
+        if (!db?.connect) {
+          throw new Error('startUp hook error: db parameter is not what we expected');
+        }
+        if (!pgp?.pg) {
+          throw new Error('startUp hook error: pgp parameter is not what we expected');
+        }
+
+        // add a useless trigger to the countries table
+        // in order to test whether the startup hook gets executed
+        // and can be used to make changes to the database
+        return await db.query(`
+          DO $___$
+          BEGIN
+            -- create trigger 'vsko_do_nothing_trigger_countries' if not yet present
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.triggers
+                WHERE trigger_name = 'vsko_do_nothing_trigger_countries'
+                  AND trigger_schema = 'sri4node'
+                  AND event_object_table = 'countries'
+              ) THEN
+                CREATE TRIGGER vsko_do_nothing_trigger_countries BEFORE UPDATE ON "countries"
+                FOR EACH ROW EXECUTE PROCEDURE vsko_do_nothing_function();
+            END IF;
+          END
+          $___$
+          LANGUAGE 'plpgsql';
+              `);
       },
     ],
     beforePhase: [

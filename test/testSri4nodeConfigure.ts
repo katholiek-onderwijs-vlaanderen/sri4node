@@ -27,20 +27,93 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
   });
 
   describe('sriConfig.startUp hook', function () {
-    it.skip('startup hook should be executed', async () => {
-      // TODO
+    it('startup hook should be executed', async () => {
+      // in context.ts, the startup hook will make a change to the database
+      // so we can check here whether that change actually had any effect
+      assert.equal(
+        (
+          await testContext.sriServerInstance?.db.one(`
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.triggers
+              WHERE trigger_name = 'vsko_do_nothing_trigger_countries'
+                AND trigger_schema = 'sri4node'
+                AND event_object_table = 'countries'
+            ) as trigger_exists
+          `)
+        )?.trigger_exists,
+        true,
+        "The trigger named vsko_do_nothing_trigger_countries should have been created at startup"
+      );
     });
   });
 
   describe('sri4node should do some DB changes if needed', function () {
-    it.skip('add $$meta.version fields if missing', async () => {
-      // TODO
+    it('add $$meta.version fields if missing', async () => {
+      assert.equal(
+        (
+          await testContext.sriServerInstance?.db.one(`
+          SELECT EXISTS (
+            SELECT 1
+            FROM   information_schema.columns
+            WHERE  table_name   = 'messages'
+            AND    column_name  = '$$meta.version'
+          ) as column_exists;
+        `)
+        )?.column_exists,
+        true,
+        "Although schema.sql does not define a $$meta.version column, it should have been added by sri4node at startup"
+      );
     });
-    it.skip('add version update trigger if missing', async () => {
-      // TODO
+
+    it('add version update trigger if missing', async () => {
+      assert.equal(
+        (
+          await testContext.sriServerInstance?.db.one(`
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.triggers
+              WHERE trigger_name = 'vsko_resource_version_trigger_alldatatypes'
+                AND trigger_schema = 'sri4node'
+                AND event_object_table = 'alldatatypes'
+            ) as trigger_exists
+          `)
+        )?.trigger_exists,
+        true,
+        "The trigger named vsko_resource_version_trigger_alldatatypes should have been created at startup"
+      );
     });
-    it.skip('remove OLD version update trigger (the one with schema in the name) if missing', async () => {
-      // TODO
+
+    it("remove OLD version update trigger (the one with schema in the name) if missing", async () => {
+      assert.equal(
+        (
+          await testContext.sriServerInstance?.db.one(`
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.triggers
+              WHERE trigger_name = 'vsko_resource_version_trigger_sri4node_alldatatypes'
+                AND trigger_schema = 'sri4node'
+                AND event_object_table = 'alldatatypes'
+            ) as trigger_exists
+          `)
+        )?.trigger_exists,
+        false,
+        "The 'old' trigger named vsko_resource_version_trigger_sri4node_alldatatypes (which contains the schema name sri4node) should have been dropped at startup"
+      );
+
+      // assert.equal(resultOldVersionTrigger, null, "The 'old' trigger named vsko_resource_version_trigger_sri4node_alldatatypes (which contains the schema name sri4node) should have been dropped at startup");
+
+      assert.equal(
+        (
+          await testContext.sriServerInstance?.db.one(`
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.triggers
+              WHERE trigger_name = 'vsko_do_nothing_trigger_alldatatypes'
+                AND trigger_schema = 'sri4node'
+                AND event_object_table = 'alldatatypes'
+            ) as trigger_exists
+          `)
+        )?.trigger_exists,
+        true,
+        "The other trigger named vsko_do_nothing_trigger_alldatatypes should NOT have been dropped at startup"
+      );
     });
   });
 };

@@ -1144,7 +1144,7 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
       END IF;
 
       -- 3. drop old triggers if they exist
-      -- DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
+      DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
 
       -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
       IF NOT EXISTS (

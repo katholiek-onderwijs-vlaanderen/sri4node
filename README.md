@@ -280,7 +280,7 @@ Gobal hooks can be defined in the root of the sri4node config and are called for
 #### startUp
 
 ```javascript
-startUp(db, sriServerInstance)
+startUp(db, pgp)
 ```
 
 This function is called during sri4node configuration, before anything is registered in express.
