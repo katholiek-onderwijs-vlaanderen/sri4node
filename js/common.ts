@@ -18,7 +18,7 @@ import * as schemaUtils from './schemaUtils';
 import {
   TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
   TDebugChannel, TInternalSriRequest, THttpMethod, TDebugLogFunction,
-  TErrorLogFunction, SriError, TLogDebug,
+  TErrorLogFunction, SriError, TLogDebug, TInformationSchema,
 } from './typeDefinitions';
 import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
 import url from 'url';
@@ -733,12 +733,12 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
  * @returns nothing, throw an error in case something is wrong
  */
 
-function checkSriConfigWithDb(sriConfig: TSriConfig) {
+function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema) {
   sriConfig.resources.forEach((resourceMapping) => {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
-      if (global.sri4node_configuration.informationSchema[resourceMapping.type][key] === undefined) {
-        const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
+      if (informationSchema[resourceMapping.type][key] === undefined) {
+        const dbFields = Object.keys(informationSchema[resourceMapping.type]).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
           console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
@@ -1106,7 +1106,13 @@ async function startTask(db) {
 }
 
 async function installVersionIncTriggerOnTable(db, tableName: string, schemaName?: string) {
-  const tgname = `vsko_resource_version_trigger_${(schemaName !== undefined ? schemaName : '')}_${tableName}`;
+  // 2023-09: at a certain point we added the schemaname to the triggername which causes problems when
+  // copying a database to another schema (trigger gets created twice), so we'll use the
+  const tgNameToBeDropped = `vsko_resource_version_trigger_${(schemaName !== undefined ? schemaName : '')}_${tableName}`;
+  const tgname = `vsko_resource_version_trigger_${tableName}`;
+
+  // we should respect the search_path I guess instead of assuming 'public', but for now...
+  const schemaNameOrPublic = schemaName !== undefined ? schemaName : 'public';
 
   const plpgsql = `
     DO $___$
@@ -1117,31 +1123,39 @@ async function installVersionIncTriggerOnTable(db, tableName: string, schemaName
         FROM information_schema.columns
         WHERE table_name = '${tableName}'
           AND column_name = '$$meta.version'
-          ${(schemaName !== undefined
-      ? `AND table_schema = '${schemaName}'`
-      : '')}
+          AND table_schema = '${schemaNameOrPublic}'
+          -- ${
+            schemaName !== undefined ? `AND table_schema = '${schemaName}'` : ""
+          }
       ) THEN
-        ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
+        ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
       END IF;
 
       -- 2. create func vsko_resource_version_inc_function if not yet present
       IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                       WHERE proname = 'vsko_resource_version_inc_function'
-                      ${(schemaName !== undefined
-      ? `AND nspname = '${schemaName}'`
-      : 'AND nspname = \'public\'')}
+                        AND nspname = '${schemaNameOrPublic}'
                     ) THEN
-        CREATE FUNCTION ${(schemaName !== undefined ? schemaName : 'public')}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+        CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS OPAQUE AS '
         BEGIN
           NEW."$$meta.version" := OLD."$$meta.version" + 1;
           RETURN NEW;
         END' LANGUAGE 'plpgsql';
       END IF;
 
-      -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
-      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
-          CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
-          FOR EACH ROW EXECUTE PROCEDURE ${(schemaName !== undefined ? schemaName : 'public')}.vsko_resource_version_inc_function();
+      -- 3. drop old triggers if they exist
+      DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
+
+      -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
+      IF NOT EXISTS (
+          SELECT 1 FROM information_schema.triggers
+          WHERE trigger_name = '${tgname}'
+	          AND trigger_schema = '${schemaNameOrPublic}'
+            AND event_object_table = '${tableName}'
+          -- OBSOLETE (does not check for schema and tablenam): SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
+        ) THEN
+          CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
+          FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
       END IF;
     END
     $___$

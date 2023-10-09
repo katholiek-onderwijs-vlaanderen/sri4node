@@ -692,9 +692,9 @@ export type TSriConfig = {
   resources: TResourceDefinition[],
 
   /**
-   * This is a global hook. It is called during configuration, just before routes are registered in express.
+   * This is a global hook. It is called during configuration, before anything is done.
    */
-  startUp?: Array<(dbT:pgPromise.IDatabase<unknown>, sriServerInstance: TSriServerInstance, internalUtils: TSriInternalUtils) => void>,
+  startUp?: Array<(dbT:pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<{}, IClient>) => void>,
 
   /**
    * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests, 

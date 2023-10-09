@@ -880,7 +880,9 @@ function startTask(db) {
 }
 function installVersionIncTriggerOnTable(db, tableName, schemaName) {
   return __async(this, null, function* () {
-    const tgname = `vsko_resource_version_trigger_${schemaName !== void 0 ? schemaName : ""}_${tableName}`;
+    const tgNameToBeDropped = `vsko_resource_version_trigger_${schemaName !== void 0 ? schemaName : ""}_${tableName}`;
+    const tgname = `vsko_resource_version_trigger_${tableName}`;
+    const schemaNameOrPublic = schemaName !== void 0 ? schemaName : "public";
     const plpgsql = `
     DO $___$
     BEGIN
@@ -892,7 +894,7 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
           AND column_name = '$$meta.version'
           ${schemaName !== void 0 ? `AND table_schema = '${schemaName}'` : ""}
       ) THEN
-        ALTER TABLE "${tableName}" ADD "$$meta.version" integer DEFAULT 0;
+        ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
       END IF;
 
       -- 2. create func vsko_resource_version_inc_function if not yet present
@@ -900,17 +902,20 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
                       WHERE proname = 'vsko_resource_version_inc_function'
                       ${schemaName !== void 0 ? `AND nspname = '${schemaName}'` : "AND nspname = 'public'"}
                     ) THEN
-        CREATE FUNCTION ${schemaName !== void 0 ? schemaName : "public"}.vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+        CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS OPAQUE AS '
         BEGIN
           NEW."$$meta.version" := OLD."$$meta.version" + 1;
           RETURN NEW;
         END' LANGUAGE 'plpgsql';
       END IF;
 
-      -- 3. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
+      -- 3. drop old triggers if they exist
+      DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
+
+      -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
       IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
-          CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${tableName}"
-          FOR EACH ROW EXECUTE PROCEDURE ${schemaName !== void 0 ? schemaName : "public"}.vsko_resource_version_inc_function();
+          CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
+          FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
       END IF;
     END
     $___$
@@ -4162,17 +4167,20 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
         error(err.stack);
         error("___________________________________________________________________________________________");
         error("NEED TO DESTROY STREAMING REQ");
+        resp.on("drain", () => __async(this, null, function* () {
+          yield resp.destroy();
+          error("[drain event] Stream is destroyed.");
+        }));
+        resp.on("finish", () => __async(this, null, function* () {
+          yield resp.destroy();
+          error("[finish event] Stream is destroyed.");
+        }));
         resp.write("\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n");
         resp.write(err.toString());
         resp.write(JSON.stringify(err, null, 2));
         resp.write("\n___________________________________________________________________________________________\n");
-        yield new Promise((resolve, _reject) => {
-          setImmediate(() => __async(this, null, function* () {
-            yield resp.destroy();
-            resolve(void 0);
-            error("Stream is destroyed.");
-          }));
-        });
+        while (resp.write("       ")) {
+        }
       } else if (err instanceof SriError || ((_d = (_c = err == null ? void 0 : err.__proto__) == null ? void 0 : _c.constructor) == null ? void 0 : _d.name) === "SriError") {
         if (err.status > 0) {
           const reqId = httpContext3.get("reqId");

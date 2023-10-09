@@ -1,5 +1,20 @@
 # Release Notes
 
+## version 2.3.26 (09-10-2023)
+
+* startUp hook changed: it gets db and pgp as paramters now instead of a 'half-baked' sriServerInstance
+  and is called even earlier as a consequence.
+  * Also added tests to check whether the startUp hook gets called, and whether we are able to do
+    db changes here.
+* Change to version update triggers: they don't containe the schema name anymore.
+  * Changed the created trigger's name in order toonly contain the table name
+  * Improved the code that waschecking whether that trigger already existed + added test cases.
+  * Added some code to cleanup OLD version update triggers that contained the schema name.
+    This could lead to (harmless because identical) double triggers when dumping an api's
+    schema to another schema, which is confusing.
+* Added sriRequest.outStream.write('') in streaming custom JSON routes to force sending the headers
+  early even if nothing has been written to the stream yet.
+
 ## version 2.3.25 (02-10-2023)
 
 Improvement on JSON Schema utils and validation: add possibility to provide array type to schemUtils.array + do full logging of schema and document object in case of validation errors + add link to schema in http validation error reply.
@@ -13,7 +28,7 @@ Bugfix: fix docs, which were broken because since the release of an ESM module v
 
 Bugfix: fix (+ new testcase) on streaming_batch code where potentially very bad interaction between stream2.push(null) and stream2.destroy() occured when enough data had been written on the stream. If the stream got destroyed before all data could have been consumed the 'end' event was never emitted and the request kept hanging forever.
 
-## version 2.3.20 (28-08-2023)
+## version 2.3.22 (28-08-2023)
 
 Bugfix for list resources: url-encode the keys of the next urls (+ test case).
 

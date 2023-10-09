@@ -395,19 +395,28 @@ const expressWrapper = (
       error(err.stack);
       error('___________________________________________________________________________________________');
       error('NEED TO DESTROY STREAMING REQ');
+      resp.on('drain', async () => {
+        await resp.destroy();
+        error('[drain event] Stream is destroyed.');
+      });
+      resp.on('finish', async () => {
+        await resp.destroy();
+        error('[finish event] Stream is destroyed.');
+      });
       resp.write('\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n')
       resp.write(err.toString());
       resp.write(JSON.stringify(err, null, 2));
       resp.write('\n___________________________________________________________________________________________\n');
+      
+      // keep sending data until the buffer is full, which will trigger a drain event,
+      // at which point the stream will be destroyed instead of closing it gracefully
+      // (because we want tosignal to the user that something went wrong, even if a
+      // 200 OK header has already been sent)
+      while (resp.write('       ')) {
+        // do nothing besides writing some more
+      }
 
-      await new Promise((resolve, _reject) => {
-        setImmediate(async () => {
-          // use setImmediate to make sure also the error message is written on the socker before closing it
-          await resp.destroy();
-          resolve(undefined);
-          error('Stream is destroyed.');
-        });
-      });
+
     } else if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
       if (err.status > 0) {
         const reqId = httpContext.get('reqId');
@@ -614,6 +623,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     const dbR = db;
     const dbW = db;
 
+    const pgp = getPgp();
+
+    // before registering routes in express, call startUp hook
+    await applyHooks('start up', sriConfig.startUp || [], (f) => f(db, pgp) );
+
+    const currentInformationSchema = await informationSchema(dbR, sriConfig);
+    global.sri4node_configuration.informationSchema = currentInformationSchema;
+
+    // Do automatic DB updates that are part of sri4node's standard behavior (like adding version triggers)
     await pMap(
       sriConfig.resources,
       async (mapping) => {
@@ -628,14 +646,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
       }, { concurrency: 1 },
     );
 
-    const currentInformationSchema = await informationSchema(dbR, sriConfig);
-    global.sri4node_configuration.informationSchema = currentInformationSchema;
 
-    checkSriConfigWithDb(sriConfig);
+    checkSriConfigWithDb(sriConfig, currentInformationSchema);
 
     // Prepare pg-promise columnsets for multi insert/update & delete
-    const pgp = getPgp();
-
     const generatePgColumnSet = (columnNames, type, table) => {
       const columns = columnNames.map((cname) => {
         const col: any = { name: cname };
@@ -1057,6 +1071,11 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                         stream = createReadableStream(true);
                         const JsonStream = new JsonStreamStringify(stream);
                         JsonStream.pipe(sriRequest.outStream);
+                        // after an upgrade of JsonStreamStringify, we seem to have to call this
+                        // to make sure the headers will be sent already (even if nothing is
+                        // written to the stream yet)
+                        sriRequest.outStream.write('');
+
                         keepAliveTimer = setInterval(() => {
                           sriRequest.outStream.write(' ');
                           // flush outstream, otherwise an intermediate layer such as gzip compression
@@ -1204,9 +1223,6 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         db && (await db.$pool.end());
       }
     }
-
-    // before registering routes in express, call startUp hook
-    await applyHooks('start up', sriConfig.startUp || [], (f) => f(db, sriServerInstance) );
 
     // register individual routes in express
     batchHandlerMap.forEach(

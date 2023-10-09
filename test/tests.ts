@@ -144,7 +144,7 @@ describe('Sri4node SERVER TESTS', function () {
     console.log('Done.');
   });
 
-  runTestIfNeeded('./testConnectionInitSql.ts', [testContext, httpClient]);
+  runTestIfNeeded('./testSri4nodeConfigure.ts', [testContext, httpClient]);
 
   // // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [httpClient]);

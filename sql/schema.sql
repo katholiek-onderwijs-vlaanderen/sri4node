@@ -120,8 +120,41 @@ CREATE TABLE "alldatatypes" (
     "textchar" char(64),
     "$$meta.deleted" boolean default false,
     "$$meta.modified" timestamp with time zone not null default current_timestamp,
-    "$$meta.created" timestamp with time zone not null default current_timestamp
+    "$$meta.created" timestamp with time zone not null default current_timestamp,
+    -- added automatically if missing on startup, but this will check
+    -- if it also works if it already exists
+    "$$meta.version" integer DEFAULT 0
 );
+
+-- Between 2018 and 2023-10 the auto-created-at-startup triggers to increment the version
+-- contained the name of the schema
+-- This was problematic because it could lead to duplicated triggers when copying
+-- an api to another schema
+-- The fix from 2023-10 will try to remove the 'old' trigger first, and this is why we will add
+-- such an old trigger here, in order to make sure that it gets removed properly.
+-- The test in testModified that will check that version gets incremented by exactly 1 should
+-- fail if this does not work properly
+CREATE FUNCTION vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+  BEGIN
+    NEW."$$meta.version" := OLD."$$meta.version" + 1;
+    RETURN NEW;
+  END' LANGUAGE 'plpgsql';
+
+CREATE TRIGGER vsko_resource_version_trigger_sri4node_alldatatypes BEFORE UPDATE ON "alldatatypes"
+FOR EACH ROW EXECUTE PROCEDURE vsko_resource_version_inc_function();
+
+-- In order to test whether the other triggers will not be touched, create another function
+-- that does nothing, and use it in a trigger with another name
+CREATE FUNCTION vsko_do_nothing_function() RETURNS OPAQUE AS '
+  BEGIN
+    RETURN NEW;
+  END' LANGUAGE 'plpgsql';
+
+CREATE TRIGGER vsko_do_nothing_trigger_alldatatypes BEFORE UPDATE ON "alldatatypes"
+FOR EACH ROW EXECUTE PROCEDURE vsko_do_nothing_function();
+
+
+
 
 CREATE TABLE "packages" (
   "key" uuid unique,

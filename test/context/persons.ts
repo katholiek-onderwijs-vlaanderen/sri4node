@@ -227,6 +227,10 @@ module.exports = function (sri4node) {
         routePostfix: '/downStreamJSON',
         httpMethods: ['GET'],
         streamingHandler: async (_tx, _sriRequest, stream) => {
+          // add an initial sleep so we can test if the headers are being sent immediately,
+          // even if no data has been sent yet
+          await sleep(600);
+
           stream.push({ firstname: 'Rita', lastname: 'James' });
           await sleep(2000);
           stream.push({ firstname: 'Regina', lastname: 'Sullivan' });
