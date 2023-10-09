@@ -4,7 +4,7 @@ import { IInitOptions } from 'pg-promise';
 import pgPromise from 'pg-promise';
 import { Application, Request, Response } from 'express';
 import { Readable } from 'stream';
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug } from './typeDefinitions';
+import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from './typeDefinitions';
 import * as emt from './express-middleware-timer';
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
@@ -203,7 +203,7 @@ declare function transformRowToObject(row: any, resourceMapping: TResourceDefini
  * @param sriConfig sri4node configuration object
  * @returns nothing, throw an error in case something is wrong
  */
-declare function checkSriConfigWithDb(sriConfig: TSriConfig): void;
+declare function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema): void;
 /**
  * @param obj the api object
  * @param resourceMapping the applicable resource definition from the sriConfig object

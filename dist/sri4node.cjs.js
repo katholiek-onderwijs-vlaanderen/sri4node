@@ -662,12 +662,12 @@ function transformRowToObject(row, resourceMapping) {
   element.$$meta.version = row["$$meta.version"];
   return element;
 }
-function checkSriConfigWithDb(sriConfig) {
+function checkSriConfigWithDb(sriConfig, informationSchema2) {
   sriConfig.resources.forEach((resourceMapping) => {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
-      if (global.sri4node_configuration.informationSchema[resourceMapping.type][key] === void 0) {
-        const dbFields = Object.keys(global.sri4node_configuration.informationSchema[resourceMapping.type]).sort();
+      if (informationSchema2[resourceMapping.type][key] === void 0) {
+        const dbFields = Object.keys(informationSchema2[resourceMapping.type]).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
           console.error(`
@@ -930,7 +930,8 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
         FROM information_schema.columns
         WHERE table_name = '${tableName}'
           AND column_name = '$$meta.version'
-          ${schemaName !== void 0 ? `AND table_schema = '${schemaName}'` : ""}
+          AND table_schema = '${schemaNameOrPublic}'
+          -- ${schemaName !== void 0 ? `AND table_schema = '${schemaName}'` : ""}
       ) THEN
         ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
       END IF;
@@ -938,7 +939,7 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
       -- 2. create func vsko_resource_version_inc_function if not yet present
       IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
                       WHERE proname = 'vsko_resource_version_inc_function'
-                      ${schemaName !== void 0 ? `AND nspname = '${schemaName}'` : "AND nspname = 'public'"}
+                        AND nspname = '${schemaNameOrPublic}'
                     ) THEN
         CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS OPAQUE AS '
         BEGIN
@@ -951,7 +952,13 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
       DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
 
       -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
-      IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}') THEN
+      IF NOT EXISTS (
+          SELECT 1 FROM information_schema.triggers
+          WHERE trigger_name = '${tgname}'
+	          AND trigger_schema = '${schemaNameOrPublic}'
+            AND event_object_table = '${tableName}'
+          -- OBSOLETE (does not check for schema and tablenam): SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
+        ) THEN
           CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
           FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
       END IF;
@@ -4377,6 +4384,10 @@ function configure(app, sriConfig) {
       const db = yield pgConnect(sriConfig);
       const dbR = db;
       const dbW = db;
+      const pgp2 = getPgp();
+      yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp2));
+      const currentInformationSchema = yield informationSchema(dbR, sriConfig);
+      global.sri4node_configuration.informationSchema = currentInformationSchema;
       yield (0, import_p_map8.default)(
         sriConfig.resources,
         (mapping) => __async(this, null, function* () {
@@ -4389,10 +4400,7 @@ function configure(app, sriConfig) {
         }),
         { concurrency: 1 }
       );
-      const currentInformationSchema = yield informationSchema(dbR, sriConfig);
-      global.sri4node_configuration.informationSchema = currentInformationSchema;
-      checkSriConfigWithDb(sriConfig);
-      const pgp2 = getPgp();
+      checkSriConfigWithDb(sriConfig, currentInformationSchema);
       const generatePgColumnSet = (columnNames, type, table) => {
         const columns = columnNames.map((cname) => {
           const col = { name: cname };
@@ -4753,6 +4761,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                       stream2 = createReadableStream(true);
                       const JsonStream = new import_json_stream_stringify.JsonStreamStringify(stream2);
                       JsonStream.pipe(sriRequest.outStream);
+                      sriRequest.outStream.write("");
                       keepAliveTimer = setInterval(() => {
                         sriRequest.outStream.write(" ");
                         if (sriRequest.outStream instanceof import_http.ServerResponse) {
@@ -4861,7 +4870,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
           db && (yield db.$pool.end());
         })
       };
-      yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, sriServerInstance));
       batchHandlerMap.forEach(
         ({
           route,
