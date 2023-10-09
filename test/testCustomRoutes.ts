@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import assert from 'assert';
+import { assert } from 'chai';
 import sleep from 'await-sleep';
 import fs from 'fs';
 import * as streamEqual from 'stream-equal';
@@ -67,7 +67,7 @@ module.exports = function (httpClient) {
     });
 
     it('streamingHandler JSON stream should work', async function () {
-      this.timeout(4000);
+      const start = Date.now();
       const {
         status,
         headers,
@@ -77,6 +77,7 @@ module.exports = function (httpClient) {
         auth: 'sabine',
         streaming: true,
       });
+      const duration = Date.now() - start;
 
       assert.equal(status, 200);
       assert.equal(headers['content-type'], 'application/json; charset=utf-8');
@@ -91,7 +92,9 @@ module.exports = function (httpClient) {
       assert.equal(result[0].lastname, 'James');
       assert.equal(result[1].firstname, 'Regina');
       assert.equal(result[1].lastname, 'Sullivan');
-    });
+
+      assert.isBelow(duration, 500, `Streaming request took more than 500ms (${duration}) before starting to stream !`)
+    }).timeout(4000);
 
     it('streamingHandler binary stream should work', async () => {
       const fileRead = fs.createReadStream('test/files/test.jpg')
