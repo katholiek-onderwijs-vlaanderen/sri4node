@@ -1,5 +1,11 @@
 # Release Notes
 
+## version 2.3.27 (11-10-2023)
+
+Removed useless manual check for whether a resource's json schema is valid, because ajv.compile
+checks this already. Also the manual check was too simple, so some valid schema's could fail
+for no reason.
+
 ## version 2.3.26 (09-10-2023)
 
 * startUp hook changed: it gets db and pgp as paramters now instead of a 'half-baked' sriServerInstance
@@ -7,8 +13,8 @@
   * Also added tests to check whether the startUp hook gets called, and whether we are able to do
     db changes here.
 * Change to version update triggers: they don't containe the schema name anymore.
-  * Changed the created trigger's name in order toonly contain the table name
-  * Improved the code that waschecking whether that trigger already existed + added test cases.
+  * Changed the created trigger's name in order to only contain the table name
+  * Improved the code that was checking whether that trigger already existed + added test cases.
   * Added some code to cleanup OLD version update triggers that contained the schema name.
     This could lead to (harmless because identical) double triggers when dumping an api's
     schema to another schema, which is confusing.
