@@ -559,11 +559,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         if (resourceDefinition.schema === undefined) {
           throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
         }
-        // TODO: use json-schema to validate if it is valid json schema
-        if (resourceDefinition.schema.properties === undefined) {
-          throw new Error(`Schema definition invalid for '${resourceDefinition.type}' !`);
-        }
-        if (resourceDefinition.schema.properties.key === undefined) {
+        if (resourceDefinition?.schema?.properties?.key === undefined) {
           throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
         }
         if (resourceDefinition.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
