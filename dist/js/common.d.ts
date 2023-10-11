@@ -1,11 +1,12 @@
 /// <reference types="node" />
-import Express from 'express';
-import { IInitOptions } from 'pg-promise';
-import pgPromise from 'pg-promise';
-import { Application, Request, Response } from 'express';
-import { Readable } from 'stream';
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from './typeDefinitions';
-import * as emt from './express-middleware-timer';
+import Express from "express";
+import { IInitOptions } from "pg-promise";
+import pgPromise from "pg-promise";
+import { Application, Request, Response } from "express";
+import { Readable } from "stream";
+import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
+import * as emt from "./express-middleware-timer";
+import { JSONSchema4 } from "json-schema";
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
  */
@@ -15,7 +16,10 @@ import * as emt from './express-middleware-timer';
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-declare function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number;
+declare function hrtimeToMilliseconds([seconds, nanoseconds]: [
+    number,
+    number
+]): number;
 declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
@@ -295,7 +299,7 @@ declare function getPgp(): pgPromise.IMain<{}, import("pg-promise/typescript/pg-
  *
  * @param {object} expressRequest: needed for creating a basic SriRequest object
  * @param {object} expressResponse: needed for creating a basic SriRequest object
-*                  (if streaming mode = true)
+ *                  (if streaming mode = true)
  * @param {object} config: needed for creating a basic SriRequest object, of the form
  *                 { isBatchRequest: boolean, readOnly: boolean,
  *                   mapping: <single element from sri4node config 'mappings' section>}
@@ -315,5 +319,15 @@ declare function generateSriRequest(expressRequest?: Express.Request | undefined
     readOnly: boolean;
     mapping?: TResourceDefinition;
     dbT: any;
-} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequest | undefined, batchElement?: any, internalSriRequest?: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined): TSriRequest;
-export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installEMT, setServerTimingHdr, emtReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, getPgp, generateSriRequest, checkSriConfigWithDb, };
+} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequest | undefined, batchElement?: any, internalSriRequest?: Omit<TInternalSriRequest, "protocol" | "serverTiming"> | undefined): TSriRequest;
+/**
+ * This is a recursive function that can find a property definition in a json schema definition.
+ * This will also work when you have oneOf or anyOf sections in your schema definition.
+ *
+ * @param schema
+ * @param propertyName
+ * @returns the part of the json schema where the requested property is defined or null
+ *  if the property is not found
+ */
+declare function findPropertyInJsonSchema(schema: JSONSchema4, propertyName: string): any;
+export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installEMT, setServerTimingHdr, emtReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, getPgp, generateSriRequest, checkSriConfigWithDb, findPropertyInJsonSchema, };

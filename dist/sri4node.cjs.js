@@ -499,8 +499,10 @@ function getParentSriRequest(sriRequest, recurse = false) {
   return sriRequest.parentSriRequest ? recurse ? getParentSriRequest(sriRequest.parentSriRequest) : sriRequest.parentSriRequest : sriRequest;
 }
 function installEMT(app) {
-  app.use(init((_req, _res) => {
-  }));
+  app.use(
+    init((_req, _res) => {
+    })
+  );
   return express_middleware_timer_exports;
 }
 function setServerTimingHdr(sriRequest, property, value2) {
@@ -544,7 +546,9 @@ but please specify the preferred channels for which logging is requested.
 
 `
     );
-    return { channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"]) };
+    return {
+      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"])
+    };
   }
   if (logdebug === false) {
     return { channels: /* @__PURE__ */ new Set() };
@@ -567,7 +571,9 @@ function handleRequestDebugLog(status) {
 function urlToTypeAndKey(urlToParse) {
   var _a;
   if (typeof urlToParse !== "string") {
-    throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
+    throw new Error(
+      `urlToTypeAndKey requires a string argument instead of ${urlToParse}`
+    );
   }
   const parsedUrl = import_url.default.parse(urlToParse);
   const pathName = (_a = parsedUrl.pathname) == null ? void 0 : _a.replace(/\/$/, "");
@@ -577,7 +583,9 @@ function urlToTypeAndKey(urlToParse) {
   return { type, key };
 }
 function isUuid(uuid) {
-  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
+  return uuid.match(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+  ) != null;
 }
 function parseResource(u) {
   if (!u) {
@@ -613,8 +621,8 @@ function errorAsCode(s) {
   let ret = s;
   ret = ret.replace(/".*"/, "");
   ret = ret.toLowerCase().trim();
-  ret = ret.replace(/[^a-z0-9 ]/gmi, "");
-  ret = ret.replace(/ /gmi, ".");
+  ret = ret.replace(/[^a-z0-9 ]/gim, "");
+  ret = ret.replace(/ /gim, ".");
   return ret;
 }
 function typeToConfig(config) {
@@ -627,7 +635,9 @@ function typeToMapping(type) {
   return typeToConfig(global.sri4node_configuration.resources)[type];
 }
 function sqlColumnNames(mapping, summary = false) {
-  const columnNames = summary ? Object.keys(mapping.map).filter((c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")) : Object.keys(mapping.map);
+  const columnNames = summary ? Object.keys(mapping.map).filter(
+    (c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")
+  ) : Object.keys(mapping.map);
   return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
 function transformRowToObject(row, resourceMapping) {
@@ -652,12 +662,15 @@ function transformRowToObject(row, resourceMapping) {
     }
     (_b = (_a = map[key]) == null ? void 0 : _a.columnToField) == null ? void 0 : _b.forEach((f) => f(key, element));
   });
-  Object.assign(element.$$meta, import_lodash.default.pickBy({
-    // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
-    deleted: row["$$meta.deleted"],
-    created: row["$$meta.created"],
-    modified: row["$$meta.modified"]
-  }));
+  Object.assign(
+    element.$$meta,
+    import_lodash.default.pickBy({
+      // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+      deleted: row["$$meta.deleted"],
+      created: row["$$meta.created"],
+      modified: row["$$meta.modified"]
+    })
+  );
   element.$$meta.permalink = `${resourceMapping.type}/${row.key}`;
   element.$$meta.version = row["$$meta.version"];
   return element;
@@ -667,14 +680,20 @@ function checkSriConfigWithDb(sriConfig, informationSchema2) {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
       if (informationSchema2[resourceMapping.type][key] === void 0) {
-        const dbFields = Object.keys(informationSchema2[resourceMapping.type]).sort();
+        const dbFields = Object.keys(
+          informationSchema2[resourceMapping.type]
+        ).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
-          console.error(`
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`
+          );
         } else {
-          console.error(`
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`);
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`
+          );
         }
         throw new Error("mismatch.between.sri.config.and.database");
       }
@@ -689,7 +708,15 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
     if (map[key].references && obj[key] !== void 0) {
       const permalink2 = obj[key].href;
       if (!permalink2) {
-        throw new SriError({ status: 409, errors: [{ code: "no.href.inside.reference", msg: `No href found inside reference ${key}` }] });
+        throw new SriError({
+          status: 409,
+          errors: [
+            {
+              code: "no.href.inside.reference",
+              msg: `No href found inside reference ${key}`
+            }
+          ]
+        });
       }
       const expectedType = map[key].references;
       const { type: refType, key: refKey } = urlToTypeAndKey(permalink2);
@@ -698,7 +725,10 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       } else {
         const msg = `Faulty reference detected [${permalink2}], detected [${refType}] expected [${expectedType}].`;
         console.log(msg);
-        throw new SriError({ status: 409, errors: [{ code: "faulty.reference", msg }] });
+        throw new SriError({
+          status: 409,
+          errors: [{ code: "faulty.reference", msg }]
+        });
       }
     } else if (obj[key] !== void 0) {
       row[key] = obj[key];
@@ -759,16 +789,24 @@ function pgInit() {
 function pgConnect(sri4nodeConfig) {
   return __async(this, null, function* () {
     if (sri4nodeConfig.defaultdatabaseurl !== void 0) {
-      console.warn("defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead");
+      console.warn(
+        "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
+      );
     }
     if (sri4nodeConfig.maxConnections) {
-      console.warn("maxConnections config property has been deprecated, use databaseConnectionParameters.max instead");
+      console.warn(
+        "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
+      );
     }
     if (sri4nodeConfig.dbConnectionInitSql) {
-      console.warn("dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead");
+      console.warn(
+        "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
+      );
     }
     if (process.env.PGP_MONITOR) {
-      console.warn("environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead");
+      console.warn(
+        "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
+      );
     }
     if (!pgp) {
       const extraOptions = {
@@ -866,11 +904,23 @@ function startTransaction(_0) {
           throw res;
         }
       });
-      return { tx, resolveTx: terminateTx("resolve"), rejectTx: terminateTx("reject") };
+      return {
+        tx,
+        resolveTx: terminateTx("resolve"),
+        rejectTx: terminateTx("reject")
+      };
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err), err);
-      throw new SriError({ status: 503, errors: [{ code: "too.busy", msg: "The request could not be processed as the database is too busy right now. Try again later." }] });
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
     }
   });
 }
@@ -912,7 +962,15 @@ function startTask(db) {
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err));
-      throw new SriError({ status: 503, errors: [{ code: "too.busy", msg: "The request could not be processed as the database is too busy right now. Try again later." }] });
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
     }
   });
 }
@@ -988,8 +1046,20 @@ function isEqualSriObject(obj1, obj2, mapping) {
       return BigInt(val);
     }
   }
-  const o1 = import_lodash.default.cloneDeepWith(import_lodash.default.pickBy(obj1, (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)), customizer);
-  const o2 = import_lodash.default.cloneDeepWith(import_lodash.default.pickBy(obj2, (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)), customizer);
+  const o1 = import_lodash.default.cloneDeepWith(
+    import_lodash.default.pickBy(
+      obj1,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
+  const o2 = import_lodash.default.cloneDeepWith(
+    import_lodash.default.pickBy(
+      obj2,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
   return import_lodash.default.isEqualWith(o1, o2);
 }
 function stringifyError(e) {
@@ -1008,14 +1078,26 @@ function settleResultsToSriResults(results) {
     if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
       return err;
     }
-    error("____________________________ E R R O R (settleResultsToSriResults)_________________________");
+    error(
+      "____________________________ E R R O R (settleResultsToSriResults)_________________________"
+    );
     error(stringifyError(err));
     if (err && err.stack) {
       error("STACK:");
       error(err.stack);
     }
-    error("___________________________________________________________________________________________");
-    return new SriError({ status: 500, errors: [{ code: "internal.server.error", msg: `Internal Server Error. [${stringifyError(err)}}]` }] });
+    error(
+      "___________________________________________________________________________________________"
+    );
+    return new SriError({
+      status: 500,
+      errors: [
+        {
+          code: "internal.server.error",
+          msg: `Internal Server Error. [${stringifyError(err)}}]`
+        }
+      ]
+    });
   });
 }
 function createReadableStream(objectMode = true) {
@@ -1060,12 +1142,12 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     protocol: void 0,
     isBatchPart: void 0,
     /**
-     * serverTiming is an object used to accumulate timing data which is passed to the client in the response 
+     * serverTiming is an object used to accumulate timing data which is passed to the client in the response
      * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
      */
     serverTiming: {},
     /**
-     * userData is an object which can be used by applications using sri4node to store information associated with 
+     * userData is an object which can be used by applications using sri4node to store information associated with
      * a request. It is initialized as an empty object.
      */
     userData: {}
@@ -1125,10 +1207,18 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     });
     if (basicConfig == null ? void 0 : basicConfig.isStreamingRequest) {
       if (!expressResponse) {
-        throw Error("[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing");
+        throw Error(
+          "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
+        );
       }
-      const inStream = new import_stream2.default.PassThrough({ allowHalfOpen: false, emitClose: true });
-      const outStream = new import_stream2.default.PassThrough({ allowHalfOpen: false, emitClose: true });
+      const inStream = new import_stream2.default.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
+      const outStream = new import_stream2.default.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
       generatedSriRequest.inStream = expressRequest.pipe(inStream);
       generatedSriRequest.outStream = outStream.pipe(expressResponse);
       generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
@@ -1173,7 +1263,24 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
       isBatchPart: true
     });
   }
-  throw Error("[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters");
+  throw Error(
+    "[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters"
+  );
+}
+function findPropertyInJsonSchema(schema, propertyName) {
+  if (schema.properties && schema.properties[propertyName]) {
+    return schema.properties[propertyName];
+  }
+  const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
+  if (subSchemas) {
+    for (const subSchema of subSchemas) {
+      const found = findPropertyInJsonSchema(subSchema, propertyName);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 // js/batch.ts
@@ -4317,15 +4424,14 @@ function configure(app, sriConfig) {
         sriConfig.bodyParserLimit = "5mb";
       }
       sriConfig.resources.forEach((resourceDefinition) => {
-        var _a, _b;
         if (!resourceDefinition.onlyCustom) {
           if (resourceDefinition.query === void 0) {
             resourceDefinition.query = { defaultFilter };
           }
           if (resourceDefinition.map) {
             Object.keys(resourceDefinition.map).forEach((key) => {
-              var _a2, _b2, _c;
-              if (((_b2 = (_a2 = resourceDefinition.map) == null ? void 0 : _a2[key]) == null ? void 0 : _b2.references) !== void 0 && resourceDefinition.query && ((_c = resourceDefinition.query) == null ? void 0 : _c[key]) === void 0) {
+              var _a, _b, _c;
+              if (((_b = (_a = resourceDefinition.map) == null ? void 0 : _a[key]) == null ? void 0 : _b.references) !== void 0 && resourceDefinition.query && ((_c = resourceDefinition.query) == null ? void 0 : _c[key]) === void 0) {
                 resourceDefinition.query[key] = filterReferencedType(
                   resourceDefinition.map[key].references,
                   key
@@ -4336,14 +4442,15 @@ function configure(app, sriConfig) {
           if (resourceDefinition.schema === void 0) {
             throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
           }
-          if (((_b = (_a = resourceDefinition == null ? void 0 : resourceDefinition.schema) == null ? void 0 : _a.properties) == null ? void 0 : _b.key) === void 0) {
+          const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
+          if (keyPropertyDefinition === null) {
             throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
           }
-          if (resourceDefinition.schema.properties.key.pattern === guid("foo").pattern) {
+          if (keyPropertyDefinition.pattern === guid("foo").pattern) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`);
-          } else if (resourceDefinition.schema.properties.key.type === numeric("foo").type) {
+          } else if (keyPropertyDefinition.type === numeric("foo").type) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9]+)$`);
-          } else if (resourceDefinition.schema.properties.key.type === string("foo").type) {
+          } else if (keyPropertyDefinition.type === string("foo").type) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/(\\w+)$`);
           } else {
             throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
@@ -4351,7 +4458,7 @@ function configure(app, sriConfig) {
           resourceDefinition.listResourceRegex = new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`);
           try {
             debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
-            resourceDefinition.validateKey = ajv2.compile(resourceDefinition.schema.properties.key);
+            resourceDefinition.validateKey = ajv2.compile(keyPropertyDefinition);
             resourceDefinition.validateSchema = ajv2.compile(resourceDefinition.schema);
           } catch (err) {
             console.error("===============================================================");

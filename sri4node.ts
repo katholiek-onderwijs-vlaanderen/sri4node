@@ -31,7 +31,8 @@ import {
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
   debugAnyChannelAllowed,
   checkSriConfigWithDb,
-  createReadableStream
+  createReadableStream,
+  findPropertyInJsonSchema
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
@@ -559,14 +560,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         if (resourceDefinition.schema === undefined) {
           throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
         }
-        if (resourceDefinition?.schema?.properties?.key === undefined) {
+        const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
+        if (keyPropertyDefinition === null) {
           throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
         }
-        if (resourceDefinition.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
+        if (keyPropertyDefinition.pattern === schemaUtils.guid('foo').pattern) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`);
-        } else if (resourceDefinition.schema.properties.key.type === schemaUtils.numeric('foo').type) {
+        } else if (keyPropertyDefinition.type === schemaUtils.numeric('foo').type) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9]+)$`);
-        } else if (resourceDefinition.schema.properties.key.type === schemaUtils.string('foo').type) {
+        } else if (keyPropertyDefinition.type === schemaUtils.string('foo').type) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/(\\w+)$`);
         } else {
           throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
@@ -578,7 +580,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         try {
           // Compile the JSON schema to see if there are errors + store it for later usage
           debug('general', `Going to compile JSON schema of ${resourceDefinition.type}`);
-          resourceDefinition.validateKey = ajv.compile(resourceDefinition.schema.properties.key);
+          resourceDefinition.validateKey = ajv.compile(keyPropertyDefinition);
           resourceDefinition.validateSchema = ajv.compile(resourceDefinition.schema);
         } catch (err) {
           console.error('===============================================================');
