@@ -6,7 +6,7 @@
   and is called even earlier as a consequence.
   * Also added tests to check whether the startUp hook gets called, and whether we are able to do
     db changes here.
-* Change to version update triggers: the don't container the schema name anymore.
+* Change to version update triggers: they don't containe the schema name anymore.
   * Changed the created trigger's name in order toonly contain the table name
   * Improved the code that waschecking whether that trigger already existed + added test cases.
   * Added some code to cleanup OLD version update triggers that contained the schema name.
