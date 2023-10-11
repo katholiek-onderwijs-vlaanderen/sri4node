@@ -4317,14 +4317,15 @@ function configure(app, sriConfig) {
         sriConfig.bodyParserLimit = "5mb";
       }
       sriConfig.resources.forEach((resourceDefinition) => {
+        var _a, _b;
         if (!resourceDefinition.onlyCustom) {
           if (resourceDefinition.query === void 0) {
             resourceDefinition.query = { defaultFilter };
           }
           if (resourceDefinition.map) {
             Object.keys(resourceDefinition.map).forEach((key) => {
-              var _a, _b, _c;
-              if (((_b = (_a = resourceDefinition.map) == null ? void 0 : _a[key]) == null ? void 0 : _b.references) !== void 0 && resourceDefinition.query && ((_c = resourceDefinition.query) == null ? void 0 : _c[key]) === void 0) {
+              var _a2, _b2, _c;
+              if (((_b2 = (_a2 = resourceDefinition.map) == null ? void 0 : _a2[key]) == null ? void 0 : _b2.references) !== void 0 && resourceDefinition.query && ((_c = resourceDefinition.query) == null ? void 0 : _c[key]) === void 0) {
                 resourceDefinition.query[key] = filterReferencedType(
                   resourceDefinition.map[key].references,
                   key
@@ -4335,10 +4336,7 @@ function configure(app, sriConfig) {
           if (resourceDefinition.schema === void 0) {
             throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
           }
-          if (resourceDefinition.schema.properties === void 0) {
-            throw new Error(`Schema definition invalid for '${resourceDefinition.type}' !`);
-          }
-          if (resourceDefinition.schema.properties.key === void 0) {
+          if (((_b = (_a = resourceDefinition == null ? void 0 : resourceDefinition.schema) == null ? void 0 : _a.properties) == null ? void 0 : _b.key) === void 0) {
             throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
           }
           if (resourceDefinition.schema.properties.key.pattern === guid("foo").pattern) {
