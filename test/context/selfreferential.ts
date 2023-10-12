@@ -1,5 +1,7 @@
 import { TResourceDefinition } from "../../sri4node";
-
+// import * as Sri4Node from '../../index';
+//
+// module.exports = function (sri4node: typeof Sri4Node) {
 module.exports = function (sri4node) {
   const $s = sri4node.schemaUtils;
 

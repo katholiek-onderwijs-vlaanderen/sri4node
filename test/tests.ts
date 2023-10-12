@@ -49,7 +49,7 @@ function runTestIfNeeded(testFileName: string, args: any[] | undefined = undefin
     }
   } else {
     describe(`tests ${testFileName}`, () => {
-      it(`will not run because not found in ${testsToRun.join()}`, () => {
+      it(`⛔ will not run because not found in ${testsToRun.join()}`, () => {
         // Do nothing
       });
     });
@@ -59,7 +59,7 @@ function runTestIfNeeded(testFileName: string, args: any[] | undefined = undefin
 /**
  * This is needed in case sri4node is loaded asynchronously!
  */
-const sri4nodeHolder = {
+const sri4nodeHolder: { sri4node: typeof sri4nodeTS } = {
   sri4node: sri4nodeCJS, // the default, but can be replaced in the before() method!
 };
 
@@ -125,6 +125,7 @@ describe('Sri4node SERVER TESTS', function () {
           './context/customStreaming',
           './context/foos',
           './context/bars',
+          './context/complexSchema',
         ]);
       testContext.server = server;
       testContext.sriServerInstance = sriServerInstance;

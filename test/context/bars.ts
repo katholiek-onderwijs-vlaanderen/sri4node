@@ -1,7 +1,8 @@
 import * as uuid from 'uuid';
 import { THttpMethod, TResourceDefinition } from '../../sri4node';
+import * as Sri4Node from '../../index';
 
-module.exports = function (sri4node) : TResourceDefinition {
+module.exports = function (sri4node: typeof Sri4Node) : TResourceDefinition {
 
   const doBeforeHook = async (tx, sriRequest, operation) => {
     await tx.none(`INSERT INTO hooktests VALUES ('${uuid.v4()}', '${sriRequest.id}', '${operation}');`);

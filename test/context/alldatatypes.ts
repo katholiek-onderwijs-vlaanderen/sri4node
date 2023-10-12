@@ -1,7 +1,9 @@
 import { TResourceDefinition } from '../../sri4node';
 // import utils from '../utils';
+import * as Sri4Node from '../../index'
 
-module.exports = function (sri4node) : TResourceDefinition {
+
+module.exports = function (sri4node: typeof Sri4Node) : TResourceDefinition {
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
   const $m = sri4node.mapUtils;
@@ -46,15 +48,25 @@ module.exports = function (sri4node) : TResourceDefinition {
         publications: $s.array("A collection of timestamps."),
         number: $s.numeric("A numeric field."),
         numbers: $s.array("A collection of numbers."),
-        numberint: $s.numeric("A numeric field."),
-        numberbigint: $s.numeric("A numeric field."),
-        numbersmallint: $s.numeric("A numeric field."),
+        numberint: $s.integer("A numeric field."),
+        numberbigint: $s.string(
+          "A big integer field that will be sent as a string",
+          undefined,
+          undefined,
+          "[0-9]+"
+        ),
+        numbersmallint: $s.integer("A numeric field."),
         numberdecimal: $s.numeric("A numeric field."),
         numberreal: $s.numeric("A numeric field."),
         numberdoubleprecision: $s.numeric("A numeric field."),
         numbersmallserial: $s.numeric("A numeric field."),
         numberserial: $s.numeric("A numeric field."),
-        numberbigserial: $s.numeric("A numeric field."),
+        numberbigserial: $s.string(
+          "A big serial field that will be sent as a string",
+          undefined,
+          undefined,
+          "[0-9]+"
+        ),
       },
       required: [],
     },

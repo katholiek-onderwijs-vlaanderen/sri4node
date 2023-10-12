@@ -7,8 +7,9 @@ import * as streamEqual from 'stream-equal';
 import { TSriRequest } from '../../sri4node';
 
 import { TResourceDefinition } from '../../js/typeDefinitions'
+import * as Sri4Node from '../../index';
 
-module.exports = function (sri4node) {
+module.exports = function (sri4node: typeof Sri4Node) {
   const isHrefAPermalink = function (href) {
     return href.match(/^\/[a-z/]*\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/);
   };
@@ -302,12 +303,16 @@ module.exports = function (sri4node) {
           if (sriRequest.userData.attachmentsRcvd[0].filename !== 'test.jpg' || sriRequest.userData.attachmentsRcvd[1].filename !== 'test.pdf') {
             throw 'Attachment test.jpg or test.pdf is missing';
           }
-          await pMap(sriRequest.userData.attachmentsRcvd, async ({ filename, equalPromise }) => {
-            const equal = await equalPromise;
-            if (equal !== true) {
-              throw `Posted ${filename} does not match file on disk!`;
-            }
-          }, { concurrency: 1 });
+          await pMap<{ filename: string; equalPromise: any }, void>(
+            sriRequest.userData.attachmentsRcvd,
+            async ({ filename, equalPromise }) => {
+              const equal = await equalPromise;
+              if (equal !== true) {
+                throw `Posted ${filename} does not match file on disk!`;
+              }
+            },
+            { concurrency: 1 }
+          );
 
           // store jpg attachment as person picture
           const data = fs.readFileSync('test/files/test.jpg');
@@ -376,9 +381,9 @@ module.exports = function (sri4node) {
       defaultFilter: $q.defaultFilter,
     },
     afterRead: [
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions'),
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleT', true),
-      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleF', false),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactions', []),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleT', []),
+      $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsBackwardsCompatibleF', []),
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnSummary', ['summary']),
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnFull', ['full']),
       $u.addReferencingResources('/transactions', 'fromperson', '$$transactionsExcludeOnFullAndSummary', ['full', 'summary']),

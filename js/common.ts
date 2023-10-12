@@ -39,6 +39,7 @@ import peggy from "peggy";
 import httpContext from "express-http-context";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
+import { IClient } from "pg-promise/typescript/pg-subset";
 
 let pgp: pgPromise.IMain; // will be initialized at pgConnect
 
@@ -934,11 +935,18 @@ function transformObjectToRow(
     const fieldTypeDb =
       global.sri4node_configuration.informationSchema[resourceMapping.type][key]
         .type;
-    const fieldTypeObject = findPropertyInJsonSchema(resourceMapping.schema, key)?.type;
-    if (fieldTypeDb === "jsonb" && fieldTypeObject === "array") {
-      // for this type combination we need to explicitly stringify the JSON,
-      // otherwise insert will attempt to store a postgres array which fails for jsonb
+    if (fieldTypeDb === "jsonb") {
+      /// ALWAYS stringify the json !!!
       row[key] = JSON.stringify(row[key]);
+
+      /// VERSION < 2023-10 wouldonly stringify arrays
+      // const fieldTypeObject = findPropertyInJsonSchema(resourceMapping.schema, key)?.type;
+
+      // if (fieldTypeObject === "array") {
+      //   // for this type combination we need to explicitly stringify the JSON,
+      //   // otherwise insert will attempt to store a postgres array which fails for jsonb
+      //   row[key] = JSON.stringify(row[key]);
+      // }
     }
   });
 
@@ -1115,10 +1123,10 @@ function createPreparedStatement(
 // values : An array of java values to be inserted in $1,$2, etc..
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-async function pgExec(db, query, sriRequest?: TSriRequest) {
+async function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
-  debug("sql", () => pgp.as.format(sql, values));
+  debug("sql", () => pgp?.as.format(sql, values));
 
   const hrstart = process.hrtime();
   const result = await db.query(sql, values);
@@ -1130,10 +1138,10 @@ async function pgExec(db, query, sriRequest?: TSriRequest) {
   return result;
 }
 
-async function pgResult(db, query, sriRequest?: TSriRequest) {
+async function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
-  debug("sql", () => pgp.as.format(sql, values));
+  debug("sql", () => pgp?.as.format(sql, values));
 
   const hrstart = process.hrtime();
   const result = await db.result(sql, values);
@@ -1145,7 +1153,7 @@ async function pgResult(db, query, sriRequest?: TSriRequest) {
   return result;
 }
 
-async function startTransaction(db, mode = new pgp.txMode.TransactionMode()) {
+async function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode = new pgp.txMode.TransactionMode()) {
   debug("db", "++ Starting database transaction.");
 
   const eventEmitter = new EventEmitter();
@@ -1226,7 +1234,7 @@ async function startTransaction(db, mode = new pgp.txMode.TransactionMode()) {
   }
 }
 
-async function startTask(db) {
+async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
   debug("db", "++ Starting database task.");
 
   const emitter = new EventEmitter();
@@ -1284,7 +1292,7 @@ async function startTask(db) {
 }
 
 async function installVersionIncTriggerOnTable(
-  db,
+  db: pgPromise.IDatabase<unknown, IClient>,
   tableName: string,
   schemaName?: string
 ) {

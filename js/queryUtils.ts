@@ -3,7 +3,14 @@ import { tableFromMapping } from './common';
 import { SriError, TPreparedSql, TResourceDefinition } from './typeDefinitions';
 import { defaultFilter } from './defaultFilter';
 
-function filterHrefs(href:string, query:TPreparedSql, mapping:TResourceDefinition) {
+/**
+ *
+ * @param href
+ * @param query
+ * @param parameter
+ * @param mapping
+ */
+function filterHrefs(href:string, query:TPreparedSql, _parameter: string, mapping: TResourceDefinition) {
   const table = tableFromMapping(mapping);
 
   if (href) {

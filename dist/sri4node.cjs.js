@@ -704,7 +704,6 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
   const map = resourceMapping.map || {};
   const row = {};
   Object.keys(map).forEach((key) => {
-    var _a;
     if (map[key].references && obj[key] !== void 0) {
       const permalink2 = obj[key].href;
       if (!permalink2) {
@@ -739,8 +738,7 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
     }
     const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    const fieldTypeObject = (_a = findPropertyInJsonSchema(resourceMapping.schema, key)) == null ? void 0 : _a.type;
-    if (fieldTypeDb === "jsonb" && fieldTypeObject === "array") {
+    if (fieldTypeDb === "jsonb") {
       row[key] = JSON.stringify(row[key]);
     }
   });
@@ -830,7 +828,7 @@ function pgConnect(sri4nodeConfig) {
 function pgExec(db, query, sriRequest) {
   return __async(this, null, function* () {
     const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp.as.format(sql, values));
+    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
     const hrstart = process.hrtime();
     const result = yield db.query(sql, values);
     const hrElapsed = process.hrtime(hrstart);
@@ -843,7 +841,7 @@ function pgExec(db, query, sriRequest) {
 function pgResult(db, query, sriRequest) {
   return __async(this, null, function* () {
     const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp.as.format(sql, values));
+    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
     const hrstart = process.hrtime();
     const result = yield db.result(sql, values);
     const hrElapsed = process.hrtime(hrstart);
@@ -2344,7 +2342,7 @@ function defaultFilter(valueEnc, query, parameter, mapping) {
 }
 
 // js/queryUtils.ts
-function filterHrefs(href, query, mapping) {
+function filterHrefs(href, query, _parameter, mapping) {
   const table = tableFromMapping(mapping);
   if (href) {
     const permalinks = href.split(",");
@@ -2607,7 +2605,7 @@ function applyRequestParameters(mapping, query, urlparameters, tx, count) {
               throw new SriError({ status: 404, errors: [{ code: "unknown.query.parameter", parameter: key }] });
             }
           } else if (key === "hrefs" && urlparameters.hrefs) {
-            filterHrefs(urlparameters.hrefs, query, mapping);
+            filterHrefs(urlparameters.hrefs, query, "hrefs", mapping);
           } else if (key === "modifiedSince") {
             modifiedSince(urlparameters.modifiedSince, query, mapping);
           }
@@ -4022,16 +4020,27 @@ var staticFiles = {
 };
 
 // sri4node.ts
-var ajv2 = new import_ajv2.default({ coerceTypes: true, logger: {
-  log: (output) => {
-    debug("general", output);
-  },
-  warn: (output) => {
-    debug("general", output);
-  },
-  error: console.error
-} });
+var ajv2 = new import_ajv2.default({
+  // 2023-10: do not enable strict yet as it might break existing api's
+  // (for example: an object with 'properties' & 'required', but missing type: 'object'
+  // would suddenly fail because it is strictly speaking invalid json-schema)
+  // strict: true,
+  logger: {
+    log: (output) => {
+      debug("general", output);
+    },
+    warn: (output) => {
+      debug("general", output);
+    },
+    error: console.error
+  }
+});
 (0, import_ajv_formats2.default)(ajv2);
+var ajvWithCoerceTypes = new import_ajv2.default({
+  strict: true,
+  coerceTypes: true
+});
+(0, import_ajv_formats2.default)(ajvWithCoerceTypes);
 function forceSecureSockets(req, res, next) {
   const isHttps = req.headers["x-forwarded-proto"] === "https";
   if (!isHttps && req.get("Host").indexOf("localhost") < 0 && req.get("Host").indexOf("127.0.0.1") < 0) {
@@ -4460,7 +4469,7 @@ function configure(app, sriConfig) {
           resourceDefinition.listResourceRegex = new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`);
           try {
             debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
-            resourceDefinition.validateKey = ajv2.compile(keyPropertyDefinition);
+            resourceDefinition.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
             resourceDefinition.validateSchema = ajv2.compile(resourceDefinition.schema);
           } catch (err) {
             console.error("===============================================================");
@@ -4510,24 +4519,26 @@ function configure(app, sriConfig) {
       checkSriConfigWithDb(sriConfig, currentInformationSchema);
       const generatePgColumnSet = (columnNames, type, table) => {
         const columns = columnNames.map((cname) => {
-          const col = { name: cname };
+          const cConf = {
+            name: cname
+          };
           if (cname.includes(".")) {
-            col.prop = `_${cname.replace(/\./g, "_")}`;
-            col.init = (c) => c.source[cname];
+            cConf.prop = `_${cname.replace(/\./g, "_")}`;
+            cConf.init = (c) => c.source[cname];
           }
           const cType = global.sri4node_configuration.informationSchema[type][cname].type;
           const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
           if (cType !== "text") {
             if (cType === "ARRAY") {
-              col.cast = `${cElementType}[]`;
+              cConf.cast = `${cElementType}[]`;
             } else {
-              col.cast = cType;
+              cConf.cast = cType;
             }
           }
           if (cname === "key") {
-            col.cnd = true;
+            cConf.cnd = true;
           }
-          return col;
+          return new pgp2.helpers.Column(cConf);
         });
         return new pgp2.helpers.ColumnSet(columns, { table });
       };

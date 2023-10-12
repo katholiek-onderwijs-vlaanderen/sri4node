@@ -39,7 +39,7 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
           // queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
-          queryUtils.filterHrefs(urlparameters.hrefs, query, mapping);
+          queryUtils.filterHrefs(urlparameters.hrefs, query, 'hrefs', mapping);
         } else if (key === 'modifiedSince') {
           // queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping);
           queryUtils.modifiedSince(urlparameters.modifiedSince, query, mapping);
