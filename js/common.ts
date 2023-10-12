@@ -934,9 +934,7 @@ function transformObjectToRow(
     const fieldTypeDb =
       global.sri4node_configuration.informationSchema[resourceMapping.type][key]
         .type;
-    const fieldTypeObject = resourceMapping.schema.properties?.[key]
-      ? resourceMapping.schema.properties[key].type
-      : null;
+    const fieldTypeObject = findPropertyInJsonSchema(resourceMapping.schema, key)?.type;
     if (fieldTypeDb === "jsonb" && fieldTypeObject === "array") {
       // for this type combination we need to explicitly stringify the JSON,
       // otherwise insert will attempt to store a postgres array which fails for jsonb
@@ -1370,8 +1368,7 @@ function isEqualSriObject(obj1, obj2, mapping) {
 
   function customizer(val, key, _obj) {
     if (
-      mapping.schema.properties[key] &&
-      mapping.schema.properties[key].format === "date-time"
+      findPropertyInJsonSchema(mapping.schema, key)?.format === "date-time"
     ) {
       return new Date(val).getTime();
     }
@@ -1747,7 +1744,7 @@ function generateSriRequest(
  *  if the property is not found
  */
 function findPropertyInJsonSchema(schema: JSONSchema4, propertyName: string) {
-  if (schema.properties && schema.properties[propertyName]) {
+  if (schema?.properties?.[propertyName]) {
     return schema.properties[propertyName];
   }
 

@@ -701,7 +701,7 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
     }
     const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    const fieldTypeObject = ((_a = resourceMapping.schema.properties) == null ? void 0 : _a[key]) ? resourceMapping.schema.properties[key].type : null;
+    const fieldTypeObject = (_a = findPropertyInJsonSchema(resourceMapping.schema, key)) == null ? void 0 : _a.type;
     if (fieldTypeDb === "jsonb" && fieldTypeObject === "array") {
       row[key] = JSON.stringify(row[key]);
     }
@@ -1001,7 +1001,8 @@ function tableFromMapping(mapping) {
 function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
   function customizer(val, key, _obj) {
-    if (mapping.schema.properties[key] && mapping.schema.properties[key].format === "date-time") {
+    var _a;
+    if (((_a = findPropertyInJsonSchema(mapping.schema, key)) == null ? void 0 : _a.format) === "date-time") {
       return new Date(val).getTime();
     }
     if (global.sri4node_configuration.informationSchema[mapping.type][key] && global.sri4node_configuration.informationSchema[mapping.type][key].type === "bigint") {
@@ -1230,7 +1231,8 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
   );
 }
 function findPropertyInJsonSchema(schema, propertyName) {
-  if (schema.properties && schema.properties[propertyName]) {
+  var _a;
+  if ((_a = schema == null ? void 0 : schema.properties) == null ? void 0 : _a[propertyName]) {
     return schema.properties[propertyName];
   }
   const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
@@ -2948,7 +2950,7 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
   debug("trace", `queryByKeyRequestKey(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
-  if (mapping.schema && mapping.schema.properties && mapping.schema.properties.key && mapping.validateKey) {
+  if (findPropertyInJsonSchema(mapping.schema, "key") && mapping.validateKey) {
     const validKey = mapping.validateKey(key);
     if (!validKey) {
       throw new SriError({ status: 400, errors: ((_a = mapping.validateKey.errors) == null ? void 0 : _a.map((e) => ({ code: "key.invalid", key, err: e }))) || [] });
