@@ -1,6 +1,6 @@
 # Release Notes
 
-## version 2.3.27 (11-10-2023)
+## version 2.3.27 (13-10-2023)
 
 * Improved support for more complex json-schema's (containing oneOff/anyOf/allOf at the root for example)
 * It used to be that storing a string in a JSONB column would not work,
