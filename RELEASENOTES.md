@@ -1,5 +1,19 @@
 # Release Notes
 
+## version 2.3.27 (11-10-2023)
+
+* Improved support for more complex json-schema's (containing oneOff/anyOf/allOf at the root for example)
+* It used to be that storing a string in a JSONB column would not work,
+  but that does work now, so it's easier to not worry too much anymore about the datatype
+  and use jsonb column for almost everything
+* Internal improvements:
+  * Improved 'npm run test' to only run a subset of all the tests. You can now run things like:
+    npm run test ./testBatch.ts ./testPutAndPatch.ts
+  * A few typing improvements.
+  * Updated signature of 'query' handlers, so they always have the same signature
+    (defaultFilter, queryUtils, relationsFilter + the user's own filters all have
+    the same signature now)
+
 ## version 2.3.26 (09-10-2023)
 
 * startUp hook changed: it gets db and pgp as paramters now instead of a 'half-baked' sriServerInstance
@@ -7,8 +21,8 @@
   * Also added tests to check whether the startUp hook gets called, and whether we are able to do
     db changes here.
 * Change to version update triggers: they don't containe the schema name anymore.
-  * Changed the created trigger's name in order toonly contain the table name
-  * Improved the code that waschecking whether that trigger already existed + added test cases.
+  * Changed the created trigger's name in order to only contain the table name
+  * Improved the code that was checking whether that trigger already existed + added test cases.
   * Added some code to cleanup OLD version update triggers that contained the schema name.
     This could lead to (harmless because identical) double triggers when dumping an api's
     schema to another schema, which is confusing.

@@ -262,26 +262,17 @@ export type TSriInternalUtils = {
   internalSriRequest: (internalReq: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'>) => Promise<TSriResult>,
 }
 
-export type TSriQueryFun =
-  | {
-    defaultFilter?: (
-      valueEnc: string,
-      query: TPreparedSql,
-      parameter: any,
-      mapping: TResourceDefinition,
-      database: pgPromise.IDatabase<unknown, IClient>
-    ) => void;
-  }
-  | {
-    [key: string]: (
-      value: string,
-      select: TPreparedSql,
-      key: string,
-      database: pgPromise.IDatabase<unknown, IClient>,
-      count: number,
-      mapping: TResourceDefinition
-    ) => void;
-  };
+export type TSriQueryFun = {
+  [key: string]: (
+    value: string,
+    select: TPreparedSql,
+    key: string,
+    database: pgPromise.IDatabase<unknown, IClient>,
+    doCount: boolean,
+    mapping: TResourceDefinition,
+    urlParameters: ParsedUrlQuery
+  ) => void;
+};
 
 
 /** properties that always apply in ALL customRoute scenario's */
@@ -694,7 +685,7 @@ export type TSriConfig = {
   /**
    * This is a global hook. It is called during configuration, before anything is done.
    */
-  startUp?: Array<(dbT:pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<{}, IClient>) => void>,
+  startUp?: Array<(dbT:pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<unknown, IClient>) => void>,
 
   /**
    * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests, 

@@ -10,7 +10,8 @@ import * as util from 'util';
 
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { IDatabase } from 'pg-promise';
+import pgPromise from "pg-promise";
+
 
 // External dependencies.
 import compression from 'compression';
@@ -31,7 +32,8 @@ import {
   generateSriRequest, urlToTypeAndKey, parseResource, hrtimeToMilliseconds, isLogChannelEnabled,
   debugAnyChannelAllowed,
   checkSriConfigWithDb,
-  createReadableStream
+  createReadableStream,
+  findPropertyInJsonSchema
 } from './js/common';
 import * as batch from './js/batch';
 import { prepareSQL } from './js/queryObject';
@@ -58,12 +60,37 @@ import { JsonStreamStringify } from 'json-stream-stringify';
 
 import * as pugTpl from './js/docs/pugTemplates';
 
-const ajv = new Ajv({ coerceTypes: true, logger: {
-  log: (output: string) => { debug('general', output) },
-  warn: (output: string) => { debug('general', output) },
-  error: console.error
-}});
+const ajv = new Ajv({
+  // 2023-10: do not enable strict yet as it might break existing api's
+  // (for example: an object with 'properties' & 'required', but missing type: 'object'
+  // would suddenly fail because it is strictly speaking invalid json-schema)
+  // strict: true,
+  logger: {
+    log: (output: string) => {
+      debug("general", output);
+    },
+    warn: (output: string) => {
+      debug("general", output);
+    },
+    error: console.error,
+  },
+});
 addFormats(ajv);
+
+/**
+ * 'coerceTypes' will not care about the type if it can be cast to the type in the schema
+ * (for example a number can be cast to a string)
+ * This is currently used to check the query parameter values in a url, because we don't
+ * have the proper url parser (that creates a parse tree) yet, which would allow us to
+ * actually parse a url into the right types.
+ * So as long as that is not finished, we need to be less strict about the query params.
+ */
+const ajvWithCoerceTypes = new Ajv({
+  strict: true,
+  coerceTypes: true,
+});
+addFormats(ajvWithCoerceTypes);
+
 
 /**
  * Force https in production
@@ -559,18 +586,15 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         if (resourceDefinition.schema === undefined) {
           throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
         }
-        // TODO: use json-schema to validate if it is valid json schema
-        if (resourceDefinition.schema.properties === undefined) {
-          throw new Error(`Schema definition invalid for '${resourceDefinition.type}' !`);
-        }
-        if (resourceDefinition.schema.properties.key === undefined) {
+        const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
+        if (keyPropertyDefinition === null) {
           throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
         }
-        if (resourceDefinition.schema.properties.key.pattern === schemaUtils.guid('foo').pattern) {
+        if (keyPropertyDefinition.pattern === schemaUtils.guid('foo').pattern) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`);
-        } else if (resourceDefinition.schema.properties.key.type === schemaUtils.numeric('foo').type) {
+        } else if (keyPropertyDefinition.type === schemaUtils.numeric('foo').type) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9]+)$`);
-        } else if (resourceDefinition.schema.properties.key.type === schemaUtils.string('foo').type) {
+        } else if (keyPropertyDefinition.type === schemaUtils.string('foo').type) {
           resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/(\\w+)$`);
         } else {
           throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
@@ -582,7 +606,10 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
         try {
           // Compile the JSON schema to see if there are errors + store it for later usage
           debug('general', `Going to compile JSON schema of ${resourceDefinition.type}`);
-          resourceDefinition.validateKey = ajv.compile(resourceDefinition.schema.properties.key);
+          // validateKey is used with express request params which are always strings,
+          // so the schema needs to be checked without complaining about the fact that
+          // it is a string, even when key is defined asa number for example
+          resourceDefinition.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
           resourceDefinition.validateSchema = ajv.compile(resourceDefinition.schema);
         } catch (err) {
           console.error('===============================================================');
@@ -652,27 +679,32 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     // Prepare pg-promise columnsets for multi insert/update & delete
     const generatePgColumnSet = (columnNames, type, table) => {
       const columns = columnNames.map((cname) => {
-        const col: any = { name: cname };
+        const cConf: pgPromise.IColumnConfig<Record<string, string>> = {
+          name: cname,
+        };
+
         if (cname.includes('.')) {
           // popertynames with dot like $$meta.* are problematic with default pg-promise
           // see https://github.com/vitaly-t/pg-promise/issues/494  ==> workaround with .init() fun
-          col.prop = `_${cname.replace(/\./g, '_')}`; // if prop is not unique multiple $$meta.* will get the same value!
-          col.init = (c) => c.source[cname];
+          cConf.prop = `_${cname.replace(/\./g, '_')}`; // if prop is not unique multiple $$meta.* will get the same value!
+          cConf.init = (c) => c.source[cname];
         }
         const cType = global.sri4node_configuration.informationSchema[type][cname].type;
         const cElementType = global.sri4node_configuration
           .informationSchema[type][cname].element_type;
         if (cType !== 'text') {
-          if (cType === 'ARRAY') {
-            col.cast = `${cElementType}[]`;
+          if (cType === "ARRAY") {
+            cConf.cast = `${cElementType}[]`;
+          // } else if (cType.toLowerCase() === "jsonb") {
+          //   cConf.mod = ':json';
           } else {
-            col.cast = cType;
+            cConf.cast = cType;
           }
         }
         if (cname === 'key') {
-          col.cnd = true;
+          cConf.cnd = true;
         }
-        return col;
+        return new pgp.helpers.Column(cConf);
       });
 
       return new pgp.helpers.ColumnSet(columns, { table });
@@ -1020,7 +1052,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase() as THttpMethod,
                   func:
-                    async (_phaseSyncer, tx:IDatabase<unknown>, sriRequest:TSriRequest, _mapping1) => {
+                    async (_phaseSyncer, tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, _mapping1) => {
                       if (sriRequest.isBatchPart) {
                         throw new SriError({ status: 400, errors: [{ code: 'streaming.not.allowed.in.batch', msg: 'Streaming mode cannot be used inside a batch.' }] });
                       }

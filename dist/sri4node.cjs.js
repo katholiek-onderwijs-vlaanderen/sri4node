@@ -499,8 +499,10 @@ function getParentSriRequest(sriRequest, recurse = false) {
   return sriRequest.parentSriRequest ? recurse ? getParentSriRequest(sriRequest.parentSriRequest) : sriRequest.parentSriRequest : sriRequest;
 }
 function installEMT(app) {
-  app.use(init((_req, _res) => {
-  }));
+  app.use(
+    init((_req, _res) => {
+    })
+  );
   return express_middleware_timer_exports;
 }
 function setServerTimingHdr(sriRequest, property, value2) {
@@ -544,7 +546,9 @@ but please specify the preferred channels for which logging is requested.
 
 `
     );
-    return { channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"]) };
+    return {
+      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"])
+    };
   }
   if (logdebug === false) {
     return { channels: /* @__PURE__ */ new Set() };
@@ -567,7 +571,9 @@ function handleRequestDebugLog(status) {
 function urlToTypeAndKey(urlToParse) {
   var _a;
   if (typeof urlToParse !== "string") {
-    throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
+    throw new Error(
+      `urlToTypeAndKey requires a string argument instead of ${urlToParse}`
+    );
   }
   const parsedUrl = import_url.default.parse(urlToParse);
   const pathName = (_a = parsedUrl.pathname) == null ? void 0 : _a.replace(/\/$/, "");
@@ -577,7 +583,9 @@ function urlToTypeAndKey(urlToParse) {
   return { type, key };
 }
 function isUuid(uuid) {
-  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
+  return uuid.match(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+  ) != null;
 }
 function parseResource(u) {
   if (!u) {
@@ -613,8 +621,8 @@ function errorAsCode(s) {
   let ret = s;
   ret = ret.replace(/".*"/, "");
   ret = ret.toLowerCase().trim();
-  ret = ret.replace(/[^a-z0-9 ]/gmi, "");
-  ret = ret.replace(/ /gmi, ".");
+  ret = ret.replace(/[^a-z0-9 ]/gim, "");
+  ret = ret.replace(/ /gim, ".");
   return ret;
 }
 function typeToConfig(config) {
@@ -627,7 +635,9 @@ function typeToMapping(type) {
   return typeToConfig(global.sri4node_configuration.resources)[type];
 }
 function sqlColumnNames(mapping, summary = false) {
-  const columnNames = summary ? Object.keys(mapping.map).filter((c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")) : Object.keys(mapping.map);
+  const columnNames = summary ? Object.keys(mapping.map).filter(
+    (c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")
+  ) : Object.keys(mapping.map);
   return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
 function transformRowToObject(row, resourceMapping) {
@@ -652,12 +662,15 @@ function transformRowToObject(row, resourceMapping) {
     }
     (_b = (_a = map[key]) == null ? void 0 : _a.columnToField) == null ? void 0 : _b.forEach((f) => f(key, element));
   });
-  Object.assign(element.$$meta, import_lodash.default.pickBy({
-    // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
-    deleted: row["$$meta.deleted"],
-    created: row["$$meta.created"],
-    modified: row["$$meta.modified"]
-  }));
+  Object.assign(
+    element.$$meta,
+    import_lodash.default.pickBy({
+      // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+      deleted: row["$$meta.deleted"],
+      created: row["$$meta.created"],
+      modified: row["$$meta.modified"]
+    })
+  );
   element.$$meta.permalink = `${resourceMapping.type}/${row.key}`;
   element.$$meta.version = row["$$meta.version"];
   return element;
@@ -667,14 +680,20 @@ function checkSriConfigWithDb(sriConfig, informationSchema2) {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
       if (informationSchema2[resourceMapping.type][key] === void 0) {
-        const dbFields = Object.keys(informationSchema2[resourceMapping.type]).sort();
+        const dbFields = Object.keys(
+          informationSchema2[resourceMapping.type]
+        ).sort();
         const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
-          console.error(`
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`
+          );
         } else {
-          console.error(`
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`);
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`
+          );
         }
         throw new Error("mismatch.between.sri.config.and.database");
       }
@@ -685,11 +704,18 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
   const map = resourceMapping.map || {};
   const row = {};
   Object.keys(map).forEach((key) => {
-    var _a;
     if (map[key].references && obj[key] !== void 0) {
       const permalink2 = obj[key].href;
       if (!permalink2) {
-        throw new SriError({ status: 409, errors: [{ code: "no.href.inside.reference", msg: `No href found inside reference ${key}` }] });
+        throw new SriError({
+          status: 409,
+          errors: [
+            {
+              code: "no.href.inside.reference",
+              msg: `No href found inside reference ${key}`
+            }
+          ]
+        });
       }
       const expectedType = map[key].references;
       const { type: refType, key: refKey } = urlToTypeAndKey(permalink2);
@@ -698,7 +724,10 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       } else {
         const msg = `Faulty reference detected [${permalink2}], detected [${refType}] expected [${expectedType}].`;
         console.log(msg);
-        throw new SriError({ status: 409, errors: [{ code: "faulty.reference", msg }] });
+        throw new SriError({
+          status: 409,
+          errors: [{ code: "faulty.reference", msg }]
+        });
       }
     } else if (obj[key] !== void 0) {
       row[key] = obj[key];
@@ -709,8 +738,7 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
       map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
     }
     const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    const fieldTypeObject = ((_a = resourceMapping.schema.properties) == null ? void 0 : _a[key]) ? resourceMapping.schema.properties[key].type : null;
-    if (fieldTypeDb === "jsonb" && fieldTypeObject === "array") {
+    if (fieldTypeDb === "jsonb") {
       row[key] = JSON.stringify(row[key]);
     }
   });
@@ -759,16 +787,24 @@ function pgInit() {
 function pgConnect(sri4nodeConfig) {
   return __async(this, null, function* () {
     if (sri4nodeConfig.defaultdatabaseurl !== void 0) {
-      console.warn("defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead");
+      console.warn(
+        "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
+      );
     }
     if (sri4nodeConfig.maxConnections) {
-      console.warn("maxConnections config property has been deprecated, use databaseConnectionParameters.max instead");
+      console.warn(
+        "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
+      );
     }
     if (sri4nodeConfig.dbConnectionInitSql) {
-      console.warn("dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead");
+      console.warn(
+        "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
+      );
     }
     if (process.env.PGP_MONITOR) {
-      console.warn("environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead");
+      console.warn(
+        "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
+      );
     }
     if (!pgp) {
       const extraOptions = {
@@ -792,7 +828,7 @@ function pgConnect(sri4nodeConfig) {
 function pgExec(db, query, sriRequest) {
   return __async(this, null, function* () {
     const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp.as.format(sql, values));
+    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
     const hrstart = process.hrtime();
     const result = yield db.query(sql, values);
     const hrElapsed = process.hrtime(hrstart);
@@ -805,7 +841,7 @@ function pgExec(db, query, sriRequest) {
 function pgResult(db, query, sriRequest) {
   return __async(this, null, function* () {
     const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp.as.format(sql, values));
+    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
     const hrstart = process.hrtime();
     const result = yield db.result(sql, values);
     const hrElapsed = process.hrtime(hrstart);
@@ -866,11 +902,23 @@ function startTransaction(_0) {
           throw res;
         }
       });
-      return { tx, resolveTx: terminateTx("resolve"), rejectTx: terminateTx("reject") };
+      return {
+        tx,
+        resolveTx: terminateTx("resolve"),
+        rejectTx: terminateTx("reject")
+      };
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err), err);
-      throw new SriError({ status: 503, errors: [{ code: "too.busy", msg: "The request could not be processed as the database is too busy right now. Try again later." }] });
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
     }
   });
 }
@@ -912,7 +960,15 @@ function startTask(db) {
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err));
-      throw new SriError({ status: 503, errors: [{ code: "too.busy", msg: "The request could not be processed as the database is too busy right now. Try again later." }] });
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
     }
   });
 }
@@ -981,15 +1037,28 @@ function tableFromMapping(mapping) {
 function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
   function customizer(val, key, _obj) {
-    if (mapping.schema.properties[key] && mapping.schema.properties[key].format === "date-time") {
+    var _a;
+    if (((_a = findPropertyInJsonSchema(mapping.schema, key)) == null ? void 0 : _a.format) === "date-time") {
       return new Date(val).getTime();
     }
     if (global.sri4node_configuration.informationSchema[mapping.type][key] && global.sri4node_configuration.informationSchema[mapping.type][key].type === "bigint") {
       return BigInt(val);
     }
   }
-  const o1 = import_lodash.default.cloneDeepWith(import_lodash.default.pickBy(obj1, (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)), customizer);
-  const o2 = import_lodash.default.cloneDeepWith(import_lodash.default.pickBy(obj2, (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)), customizer);
+  const o1 = import_lodash.default.cloneDeepWith(
+    import_lodash.default.pickBy(
+      obj1,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
+  const o2 = import_lodash.default.cloneDeepWith(
+    import_lodash.default.pickBy(
+      obj2,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
   return import_lodash.default.isEqualWith(o1, o2);
 }
 function stringifyError(e) {
@@ -1008,14 +1077,26 @@ function settleResultsToSriResults(results) {
     if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
       return err;
     }
-    error("____________________________ E R R O R (settleResultsToSriResults)_________________________");
+    error(
+      "____________________________ E R R O R (settleResultsToSriResults)_________________________"
+    );
     error(stringifyError(err));
     if (err && err.stack) {
       error("STACK:");
       error(err.stack);
     }
-    error("___________________________________________________________________________________________");
-    return new SriError({ status: 500, errors: [{ code: "internal.server.error", msg: `Internal Server Error. [${stringifyError(err)}}]` }] });
+    error(
+      "___________________________________________________________________________________________"
+    );
+    return new SriError({
+      status: 500,
+      errors: [
+        {
+          code: "internal.server.error",
+          msg: `Internal Server Error. [${stringifyError(err)}}]`
+        }
+      ]
+    });
   });
 }
 function createReadableStream(objectMode = true) {
@@ -1060,12 +1141,12 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     protocol: void 0,
     isBatchPart: void 0,
     /**
-     * serverTiming is an object used to accumulate timing data which is passed to the client in the response 
+     * serverTiming is an object used to accumulate timing data which is passed to the client in the response
      * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
      */
     serverTiming: {},
     /**
-     * userData is an object which can be used by applications using sri4node to store information associated with 
+     * userData is an object which can be used by applications using sri4node to store information associated with
      * a request. It is initialized as an empty object.
      */
     userData: {}
@@ -1125,10 +1206,18 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     });
     if (basicConfig == null ? void 0 : basicConfig.isStreamingRequest) {
       if (!expressResponse) {
-        throw Error("[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing");
+        throw Error(
+          "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
+        );
       }
-      const inStream = new import_stream2.default.PassThrough({ allowHalfOpen: false, emitClose: true });
-      const outStream = new import_stream2.default.PassThrough({ allowHalfOpen: false, emitClose: true });
+      const inStream = new import_stream2.default.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
+      const outStream = new import_stream2.default.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
       generatedSriRequest.inStream = expressRequest.pipe(inStream);
       generatedSriRequest.outStream = outStream.pipe(expressResponse);
       generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
@@ -1173,7 +1262,25 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
       isBatchPart: true
     });
   }
-  throw Error("[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters");
+  throw Error(
+    "[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters"
+  );
+}
+function findPropertyInJsonSchema(schema, propertyName) {
+  var _a;
+  if ((_a = schema == null ? void 0 : schema.properties) == null ? void 0 : _a[propertyName]) {
+    return schema.properties[propertyName];
+  }
+  const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
+  if (subSchemas) {
+    for (const subSchema of subSchemas) {
+      const found = findPropertyInJsonSchema(subSchema, propertyName);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 // js/batch.ts
@@ -2197,7 +2304,7 @@ function getFieldBaseType(fieldType) {
   }
   return null;
 }
-function defaultFilter(valueEnc, query, parameter, mapping) {
+function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlParameters) {
   const value2 = decodeURIComponent(valueEnc);
   const filter = analyseParameter(parameter);
   const { informationSchema: informationSchema2 } = global.sri4node_configuration;
@@ -2225,17 +2332,19 @@ function defaultFilter(valueEnc, query, parameter, mapping) {
   } else {
     throw new SriError({
       status: 404,
-      errors: [{
-        code: "invalid.query.parameter",
-        parameter,
-        possibleParameters: Object.keys(informationSchema2[idx])
-      }]
+      errors: [
+        {
+          code: "invalid.query.parameter",
+          parameter,
+          possibleParameters: Object.keys(informationSchema2[idx])
+        }
+      ]
     });
   }
 }
 
 // js/queryUtils.ts
-function filterHrefs(href, query, mapping) {
+function filterHrefs(href, query, _parameter, _tx, _doCount, mapping, _urlParameters) {
   const table = tableFromMapping(mapping);
   if (href) {
     const permalinks = href.split(",");
@@ -2270,7 +2379,7 @@ function filterReferencedType(resourcetype, columnname) {
     }
   };
 }
-function modifiedSince(value2, query, mapping) {
+function modifiedSince(value2, query, _parameter, _tx, _doCount, mapping, _urlParameters) {
   const table = tableFromMapping(mapping);
   query.sql(` AND ${table}."$$meta.modified" >= `).param(value2);
   return query;
@@ -2480,27 +2589,30 @@ function executeExpansion(db, sriRequest, elements, mapping) {
 // js/listResource.ts
 var DEFAULT_LIMIT = 30;
 var MAX_LIMIT = 500;
-function applyRequestParameters(mapping, query, urlparameters, tx, count) {
+function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
   return __async(this, null, function* () {
     const standardParameters = ["orderBy", "descending", "limit", "keyOffset", "expand", "hrefs", "modifiedSince", "$$includeCount", "offset"];
     if (mapping.query) {
       yield (0, import_p_map5.default)(
         Object.keys(urlparameters),
         (key) => __async(this, null, function* () {
+          var _a, _b;
+          const currentUrlParam = urlparameters[key];
+          const keyAsString = typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
           if (!standardParameters.includes(key)) {
-            if (mapping.query[key] || mapping.query.defaultFilter) {
+            if (((_a = mapping.query) == null ? void 0 : _a[key]) || ((_b = mapping.query) == null ? void 0 : _b.defaultFilter)) {
               if (!mapping.query[key] && mapping.query.defaultFilter) {
-                yield mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx);
+                yield mapping.query.defaultFilter(keyAsString, query, key, tx, doCount, mapping, urlparameters);
               } else {
-                yield mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters);
+                yield mapping.query[key](keyAsString, query, key, tx, doCount, mapping, urlparameters);
               }
             } else {
               throw new SriError({ status: 404, errors: [{ code: "unknown.query.parameter", parameter: key }] });
             }
           } else if (key === "hrefs" && urlparameters.hrefs) {
-            filterHrefs(urlparameters.hrefs, query, mapping);
+            filterHrefs(keyAsString, query, key, tx, doCount, mapping, urlparameters);
           } else if (key === "modifiedSince") {
-            modifiedSince(urlparameters.modifiedSince, query, mapping);
+            modifiedSince(keyAsString, query, key, tx, doCount, mapping, urlparameters);
           }
         }),
         { concurrency: 1 }
@@ -2508,12 +2620,13 @@ function applyRequestParameters(mapping, query, urlparameters, tx, count) {
     }
   });
 }
-function getSQLFromListResource(mapping, parameters, count, tx, query) {
+function getSQLFromListResource(mapping, parameters, doCount, tx, query) {
   return __async(this, null, function* () {
+    var _a, _b;
     const table = tableFromMapping(mapping);
     let sql;
     let columns;
-    if (parameters.expand && parameters.expand.toLowerCase() === "none") {
+    if (((_a = parameters.expand) == null ? void 0 : _a.toLowerCase()) === "none") {
       if (parameters.orderBy) {
         columns = parameters.orderBy.split(",").map((v) => `"${v}"`).join(",");
       } else {
@@ -2522,10 +2635,10 @@ function getSQLFromListResource(mapping, parameters, count, tx, query) {
     } else {
       columns = sqlColumnNames(
         mapping,
-        parameters.expand && parameters.expand.toLowerCase() === "summary"
+        ((_b = parameters.expand) == null ? void 0 : _b.toLowerCase()) === "summary"
       );
     }
-    if (count) {
+    if (doCount) {
       if (parameters["$$meta.deleted"] === "true") {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
       } else if (parameters["$$meta.deleted"] === "any") {
@@ -2548,7 +2661,7 @@ function getSQLFromListResource(mapping, parameters, count, tx, query) {
       query.sql(sql);
     }
     debug("trace", "listResource - applying URL parameters to WHERE clause");
-    yield applyRequestParameters(mapping, query, parameters, tx, count);
+    yield applyRequestParameters(mapping, query, parameters, tx, doCount);
   });
 }
 var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset) => {
@@ -2879,7 +2992,7 @@ function queryByKeyRequestKey(sriRequest, mapping, key) {
   debug("trace", `queryByKeyRequestKey(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
-  if (mapping.schema && mapping.schema.properties && mapping.schema.properties.key && mapping.validateKey) {
+  if (findPropertyInJsonSchema(mapping.schema, "key") && mapping.validateKey) {
     const validKey = mapping.validateKey(key);
     if (!validKey) {
       throw new SriError({ status: 400, errors: ((_a = mapping.validateKey.errors) == null ? void 0 : _a.map((e) => ({ code: "key.invalid", key, err: e }))) || [] });
@@ -3474,7 +3587,7 @@ __export(relationsFilter_exports, {
   toTypes: () => toTypesFilter,
   tos: () => tosFilter
 });
-function fromTypesFilter(value2, select, _key, _database, _count, mapping) {
+function fromTypesFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   var _a, _b;
   let sql;
   let fromCondition;
@@ -3495,7 +3608,7 @@ function fromTypesFilter(value2, select, _key, _database, _count, mapping) {
     select.text = sql;
   }
 }
-function toTypesFilter(value2, select, _key, _database, _count, mapping) {
+function toTypesFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   var _a, _b;
   let sql;
   let fromCondition;
@@ -3516,14 +3629,14 @@ function toTypesFilter(value2, select, _key, _database, _count, mapping) {
     select.text = sql;
   }
 }
-function fromsFilter(value2, select, _key, _database, _count, mapping) {
+function fromsFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   if (value2) {
     const table = tableFromMapping(mapping);
     const froms = value2.split(",").map((val) => val.split("/")[val.split("/").length - 1]);
     select.sql(` AND ${table}.from in (`).array(froms).sql(")");
   }
 }
-function tosFilter(value2, select, _key, _database, _count, mapping) {
+function tosFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   if (value2) {
     const table = tableFromMapping(mapping);
     const tos = value2.split(",").map((val) => val.split("/")[val.split("/").length - 1]);
@@ -3913,16 +4026,27 @@ var staticFiles = {
 };
 
 // sri4node.ts
-var ajv2 = new import_ajv2.default({ coerceTypes: true, logger: {
-  log: (output) => {
-    debug("general", output);
-  },
-  warn: (output) => {
-    debug("general", output);
-  },
-  error: console.error
-} });
+var ajv2 = new import_ajv2.default({
+  // 2023-10: do not enable strict yet as it might break existing api's
+  // (for example: an object with 'properties' & 'required', but missing type: 'object'
+  // would suddenly fail because it is strictly speaking invalid json-schema)
+  // strict: true,
+  logger: {
+    log: (output) => {
+      debug("general", output);
+    },
+    warn: (output) => {
+      debug("general", output);
+    },
+    error: console.error
+  }
+});
 (0, import_ajv_formats2.default)(ajv2);
+var ajvWithCoerceTypes = new import_ajv2.default({
+  strict: true,
+  coerceTypes: true
+});
+(0, import_ajv_formats2.default)(ajvWithCoerceTypes);
 function forceSecureSockets(req, res, next) {
   const isHttps = req.headers["x-forwarded-proto"] === "https";
   if (!isHttps && req.get("Host").indexOf("localhost") < 0 && req.get("Host").indexOf("127.0.0.1") < 0) {
@@ -4335,17 +4459,15 @@ function configure(app, sriConfig) {
           if (resourceDefinition.schema === void 0) {
             throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
           }
-          if (resourceDefinition.schema.properties === void 0) {
-            throw new Error(`Schema definition invalid for '${resourceDefinition.type}' !`);
-          }
-          if (resourceDefinition.schema.properties.key === void 0) {
+          const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
+          if (keyPropertyDefinition === null) {
             throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
           }
-          if (resourceDefinition.schema.properties.key.pattern === guid("foo").pattern) {
+          if (keyPropertyDefinition.pattern === guid("foo").pattern) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`);
-          } else if (resourceDefinition.schema.properties.key.type === numeric("foo").type) {
+          } else if (keyPropertyDefinition.type === numeric("foo").type) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/([0-9]+)$`);
-          } else if (resourceDefinition.schema.properties.key.type === string("foo").type) {
+          } else if (keyPropertyDefinition.type === string("foo").type) {
             resourceDefinition.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/(\\w+)$`);
           } else {
             throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
@@ -4353,7 +4475,7 @@ function configure(app, sriConfig) {
           resourceDefinition.listResourceRegex = new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`);
           try {
             debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
-            resourceDefinition.validateKey = ajv2.compile(resourceDefinition.schema.properties.key);
+            resourceDefinition.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
             resourceDefinition.validateSchema = ajv2.compile(resourceDefinition.schema);
           } catch (err) {
             console.error("===============================================================");
@@ -4403,24 +4525,26 @@ function configure(app, sriConfig) {
       checkSriConfigWithDb(sriConfig, currentInformationSchema);
       const generatePgColumnSet = (columnNames, type, table) => {
         const columns = columnNames.map((cname) => {
-          const col = { name: cname };
+          const cConf = {
+            name: cname
+          };
           if (cname.includes(".")) {
-            col.prop = `_${cname.replace(/\./g, "_")}`;
-            col.init = (c) => c.source[cname];
+            cConf.prop = `_${cname.replace(/\./g, "_")}`;
+            cConf.init = (c) => c.source[cname];
           }
           const cType = global.sri4node_configuration.informationSchema[type][cname].type;
           const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
           if (cType !== "text") {
             if (cType === "ARRAY") {
-              col.cast = `${cElementType}[]`;
+              cConf.cast = `${cElementType}[]`;
             } else {
-              col.cast = cType;
+              cConf.cast = cType;
             }
           }
           if (cname === "key") {
-            col.cnd = true;
+            cConf.cnd = true;
           }
-          return col;
+          return new pgp2.helpers.Column(cConf);
         });
         return new pgp2.helpers.ColumnSet(columns, { table });
       };

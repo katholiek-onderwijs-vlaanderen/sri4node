@@ -1,11 +1,13 @@
 /// <reference types="node" />
-import Express from 'express';
-import { IInitOptions } from 'pg-promise';
-import pgPromise from 'pg-promise';
-import { Application, Request, Response } from 'express';
-import { Readable } from 'stream';
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from './typeDefinitions';
-import * as emt from './express-middleware-timer';
+import Express from "express";
+import { IInitOptions } from "pg-promise";
+import pgPromise from "pg-promise";
+import { Application, Request, Response } from "express";
+import { Readable } from "stream";
+import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
+import * as emt from "./express-middleware-timer";
+import { JSONSchema4 } from "json-schema";
+import { IClient } from "pg-promise/typescript/pg-subset";
 /**
  * Base class for every error that is being thrown throughout the lifetime of an sri request
  */
@@ -15,7 +17,10 @@ import * as emt from './express-middleware-timer';
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-declare function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number;
+declare function hrtimeToMilliseconds([seconds, nanoseconds]: [
+    number,
+    number
+]): number;
 declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
@@ -220,7 +225,7 @@ declare function transformObjectToRow(obj: Record<string, any>, resourceMapping:
  * @param pgpInitOptions
  * @param extraOptions
  */
-declare function pgInit(pgpInitOptions: IInitOptions<{}, import("pg-promise/typescript/pg-subset").IClient> | undefined, extraOptions: {
+declare function pgInit(pgpInitOptions: IInitOptions<{}, IClient> | undefined, extraOptions: {
     schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined;
     connectionInitSql?: string;
     monitor: boolean;
@@ -246,24 +251,24 @@ declare function pgInit(pgpInitOptions: IInitOptions<{}, import("pg-promise/type
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-declare function pgConnect(sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, import("pg-promise/typescript/pg-subset").IClient>>;
+declare function pgConnect(sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, IClient>>;
 /**
  * @type {{ name: string, text: string }} details
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
 declare function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined): pgPromise.PreparedStatement;
-declare function pgExec(db: any, query: any, sriRequest?: TSriRequest): Promise<any>;
-declare function pgResult(db: any, query: any, sriRequest?: TSriRequest): Promise<any>;
-declare function startTransaction(db: any, mode?: pgPromise.TransactionMode): Promise<{
+declare function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<any>;
+declare function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<pgPromise.IResultExt>;
+declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode?: pgPromise.TransactionMode): Promise<{
     tx: pgPromise.ITask<any>;
     resolveTx: () => Promise<void>;
     rejectTx: () => Promise<void>;
 }>;
-declare function startTask(db: any): Promise<{
+declare function startTask(db: pgPromise.IDatabase<unknown, IClient>): Promise<{
     t: unknown;
     endTask: () => Promise<void>;
 }>;
-declare function installVersionIncTriggerOnTable(db: any, tableName: string, schemaName?: string): Promise<void>;
+declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string): Promise<void>;
 declare function getCountResult(tx: any, countquery: any, sriRequest: any): Promise<number>;
 /**
  * Given a single resource definition from sriConfig.resources
@@ -277,7 +282,7 @@ declare function stringifyError(e: any): string;
 declare function settleResultsToSriResults(results: any): any;
 declare function createReadableStream(objectMode?: boolean): Readable;
 declare function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse?: boolean): any;
-declare function getPgp(): pgPromise.IMain<{}, import("pg-promise/typescript/pg-subset").IClient>;
+declare function getPgp(): pgPromise.IMain<{}, IClient>;
 /**
  * This function will generate a new SriRequest object, based on some parameters.
  * Since the SriRequest is some kind of 'abstraction' over the express request,
@@ -295,7 +300,7 @@ declare function getPgp(): pgPromise.IMain<{}, import("pg-promise/typescript/pg-
  *
  * @param {object} expressRequest: needed for creating a basic SriRequest object
  * @param {object} expressResponse: needed for creating a basic SriRequest object
-*                  (if streaming mode = true)
+ *                  (if streaming mode = true)
  * @param {object} config: needed for creating a basic SriRequest object, of the form
  *                 { isBatchRequest: boolean, readOnly: boolean,
  *                   mapping: <single element from sri4node config 'mappings' section>}
@@ -315,5 +320,15 @@ declare function generateSriRequest(expressRequest?: Express.Request | undefined
     readOnly: boolean;
     mapping?: TResourceDefinition;
     dbT: any;
-} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequest | undefined, batchElement?: any, internalSriRequest?: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined): TSriRequest;
-export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installEMT, setServerTimingHdr, emtReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, getPgp, generateSriRequest, checkSriConfigWithDb, };
+} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequest | undefined, batchElement?: any, internalSriRequest?: Omit<TInternalSriRequest, "protocol" | "serverTiming"> | undefined): TSriRequest;
+/**
+ * This is a recursive function that can find a property definition in a json schema definition.
+ * This will also work when you have oneOf or anyOf sections in your schema definition.
+ *
+ * @param schema
+ * @param propertyName
+ * @returns the part of the json schema where the requested property is defined or null
+ *  if the property is not found
+ */
+declare function findPropertyInJsonSchema(schema: JSONSchema4, propertyName: string): any;
+export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installEMT, setServerTimingHdr, emtReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, getPgp, generateSriRequest, checkSriConfigWithDb, findPropertyInJsonSchema, };

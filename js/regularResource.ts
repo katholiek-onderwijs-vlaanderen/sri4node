@@ -8,7 +8,7 @@ import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from './type
 import {
   debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
   errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
-  getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp,
+  getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp, findPropertyInJsonSchema,
 } from './common';
 import { prepareSQL } from './queryObject';
 import { applyHooks } from './hooks';
@@ -39,7 +39,7 @@ function queryByKeyRequestKey(sriRequest: TSriRequest, mapping: TResourceDefinit
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
-  if (mapping.schema && mapping.schema.properties && mapping.schema.properties.key && mapping.validateKey) {
+  if (findPropertyInJsonSchema(mapping.schema, "key") && mapping.validateKey) {
     const validKey = mapping.validateKey(key);
     if (!validKey) {
       throw new SriError({ status: 400, errors: mapping.validateKey.errors?.map((e) => ({ code: 'key.invalid', key, err: e })) || [] });

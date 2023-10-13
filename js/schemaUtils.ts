@@ -35,6 +35,7 @@ import { FlattenedJsonSchema } from './typeDefinitions';
  */
 function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
 :FlattenedJsonSchema {
+  // TODO: support oneOf, anyOf, allOf !!!
   if (jsonSchema.type === 'object') {
     // old skool modification of an object is a bit easier to reason about in this case
     const retVal = {};
@@ -225,6 +226,7 @@ function enumeration(description: string, values: string[]): JSONSchema4 {
 
 
 function patchSchemaToDisallowAdditionalProperties(schema) {
+  // TODO: support oenOf, allOf, anyOf
   const patchedSchema = { ...schema };
   if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
     patchedSchema.additionalProperties = false;

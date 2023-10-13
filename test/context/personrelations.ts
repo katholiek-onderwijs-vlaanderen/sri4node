@@ -1,7 +1,8 @@
 import { TResourceDefinition } from "../../sri4node";
+import * as Sri4Node from '../../index';
 
 // Messages relations
-module.exports = function (sri4node) {
+module.exports = function (sri4node: typeof Sri4Node) {
   const $s = sri4node.schemaUtils;
   const r : TResourceDefinition = {
     type: '/personrelations',

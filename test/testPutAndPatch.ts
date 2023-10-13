@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import pMap from 'p-map';
-import assert from 'assert';
+import { assert } from 'chai';
 import * as uuid from 'uuid';
 import { debug } from '../js/common';
 import { THttpClient } from './httpClient';
@@ -94,6 +94,72 @@ module.exports = function (httpClient: THttpClient) {
 
         const response = await httpClient.put({ path: `/communities/${key}`, body, auth: 'sabine' });
         assert.equal(response.status, 409);
+      });
+
+      it("should support complex schema's using oneOf/anyOf/allOf", async function () {
+        const key = uuid.v4();
+
+        const response1 = await httpClient.put({
+          path: `/complexschema/${key}`,
+          body: { key, foo: "foo can be string or number", extraProp: 5 },
+          auth: "sabine",
+        });
+        assert.equal(response1.status, 409, "no extra properties should be allowed according to the json-schema");
+
+        const response2 = await httpClient.put({
+          path: `/complexschema/${key}`,
+          body: { key, bar: true },
+          auth: "sabine",
+        });
+        assert.equal(response2.status, 409, "'bar' must be a string according to the json-schema");
+
+        // and now some positive test-cases
+        const response3 = await httpClient.put({
+          path: `/complexschema/${key}`,
+          body: { key, bar: "bar is a string" },
+          auth: "sabine",
+        });
+        assert.equal(response3.status, 201, "creation of a valid resource with bar failed");
+
+        const response4 = await httpClient.put({
+          path: `/complexschema/${key}`,
+          body: { key, foo: "foo can be a string" },
+          auth: "sabine",
+        });
+        assert.equal(response4.status, 200, "creation of a valid resource with foo as a string failed");
+
+        const response4get = await httpClient.get({
+          path: `/complexschema/${key}`,
+          auth: "sabine",
+        });
+        assert.deepOwnInclude(
+          response4get.body,
+          { key, foo: "foo can be a string" },
+          "body not as expected"
+        );
+        assert.isUndefined(
+          response4get.body.bar,
+          "body not as expected"
+        );
+
+        const response5 = await httpClient.put({
+          path: `/complexschema/${key}`,
+          body: { key, foo: 678.45 }, // foo can also be numeric
+          auth: "sabine",
+        });
+        assert.equal(response5.status, 200, "creation of a valid resource with foo as a number failed");
+
+        const response5get = await httpClient.get({
+          path: `/complexschema/${key}`,
+          auth: "sabine",
+        });
+        assert.deepOwnInclude(
+          response5get.body,
+          { key, foo: 678.45 },
+          "creation of a valid resource failed"
+        );
+
+
       });
     });
 

@@ -1,4 +1,8 @@
-import { TPreparedSql } from './typeDefinitions';
+/// <reference types="node" />
+import { IDatabase } from 'pg-promise';
+import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
+import { IClient } from 'pg-promise/typescript/pg-subset';
+import { ParsedUrlQuery } from 'querystring';
 /**
  * The default filter gets multiple arguments in order to analyze
  * how the user wants the result filtered.
@@ -17,10 +21,10 @@ import { TPreparedSql } from './typeDefinitions';
  * in order to modify the query it has so far, instead of putting that responsibility here.
  *
  *
- * @param {String} valueEnc: the search param value (after the = sign)
- * @param {String} query: the sqlQuery object that gets modified by this function (mostly adding 'AND ...' to the where clause)!!!
- * @param {String} parameter: the search param name (before the = sign)
- * @param {TResourceDefinition} mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
+ * @param valueEnc: the search param value (after the = sign)
+ * @param query: the sqlQuery object that gets modified by this function (mostly adding 'AND ...' to the where clause)!!!
+ * @param parameter: the search param name (before the = sign)
+ * @param mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
  */
-declare function defaultFilter(valueEnc: string, query: TPreparedSql, parameter: any, mapping: any): void;
+declare function defaultFilter(valueEnc: string, query: TPreparedSql, parameter: string, _tx: IDatabase<unknown, IClient>, _doCount: boolean, mapping: TResourceDefinition, _urlParameters: ParsedUrlQuery): void;
 export { defaultFilter };

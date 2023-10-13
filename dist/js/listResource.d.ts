@@ -1,5 +1,8 @@
-import { TResourceDefinition, TSriRequest } from './typeDefinitions';
-declare function getSQLFromListResource(mapping: any, parameters: any, count: any, tx: any, query: any): Promise<void>;
+/// <reference types="node" />
+import { TResourceDefinition, TSriRequest, TPreparedSql } from './typeDefinitions';
+import { IDatabase } from 'pg-promise';
+import { ParsedUrlQuery } from 'querystring';
+declare function getSQLFromListResource(mapping: TResourceDefinition, parameters: ParsedUrlQuery, doCount: boolean, tx: IDatabase<unknown>, query: TPreparedSql): Promise<void>;
 declare function getListResource(phaseSyncer: any, tx: any, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
     status: number;
     body: any;

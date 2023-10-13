@@ -1,19 +1,20 @@
 import { TResourceDefinition } from "../../sri4node";
+import * as Sri4Node from '../../index';
 
-module.exports = function (sri4node) {
+module.exports = function (sri4node: typeof Sri4Node) {
   const $s = sri4node.schemaUtils;
 
-  async function allParentsOf(value, select) {
-    const key = value.split('/')[2];
-    const nonrecursive = sri4node.utils.executeSQL();
-    nonrecursive.sql('VALUES (').param(key).sql(')');
-    const recursive = sri4node.utils.prepareSQL();
-    recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p' +
-      ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
-    select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
-    select.sql(' AND key IN (SELECT key FROM parentsof)');
-    sri4node.debug('mocha', select.text);
-  }
+  // async function allParentsOf(value, select) {
+  //   const key = value.split('/')[2];
+  //   const nonrecursive = sri4node.utils.executeSQL();
+  //   nonrecursive.sql('VALUES (').param(key).sql(')');
+  //   const recursive = sri4node.utils.prepareSQL();
+  //   recursive.sql('SELECT sr.parent FROM selfreferential sr, parentsof p' +
+  //     ' WHERE sr.key = p.key AND sr.parent IS NOT NULL');
+  //   select.with(nonrecursive, 'UNION', recursive, 'parentsof(key)');
+  //   select.sql(' AND key IN (SELECT key FROM parentsof)');
+  //   sri4node.debug('mocha', select.text);
+  // }
 
   const r : TResourceDefinition = {
     type: '/selfreferential',
@@ -36,7 +37,7 @@ module.exports = function (sri4node) {
       }
     },
     query: {
-      allParentsOf: allParentsOf
+      // allParentsOf
     },
   };
   return r;

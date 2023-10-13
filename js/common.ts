@@ -1,34 +1,45 @@
 /* Internal utilities for sri4node */
-import { URL } from 'url';
-import Express from 'express';
-import { IInitOptions } from 'pg-promise';
-import pgPromise from 'pg-promise';
-import monitor from 'pg-monitor';
-import { Application, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { URL } from "url";
+import Express from "express";
+import { IInitOptions } from "pg-promise";
+import pgPromise from "pg-promise";
+import monitor from "pg-monitor";
+import { Application, Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 
-import { Readable } from 'stream';
+import { Readable } from "stream";
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
-import _ from 'lodash';
+import _ from "lodash";
 
-import * as flatUrlParser from './url_parsing/flat_url_parser';
-import * as schemaUtils from './schemaUtils';
+import * as flatUrlParser from "./url_parsing/flat_url_parser";
+import * as schemaUtils from "./schemaUtils";
 import {
-  TResourceDefinition, TSriConfig, TSriRequest, IExtendedDatabaseConnectionParameters,
-  TDebugChannel, TInternalSriRequest, THttpMethod, TDebugLogFunction,
-  TErrorLogFunction, SriError, TLogDebug, TInformationSchema,
-} from './typeDefinitions';
-import { generateNonFlatQueryStringParser } from './url_parsing/non_flat_url_parser';
-import url from 'url';
-import EventEmitter from 'events';
-import pEvent from 'p-event';
-import path from 'path';
-import stream from 'stream';
-import peggy from 'peggy';
-import httpContext from 'express-http-context';
-import * as emt from './express-middleware-timer';
+  TResourceDefinition,
+  TSriConfig,
+  TSriRequest,
+  IExtendedDatabaseConnectionParameters,
+  TDebugChannel,
+  TInternalSriRequest,
+  THttpMethod,
+  TDebugLogFunction,
+  TErrorLogFunction,
+  SriError,
+  TLogDebug,
+  TInformationSchema,
+} from "./typeDefinitions";
+import { generateNonFlatQueryStringParser } from "./url_parsing/non_flat_url_parser";
+import url from "url";
+import EventEmitter from "events";
+import pEvent from "p-event";
+import path from "path";
+import stream from "stream";
+import peggy from "peggy";
+import httpContext from "express-http-context";
+import * as emt from "./express-middleware-timer";
+import { JSONSchema4 } from "json-schema";
+import { IClient } from "pg-promise/typescript/pg-subset";
 
 let pgp: pgPromise.IMain; // will be initialized at pgConnect
 
@@ -44,25 +55,30 @@ const logBuffer: { [k: string]: string[] } = {};
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number {
+function hrtimeToMilliseconds([seconds, nanoseconds]: [
+  number,
+  number
+]): number {
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
 const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
-  return (global.sri4node_configuration === undefined
-    || (global.sri4node_configuration.logdebug && (
-      global.sri4node_configuration.logdebug.channels === 'all'
-      || global.sri4node_configuration.logdebug.channels.has(channel))));
-}
+  return (
+    global.sri4node_configuration === undefined ||
+    (global.sri4node_configuration.logdebug &&
+      (global.sri4node_configuration.logdebug.channels === "all" ||
+        global.sri4node_configuration.logdebug.channels.has(channel)))
+  );
+};
 
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
  * sri4node configuration (logdebug.channels), output (second parameter) is logged.
- * Otherwise output is discared. 
+ * Otherwise output is discared.
  * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
  * information).
- * 
+ *
  * This function is available for sri4node plugins and applications using sri4, which
  * are allowed to use logchannels of their own.
  *
@@ -71,8 +87,10 @@ const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
  */
 const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
-    const reqId: string = httpContext.get('reqId');
-    const msg = `${(new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ''}[${channel}] ${typeof output === 'function' ? output() : output}`;
+    const reqId: string = httpContext.get("reqId");
+    const msg = `${new Date().toISOString()} ${
+      reqId ? `[reqId:${reqId}]` : ""
+    }[${channel}] ${typeof output === "function" ? output() : output}`;
     if (reqId !== undefined) {
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         if (!logBuffer[reqId]) {
@@ -93,10 +111,10 @@ const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
  * sri4node configuration (logdebug.channels), output (second parameter) is logged.
- * Otherwise output is discared. 
+ * Otherwise output is discared.
  * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
  * information).
- * 
+ *
  * This function is for internal (sri4node) usage where logchannels are restricted
  * to pre-defined debug channels. Restricting channels avoids errors and will make
  * it possible for vscode to do auto-completion.
@@ -105,11 +123,10 @@ const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
  */
 const debug = (channel: TDebugChannel, output: (() => string) | string) => {
   debugAnyChannelAllowed(channel, output);
-}
-
+};
 
 const error: TErrorLogFunction = function (...args) {
-  const reqId = httpContext.get('reqId');
+  const reqId = httpContext.get("reqId");
   if (reqId) {
     console.error(`[reqId:${reqId}]`, ...args);
   } else {
@@ -123,12 +140,15 @@ const error: TErrorLogFunction = function (...args) {
  * @param {*} grammar
  * @returns
  */
-function generateQueryStringParser(grammar: string, allowedStartRules: string[] | undefined = undefined): any {
+function generateQueryStringParser(
+  grammar: string,
+  allowedStartRules: string[] | undefined = undefined
+): any {
   const pegConf = allowedStartRules
     ? {
-      // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
-      allowedStartRules,
-    }
+        // Array of rules the parser will be allowed to start parsing from (default: the first rule in the grammar).
+        allowedStartRules,
+      }
     : {};
   return peggy.generate(grammar, pegConf);
 }
@@ -139,7 +159,7 @@ function generateQueryStringParser(grammar: string, allowedStartRules: string[] 
  * @param {String} input
  * @returns a string
  */
-function pegSyntaxErrorToErrorMessage(e: { [prop: string]: any }, input = '') {
+function pegSyntaxErrorToErrorMessage(e: { [prop: string]: any }, input = "") {
   if (e.location) {
     const searchParams = input;
 
@@ -152,19 +172,23 @@ function pegSyntaxErrorToErrorMessage(e: { [prop: string]: any }, input = '') {
 
     const markedPart = searchParams
       .slice(e.location.start.offset, e.location.end.offset)
-      .split('')
+      .split("")
       .map((c) => `${c}\u0333`) // \u0330 (tilde below) \u0332 (underline) \u0333 (double underline) \u0347 (also double underline)
-      .join('');
+      .join("");
 
     const markedErrorString = (
-      searchParams.slice(0, e.location.start.offset)
-      + markedPart
-      + searchParams.slice(e.location.end.offset)
+      searchParams.slice(0, e.location.start.offset) +
+      markedPart +
+      searchParams.slice(e.location.end.offset)
     )
-      .split('\n')
-      .map((l, lineNr) => `${(`0000${lineNr}`).slice(-3)} ${l}`)
-      .filter((_l, lineNr) => lineNr > e.location.start.line - 3 && lineNr < e.location.start.line + 3)
-      .join('\n');
+      .split("\n")
+      .map((l, lineNr) => `${`0000${lineNr}`.slice(-3)} ${l}`)
+      .filter(
+        (_l, lineNr) =>
+          lineNr > e.location.start.line - 3 &&
+          lineNr < e.location.start.line + 3
+      )
+      .join("\n");
 
     return `${e.message} at line ${e.location.start.line}, column ${e.location.start.column}\n\n${markedErrorString}`;
   }
@@ -185,52 +209,62 @@ function pegSyntaxErrorToErrorMessage(e: { [prop: string]: any }, input = '') {
  * @param {} mapping
  * @returns {UrlQueryParamsParseTree}
  */
-function generateMissingDefaultsForParseTree(parseTree: any, mapping: TResourceDefinition) {
+function generateMissingDefaultsForParseTree(
+  parseTree: any,
+  mapping: TResourceDefinition
+) {
   const DEFAULT_LIMIT = 30; // if not configured in mapping file
   const DEFAULT_MAX_LIMIT = 500; // if not configured in mapping file
-  const DEFAULT_EXPANSION = 'FULL';
+  const DEFAULT_EXPANSION = "FULL";
   const DEFAULT_INCLUDECOUNT = false;
-  const DEFAULT_LIST_ORDER_BY = ['$$meta.created', 'key'];
+  const DEFAULT_LIST_ORDER_BY = ["$$meta.created", "key"];
   const DEFAULT_LIST_ORDER_DESCENDING = false;
 
   const retVal: any[] = [];
 
-  if (!parseTree.find((f: any) => f.operator === 'LIST_LIMIT')) {
+  if (!parseTree.find((f: any) => f.operator === "LIST_LIMIT")) {
     retVal.push({
-      operator: 'LIST_LIMIT',
-      value: Math.min(mapping.defaultlimit || DEFAULT_LIMIT, mapping.maxlimit || DEFAULT_MAX_LIMIT),
+      operator: "LIST_LIMIT",
+      value: Math.min(
+        mapping.defaultlimit || DEFAULT_LIMIT,
+        mapping.maxlimit || DEFAULT_MAX_LIMIT
+      ),
     });
   }
-  if (!parseTree.find((f: any) => f.operator === 'EXPANSION')) {
+  if (!parseTree.find((f: any) => f.operator === "EXPANSION")) {
     retVal.push({
-      operator: 'EXPANSION',
+      operator: "EXPANSION",
       value: mapping.defaultexpansion || DEFAULT_EXPANSION,
     });
   }
-  if (!parseTree.find((f: any) => f.operator === 'LIST_META_INCLUDE_COUNT')) {
+  if (!parseTree.find((f: any) => f.operator === "LIST_META_INCLUDE_COUNT")) {
     retVal.push({
-      operator: 'LIST_META_INCLUDE_COUNT',
+      operator: "LIST_META_INCLUDE_COUNT",
       value: DEFAULT_INCLUDECOUNT,
     });
   }
-  if (!parseTree.find((f: any) => f.property === '$$meta.deleted' && f.operator === 'IN')) {
+  if (
+    !parseTree.find(
+      (f: any) => f.property === "$$meta.deleted" && f.operator === "IN"
+    )
+  ) {
     retVal.push({
-      property: '$$meta.deleted',
-      operator: 'IN',
+      property: "$$meta.deleted",
+      operator: "IN",
       value: [false],
       caseInsensitive: true,
       invertOperator: false,
     });
   }
-  if (!parseTree.find((f: any) => f.operator === 'LIST_ORDER_BY')) {
+  if (!parseTree.find((f: any) => f.operator === "LIST_ORDER_BY")) {
     retVal.push({
-      operator: 'LIST_ORDER_BY',
+      operator: "LIST_ORDER_BY",
       value: DEFAULT_LIST_ORDER_BY,
     });
   }
-  if (!parseTree.find((f: any) => f.operator === 'LIST_ORDER_DESCENDING')) {
+  if (!parseTree.find((f: any) => f.operator === "LIST_ORDER_DESCENDING")) {
     retVal.push({
-      operator: 'LIST_ORDER_DESCENDING',
+      operator: "LIST_ORDER_DESCENDING",
       value: DEFAULT_LIST_ORDER_DESCENDING,
     });
   }
@@ -244,23 +278,27 @@ function generateMissingDefaultsForParseTree(parseTree: any, mapping: TResourceD
  * @returns the in-place sorted parseTree
  */
 function sortUrlQueryParamParseTree(parseTree: any[]) {
-  const compareProperties = (a: any, b: any, properties: string[]) => properties.reduce((acc, cur) => {
-    if (acc !== 0) return acc;
-    if (a[cur] === b[cur]) return acc;
-    if ((a[cur] || '') > (b[cur] || '')) {
-      // console.log(a[cur], '>', b[cur], ' => return 1', a, b);
-      return 1;
-    }
-    // console.log(a[cur], '<', b[cur], ' => return -1', a, b);
-    return -1;
-  },
-    0);
+  const compareProperties = (a: any, b: any, properties: string[]) =>
+    properties.reduce((acc, cur) => {
+      if (acc !== 0) return acc;
+      if (a[cur] === b[cur]) return acc;
+      if ((a[cur] || "") > (b[cur] || "")) {
+        // console.log(a[cur], '>', b[cur], ' => return 1', a, b);
+        return 1;
+      }
+      // console.log(a[cur], '<', b[cur], ' => return -1', a, b);
+      return -1;
+    }, 0);
 
-  return parseTree.sort((a, b) => compareProperties(
-    a,
-    b,
-    ['property', 'operator', 'invertOperator', 'caseInsensitive', 'value'],
-  ));
+  return parseTree.sort((a, b) =>
+    compareProperties(a, b, [
+      "property",
+      "operator",
+      "invertOperator",
+      "caseInsensitive",
+      "value",
+    ])
+  );
 }
 
 const hrefToParsedObjectFactoryThis: any = {};
@@ -336,9 +374,13 @@ const hrefToParsedObjectFactoryThis: any = {};
  *                       (filters grouped per type) will be generated
  */
 function hrefToParsedObjectFactory(
-  sriConfig: TSriConfig = { resources: [], databaseConnectionParameters: {} }, flat = false,
+  sriConfig: TSriConfig = { resources: [], databaseConnectionParameters: {} },
+  flat = false
 ) {
-  const parseQueryStringPartByPart = 'PART_BY_PART' as 'NORMAL' | 'PART_BY_PART' | 'VALUES_APART'; // 'PARTBYPART';
+  const parseQueryStringPartByPart = "PART_BY_PART" as
+    | "NORMAL"
+    | "PART_BY_PART"
+    | "VALUES_APART"; // 'PARTBYPART';
 
   // assuming sriConfig will always be the same, we optimize with
   // some simple memoization of a few calculated helper data structures
@@ -346,60 +388,79 @@ function hrefToParsedObjectFactory(
     try {
       hrefToParsedObjectFactoryThis.sriConfig = sriConfig;
       hrefToParsedObjectFactoryThis.mappingByPathMap = Object.fromEntries(
-        sriConfig.resources.map((r) => [r.type, r]),
+        sriConfig.resources.map((r) => [r.type, r])
       );
-      hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap = Object.fromEntries(
-        sriConfig.resources.map((r) => [r.type, schemaUtils.flattenJsonSchema(r.schema)]),
-      );
-      hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap = Object.fromEntries(
-        sriConfig.resources.map((r) => {
-          const grammar = flatUrlParser.generateFlatQueryStringParserGrammar(
-            hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type],
-          );
-          try {
-            // console.log(`${r.type} GRAMMAR`);
-            // console.log(`=================`);
-            // console.log(grammar);
-            switch (parseQueryStringPartByPart) {
-              case 'NORMAL':
-                return [r.type, generateQueryStringParser(grammar)];
-              case 'PART_BY_PART':
-                return [r.type, generateQueryStringParser(grammar, ['QueryStringPart'])];
-              case 'VALUES_APART':
-                return [
-                  r.type,
-                  {
-                    filterParser: generateQueryStringParser(grammar, ['FilterName']),
-                    singleValueParser: generateQueryStringParser(grammar, ['SingleValue']),
-                    multiValueParser: generateQueryStringParser(grammar, ['MultiValue']),
-                  },
-                ];
-              default:
-                throw new Error(`parseQueryStringPartByPart has an unsupported value (${parseQueryStringPartByPart})`);
+      hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap =
+        Object.fromEntries(
+          sriConfig.resources.map((r) => [
+            r.type,
+            schemaUtils.flattenJsonSchema(r.schema),
+          ])
+        );
+      hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap =
+        Object.fromEntries(
+          sriConfig.resources.map((r) => {
+            const grammar = flatUrlParser.generateFlatQueryStringParserGrammar(
+              hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type]
+            );
+            try {
+              // console.log(`${r.type} GRAMMAR`);
+              // console.log(`=================`);
+              // console.log(grammar);
+              switch (parseQueryStringPartByPart) {
+                case "NORMAL":
+                  return [r.type, generateQueryStringParser(grammar)];
+                case "PART_BY_PART":
+                  return [
+                    r.type,
+                    generateQueryStringParser(grammar, ["QueryStringPart"]),
+                  ];
+                case "VALUES_APART":
+                  return [
+                    r.type,
+                    {
+                      filterParser: generateQueryStringParser(grammar, [
+                        "FilterName",
+                      ]),
+                      singleValueParser: generateQueryStringParser(grammar, [
+                        "SingleValue",
+                      ]),
+                      multiValueParser: generateQueryStringParser(grammar, [
+                        "MultiValue",
+                      ]),
+                    },
+                  ];
+                default:
+                  throw new Error(
+                    `parseQueryStringPartByPart has an unsupported value (${parseQueryStringPartByPart})`
+                  );
+              }
+            } catch (e) {
+              console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+              throw e;
             }
-          } catch (e) {
-            console.log(pegSyntaxErrorToErrorMessage(e, grammar));
-            throw e;
-          }
-        }),
-      );
-      hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap = Object.fromEntries(
-        sriConfig.resources.map((r) => {
-          // const grammar = generateNonFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
-          try {
-            // return [r.type, generateQueryStringParser(grammar)];
-            // sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition, allowedStartRules
-            return [r.type, generateNonFlatQueryStringParser(sriConfig, r)];
-          } catch (e) {
-            // console.log(pegSyntaxErrorToErrorMessage(e, grammar));
-            console.log(pegSyntaxErrorToErrorMessage(e));
-            throw e;
-          }
-        }),
-      );
+          })
+        );
+      hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap =
+        Object.fromEntries(
+          sriConfig.resources.map((r) => {
+            // const grammar = generateNonFlatQueryStringParserGrammar(hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type], sriConfig);
+            try {
+              // return [r.type, generateQueryStringParser(grammar)];
+              // sriConfigDefaults?:{ defaultlimit: number, [k:string]: any }, sriConfigResourceDefinition?:ResourceDefinition, allowedStartRules
+              return [r.type, generateNonFlatQueryStringParser(sriConfig, r)];
+            } catch (e) {
+              // console.log(pegSyntaxErrorToErrorMessage(e, grammar));
+              console.log(pegSyntaxErrorToErrorMessage(e));
+              throw e;
+            }
+          })
+        );
     } catch (e) {
       delete hrefToParsedObjectFactoryThis.sriConfig;
-      console.log('Uh oh, something went wrong while setting up flattenedJsonSchema and parsers');
+      console.log(
+        "Uh oh, something went wrong while setting up flattenedJsonSchema and parsers"
+      );
       console.log(pegSyntaxErrorToErrorMessage(e));
       throw e;
     }
@@ -410,21 +471,42 @@ function hrefToParsedObjectFactory(
       const urlToWorkOn = new URL(`https://domain.com${href}`);
       const searchParamsToWorkOn = urlToWorkOn.searchParams;
 
-      const flatQueryStringParser = hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap[urlToWorkOn.pathname];
+      const flatQueryStringParser =
+        hrefToParsedObjectFactoryThis.flatQueryStringParserByPathMap[
+          urlToWorkOn.pathname
+        ];
       try {
         const parseTree = {
-          NORMAL: () => flatQueryStringParser.parse(searchParamsToWorkOn.toString()),
-          PART_BY_PART: () => [...searchParamsToWorkOn.entries()].map(([k, v]) => flatQueryStringParser.parse(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`)),
+          NORMAL: () =>
+            flatQueryStringParser.parse(searchParamsToWorkOn.toString()),
+          PART_BY_PART: () =>
+            [...searchParamsToWorkOn.entries()].map(([k, v]) =>
+              flatQueryStringParser.parse(
+                `${encodeURIComponent(k)}=${encodeURIComponent(v)}`
+              )
+            ),
           // TODO !!!
-          VALUES_APART: () => [...searchParamsToWorkOn.entries()].map(([k, v]) => {
-            const { expectedValue, ...parsedFilter } = flatQueryStringParser.filterParser.parse(encodeURIComponent(k));
-            // now that we know if the expected input is an array or not, we can parse it as such
-            const value = flatQueryStringParser.valueParser.parse(encodeURIComponent(v), [expectedValue.inputShouldBeArray ? 'MultiValue' : 'SingleValue']);
-            return { ...parsedFilter, value };
-          }),
+          VALUES_APART: () =>
+            [...searchParamsToWorkOn.entries()].map(([k, v]) => {
+              const { expectedValue, ...parsedFilter } =
+                flatQueryStringParser.filterParser.parse(encodeURIComponent(k));
+              // now that we know if the expected input is an array or not, we can parse it as such
+              const value = flatQueryStringParser.valueParser.parse(
+                encodeURIComponent(v),
+                [
+                  expectedValue.inputShouldBeArray
+                    ? "MultiValue"
+                    : "SingleValue",
+                ]
+              );
+              return { ...parsedFilter, value };
+            }),
         }[parseQueryStringPartByPart]();
 
-        const missingDefaultsParseTree = generateMissingDefaultsForParseTree(parseTree, hrefToParsedObjectFactoryThis.mappingByPathMap[urlToWorkOn.pathname]);
+        const missingDefaultsParseTree = generateMissingDefaultsForParseTree(
+          parseTree,
+          hrefToParsedObjectFactoryThis.mappingByPathMap[urlToWorkOn.pathname]
+        );
 
         // validateQueryParam(
         //   '_LIMIT',
@@ -438,9 +520,15 @@ function hrefToParsedObjectFactory(
         //   expansion => `_EXPAND=${expansion} is not one of 'NONE','FULL','SUMMARY'`,
         // );
 
-        const normalizedParseTree = sortUrlQueryParamParseTree([...parseTree, ...missingDefaultsParseTree])
+        const normalizedParseTree = sortUrlQueryParamParseTree([
+          ...parseTree,
+          ...missingDefaultsParseTree,
+        ])
           // remove 'expectedValue' to make sure tests still work
-          .map((x) => { const { expectedValue: _expectedValue, ...rest } = x; return rest; });
+          .map((x) => {
+            const { expectedValue: _expectedValue, ...rest } = x;
+            return rest;
+          });
 
         const parsedUrlObject = {
           parseTree: normalizedParseTree,
@@ -450,19 +538,26 @@ function hrefToParsedObjectFactory(
         return parsedUrlObject;
       } catch (e) {
         // console.log('href parse error', e.message, e);
-        console.log(pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString()));
+        console.log(
+          pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString())
+        );
         throw e;
       }
     };
   }
 
   return function hrefToNonFlatParsedObject(href: string) {
-    const urlToWorkOn = new URL(href, 'https://domain.com');
+    const urlToWorkOn = new URL(href, "https://domain.com");
     const searchParamsToWorkOn = urlToWorkOn.searchParams;
 
-    const nonFlatQueryStringParser = hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap[urlToWorkOn.pathname];
+    const nonFlatQueryStringParser =
+      hrefToParsedObjectFactoryThis.nonFlatQueryStringParserByPathMap[
+        urlToWorkOn.pathname
+      ];
     try {
-      const parseTree = nonFlatQueryStringParser.parse(searchParamsToWorkOn.toString());
+      const parseTree = nonFlatQueryStringParser.parse(
+        searchParamsToWorkOn.toString()
+      );
 
       // validateQueryParam(
       //   '_LIMIT',
@@ -484,29 +579,33 @@ function hrefToParsedObjectFactory(
       return parsedUrlObject;
     } catch (e) {
       // console.log('href parse error', e.message, e);
-      console.log(pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString()));
+      console.log(
+        pegSyntaxErrorToErrorMessage(e, searchParamsToWorkOn.toString())
+      );
       throw e;
     }
   };
 }
 
 /**
- * @param sriRequest 
+ * @param sriRequest
  * @param recurse if set, return top sriRequest
  * @returns the parent sri request if it exists (otherwise the same request is returned!)
  */
 function getParentSriRequest(sriRequest: TSriRequest, recurse = false) {
   return sriRequest.parentSriRequest
-    ? (recurse
+    ? recurse
       ? getParentSriRequest(sriRequest.parentSriRequest)
-      : sriRequest.parentSriRequest)
+      : sriRequest.parentSriRequest
     : sriRequest;
 }
 
 function installEMT(app: Application) {
-  app.use(emt.init((_req: Express.Request, _res: Express.Response) => {
-    // Do nothing (empty function provided to avoid stdout logging for each request)
-  }));
+  app.use(
+    emt.init((_req: Express.Request, _res: Express.Response) => {
+      // Do nothing (empty function provided to avoid stdout logging for each request)
+    })
+  );
   return emt;
 }
 
@@ -522,17 +621,21 @@ function setServerTimingHdr(sriRequest: TSriRequest, property, value) {
   }
 }
 
-function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRequest) {
+function emtReportToServerTiming(
+  req: Request,
+  res: Response,
+  sriRequest: TSriRequest
+) {
   try {
     const report = emt.calculate(req, res);
     Object.keys(report.timers).forEach((timer) => {
       const duration = report.timers[timer].took;
-      if (duration > 0 && timer !== 'express-wrapper') {
+      if (duration > 0 && timer !== "express-wrapper") {
         setServerTimingHdr(sriRequest, timer, duration);
       }
     });
   } catch (err) {
-    error('[emtReportToServerTiming] it does not work anymore but why???', err);
+    error("[emtReportToServerTiming] it does not work anymore but why???", err);
     throw err;
   }
 }
@@ -541,20 +644,22 @@ function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
   if (logdebug === true) {
     // for backwards compability
     console.warn(
-      '\n\n\n------------------------------------------------------------------------------------------------------------------\n'
-      + 'The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value \'true\'.\n'
-      + 'Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n'
-      + 'sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, \n'
-      + 'but please specify the preferred channels for which logging is requested.\n'
-      + '------------------------------------------------------------------------------------------------------------------\n\n\n',
+      "\n\n\n------------------------------------------------------------------------------------------------------------------\n" +
+        "The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value 'true'.\n" +
+        "Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the\n" +
+        'sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, \n' +
+        "but please specify the preferred channels for which logging is requested.\n" +
+        "------------------------------------------------------------------------------------------------------------------\n\n\n"
     );
-    return { channels: new Set(['general', 'trace', 'requests', 'server-timing']) };
+    return {
+      channels: new Set(["general", "trace", "requests", "server-timing"]),
+    };
   }
   if (logdebug === false) {
     return { channels: new Set() };
   }
   const tempLogDebug: TLogDebug = {
-    channels: logdebug.channels === 'all' ? 'all' : new Set(logdebug.channels),
+    channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels),
   };
   if (logdebug.statuses) {
     tempLogDebug.statuses = new Set(logdebug.statuses);
@@ -563,7 +668,7 @@ function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
 }
 
 function handleRequestDebugLog(status: number) {
-  const reqId = httpContext.get('reqId');
+  const reqId = httpContext.get("reqId");
   if (global.sri4node_configuration.logdebug.statuses.has(status)) {
     logBuffer[reqId].forEach((e) => console.log(e));
   }
@@ -571,13 +676,15 @@ function handleRequestDebugLog(status: number) {
 }
 
 function urlToTypeAndKey(urlToParse: string) {
-  if (typeof urlToParse !== 'string') {
-    throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
+  if (typeof urlToParse !== "string") {
+    throw new Error(
+      `urlToTypeAndKey requires a string argument instead of ${urlToParse}`
+    );
   }
   const parsedUrl = url.parse(urlToParse);
-  const pathName = parsedUrl.pathname?.replace(/\/$/, '');
-  const parts = pathName?.split('/');
-  const type = _.initial(parts).join('/');
+  const pathName = parsedUrl.pathname?.replace(/\/$/, "");
+  const parts = pathName?.split("/");
+  const type = _.initial(parts).join("/");
   const key = _.last(parts);
 
   return { type, key };
@@ -594,7 +701,11 @@ function urlToTypeAndKey(urlToParse: string) {
  * @returns true or false
  */
 function isUuid(uuid: string): boolean {
-  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
+  return (
+    uuid.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    ) != null
+  );
 }
 
 /**
@@ -613,12 +724,10 @@ function parseResource(u: string) {
     return null;
   }
 
-  const [u1, comment] = (u.includes('#'))
-    ? u.split('#/')
-    : [u, null];
+  const [u1, comment] = u.includes("#") ? u.split("#/") : [u, null];
 
-  if (u1.includes('?')) {
-    const splittedUrl = u1.split('?');
+  if (u1.includes("?")) {
+    const splittedUrl = u1.split("?");
     return {
       base: splittedUrl[0],
       id: null,
@@ -636,7 +745,7 @@ function parseResource(u: string) {
     };
   }
   return {
-    base: `${(pp.dir !== '/' ? pp.dir : '')}/${pp.name}`,
+    base: `${pp.dir !== "/" ? pp.dir : ""}/${pp.name}`,
     id: null,
     query: null,
     comment,
@@ -647,11 +756,11 @@ function errorAsCode(s: string) {
   // return any string as code for REST API error object.
   let ret = s;
 
-  ret = ret.replace(/".*"/, '');
+  ret = ret.replace(/".*"/, "");
 
   ret = ret.toLowerCase().trim();
-  ret = ret.replace(/[^a-z0-9 ]/gmi, '');
-  ret = ret.replace(/ /gmi, '.');
+  ret = ret.replace(/[^a-z0-9 ]/gim, "");
+  ret = ret.replace(/ /gim, ".");
 
   return ret;
 }
@@ -676,14 +785,20 @@ function typeToMapping(type: string): TResourceDefinition {
 
 function sqlColumnNames(mapping, summary = false) {
   const columnNames = summary
-    ? Object.keys(mapping.map).filter((c) => !(mapping.map[c].excludeOn !== undefined && mapping.map[c].excludeOn.toLowerCase() === 'summary'))
+    ? Object.keys(mapping.map).filter(
+        (c) =>
+          !(
+            mapping.map[c].excludeOn !== undefined &&
+            mapping.map[c].excludeOn.toLowerCase() === "summary"
+          )
+      )
     : Object.keys(mapping.map);
 
-  return `${(columnNames.includes('key') ? '' : '"key",')
-    + (columnNames.map((c) => `"${c}"`).join(','))
-    }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
+  return `${
+    (columnNames.includes("key") ? "" : '"key",') +
+    columnNames.map((c) => `"${c}"`).join(",")
+  }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
 }
-
 
 /**
  * @param row the database row
@@ -704,8 +819,8 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
       } else {
         element[key] = null;
       }
-    } else if (key.startsWith('$$meta.')) {
-      element.$$meta[key.split('$$meta.')[1]] = row[key];
+    } else if (key.startsWith("$$meta.")) {
+      element.$$meta[key.split("$$meta.")[1]] = row[key];
     } else {
       element[key] = row[key];
     }
@@ -713,14 +828,17 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
     map[key]?.columnToField?.forEach((f) => f(key, element));
   });
 
-  Object.assign(element.$$meta, _.pickBy({
-    // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
-    deleted: row['$$meta.deleted'],
-    created: row['$$meta.created'],
-    modified: row['$$meta.modified'],
-  }));
+  Object.assign(
+    element.$$meta,
+    _.pickBy({
+      // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+      deleted: row["$$meta.deleted"],
+      created: row["$$meta.created"],
+      modified: row["$$meta.modified"],
+    })
+  );
   element.$$meta.permalink = `${resourceMapping.type}/${row.key}`;
-  element.$$meta.version = row['$$meta.version'];
+  element.$$meta.version = row["$$meta.version"];
 
   return element;
 }
@@ -728,24 +846,37 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
 /**
  * Function which verifies wether for all properties specified in the sri4node configuration
  * there exists a column in the database.
- * An improvement might be to also check if the types 
+ * An improvement might be to also check if the types
  * @param sriConfig sri4node configuration object
  * @returns nothing, throw an error in case something is wrong
  */
 
-function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema) {
+function checkSriConfigWithDb(
+  sriConfig: TSriConfig,
+  informationSchema: TInformationSchema
+) {
   sriConfig.resources.forEach((resourceMapping) => {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
       if (informationSchema[resourceMapping.type][key] === undefined) {
-        const dbFields = Object.keys(informationSchema[resourceMapping.type]).sort();
-        const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
+        const dbFields = Object.keys(
+          informationSchema[resourceMapping.type]
+        ).sort();
+        const caseInsensitiveIndex = dbFields
+          .map((c) => c.toLowerCase())
+          .indexOf(key.toLowerCase());
         if (caseInsensitiveIndex >= 0) {
-          console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`);
+          console.error(
+            `\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`
+          );
         } else {
-          console.error(`\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(', ')}`);
+          console.error(
+            `\n[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${
+              resourceMapping.type
+            }'. All available column names are ${dbFields.join(", ")}`
+          );
         }
-        throw new Error('mismatch.between.sri.config.and.database');
+        throw new Error("mismatch.between.sri.config.and.database");
       }
     });
   });
@@ -758,7 +889,9 @@ function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInforma
  * @returns a row to be saved on the database
  */
 function transformObjectToRow(
-  obj: Record<string, any>, resourceMapping: TResourceDefinition, isNewResource: boolean,
+  obj: Record<string, any>,
+  resourceMapping: TResourceDefinition,
+  isNewResource: boolean
 ) {
   const map = resourceMapping.map || {};
   const row = {};
@@ -766,7 +899,15 @@ function transformObjectToRow(
     if (map[key].references && obj[key] !== undefined) {
       const permalink = obj[key].href;
       if (!permalink) {
-        throw new SriError({ status: 409, errors: [{ code: 'no.href.inside.reference', msg: `No href found inside reference ${key}` }] });
+        throw new SriError({
+          status: 409,
+          errors: [
+            {
+              code: "no.href.inside.reference",
+              msg: `No href found inside reference ${key}`,
+            },
+          ],
+        });
       }
       const expectedType = map[key].references;
       const { type: refType, key: refKey } = urlToTypeAndKey(permalink);
@@ -775,7 +916,10 @@ function transformObjectToRow(
       } else {
         const msg = `Faulty reference detected [${permalink}], detected [${refType}] expected [${expectedType}].`;
         console.log(msg);
-        throw new SriError({ status: 409, errors: [{ code: 'faulty.reference', msg }] });
+        throw new SriError({
+          status: 409,
+          errors: [{ code: "faulty.reference", msg }],
+        });
       }
     } else if (obj[key] !== undefined) {
       row[key] = obj[key];
@@ -788,15 +932,21 @@ function transformObjectToRow(
       map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
     }
 
-    const fieldTypeDb = global
-      .sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    const fieldTypeObject = resourceMapping.schema.properties?.[key]
-      ? resourceMapping.schema.properties[key].type
-      : null;
-    if (fieldTypeDb === 'jsonb' && fieldTypeObject === 'array') {
-      // for this type combination we need to explicitly stringify the JSON,
-      // otherwise insert will attempt to store a postgres array which fails for jsonb
+    const fieldTypeDb =
+      global.sri4node_configuration.informationSchema[resourceMapping.type][key]
+        .type;
+    if (fieldTypeDb === "jsonb") {
+      /// ALWAYS stringify the json !!!
       row[key] = JSON.stringify(row[key]);
+
+      /// VERSION < 2023-10 wouldonly stringify arrays
+      // const fieldTypeObject = findPropertyInJsonSchema(resourceMapping.schema, key)?.type;
+
+      // if (fieldTypeObject === "array") {
+      //   // for this type combination we need to explicitly stringify the JSON,
+      //   // otherwise insert will attempt to store a postgres array which fails for jsonb
+      //   row[key] = JSON.stringify(row[key]);
+      // }
     }
   });
 
@@ -815,24 +965,28 @@ function transformObjectToRow(
 async function pgInit(
   pgpInitOptions: IInitOptions = {},
   extraOptions: {
-    schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined,
-    connectionInitSql?: string,
-    monitor: boolean,
-  },
+    schema?:
+      | pgPromise.ValidSchema
+      | ((dc: any) => pgPromise.ValidSchema)
+      | undefined;
+    connectionInitSql?: string;
+    monitor: boolean;
+  }
 ) {
   const pgpInitOptionsUpdated: IInitOptions = {
     schema: extraOptions.schema,
     ...pgpInitOptions,
-    connect: extraOptions.connectionInitSql === undefined
-      ? pgpInitOptions.connect
-      : (client, dc, useCount) => {
-        if (useCount === 0) {
-          client.query(extraOptions.connectionInitSql);
-        }
-        if (pgpInitOptions.connect) {
-          pgpInitOptions.connect(client, dc, useCount);
-        }
-      },
+    connect:
+      extraOptions.connectionInitSql === undefined
+        ? pgpInitOptions.connect
+        : (client, dc, useCount) => {
+            if (useCount === 0) {
+              client.query(extraOptions.connectionInitSql);
+            }
+            if (pgpInitOptions.connect) {
+              pgpInitOptions.connect(client, dc, useCount);
+            }
+          },
   };
 
   pgp = pgPromise(pgpInitOptionsUpdated);
@@ -852,22 +1006,26 @@ async function pgInit(
 
     pgp.pg.types.setTypeParser(1184, (s) => {
       const match = s.match(/\.\d\d\d(\d{0,3})\+/);
-      let microseconds = '';
+      let microseconds = "";
       if (match !== null) {
         microseconds = match[1];
       }
 
-      const isoWithoutMicroseconds = (new Date(s)).toISOString();
-      const isoWithMicroseconds = `${isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1)
-        + microseconds}Z`;
+      const isoWithoutMicroseconds = new Date(s).toISOString();
+      const isoWithMicroseconds = `${
+        isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1) +
+        microseconds
+      }Z`;
       return isoWithMicroseconds;
     });
 
     pgp.pg.types.setTypeParser(20, BigInt);
     pgp.pg.types.setTypeParser(1700, (val) => parseFloat(val));
-    (BigInt.prototype as any).toJSON = function () { return this.toString(); };
+    (BigInt.prototype as any).toJSON = function () {
+      return this.toString();
+    };
   } else {
-    throw 'pgPromise not initialized!';
+    throw "pgPromise not initialized!";
   }
 }
 
@@ -895,20 +1053,28 @@ async function pgInit(
 async function pgConnect(sri4nodeConfig: TSriConfig) {
   // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
   if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
-    console.warn('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
+    console.warn(
+      "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
+    );
     // throw new Error('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
   }
   if (sri4nodeConfig.maxConnections) {
     // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn('maxConnections config property has been deprecated, use databaseConnectionParameters.max instead');
+    console.warn(
+      "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
+    );
   }
   if (sri4nodeConfig.dbConnectionInitSql) {
     // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn('dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead');
+    console.warn(
+      "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
+    );
   }
   if (process.env.PGP_MONITOR) {
     // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn('environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead');
+    console.warn(
+      "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
+    );
   }
 
   // FIRST INITIALIZE THE LIBRARY IF IT HASN'T BEEN INITIALIZED BEFORE
@@ -916,7 +1082,8 @@ async function pgConnect(sri4nodeConfig: TSriConfig) {
     const extraOptions = {
       schema: sri4nodeConfig.databaseConnectionParameters.schema,
       monitor: sri4nodeConfig.enablePgMonitor === true,
-      connectionInitSql: sri4nodeConfig.databaseConnectionParameters.connectionInitSql,
+      connectionInitSql:
+        sri4nodeConfig.databaseConnectionParameters.connectionInitSql,
     };
     pgInit(sri4nodeConfig.databaseLibraryInitOptions, extraOptions);
   }
@@ -936,12 +1103,13 @@ async function pgConnect(sri4nodeConfig: TSriConfig) {
   return pgp(cn);
 }
 
-
 /**
  * @type {{ name: string, text: string }} details
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
-function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined) {
+function createPreparedStatement(
+  details: pgPromise.IPreparedStatement | undefined
+) {
   return new pgp.PreparedStatement(details);
 }
 
@@ -955,40 +1123,38 @@ function createPreparedStatement(details: pgPromise.IPreparedStatement | undefin
 // values : An array of java values to be inserted in $1,$2, etc..
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-async function pgExec(db, query, sriRequest?: TSriRequest) {
+async function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
-  debug('sql', () => pgp.as.format(sql, values));
+  debug("sql", () => pgp?.as.format(sql, values));
 
   const hrstart = process.hrtime();
   const result = await db.query(sql, values);
   const hrElapsed = process.hrtime(hrstart);
   if (sriRequest) {
-    setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
+    setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
   }
 
   return result;
 }
 
-async function pgResult(db, query, sriRequest?: TSriRequest) {
+async function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query, sriRequest?: TSriRequest) {
   const { sql, values } = query.toParameterizedSql();
 
-  debug('sql', () => pgp.as.format(sql, values));
+  debug("sql", () => pgp?.as.format(sql, values));
 
   const hrstart = process.hrtime();
   const result = await db.result(sql, values);
   const hrElapsed = process.hrtime(hrstart);
   if (sriRequest) {
-    setServerTimingHdr(sriRequest, 'db', hrtimeToMilliseconds(hrElapsed));
+    setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
   }
 
   return result;
 }
 
-async function startTransaction(
-  db, mode = new pgp.txMode.TransactionMode(),
-) {
-  debug('db', '++ Starting database transaction.');
+async function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode = new pgp.txMode.TransactionMode()) {
+  debug("db", "++ Starting database transaction.");
 
   const eventEmitter = new EventEmitter();
 
@@ -998,19 +1164,19 @@ async function startTransaction(
     //   * debug() does not log the correct reqId
     try {
       await db.tx({ mode }, async (tx) => {
-        emitter.emit('txEvent', tx);
-        const how = await pEvent(emitter, 'terminate');
-        if (how === 'reject') {
-          throw 'txRejected';
+        emitter.emit("txEvent", tx);
+        const how = await pEvent(emitter, "terminate");
+        if (how === "reject") {
+          throw "txRejected";
         }
       });
-      emitter.emit('txDone');
+      emitter.emit("txDone");
     } catch (err) {
       // 'txRejected' as err is expected behaviour in case rejectTx is called
-      if (err !== 'txRejected') {
-        emitter.emit('txDone', err);
+      if (err !== "txRejected") {
+        emitter.emit("txDone", err);
       } else {
-        emitter.emit('txDone');
+        emitter.emit("txDone");
       }
     }
   };
@@ -1018,14 +1184,14 @@ async function startTransaction(
   try {
     const tx: pgPromise.ITask<any> = await new Promise((resolve, reject) => {
       let resolved = false;
-      eventEmitter.on('txEvent', (tx) => {
+      eventEmitter.on("txEvent", (tx) => {
         resolve(tx);
         resolved = true;
       });
-      eventEmitter.on('txDone', (err) => {
+      eventEmitter.on("txDone", (err) => {
         // ignore undefined error, happens at
         if (!resolved) {
-          console.log('GOT ERROR:');
+          console.log("GOT ERROR:");
           console.log(err);
           console.log(JSON.stringify(err));
           reject(err);
@@ -1033,31 +1199,43 @@ async function startTransaction(
       });
       txWrapper(eventEmitter);
     });
-    debug('db', 'Got db tx object.');
+    debug("db", "Got db tx object.");
 
-    await tx.none('SET CONSTRAINTS ALL DEFERRED;');
+    await tx.none("SET CONSTRAINTS ALL DEFERRED;");
 
     const terminateTx = (how) => async () => {
-      if (how !== 'reject') {
-        await tx.none('SET CONSTRAINTS ALL IMMEDIATE;');
+      if (how !== "reject") {
+        await tx.none("SET CONSTRAINTS ALL IMMEDIATE;");
       }
-      eventEmitter.emit('terminate', how);
-      const res = await pEvent(eventEmitter, 'txDone');
+      eventEmitter.emit("terminate", how);
+      const res = await pEvent(eventEmitter, "txDone");
       if (res !== undefined) {
         throw res;
       }
     };
 
-    return ({ tx, resolveTx: terminateTx('resolve'), rejectTx: terminateTx('reject') });
+    return {
+      tx,
+      resolveTx: terminateTx("resolve"),
+      rejectTx: terminateTx("reject"),
+    };
   } catch (err) {
-    error('CAUGHT ERROR: ');
+    error("CAUGHT ERROR: ");
     error(JSON.stringify(err), err);
-    throw new SriError({ status: 503, errors: [{ code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.' }] });
+    throw new SriError({
+      status: 503,
+      errors: [
+        {
+          code: "too.busy",
+          msg: "The request could not be processed as the database is too busy right now. Try again later.",
+        },
+      ],
+    });
   }
 }
 
-async function startTask(db) {
-  debug('db', '++ Starting database task.');
+async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
+  debug("db", "++ Starting database task.");
 
   const emitter = new EventEmitter();
 
@@ -1067,52 +1245,66 @@ async function startTask(db) {
     //   * debug() does not log the correct reqId
     try {
       await db.task(async (t) => {
-        emitter.emit('tEvent', t);
-        await pEvent(emitter, 'terminate');
+        emitter.emit("tEvent", t);
+        await pEvent(emitter, "terminate");
       });
-      emitter.emit('tDone');
+      emitter.emit("tDone");
     } catch (err) {
-      emitter.emit('tDone', err);
+      emitter.emit("tDone", err);
     }
   };
 
   try {
     const t = await new Promise((resolve, reject) => {
-      emitter.on('tEvent', (t) => {
+      emitter.on("tEvent", (t) => {
         resolve(t);
       });
-      emitter.on('tDone', (err) => {
+      emitter.on("tDone", (err) => {
         reject(err);
       });
       taskWrapper(emitter);
     });
-    debug('db', 'Got db t object.');
+    debug("db", "Got db t object.");
 
     const endTask = async () => {
-      emitter.emit('terminate');
-      const res = await pEvent(emitter, 'tDone');
-      debug('db', 'db task done.');
+      emitter.emit("terminate");
+      const res = await pEvent(emitter, "tDone");
+      debug("db", "db task done.");
       if (res !== undefined) {
         throw res;
       }
     };
 
-    return ({ t, endTask });
+    return { t, endTask };
   } catch (err) {
-    error('CAUGHT ERROR: ');
+    error("CAUGHT ERROR: ");
     error(JSON.stringify(err));
-    throw new SriError({ status: 503, errors: [{ code: 'too.busy', msg: 'The request could not be processed as the database is too busy right now. Try again later.' }] });
+    throw new SriError({
+      status: 503,
+      errors: [
+        {
+          code: "too.busy",
+          msg: "The request could not be processed as the database is too busy right now. Try again later.",
+        },
+      ],
+    });
   }
 }
 
-async function installVersionIncTriggerOnTable(db, tableName: string, schemaName?: string) {
+async function installVersionIncTriggerOnTable(
+  db: pgPromise.IDatabase<unknown, IClient>,
+  tableName: string,
+  schemaName?: string
+) {
   // 2023-09: at a certain point we added the schemaname to the triggername which causes problems when
   // copying a database to another schema (trigger gets created twice), so we'll use the
-  const tgNameToBeDropped = `vsko_resource_version_trigger_${(schemaName !== undefined ? schemaName : '')}_${tableName}`;
+  const tgNameToBeDropped = `vsko_resource_version_trigger_${
+    schemaName !== undefined ? schemaName : ""
+  }_${tableName}`;
   const tgname = `vsko_resource_version_trigger_${tableName}`;
 
   // we should respect the search_path I guess instead of assuming 'public', but for now...
-  const schemaNameOrPublic = schemaName !== undefined ? schemaName : 'public';
+  const schemaNameOrPublic = schemaName !== undefined ? schemaName : "public";
 
   const plpgsql = `
     DO $___$
@@ -1176,25 +1368,44 @@ async function getCountResult(tx, countquery, sriRequest) {
  * @returns the correponding database table name
  */
 function tableFromMapping(mapping: TResourceDefinition) {
-  return mapping.table || _.last(mapping.type.split('/'));
+  return mapping.table || _.last(mapping.type.split("/"));
 }
 
 function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
 
   function customizer(val, key, _obj) {
-    if (mapping.schema.properties[key] && mapping.schema.properties[key].format === 'date-time') {
-      return (new Date(val)).getTime();
+    if (
+      findPropertyInJsonSchema(mapping.schema, key)?.format === "date-time"
+    ) {
+      return new Date(val).getTime();
     }
 
-    if (global.sri4node_configuration.informationSchema[mapping.type][key]
-      && global.sri4node_configuration.informationSchema[mapping.type][key].type === 'bigint') {
+    if (
+      global.sri4node_configuration.informationSchema[mapping.type][key] &&
+      global.sri4node_configuration.informationSchema[mapping.type][key]
+        .type === "bigint"
+    ) {
       return BigInt(val);
     }
   }
 
-  const o1 = _.cloneDeepWith(_.pickBy(obj1, (val, key) => (val !== null && val != undefined && relevantProperties.includes(key))), customizer);
-  const o2 = _.cloneDeepWith(_.pickBy(obj2, (val, key) => (val !== null && val != undefined && relevantProperties.includes(key))), customizer);
+  const o1 = _.cloneDeepWith(
+    _.pickBy(
+      obj1,
+      (val, key) =>
+        val !== null && val != undefined && relevantProperties.includes(key)
+    ),
+    customizer
+  );
+  const o2 = _.cloneDeepWith(
+    _.pickBy(
+      obj2,
+      (val, key) =>
+        val !== null && val != undefined && relevantProperties.includes(key)
+    ),
+    customizer
+  );
 
   return _.isEqualWith(o1, o2);
 }
@@ -1212,17 +1423,32 @@ function settleResultsToSriResults(results) {
       return res.value;
     }
     const err = res.reason;
-    if (err instanceof SriError || err?.__proto__?.constructor?.name === 'SriError') {
+    if (
+      err instanceof SriError ||
+      err?.__proto__?.constructor?.name === "SriError"
+    ) {
       return err;
     }
-    error('____________________________ E R R O R (settleResultsToSriResults)_________________________');
+    error(
+      "____________________________ E R R O R (settleResultsToSriResults)_________________________"
+    );
     error(stringifyError(err));
     if (err && err.stack) {
-      error('STACK:');
+      error("STACK:");
       error(err.stack);
     }
-    error('___________________________________________________________________________________________');
-    return new SriError({ status: 500, errors: [{ code: 'internal.server.error', msg: `Internal Server Error. [${stringifyError(err)}}]` }] });
+    error(
+      "___________________________________________________________________________________________"
+    );
+    return new SriError({
+      status: 500,
+      errors: [
+        {
+          code: "internal.server.error",
+          msg: `Internal Server Error. [${stringifyError(err)}}]`,
+        },
+      ],
+    });
   });
 }
 
@@ -1234,7 +1460,10 @@ function createReadableStream(objectMode = true) {
   return s;
 }
 
-function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse = false) {
+function getParentSriRequestFromRequestMap(
+  sriRequestMap: Map<string, TSriRequest>,
+  recurse = false
+) {
   const sriRequest = Array.from(sriRequestMap.values())[0];
   return getParentSriRequest(sriRequest, recurse);
 }
@@ -1260,7 +1489,7 @@ function getPgp() {
  *
  * @param {object} expressRequest: needed for creating a basic SriRequest object
  * @param {object} expressResponse: needed for creating a basic SriRequest object
-*                  (if streaming mode = true)
+ *                  (if streaming mode = true)
  * @param {object} config: needed for creating a basic SriRequest object, of the form
  *                 { isBatchRequest: boolean, readOnly: boolean,
  *                   mapping: <single element from sri4node config 'mappings' section>}
@@ -1277,15 +1506,21 @@ function getPgp() {
 function generateSriRequest(
   expressRequest: Express.Request | undefined = undefined,
   expressResponse: Express.Response | any | undefined = undefined,
-  basicConfig: {
-    isBatchRequest: boolean, isStreamingRequest: boolean, readOnly: boolean,
-    mapping?: TResourceDefinition,
-    dbT: any,
-  } | undefined = undefined,
+  basicConfig:
+    | {
+        isBatchRequest: boolean;
+        isStreamingRequest: boolean;
+        readOnly: boolean;
+        mapping?: TResourceDefinition;
+        dbT: any;
+      }
+    | undefined = undefined,
   batchHandlerAndParams: any = undefined,
   parentSriRequest: TSriRequest | undefined = undefined,
   batchElement: any = undefined,
-  internalSriRequest: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'> | undefined = undefined,
+  internalSriRequest:
+    | Omit<TInternalSriRequest, "protocol" | "serverTiming">
+    | undefined = undefined
 ): TSriRequest {
   const baseSriRequest: TSriRequest = {
     id: uuidv4(),
@@ -1295,7 +1530,7 @@ function generateSriRequest(
     // context: {},
     parentSriRequest: parentSriRequest || internalSriRequest?.parentSriRequest,
 
-    path: '',
+    path: "",
     query: {},
     params: {},
     sriType: undefined,
@@ -1317,18 +1552,19 @@ function generateSriRequest(
     isBatchPart: undefined,
 
     /**
-     * serverTiming is an object used to accumulate timing data which is passed to the client in the response 
+     * serverTiming is an object used to accumulate timing data which is passed to the client in the response
      * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
      */
     serverTiming: {},
     /**
-     * userData is an object which can be used by applications using sri4node to store information associated with 
+     * userData is an object which can be used by applications using sri4node to store information associated with
      * a request. It is initialized as an empty object.
      */
     userData: {},
   };
 
-  if (internalSriRequest && !batchElement) { // internal interface
+  if (internalSriRequest && !batchElement) {
+    // internal interface
     // const batchHandlerAndParams = batch.matchHref(parentSriRequest.href, parentSriRequest.verb);
 
     return {
@@ -1356,12 +1592,14 @@ function generateSriRequest(
       setStatus: internalSriRequest.setStatus,
       streamStarted: internalSriRequest.streamStarted,
 
-      protocol: '_internal_',
+      protocol: "_internal_",
       isBatchPart: false,
 
       parentSriRequest: internalSriRequest.parentSriRequest,
     };
-  } if (parentSriRequest && batchElement) { // batch item
+  }
+  if (parentSriRequest && batchElement) {
+    // batch item
     // const batchHandlerAndParams = batchElement.match;
 
     return {
@@ -1377,11 +1615,18 @@ function generateSriRequest(
       params: batchHandlerAndParams.routeParams,
       httpMethod: batchElement.verb,
 
-      body: (batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body)),
+      body:
+        batchElement.body == null
+          ? null
+          : _.isObject(batchElement.body)
+          ? batchElement.body
+          : JSON.parse(batchElement.body),
       sriType: batchHandlerAndParams.handler.mapping.type,
       isBatchPart: true,
     };
-  } if (expressRequest) { // a 'normal' request
+  }
+  if (expressRequest) {
+    // a 'normal' request
     const generatedSriRequest: TSriRequest = {
       ...baseSriRequest,
 
@@ -1399,7 +1644,9 @@ function generateSriRequest(
       readOnly: basicConfig?.readOnly,
 
       // the batch code will set sriType for batch elements
-      sriType: !basicConfig?.isBatchRequest ? basicConfig?.mapping?.type : undefined,
+      sriType: !basicConfig?.isBatchRequest
+        ? basicConfig?.mapping?.type
+        : undefined,
     };
 
     // adding sriRequest.dbT should still be done in code after this function
@@ -1409,21 +1656,30 @@ function generateSriRequest(
 
     if (basicConfig?.isStreamingRequest) {
       if (!expressResponse) {
-        throw Error('[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing');
+        throw Error(
+          "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
+        );
       }
       // use passthrough streams to avoid passing req and resp in sriRequest
-      const inStream = new stream.PassThrough({ allowHalfOpen: false, emitClose: true });
-      const outStream = new stream.PassThrough({ allowHalfOpen: false, emitClose: true });
+      const inStream = new stream.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true,
+      });
+      const outStream = new stream.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true,
+      });
       generatedSriRequest.inStream = expressRequest.pipe(inStream);
       generatedSriRequest.outStream = outStream.pipe(expressResponse);
-      generatedSriRequest.setHeader = ((k, v) => expressResponse.set(k, v));
-      generatedSriRequest.setStatus = ((s) => expressResponse.status(s));
-      generatedSriRequest.streamStarted = (() => expressResponse.headersSent);
+      generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
+      generatedSriRequest.setStatus = (s) => expressResponse.status(s);
+      generatedSriRequest.streamStarted = () => expressResponse.headersSent;
     }
     return generatedSriRequest;
   }
 
-  if (parentSriRequest && !batchElement) { // internal interface
+  if (parentSriRequest && !batchElement) {
+    // internal interface
     // const batchHandlerAndParams = batch.matchHref(parentSriRequest.href, parentSriRequest.verb);
 
     return {
@@ -1449,12 +1705,14 @@ function generateSriRequest(
       setStatus: parentSriRequest.setStatus,
       streamStarted: parentSriRequest.streamStarted,
 
-      protocol: '_internal_',
+      protocol: "_internal_",
       isBatchPart: false,
 
       parentSriRequest: parentSriRequest.parentSriRequest, // ??? || parentSriRequest,
     };
-  } if (parentSriRequest && batchElement) { // batch item
+  }
+  if (parentSriRequest && batchElement) {
+    // batch item
     // const batchHandlerAndParams = batchElement.match;
 
     return {
@@ -1468,13 +1726,47 @@ function generateSriRequest(
       params: batchHandlerAndParams.routeParams,
       httpMethod: batchElement.verb,
 
-      body: (batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body)),
+      body:
+        batchElement.body == null
+          ? null
+          : _.isObject(batchElement.body)
+          ? batchElement.body
+          : JSON.parse(batchElement.body),
       sriType: batchHandlerAndParams.handler.mapping.type,
       isBatchPart: true,
     };
   }
 
-  throw Error('[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters');
+  throw Error(
+    "[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters"
+  );
+}
+
+/**
+ * This is a recursive function that can find a property definition in a json schema definition.
+ * This will also work when you have oneOf or anyOf sections in your schema definition.
+ *
+ * @param schema
+ * @param propertyName
+ * @returns the part of the json schema where the requested property is defined or null
+ *  if the property is not found
+ */
+function findPropertyInJsonSchema(schema: JSONSchema4, propertyName: string) {
+  if (schema?.properties?.[propertyName]) {
+    return schema.properties[propertyName];
+  }
+
+  const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
+  if (subSchemas) {
+    for (const subSchema of subSchemas) {
+      const found = findPropertyInJsonSchema(subSchema, propertyName);
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return null;
 }
 
 export {
@@ -1518,4 +1810,5 @@ export {
   getPgp,
   generateSriRequest,
   checkSriConfigWithDb,
+  findPropertyInJsonSchema,
 };
