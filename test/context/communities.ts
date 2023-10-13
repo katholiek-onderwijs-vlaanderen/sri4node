@@ -1,9 +1,8 @@
 import pMap from 'p-map';
 import { TResourceDefinition } from '../../sri4node';
-// import * as Sri4Node from '../../index';
-//
-// module.exports = function (sri4node: typeof Sri4Node) {
-module.exports = function (sri4node) {
+import * as Sri4Node from '../../index';
+
+module.exports = function (sri4node: typeof Sri4Node) {
   const $m = sri4node.mapUtils;
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;

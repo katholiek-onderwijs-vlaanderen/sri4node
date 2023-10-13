@@ -6,43 +6,46 @@ import {
   debug, sqlColumnNames, getCountResult,
   transformRowToObject, tableFromMapping, pgExec,
 } from './common';
-import { TResourceDefinition, SriError, TSriRequest } from './typeDefinitions';
+import { TResourceDefinition, SriError, TSriRequest, TPreparedSql } from './typeDefinitions';
 import { prepareSQL } from './queryObject';
 
 import { applyHooks } from './hooks';
 import { executeExpansion } from './expand';
 import * as queryUtils from './queryUtils';
+import { IDatabase } from 'pg-promise';
+import { ParsedUrlQuery } from 'querystring';
 
 // Constants
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 500;
 
 // apply extra parameters on request URL for a list-resource to a select.
-async function applyRequestParameters(mapping, query, urlparameters, tx, count) {
+async function applyRequestParameters(mapping: TResourceDefinition, query: TPreparedSql, urlparameters: ParsedUrlQuery, tx: IDatabase<unknown>, doCount: boolean) {
   const standardParameters = ['orderBy', 'descending', 'limit', 'keyOffset', 'expand', 'hrefs', 'modifiedSince', '$$includeCount', 'offset'];
 
   if (mapping.query) {
     await pMap(
       Object.keys(urlparameters),
       async (key) => {
+        const currentUrlParam = urlparameters[key];
+        const keyAsString = typeof currentUrlParam === 'string' ? currentUrlParam : (currentUrlParam || []).join(',');
         if (!standardParameters.includes(key)) {
-          if (mapping.query[key] || mapping.query.defaultFilter) {
+          if (mapping.query?.[key] || mapping.query?.defaultFilter) {
             // Execute the configured function that will apply this URL parameter
             // to the SELECT statement
             if (!mapping.query[key] && mapping.query.defaultFilter) {
-              await mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx);
+              await mapping.query.defaultFilter(keyAsString, query, key, tx, doCount, mapping, urlparameters);
             } else {
-              await mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters);
+              await mapping.query[key](keyAsString, query, key, tx, doCount, mapping, urlparameters);
             }
           } else {
             throw new SriError({ status: 404, errors: [{ code: 'unknown.query.parameter', parameter: key }] }); // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
           }
         } else if (key === 'hrefs' && urlparameters.hrefs) {
           // queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
-          queryUtils.filterHrefs(urlparameters.hrefs, query, 'hrefs', mapping);
+          queryUtils.filterHrefs(keyAsString, query, key, tx, doCount, mapping, urlparameters);
         } else if (key === 'modifiedSince') {
-          // queryUtils.modifiedSince(urlparameters.modifiedSince, query, key, tx, count, mapping);
-          queryUtils.modifiedSince(urlparameters.modifiedSince, query, mapping);
+          queryUtils.modifiedSince(keyAsString, query, key, tx, doCount, mapping, urlparameters);
         }
       },
       { concurrency: 1 },
@@ -50,14 +53,14 @@ async function applyRequestParameters(mapping, query, urlparameters, tx, count) 
   }
 }
 
-async function getSQLFromListResource(mapping, parameters, count, tx, query) {
+async function getSQLFromListResource(mapping: TResourceDefinition, parameters: ParsedUrlQuery, doCount: boolean, tx: IDatabase<unknown>, query: TPreparedSql) {
   const table = tableFromMapping(mapping);
 
   let sql;
   let columns;
-  if (parameters.expand && parameters.expand.toLowerCase() === 'none') {
+  if ((parameters.expand as string)?.toLowerCase() === 'none') {
     if (parameters.orderBy) {
-      columns = parameters.orderBy
+      columns = (parameters.orderBy as string)
         .split(',')
         .map((v) => `"${v}"`)
         .join(',')
@@ -70,11 +73,11 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
   } else {
     columns = sqlColumnNames(
       mapping,
-      parameters.expand && parameters.expand.toLowerCase() === 'summary',
+      (parameters.expand as string)?.toLowerCase() === 'summary',
     );
   }
 
-  if (count) {
+  if (doCount) {
     if (parameters['$$meta.deleted'] === 'true') {
       sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
     } else if (parameters['$$meta.deleted'] === 'any') {
@@ -98,7 +101,7 @@ async function getSQLFromListResource(mapping, parameters, count, tx, query) {
   }
 
   debug('trace', 'listResource - applying URL parameters to WHERE clause');
-  await applyRequestParameters(mapping, query, parameters, tx, count);
+  await applyRequestParameters(mapping, query, parameters, tx, doCount);
 }
 
 const applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset) => {

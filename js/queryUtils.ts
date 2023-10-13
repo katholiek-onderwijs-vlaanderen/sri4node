@@ -2,6 +2,9 @@
 import { tableFromMapping } from './common';
 import { SriError, TPreparedSql, TResourceDefinition } from './typeDefinitions';
 import { defaultFilter } from './defaultFilter';
+import { IDatabase } from 'pg-promise';
+import { IClient } from 'pg-promise/typescript/pg-subset';
+import { ParsedUrlQuery } from 'querystring';
 
 /**
  *
@@ -10,7 +13,15 @@ import { defaultFilter } from './defaultFilter';
  * @param parameter
  * @param mapping
  */
-function filterHrefs(href:string, query:TPreparedSql, _parameter: string, mapping: TResourceDefinition) {
+function filterHrefs(
+  href: string,
+  query: TPreparedSql,
+  _parameter: string,
+  _tx: IDatabase<unknown, IClient>,
+  _doCount: boolean,
+  mapping: TResourceDefinition,
+  _urlParameters: ParsedUrlQuery
+) {
   const table = tableFromMapping(mapping);
 
   if (href) {
@@ -68,7 +79,15 @@ function filterReferencedType(resourcetype:string, columnname:string) {
   };
 }
 
-function modifiedSince(value, query:TPreparedSql, mapping:TResourceDefinition) {
+function modifiedSince(
+  value: string,
+  query: TPreparedSql,
+  _parameter: string,
+  _tx: IDatabase<unknown, IClient>,
+  _doCount: boolean,
+  mapping: TResourceDefinition,
+  _urlParameters: ParsedUrlQuery
+) {
   const table = tableFromMapping(mapping);
 
   query.sql(` AND ${table}."$$meta.modified" >= `).param(value);

@@ -1,5 +1,8 @@
+import { IDatabase } from 'pg-promise';
 import { tableFromMapping } from './common';
 import { SriError, TPreparedSql, TResourceDefinition } from './typeDefinitions';
+import { IClient } from 'pg-promise/typescript/pg-subset';
+import { ParsedUrlQuery } from 'querystring';
 
 type TParsedParam = {
   key: string,
@@ -376,7 +379,15 @@ function getFieldBaseType(fieldType) {
  * @param parameter: the search param name (before the = sign)
  * @param mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
  */
-function defaultFilter (valueEnc:string, query:TPreparedSql, parameter: string, mapping: TResourceDefinition) {
+function defaultFilter(
+  valueEnc: string,
+  query: TPreparedSql,
+  parameter: string,
+  _tx: IDatabase<unknown, IClient>,
+  _doCount: boolean,
+  mapping: TResourceDefinition,
+  _urlParameters: ParsedUrlQuery
+) {
   const value = decodeURIComponent(valueEnc);
 
   // 1) Analyze parameter for postfixes, and determine the key of the resource mapping.
@@ -391,31 +402,33 @@ function defaultFilter (valueEnc:string, query:TPreparedSql, parameter: string, 
   if (field) {
     const baseType = getFieldBaseType(field.type);
     let filterFn;
-    if (baseType === 'text') {
+    if (baseType === "text") {
       filterFn = filterString;
-    } else if (baseType === 'numeric' || baseType === 'timestamp') {
+    } else if (baseType === "numeric" || baseType === "timestamp") {
       filterFn = filterNumericOrTimestamp;
-    } else if (baseType === 'array') {
+    } else if (baseType === "array") {
       filterFn = filterArray;
-    } else if (baseType === 'boolean') {
+    } else if (baseType === "boolean") {
       filterFn = filterBoolean;
-    } else if (baseType === 'json') {
+    } else if (baseType === "json") {
       filterFn = filterJson;
     }
 
     if (filterFn) {
       filterFn(query, filter, value, mapping, baseType, field);
     }
-  } else if (filter.key === 'q') {
+  } else if (filter.key === "q") {
     filterGeneral(query, value, getTextFieldsFromTable(informationSchema[idx]));
   } else {
     throw new SriError({
       status: 404,
-      errors: [{
-        code: 'invalid.query.parameter',
-        parameter,
-        possibleParameters: Object.keys(informationSchema[idx]),
-      }],
+      errors: [
+        {
+          code: "invalid.query.parameter",
+          parameter,
+          possibleParameters: Object.keys(informationSchema[idx]),
+        },
+      ],
     });
   }
 }

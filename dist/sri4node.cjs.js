@@ -2304,7 +2304,7 @@ function getFieldBaseType(fieldType) {
   }
   return null;
 }
-function defaultFilter(valueEnc, query, parameter, mapping) {
+function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlParameters) {
   const value2 = decodeURIComponent(valueEnc);
   const filter = analyseParameter(parameter);
   const { informationSchema: informationSchema2 } = global.sri4node_configuration;
@@ -2332,17 +2332,19 @@ function defaultFilter(valueEnc, query, parameter, mapping) {
   } else {
     throw new SriError({
       status: 404,
-      errors: [{
-        code: "invalid.query.parameter",
-        parameter,
-        possibleParameters: Object.keys(informationSchema2[idx])
-      }]
+      errors: [
+        {
+          code: "invalid.query.parameter",
+          parameter,
+          possibleParameters: Object.keys(informationSchema2[idx])
+        }
+      ]
     });
   }
 }
 
 // js/queryUtils.ts
-function filterHrefs(href, query, _parameter, mapping) {
+function filterHrefs(href, query, _parameter, _tx, _doCount, mapping, _urlParameters) {
   const table = tableFromMapping(mapping);
   if (href) {
     const permalinks = href.split(",");
@@ -2377,7 +2379,7 @@ function filterReferencedType(resourcetype, columnname) {
     }
   };
 }
-function modifiedSince(value2, query, mapping) {
+function modifiedSince(value2, query, _parameter, _tx, _doCount, mapping, _urlParameters) {
   const table = tableFromMapping(mapping);
   query.sql(` AND ${table}."$$meta.modified" >= `).param(value2);
   return query;
@@ -2587,27 +2589,30 @@ function executeExpansion(db, sriRequest, elements, mapping) {
 // js/listResource.ts
 var DEFAULT_LIMIT = 30;
 var MAX_LIMIT = 500;
-function applyRequestParameters(mapping, query, urlparameters, tx, count) {
+function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
   return __async(this, null, function* () {
     const standardParameters = ["orderBy", "descending", "limit", "keyOffset", "expand", "hrefs", "modifiedSince", "$$includeCount", "offset"];
     if (mapping.query) {
       yield (0, import_p_map5.default)(
         Object.keys(urlparameters),
         (key) => __async(this, null, function* () {
+          var _a, _b;
+          const currentUrlParam = urlparameters[key];
+          const keyAsString = typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
           if (!standardParameters.includes(key)) {
-            if (mapping.query[key] || mapping.query.defaultFilter) {
+            if (((_a = mapping.query) == null ? void 0 : _a[key]) || ((_b = mapping.query) == null ? void 0 : _b.defaultFilter)) {
               if (!mapping.query[key] && mapping.query.defaultFilter) {
-                yield mapping.query.defaultFilter(urlparameters[key], query, key, mapping, tx);
+                yield mapping.query.defaultFilter(keyAsString, query, key, tx, doCount, mapping, urlparameters);
               } else {
-                yield mapping.query[key](urlparameters[key], query, key, tx, count, mapping, urlparameters);
+                yield mapping.query[key](keyAsString, query, key, tx, doCount, mapping, urlparameters);
               }
             } else {
               throw new SriError({ status: 404, errors: [{ code: "unknown.query.parameter", parameter: key }] });
             }
           } else if (key === "hrefs" && urlparameters.hrefs) {
-            filterHrefs(urlparameters.hrefs, query, "hrefs", mapping);
+            filterHrefs(keyAsString, query, key, tx, doCount, mapping, urlparameters);
           } else if (key === "modifiedSince") {
-            modifiedSince(urlparameters.modifiedSince, query, mapping);
+            modifiedSince(keyAsString, query, key, tx, doCount, mapping, urlparameters);
           }
         }),
         { concurrency: 1 }
@@ -2615,12 +2620,13 @@ function applyRequestParameters(mapping, query, urlparameters, tx, count) {
     }
   });
 }
-function getSQLFromListResource(mapping, parameters, count, tx, query) {
+function getSQLFromListResource(mapping, parameters, doCount, tx, query) {
   return __async(this, null, function* () {
+    var _a, _b;
     const table = tableFromMapping(mapping);
     let sql;
     let columns;
-    if (parameters.expand && parameters.expand.toLowerCase() === "none") {
+    if (((_a = parameters.expand) == null ? void 0 : _a.toLowerCase()) === "none") {
       if (parameters.orderBy) {
         columns = parameters.orderBy.split(",").map((v) => `"${v}"`).join(",");
       } else {
@@ -2629,10 +2635,10 @@ function getSQLFromListResource(mapping, parameters, count, tx, query) {
     } else {
       columns = sqlColumnNames(
         mapping,
-        parameters.expand && parameters.expand.toLowerCase() === "summary"
+        ((_b = parameters.expand) == null ? void 0 : _b.toLowerCase()) === "summary"
       );
     }
-    if (count) {
+    if (doCount) {
       if (parameters["$$meta.deleted"] === "true") {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
       } else if (parameters["$$meta.deleted"] === "any") {
@@ -2655,7 +2661,7 @@ function getSQLFromListResource(mapping, parameters, count, tx, query) {
       query.sql(sql);
     }
     debug("trace", "listResource - applying URL parameters to WHERE clause");
-    yield applyRequestParameters(mapping, query, parameters, tx, count);
+    yield applyRequestParameters(mapping, query, parameters, tx, doCount);
   });
 }
 var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset) => {
@@ -3581,7 +3587,7 @@ __export(relationsFilter_exports, {
   toTypes: () => toTypesFilter,
   tos: () => tosFilter
 });
-function fromTypesFilter(value2, select, _key, _database, _count, mapping) {
+function fromTypesFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   var _a, _b;
   let sql;
   let fromCondition;
@@ -3602,7 +3608,7 @@ function fromTypesFilter(value2, select, _key, _database, _count, mapping) {
     select.text = sql;
   }
 }
-function toTypesFilter(value2, select, _key, _database, _count, mapping) {
+function toTypesFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   var _a, _b;
   let sql;
   let fromCondition;
@@ -3623,14 +3629,14 @@ function toTypesFilter(value2, select, _key, _database, _count, mapping) {
     select.text = sql;
   }
 }
-function fromsFilter(value2, select, _key, _database, _count, mapping) {
+function fromsFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   if (value2) {
     const table = tableFromMapping(mapping);
     const froms = value2.split(",").map((val) => val.split("/")[val.split("/").length - 1]);
     select.sql(` AND ${table}.from in (`).array(froms).sql(")");
   }
 }
-function tosFilter(value2, select, _key, _database, _count, mapping) {
+function tosFilter(value2, select, _key, _database, _doCount, mapping, _urlParameters) {
   if (value2) {
     const table = tableFromMapping(mapping);
     const tos = value2.split(",").map((val) => val.split("/")[val.split("/").length - 1]);

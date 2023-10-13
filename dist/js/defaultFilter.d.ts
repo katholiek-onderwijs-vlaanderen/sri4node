@@ -1,4 +1,8 @@
+/// <reference types="node" />
+import { IDatabase } from 'pg-promise';
 import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
+import { IClient } from 'pg-promise/typescript/pg-subset';
+import { ParsedUrlQuery } from 'querystring';
 /**
  * The default filter gets multiple arguments in order to analyze
  * how the user wants the result filtered.
@@ -22,5 +26,5 @@ import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
  * @param parameter: the search param name (before the = sign)
  * @param mapping: the matching record from the resources array that describes for the matched path what the resources at this address will look like
  */
-declare function defaultFilter(valueEnc: string, query: TPreparedSql, parameter: string, mapping: TResourceDefinition): void;
+declare function defaultFilter(valueEnc: string, query: TPreparedSql, parameter: string, _tx: IDatabase<unknown, IClient>, _doCount: boolean, mapping: TResourceDefinition, _urlParameters: ParsedUrlQuery): void;
 export { defaultFilter };
