@@ -2,9 +2,17 @@
 
 ## version 2.3.27 (11-10-2023)
 
-Removed useless manual check for whether a resource's json schema is valid, because ajv.compile
-checks this already. Also the manual check was too simple, so some valid schema's could fail
-for no reason.
+* Improved support for more complex json-schema's (containing oneOff/anyOf/allOf at the root for example)
+* It used to be that storing a string in a JSONB column would not work,
+  but that does work now, so it's easier to not worry too much anymore about the datatype
+  and use jsonb column for almost everything
+* Internal improvements:
+  * Improved 'npm run test' to only run a subset of all the tests. You can now run things like:
+    npm run test ./testBatch.ts ./testPutAndPatch.ts
+  * A few typing improvements.
+  * Updated signature of 'query' handlers, so they always have the same signature
+    (defaultFilter, queryUtils, relationsFilter + the user's own filters all have
+    the same signature now)
 
 ## version 2.3.26 (09-10-2023)
 
