@@ -866,10 +866,10 @@ function startTransaction(_0) {
         }));
         emitter.emit("txDone");
       } catch (err) {
-        if (err !== "txRejected") {
-          emitter.emit("txDone", err);
-        } else {
+        if (err === "txRejected" || err.message === "Client has encountered a connection error and is not queryable" && err.query === "rollback") {
           emitter.emit("txDone");
+        } else {
+          emitter.emit("txDone", err);
         }
       }
     });
@@ -4916,7 +4916,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   config: sriConfig,
                   mapping: customMapping,
                   streaming: true,
-                  readOnly: !!cr.readOnly,
+                  readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
                   isBatch: false
                 });
               } else if (cr.handler !== void 0) {
@@ -4944,7 +4944,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   config: sriConfig,
                   mapping: customMapping,
                   streaming: false,
-                  readOnly: !!cr.readOnly,
+                  readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
                   isBatch: false
                 });
               } else {

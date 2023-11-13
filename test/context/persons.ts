@@ -170,9 +170,9 @@ module.exports = function (sri4node: typeof Sri4Node) {
       },
       {
         routePostfix: '/:key/simple_slow',
-        httpMethods: ['GET'],
+        httpMethods: ['GET', 'POST'],
         handler: async (tx, sriRequest, customMapping) => {
-          await sleep(2000);
+          await sleep(3000);
           return simpleOutput(tx, sriRequest, customMapping);
         },
         beforeHandler: disallowOnePerson('da6dcc12-c46f-4626-a965-1a00536131b2'), // Ingrid Ohno

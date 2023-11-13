@@ -1154,7 +1154,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   config: sriConfig,
                   mapping: customMapping,
                   streaming: true,
-                  readOnly: !!cr.readOnly,
+                  readOnly: method.toUpperCase()==='GET' ? true : !!cr.readOnly,
                   isBatch: false,
                 });
               } else if (cr.handler !== undefined) {
@@ -1183,7 +1183,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
                   config: sriConfig,
                   mapping: customMapping,
                   streaming: false,
-                  readOnly: !!cr.readOnly,
+                  readOnly: method.toUpperCase()==='GET' ? true : !!cr.readOnly,
                   isBatch: false,
                 });
               } else {

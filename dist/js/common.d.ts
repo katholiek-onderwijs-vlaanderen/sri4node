@@ -258,8 +258,10 @@ declare function pgConnect(sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatab
  */
 declare function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined): pgPromise.PreparedStatement;
 declare function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<any>;
-declare function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<pgPromise.IResultExt>;
-declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode?: pgPromise.TransactionMode): Promise<{
+declare function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<pgPromise.IResultExt<unknown>>;
+declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode?: {
+    begin(cap?: boolean | undefined): string;
+}): Promise<{
     tx: pgPromise.ITask<any>;
     resolveTx: () => Promise<void>;
     rejectTx: () => Promise<void>;

@@ -147,7 +147,6 @@ describe('Sri4node SERVER TESTS', function () {
 
   runTestIfNeeded('./testSri4nodeConfigure.ts', [testContext, httpClient]);
 
-  // // require('./testOrderBy')(base);
   runTestIfNeeded('./testOrderBy.ts', [httpClient]);
   runTestIfNeeded('./testHooks.ts', [httpClient, dummyLogger]);
   runTestIfNeeded('./testCTE.ts', [httpClient]);
@@ -191,6 +190,8 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testDocs.ts', [httpClient]);
   runTestIfNeeded('./testInformationSchema.ts', [testContext]);
   runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
+
+  runTestIfNeeded('./testDbError.ts', [httpClient]);
 });
 
 export { };

@@ -1173,10 +1173,17 @@ async function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode 
       emitter.emit("txDone");
     } catch (err) {
       // 'txRejected' as err is expected behaviour in case rejectTx is called
-      if (err !== "txRejected") {
-        emitter.emit("txDone", err);
-      } else {
+      //
+      // Other possible "expected" error is the error which occurs after a db
+      // connection error (which already resulted in error for the current
+      // request). In that case the transaction rollback also generates
+      // an error, which we will ignore (unfortunatly pg-promise does nog use
+      // an error code so we need to check on the error message).
+      if (err === "txRejected"
+            || (err.message === "Client has encountered a connection error and is not queryable" && err.query === 'rollback')) {
         emitter.emit("txDone");
+      } else {
+        emitter.emit("txDone", err);
       }
     }
   };
