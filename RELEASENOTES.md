@@ -1,5 +1,8 @@
 # Release Notes
 
+## version 2.3.28 (13-11-2023)
+* Bugfix: avoid sri4node crash in case of a database connection error during a db transaction.
+
 ## version 2.3.27 (13-10-2023)
 
 * Improved support for more complex json-schema's (containing oneOff/anyOf/allOf at the root for example)
