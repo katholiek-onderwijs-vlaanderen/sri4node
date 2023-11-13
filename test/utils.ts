@@ -19,12 +19,12 @@ export default {
     if (req.headers.authorization) {
       const basic = req.headers.authorization
       const encoded = basic.substr(6)
-      const decoded = new Buffer(encoded, 'base64').toString('utf-8')
+      const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
       const firstColonIndex = decoded.indexOf(':')
 
       if (firstColonIndex !== -1) {
-        const username = decoded.substr(0, firstColonIndex)
-        const password = decoded.substr(firstColonIndex + 1)
+        const username = decoded.substring(0, firstColonIndex)
+        const password = decoded.substring(firstColonIndex + 1)
 
         const query = sri4node.utils.prepareSQL('me')
         query
