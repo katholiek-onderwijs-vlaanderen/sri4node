@@ -361,13 +361,10 @@ export function isStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TStrea
   return 'streamingHandler' in cr;
 }
 
-export type TResourceDefinition = {
+type TResourceDefinitionBase = {
   type: TUriPath;
   metaType: TResourceMetaType;
   methods?: THttpMethod[];
-
-  /** the database table to store the records, optional, inferred from typeif missing */
-  table?: string;
 
   // these next lines are put onto the same object afterwards, not by the user
   singleResourceRegex?: RegExp;
@@ -574,6 +571,17 @@ export type TResourceDefinition = {
   onlyCustom?: boolean;
   customRoutes?: Array<TCustomRoute>;
 };
+
+type TResourceDefinitionTable = TResourceDefinitionBase & {
+   /** the database table to store the records, optional, inferred from typeif missing and view is not specified */
+  table?: string
+};
+type TResourceDefinitionView = TResourceDefinitionBase & {
+  /** the database view where to read data */
+  view?: string
+};
+export type TResourceDefinition = TResourceDefinitionTable | TResourceDefinitionView;
+
 
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer:PhaseSyncer,
   tx:pgPromise.IDatabase<unknown>, sriRequest:TSriRequest, mapping:TResourceDefinition | null, internalUtils: TSriInternalUtils) => Promise<TSriResult>

@@ -39,10 +39,11 @@ const httpClient = httpClientMod.httpClientFactory(base);
  * @param testFileName
  * @param args
  */
-function runTestIfNeeded(testFileName: string, args: any[] | undefined = undefined) {
+function runTestIfNeeded(testFileName: string, args: unknown[] | undefined = undefined) {
   const underscoresIndex = process.argv.indexOf('--pick');
   const testsToRun = underscoresIndex >= 0 ? process.argv.slice(underscoresIndex + 1) : [];
   if (underscoresIndex < 0 || testsToRun.includes(testFileName)) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const t = require(testFileName);
     if (args !== undefined) {
       t(...args);
@@ -126,6 +127,7 @@ describe('Sri4node SERVER TESTS', function () {
           './context/foos',
           './context/bars',
           './context/complexSchema',
+          './context/messages_with_person_and_communities',
         ]);
       testContext.server = server;
       testContext.sriServerInstance = sriServerInstance;
@@ -144,6 +146,7 @@ describe('Sri4node SERVER TESTS', function () {
     sriServerInstance && (await sriServerInstance.close());
     console.log('Done.');
   });
+
 
   runTestIfNeeded('./testSri4nodeConfigure.ts', [testContext, httpClient]);
 
@@ -190,6 +193,7 @@ describe('Sri4node SERVER TESTS', function () {
   runTestIfNeeded('./testDocs.ts', [httpClient]);
   runTestIfNeeded('./testInformationSchema.ts', [testContext]);
   runTestIfNeeded('./testCustomRoutes.ts', [httpClient]);
+  runTestIfNeeded('./testView.ts', [httpClient]);
 
   runTestIfNeeded('./testDbError.ts', [httpClient]);
 });

@@ -600,7 +600,7 @@ function sqlColumnNames(mapping, summary = false) {
   const columnNames = summary ? Object.keys(mapping.map).filter(
     (c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")
   ) : Object.keys(mapping.map);
-  return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
+  return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified"` + (!("view" in mapping) ? `, "$$meta.version"` : "");
 }
 function transformRowToObject(row, resourceMapping) {
   const map = resourceMapping.map || {};
@@ -994,7 +994,7 @@ function getCountResult(tx, countquery, sriRequest) {
   });
 }
 function tableFromMapping(mapping) {
-  return mapping.table || _.last(mapping.type.split("/"));
+  return "table" in mapping ? mapping.table : _.last(mapping.type.split("/"));
 }
 function isEqualSriObject(obj1, obj2, mapping) {
   const relevantProperties = Object.keys(mapping.map);
@@ -3084,6 +3084,9 @@ function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
     const { key } = sriRequest.params;
     const patch = sriRequest.body || [];
     debug("trace", `PATCH processing starting key ${key}`);
+    if ("view" in mapping) {
+      throw new SriError({ status: 405, errors: [{ code: "patch.not.allowed", msg: "PATCH is not allowed on this view resource." }] });
+    }
     queryByKeyRequestKey(sriRequest, mapping, key);
     yield phaseSyncer.phase();
     const result = queryByKeyGetResult(sriRequest, mapping, key, false);
@@ -3105,6 +3108,9 @@ function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previ
     const obj = sriRequest.body;
     const table = tableFromMapping(mapping);
     debug("trace", `PUT processing starting for key ${key}`);
+    if ("view" in mapping) {
+      throw new SriError({ status: 405, errors: [{ code: "put.not.allowed", msg: "PUT is not allowed on this view resource." }] });
+    }
     if (obj.key !== void 0 && obj.key.toString() !== key) {
       throw new SriError({ status: 400, errors: [{ code: "key.mismatch", msg: "Key in the request url does not match the key in the body." }] });
     }
@@ -3388,6 +3394,9 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
     try {
       yield phaseSyncer.phase();
       debug("trace", "sri4node DELETE invoked");
+      if ("view" in mapping) {
+        throw new SriError({ status: 405, errors: [{ code: "delete.not.allowed", msg: "DELETE is not allowed on this view resource." }] });
+      }
       const { key } = sriRequest.params;
       queryByKeyRequestKey(sriRequest, mapping, key);
       yield phaseSyncer.phase();
@@ -4476,7 +4485,7 @@ function configure(app, sriConfig) {
         sriConfig.resources,
         (mapping) => __async(this, null, function* () {
           var _a, _b;
-          if (!mapping.onlyCustom) {
+          if (!mapping.onlyCustom && !("view" in mapping)) {
             const schema = ((_a = sriConfig.databaseConnectionParameters) == null ? void 0 : _a.schema) || ((_b = sriConfig.databaseLibraryInitOptions) == null ? void 0 : _b.schema);
             const schemaName = Array.isArray(schema) ? schema[0] : schema == null ? void 0 : schema.toString();
             yield installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);

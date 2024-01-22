@@ -797,7 +797,7 @@ function sqlColumnNames(mapping, summary = false) {
   return `${
     (columnNames.includes("key") ? "" : '"key",') +
     columnNames.map((c) => `"${c}"`).join(",")
-  }, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
+  }, "$$meta.deleted", "$$meta.created", "$$meta.modified"` + (!('view' in mapping) ? `, "$$meta.version"` : '');
 }
 
 /**
@@ -1375,7 +1375,7 @@ async function getCountResult(tx, countquery, sriRequest) {
  * @returns the correponding database table name
  */
 function tableFromMapping(mapping: TResourceDefinition) {
-  return mapping.table || _.last(mapping.type.split("/"));
+  return 'table' in mapping ? mapping.table : _.last(mapping.type.split("/"));
 }
 
 function isEqualSriObject(obj1, obj2, mapping) {

@@ -275,12 +275,10 @@ export type TCustomRoute = TLikeCustomRoute | TNonStreamingCustomRoute | TStream
 export declare function isLikeCustomRouteDefinition(cr: TCustomRoute): cr is TLikeCustomRoute;
 export declare function isNonStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TNonStreamingCustomRoute;
 export declare function isStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TStreamingCustomRoute;
-export type TResourceDefinition = {
+type TResourceDefinitionBase = {
     type: TUriPath;
     metaType: TResourceMetaType;
     methods?: THttpMethod[];
-    /** the database table to store the records, optional, inferred from typeif missing */
-    table?: string;
     singleResourceRegex?: RegExp;
     listResourceRegex?: RegExp;
     validateKey?: ValidateFunction;
@@ -338,6 +336,15 @@ export type TResourceDefinition = {
     onlyCustom?: boolean;
     customRoutes?: Array<TCustomRoute>;
 };
+type TResourceDefinitionTable = TResourceDefinitionBase & {
+    /** the database table to store the records, optional, inferred from typeif missing and view is not specified */
+    table?: string;
+};
+type TResourceDefinitionView = TResourceDefinitionBase & {
+    /** the database view where to read data */
+    view?: string;
+};
+export type TResourceDefinition = TResourceDefinitionTable | TResourceDefinitionView;
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer: PhaseSyncer, tx: pgPromise.IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition | null, internalUtils: TSriInternalUtils) => Promise<TSriResult>;
 export type TSriRequestHandlerForBatch = (sriRequest: TSriRequest, internalUtils: TSriInternalUtils) => Promise<TSriResult>;
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
@@ -504,3 +511,4 @@ export type FlattenedJsonSchema = {
         [jsonSchemaProperty: string]: unknown;
     };
 };
+export {};

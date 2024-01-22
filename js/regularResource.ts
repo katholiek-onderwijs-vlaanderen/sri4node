@@ -193,6 +193,10 @@ async function preparePatchInsideTransaction(phaseSyncer: PhaseSyncer, tx: IData
 
   debug('trace', `PATCH processing starting key ${key}`);
 
+  if ('view' in mapping) {
+    throw new SriError({ status: 405, errors: [{ code: 'patch.not.allowed', msg: 'PATCH is not allowed on this view resource.' }] });
+  }
+
   queryByKeyRequestKey(sriRequest, mapping, key);
   await phaseSyncer.phase();
   const result = queryByKeyGetResult(sriRequest, mapping, key, false);
@@ -233,6 +237,10 @@ async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sr
   const table = tableFromMapping(mapping);
 
   debug('trace', `PUT processing starting for key ${key}`);
+
+  if ('view' in mapping) {
+    throw new SriError({ status: 405, errors: [{ code: 'put.not.allowed', msg: 'PUT is not allowed on this view resource.' }] });
+  }
 
   if (obj.key !== undefined && obj.key.toString() !== key) {
     throw new SriError({ status: 400, errors: [{ code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }] })
@@ -567,6 +575,11 @@ async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unk
     await phaseSyncer.phase();
 
     debug('trace', 'sri4node DELETE invoked');
+
+    if ('view' in mapping) {
+      throw new SriError({ status: 405, errors: [{ code: 'delete.not.allowed', msg: 'DELETE is not allowed on this view resource.' }] });
+    }
+
     const { key } = sriRequest.params;
 
     queryByKeyRequestKey(sriRequest, mapping, key);

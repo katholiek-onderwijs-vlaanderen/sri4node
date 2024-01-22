@@ -662,7 +662,7 @@ async function configure(app: Application, sriConfig: TSriConfig) : Promise<TSri
     await pMap(
       sriConfig.resources,
       async (mapping) => {
-        if (!mapping.onlyCustom) {
+        if ((!mapping.onlyCustom) && !('view' in mapping)) {
           const schema = sriConfig.databaseConnectionParameters?.schema
                       || sriConfig.databaseLibraryInitOptions?.schema;
           const schemaName = Array.isArray(schema)

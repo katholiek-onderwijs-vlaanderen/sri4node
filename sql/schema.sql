@@ -292,3 +292,9 @@ feature, and we will configure the tests so that a new row is added on every con
 CREATE TABLE "db_connections" (
   "connect_time" timestamp with time zone not null default current_timestamp
 );
+
+CREATE VIEW messages_with_person_and_communities AS
+  SELECT m.key, p.firstname AS "personFirstname", p.lastname AS "personLastname", m.posted, m.type, m.title, m.description, m.amount, m.unit, c.name AS "communityName", m."$$meta.deleted", m."$$meta.modified", m."$$meta.created"
+  FROM messages m
+  LEFT JOIN persons p ON m.person = p.key
+  LEFT JOIN communities c ON m.community = c.key;

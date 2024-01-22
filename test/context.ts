@@ -21,6 +21,7 @@ let configCache: any = null;
 function config(sri4node, logdebug, dummyLogger, resourceFiles) {
   const config: TSriConfig = {
     // For debugging SQL can be logged.
+    // enablePgMonitor: true,
     logdebug,
     databaseConnectionParameters: {
       connectionString: "postgres://sri4node:sri4node@localhost:15432/postgres",
