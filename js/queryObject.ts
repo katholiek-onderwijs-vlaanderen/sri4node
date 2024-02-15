@@ -46,6 +46,21 @@ function prepareSQL(name?:string):TPreparedSql {
 
       return this;
     },
+    /**
+     * Adds an array of tuples to the SQL statement.
+     * @example
+     * ```
+     * prepareSQL()
+     *  .sql('select name from mytable where (name, code) in('))
+     *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+     *  .sql(')');
+     *
+     * prepareSQL()
+     *  .sql('select name from mytable where exists name, code in('))
+     *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+     *  .sql(')');
+     * ```
+     */
     arrayOfTuples(x:Array<Array<string | number | boolean>>) {
       x.forEach((tuple, i) => {
         this.text += "(";
@@ -60,6 +75,16 @@ function prepareSQL(name?:string):TPreparedSql {
           this.text += ",";
         }
       });
+      return this;
+    },
+    valueIn(valueRef:string, values:Array<string | number | boolean | Date>) {
+      this.text += ` EXISTS (SELECT 1 FROM (VALUES `;
+      this.arrayOfTuples(values.map((v) => [v]));
+      this.text += `) AS t(v) WHERE t.v = ${valueRef})`;
+      return this;
+    },
+    tupleIn(tupleRef:string, values:Array<Array<string | number | boolean | Date>>) {
+      throw new Error('Not implemented');
       return this;
     },
     keys(o) {

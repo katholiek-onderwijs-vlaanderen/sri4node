@@ -1,8 +1,9 @@
 import { IDatabase } from 'pg-promise';
 import { tableFromMapping } from './common';
-import { SriError, TPreparedSql, TResourceDefinition } from './typeDefinitions';
+import { SriError, TInformationSchema, TPreparedSql, TResourceDefinition, TSriConfig } from './typeDefinitions';
 import { IClient } from 'pg-promise/typescript/pg-subset';
 import { ParsedUrlQuery } from 'querystring';
+import { integer } from './schemaUtils';
 
 type TParsedParam = {
   key: string,
@@ -44,73 +45,121 @@ function analyseParameter(parameter:string):TParsedParam {
 }
 
 // filter function for text fields
-function filterString(select, filter, value, mapping) {
+function filterString(select: TPreparedSql, filter: TParsedParam, value: string, mapping: TResourceDefinition, baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null, _field: TInformationSchema[string][string]) {
   let values;
   const not = filter.postfix === 'Not';
   const sensitive = filter.prefix === 'CaseSensitive';
   const tablename = tableFromMapping(mapping);
 
   if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") < `).param(value);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") < `)
+      .param(value);
   } else if (filter.operator === 'Greater' && !not && sensitive || filter.operator === 'Less' && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") > `).param(value);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") > `)
+      .param(value);
   } else if (filter.operator === 'Greater' && not && !sensitive || filter.operator === 'Less' && !not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) < LOWER(`).param(value).sql(')');
+    select
+      .sql(` AND LOWER("${tablename}"."${filter.key}"::text) < LOWER(`)
+      .param(value)
+      .sql(")");
   } else if (filter.operator === 'Greater' && !not && !sensitive || filter.operator === 'Less' && not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) > LOWER(`).param(value).sql(')');
+    select
+      .sql(` AND LOWER("${tablename}"."${filter.key}"::text) > LOWER(`)
+      .param(value)
+      .sql(")");
   } else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && sensitive
     || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") <= `).param(value);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") <= `)
+      .param(value);
   } else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && sensitive
     || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") >= `).param(value);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") >= `)
+      .param(value);
   } else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && not && !sensitive
     || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && !not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) <= LOWER(`).param(value).sql(')');
+    select
+      .sql(` AND LOWER("${tablename}"."${filter.key}"::text) <= LOWER(`)
+      .param(value)
+      .sql(")");
   } else if ((filter.operator === 'GreaterOrEqual' || filter.operator === 'After') && !not && !sensitive
     || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) >= LOWER(`).param(value).sql(')');
+    select
+      .sql(` AND LOWER("${tablename}"."${filter.key}"::text) >= LOWER(`)
+      .param(value)
+      .sql(")");
   } else if (filter.operator === 'In' && not && sensitive) {
     values = value.split(',');
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND ( NOT `)
+      .valueIn(`"${tablename}"."${filter.key}"::text`, values)
+      .sql(` OR "${tablename}"."${filter.key}"::text IS NULL )`);
   } else if (filter.operator === 'In' && !not && sensitive) {
     values = value.split(',');
-    select.sql(` AND ${tablename}."${filter.key}"::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
+    select
+      .sql(` AND `)
+      .valueIn(`"${tablename}"."${filter.key}"::text`, values);
   } else if (filter.operator === 'In' && not && !sensitive) {
     values = value.split(',').map((v) => v.toLowerCase());
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND ( NOT `)
+      .valueIn(`LOWER("${tablename}"."${filter.key}"::text)`, values)
+      .sql(` OR "${tablename}"."${filter.key}"::text IS NULL )`);
   } else if (filter.operator === 'In' && !not && !sensitive) {
     values = value.split(',').map((v) => v.toLowerCase());
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
+    select
+      .sql(` AND `)
+      .valueIn(`LOWER("${tablename}"."${filter.key}"::text)`, values);
   } else if (filter.operator === 'RegEx' && not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text !~ `).param(value);
+    select.sql(` AND "${tablename}"."${filter.key}"::text !~ `).param(value);
   } else if (filter.operator === 'RegEx' && !not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ~ `).param(value);
+    select.sql(` AND "${tablename}"."${filter.key}"::text ~ `).param(value);
   } else if (filter.operator === 'RegEx' && not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text !~* `).param(value);
+    select.sql(` AND "${tablename}"."${filter.key}"::text !~* `).param(value);
   } else if (filter.operator === 'RegEx' && !not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ~* `).param(value);
+    select.sql(` AND "${tablename}"."${filter.key}"::text ~* `).param(value);
   } else if (filter.operator === 'Contains' && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT LIKE `).param(`%${value}%`).sql(` OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text NOT LIKE `)
+      .param(`%${value}%`)
+      .sql(` OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === 'Contains' && !not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text LIKE `).param(`%${value}%`);
+    select.sql(` AND "${tablename}"."${filter.key}"::text LIKE `).param(`%${value}%`);
   } else if (filter.operator === 'Contains' && not && !sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT ILIKE `).param(`%${value}%`).sql(` OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text NOT ILIKE `)
+      .param(`%${value}%`)
+      .sql(` OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === 'Contains' && !not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ILIKE `).param(`%${value}%`);
+    select
+      .sql(` AND "${tablename}"."${filter.key}"::text ILIKE `)
+      .param(`%${value}%`);
   } else if (not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text <> `).param(value).sql(` OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND ("${tablename}"."${filter.key}"::text <> `)
+      .param(value)
+      .sql(` OR ${filter.key}::text IS NULL)`);
   } else if (!not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text = `).param(value);
+    select.sql(` AND "${tablename}"."${filter.key}"::text = `).param(value);
   } else if (not && !sensitive) {
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) <> `).param(value.toLowerCase()).sql(` OR ${filter.key}::text IS NULL)`);
+    select
+      .sql(` AND (LOWER("${tablename}"."${filter.key}"::text) <> `)
+      .param(value.toLowerCase())
+      .sql(` OR ${filter.key}::text IS NULL)`);
   } else {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) = `).param(value.toLowerCase());
+    select
+      .sql(` AND LOWER("${tablename}"."${filter.key}"::text) = `)
+      .param(value.toLowerCase());
   }
 }
 
 // filter function for fields of type numeric or timestamp (the logic is the same)
-function filterNumericOrTimestamp(select, filter, value, _mapping, baseType) {
+function filterNumericOrTimestamp(select: TPreparedSql, filter: TParsedParam, value: string, _mapping: TResourceDefinition, baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null, _field: TInformationSchema[string][string]) {
+  const isTimestamp = baseType === 'timestamp';
+
   if (!filter.postfix && filter.operator === 'Less' || filter.operator === 'Greater' && filter.postfix === 'Not') {
     select.sql(` AND "${filter.key}" < `).param(value);
   } else if (!filter.postfix && (filter.operator === 'LessOrEqual' || filter.operator === 'Before')
@@ -123,16 +172,33 @@ function filterNumericOrTimestamp(select, filter, value, _mapping, baseType) {
     || (filter.operator === 'LessOrEqual' || filter.operator === 'Before') && filter.postfix === 'Not') {
     select.sql(` AND ("${filter.key}" >= `).param(value);
 
-    if (baseType === 'timestamp') {
+    if (isTimestamp) {
       select.sql(` OR "${filter.key}" IS NULL)`);
     } else {
       select.sql(')');
     }
   } else if (filter.operator === 'In') {
+    const parseFunc = isTimestamp ? (v:string) => v : Number.parseFloat;
     if (filter.postfix === 'Not') {
-      select.sql(` AND ("${filter.key}" NOT IN (`).array(value.split(',')).sql(`) OR "${filter.key}" IS NULL)`);
+      // TODO: make timstamps also use .valueIn !!!
+      if (isTimestamp) {
+        select
+          .sql(` AND ("${filter.key}" NOT IN (`)
+          .array(value.split(","))
+          .sql(`) OR "${filter.key}" IS NULL)`);
+      } else {
+        select
+          .sql(` AND ( NOT `)
+          .valueIn(isTimestamp ? `${filter.key}::text` : filter.key, value.split(",").map(v => parseFunc(v)))
+          .sql(` OR "${filter.key}" IS NULL )`);
+      }
     } else {
-      select.sql(` AND "${filter.key}" IN (`).array(value.split(',')).sql(')');
+      // TODO: make timstamps also use .valueIn !!!
+      if (isTimestamp) {
+        select.sql(` AND "${filter.key}" IN (`).array(value.split(',')).sql(')');
+      } else {
+        select.sql(` AND`).valueIn(filter.key, value.split(",").map(v => parseFunc(v)));
+      }
     }
   } else if (filter.postfix === 'Not') {
     select.sql(` AND "${filter.key}" <> `).param(value);
@@ -143,7 +209,7 @@ function filterNumericOrTimestamp(select, filter, value, _mapping, baseType) {
 
 // filter function for arrays. Important: since the schema doesn't specify the type of field of the array
 // we treat each object in a generic way (no string manipulation, only exact matches)
-function filterArray(select, filter, value, _mapping, _baseType, field) {
+function filterArray(select: TPreparedSql, filter: TParsedParam, value: string, _mapping: TResourceDefinition, _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null, field: TInformationSchema[string][string]) {
   const values = value.split(',');
 
   if (values.length > 0) {
@@ -181,7 +247,7 @@ function filterArray(select, filter, value, _mapping, _baseType, field) {
 }
 
 // filter function for boolean fields
-function filterBoolean(select, filter, value) {
+function filterBoolean(select: TPreparedSql, filter: TParsedParam, value: string, _mapping: TResourceDefinition, _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null, _field: TInformationSchema[string][string]) {
   if (value !== 'any') {
     if (filter.postfix === 'Not') {
       select.sql(' AND NOT ');
@@ -193,7 +259,7 @@ function filterBoolean(select, filter, value) {
   }
 }
 
-function filterJson(select, filter, value, _mapping) {
+function filterJson(select: TPreparedSql, filter: TParsedParam, value: string, mapping: TResourceDefinition, _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null, _field: TInformationSchema[string][string]) {
   const { path } = filter;
   if (path == null) {
     throw new SriError({
@@ -217,6 +283,7 @@ function filterJson(select, filter, value, _mapping) {
 
     const not = filter.postfix === 'Not';
     const sensitive = filter.prefix === 'CaseSensitive';
+    const tablename = tableFromMapping(mapping);
 
     if (filter.operator === 'Greater' && not && sensitive || filter.operator === 'Less' && !not && sensitive) {
       select.sql(` AND ${jsonKey}::text < `).param(value);
@@ -240,16 +307,29 @@ function filterJson(select, filter, value, _mapping) {
       select.sql(` AND LOWER(${jsonKey}::text) >= LOWER(`).param(value).sql(')');
     } else if (filter.operator === 'In' && not && sensitive) {
       const values = value.split(',');
-      select.sql(` AND (${jsonKey}::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+      select
+        .sql(` AND ( NOT `)
+        .valueIn(`${jsonKey}::text`, values)
+        .sql(` OR ${filter.key}::text IS NULL )`);
     } else if (filter.operator === 'In' && !not && sensitive) {
       const values = value.split(',');
-      select.sql(` AND ${jsonKey}::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
+      select
+        // .sql(` AND EXISTS (SELECT 1 FROM (VALUES `)
+        // .arrayOfTuples(values.map((v) => [v]))
+        // .sql(`) AS tin(v) WHERE tin.v = "${tablename}"."${filter.key}"::text )`);
+        .sql(` AND `)
+        .valueIn(`${jsonKey}::text`, values);
     } else if (filter.operator === 'In' && not && !sensitive) {
       const values = value.split(',').map((v) => v.toLowerCase());
-      select.sql(` AND (LOWER(${jsonKey}::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+      select
+        .sql(` AND ( NOT `)
+        .valueIn(`LOWER(${jsonKey}::text)`, values)
+        .sql(` OR ${filter.key}::text IS NULL )`);
     } else if (filter.operator === 'In' && !not && !sensitive) {
       const values = value.split(',').map((v) => v.toLowerCase());
-      select.sql(` AND LOWER(${jsonKey}::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
+      select
+        .sql(` AND `)
+        .valueIn(`LOWER(${jsonKey}::text)`, values);
     } else if (filter.operator === 'RegEx' && not && sensitive) {
       select.sql(` AND ${jsonKey}::text !~ `).param(value);
     } else if (filter.operator === 'RegEx' && !not && sensitive) {
@@ -394,9 +474,9 @@ function defaultFilter(
   const filter = analyseParameter(parameter);
 
   // 2) Find data type on database from information schema;
-  const { informationSchema } = global.sri4node_configuration;
+  const { informationSchema } = global.sri4node_configuration as TSriConfig;
   const idx = mapping.type;
-  const field = informationSchema[idx][filter.key];
+  const field: TInformationSchema[string][string] | null = informationSchema?.[idx][filter.key] ?? null;
 
   // 3) Extend the sql query with the correct WHERE clause.
   if (field) {
@@ -418,7 +498,7 @@ function defaultFilter(
       filterFn(query, filter, value, mapping, baseType, field);
     }
   } else if (filter.key === "q") {
-    filterGeneral(query, value, getTextFieldsFromTable(informationSchema[idx]));
+    filterGeneral(query, value, getTextFieldsFromTable(informationSchema?.[idx]));
   } else {
     throw new SriError({
       status: 404,
@@ -426,7 +506,7 @@ function defaultFilter(
         {
           code: "invalid.query.parameter",
           parameter,
-          possibleParameters: Object.keys(informationSchema[idx]),
+          possibleParameters: Object.keys(informationSchema?.[idx] ?? {}),
         },
       ],
     });

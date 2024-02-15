@@ -1867,6 +1867,21 @@ function prepareSQL(name) {
       }
       return this;
     },
+    /**
+     * Adds an array of tuples to the SQL statement.
+     * @example
+     * ```
+     * prepareSQL()
+     *  .sql('select name from mytable where (name, code) in('))
+     *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+     *  .sql(')');
+     *
+     * prepareSQL()
+     *  .sql('select name from mytable where exists name, code in('))
+     *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+     *  .sql(')');
+     * ```
+     */
     arrayOfTuples(x) {
       x.forEach((tuple, i) => {
         this.text += "(";
@@ -1881,6 +1896,16 @@ function prepareSQL(name) {
           this.text += ",";
         }
       });
+      return this;
+    },
+    valueIn(valueRef, values) {
+      this.text += ` EXISTS (SELECT 1 FROM (VALUES `;
+      this.arrayOfTuples(values.map((v) => [v]));
+      this.text += `) AS t(v) WHERE t.v = ${valueRef})`;
+      return this;
+    },
+    tupleIn(tupleRef, values) {
+      throw new Error("Not implemented");
       return this;
     },
     keys(o) {
@@ -2028,66 +2053,67 @@ function analyseParameter(parameter) {
     path: path2
   };
 }
-function filterString(select, filter, value2, mapping) {
+function filterString(select, filter, value2, mapping, baseType, _field) {
   let values;
   const not = filter.postfix === "Not";
   const sensitive = filter.prefix === "CaseSensitive";
   const tablename = tableFromMapping(mapping);
   if (filter.operator === "Greater" && not && sensitive || filter.operator === "Less" && !not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") < `).param(value2);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") < `).param(value2);
   } else if (filter.operator === "Greater" && !not && sensitive || filter.operator === "Less" && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") > `).param(value2);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") > `).param(value2);
   } else if (filter.operator === "Greater" && not && !sensitive || filter.operator === "Less" && !not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) < LOWER(`).param(value2).sql(")");
+    select.sql(` AND LOWER("${tablename}"."${filter.key}"::text) < LOWER(`).param(value2).sql(")");
   } else if (filter.operator === "Greater" && !not && !sensitive || filter.operator === "Less" && not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) > LOWER(`).param(value2).sql(")");
+    select.sql(` AND LOWER("${tablename}"."${filter.key}"::text) > LOWER(`).param(value2).sql(")");
   } else if ((filter.operator === "GreaterOrEqual" || filter.operator === "After") && not && sensitive || (filter.operator === "LessOrEqual" || filter.operator === "Before") && !not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") <= `).param(value2);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") <= `).param(value2);
   } else if ((filter.operator === "GreaterOrEqual" || filter.operator === "After") && !not && sensitive || (filter.operator === "LessOrEqual" || filter.operator === "Before") && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text COLLATE "C") >= `).param(value2);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text COLLATE "C") >= `).param(value2);
   } else if ((filter.operator === "GreaterOrEqual" || filter.operator === "After") && not && !sensitive || (filter.operator === "LessOrEqual" || filter.operator === "Before") && !not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) <= LOWER(`).param(value2).sql(")");
+    select.sql(` AND LOWER("${tablename}"."${filter.key}"::text) <= LOWER(`).param(value2).sql(")");
   } else if ((filter.operator === "GreaterOrEqual" || filter.operator === "After") && !not && !sensitive || (filter.operator === "LessOrEqual" || filter.operator === "Before") && not && !sensitive) {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) >= LOWER(`).param(value2).sql(")");
+    select.sql(` AND LOWER("${tablename}"."${filter.key}"::text) >= LOWER(`).param(value2).sql(")");
   } else if (filter.operator === "In" && not && sensitive) {
     values = value2.split(",");
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND ( NOT `).valueIn(`"${tablename}"."${filter.key}"::text`, values).sql(` OR "${tablename}"."${filter.key}"::text IS NULL )`);
   } else if (filter.operator === "In" && !not && sensitive) {
     values = value2.split(",");
-    select.sql(` AND ${tablename}."${filter.key}"::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
+    select.sql(` AND `).valueIn(`"${tablename}"."${filter.key}"::text`, values);
   } else if (filter.operator === "In" && not && !sensitive) {
     values = value2.split(",").map((v) => v.toLowerCase());
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND ( NOT `).valueIn(`LOWER("${tablename}"."${filter.key}"::text)`, values).sql(` OR "${tablename}"."${filter.key}"::text IS NULL )`);
   } else if (filter.operator === "In" && !not && !sensitive) {
     values = value2.split(",").map((v) => v.toLowerCase());
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
+    select.sql(` AND `).valueIn(`LOWER("${tablename}"."${filter.key}"::text)`, values);
   } else if (filter.operator === "RegEx" && not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text !~ `).param(value2);
+    select.sql(` AND "${tablename}"."${filter.key}"::text !~ `).param(value2);
   } else if (filter.operator === "RegEx" && !not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ~ `).param(value2);
+    select.sql(` AND "${tablename}"."${filter.key}"::text ~ `).param(value2);
   } else if (filter.operator === "RegEx" && not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text !~* `).param(value2);
+    select.sql(` AND "${tablename}"."${filter.key}"::text !~* `).param(value2);
   } else if (filter.operator === "RegEx" && !not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ~* `).param(value2);
+    select.sql(` AND "${tablename}"."${filter.key}"::text ~* `).param(value2);
   } else if (filter.operator === "Contains" && not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT LIKE `).param(`%${value2}%`).sql(` OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text NOT LIKE `).param(`%${value2}%`).sql(` OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === "Contains" && !not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text LIKE `).param(`%${value2}%`);
+    select.sql(` AND "${tablename}"."${filter.key}"::text LIKE `).param(`%${value2}%`);
   } else if (filter.operator === "Contains" && not && !sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT ILIKE `).param(`%${value2}%`).sql(` OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text NOT ILIKE `).param(`%${value2}%`).sql(` OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === "Contains" && !not && !sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text ILIKE `).param(`%${value2}%`);
+    select.sql(` AND "${tablename}"."${filter.key}"::text ILIKE `).param(`%${value2}%`);
   } else if (not && sensitive) {
-    select.sql(` AND (${tablename}."${filter.key}"::text <> `).param(value2).sql(` OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND ("${tablename}"."${filter.key}"::text <> `).param(value2).sql(` OR ${filter.key}::text IS NULL)`);
   } else if (!not && sensitive) {
-    select.sql(` AND ${tablename}."${filter.key}"::text = `).param(value2);
+    select.sql(` AND "${tablename}"."${filter.key}"::text = `).param(value2);
   } else if (not && !sensitive) {
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) <> `).param(value2.toLowerCase()).sql(` OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND (LOWER("${tablename}"."${filter.key}"::text) <> `).param(value2.toLowerCase()).sql(` OR ${filter.key}::text IS NULL)`);
   } else {
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) = `).param(value2.toLowerCase());
+    select.sql(` AND LOWER("${tablename}"."${filter.key}"::text) = `).param(value2.toLowerCase());
   }
 }
-function filterNumericOrTimestamp(select, filter, value2, _mapping, baseType) {
+function filterNumericOrTimestamp(select, filter, value2, _mapping, baseType, _field) {
+  const isTimestamp = baseType === "timestamp";
   if (!filter.postfix && filter.operator === "Less" || filter.operator === "Greater" && filter.postfix === "Not") {
     select.sql(` AND "${filter.key}" < `).param(value2);
   } else if (!filter.postfix && (filter.operator === "LessOrEqual" || filter.operator === "Before") || (filter.operator === "GreaterOrEqual" || filter.operator === "After") && filter.postfix === "Not") {
@@ -2096,16 +2122,25 @@ function filterNumericOrTimestamp(select, filter, value2, _mapping, baseType) {
     select.sql(` AND "${filter.key}" > `).param(value2);
   } else if (!filter.postfix && (filter.operator === "GreaterOrEqual" || filter.operator === "After") || (filter.operator === "LessOrEqual" || filter.operator === "Before") && filter.postfix === "Not") {
     select.sql(` AND ("${filter.key}" >= `).param(value2);
-    if (baseType === "timestamp") {
+    if (isTimestamp) {
       select.sql(` OR "${filter.key}" IS NULL)`);
     } else {
       select.sql(")");
     }
   } else if (filter.operator === "In") {
+    const parseFunc = isTimestamp ? (v) => v : Number.parseFloat;
     if (filter.postfix === "Not") {
-      select.sql(` AND ("${filter.key}" NOT IN (`).array(value2.split(",")).sql(`) OR "${filter.key}" IS NULL)`);
+      if (isTimestamp) {
+        select.sql(` AND ("${filter.key}" NOT IN (`).array(value2.split(",")).sql(`) OR "${filter.key}" IS NULL)`);
+      } else {
+        select.sql(` AND ( NOT `).valueIn(isTimestamp ? `${filter.key}::text` : filter.key, value2.split(",").map((v) => parseFunc(v))).sql(` OR "${filter.key}" IS NULL )`);
+      }
     } else {
-      select.sql(` AND "${filter.key}" IN (`).array(value2.split(",")).sql(")");
+      if (isTimestamp) {
+        select.sql(` AND "${filter.key}" IN (`).array(value2.split(",")).sql(")");
+      } else {
+        select.sql(` AND`).valueIn(filter.key, value2.split(",").map((v) => parseFunc(v)));
+      }
     }
   } else if (filter.postfix === "Not") {
     select.sql(` AND "${filter.key}" <> `).param(value2);
@@ -2140,7 +2175,7 @@ function filterArray(select, filter, value2, _mapping, _baseType, field) {
     select.sql(")");
   }
 }
-function filterBoolean(select, filter, value2) {
+function filterBoolean(select, filter, value2, _mapping, _baseType, _field) {
   if (value2 !== "any") {
     if (filter.postfix === "Not") {
       select.sql(" AND NOT ");
@@ -2150,7 +2185,7 @@ function filterBoolean(select, filter, value2) {
     select.sql(`"${filter.key}" = `).param(value2);
   }
 }
-function filterJson(select, filter, value2, _mapping) {
+function filterJson(select, filter, value2, mapping, _baseType, _field) {
   const { path: path2 } = filter;
   if (path2 == null) {
     throw new SriError({
@@ -2173,6 +2208,7 @@ function filterJson(select, filter, value2, _mapping) {
     jsonKey = `(${jsonKey})`;
     const not = filter.postfix === "Not";
     const sensitive = filter.prefix === "CaseSensitive";
+    const tablename = tableFromMapping(mapping);
     if (filter.operator === "Greater" && not && sensitive || filter.operator === "Less" && !not && sensitive) {
       select.sql(` AND ${jsonKey}::text < `).param(value2);
     } else if (filter.operator === "Greater" && !not && sensitive || filter.operator === "Less" && not && sensitive) {
@@ -2191,16 +2227,16 @@ function filterJson(select, filter, value2, _mapping) {
       select.sql(` AND LOWER(${jsonKey}::text) >= LOWER(`).param(value2).sql(")");
     } else if (filter.operator === "In" && not && sensitive) {
       const values = value2.split(",");
-      select.sql(` AND (${jsonKey}::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND ( NOT `).valueIn(`${jsonKey}::text`, values).sql(` OR ${filter.key}::text IS NULL )`);
     } else if (filter.operator === "In" && !not && sensitive) {
       const values = value2.split(",");
-      select.sql(` AND ${jsonKey}::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
+      select.sql(` AND `).valueIn(`${jsonKey}::text`, values);
     } else if (filter.operator === "In" && not && !sensitive) {
       const values = value2.split(",").map((v) => v.toLowerCase());
-      select.sql(` AND (LOWER(${jsonKey}::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND ( NOT `).valueIn(`LOWER(${jsonKey}::text)`, values).sql(` OR ${filter.key}::text IS NULL )`);
     } else if (filter.operator === "In" && !not && !sensitive) {
       const values = value2.split(",").map((v) => v.toLowerCase());
-      select.sql(` AND LOWER(${jsonKey}::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
+      select.sql(` AND `).valueIn(`LOWER(${jsonKey}::text)`, values);
     } else if (filter.operator === "RegEx" && not && sensitive) {
       select.sql(` AND ${jsonKey}::text !~ `).param(value2);
     } else if (filter.operator === "RegEx" && !not && sensitive) {
@@ -2283,11 +2319,12 @@ function getFieldBaseType(fieldType) {
   return null;
 }
 function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlParameters) {
+  var _a, _b;
   const value2 = decodeURIComponent(valueEnc);
   const filter = analyseParameter(parameter);
   const { informationSchema: informationSchema2 } = global.sri4node_configuration;
   const idx = mapping.type;
-  const field = informationSchema2[idx][filter.key];
+  const field = (_a = informationSchema2 == null ? void 0 : informationSchema2[idx][filter.key]) != null ? _a : null;
   if (field) {
     const baseType = getFieldBaseType(field.type);
     let filterFn;
@@ -2306,7 +2343,7 @@ function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlP
       filterFn(query, filter, value2, mapping, baseType, field);
     }
   } else if (filter.key === "q") {
-    filterGeneral(query, value2, getTextFieldsFromTable(informationSchema2[idx]));
+    filterGeneral(query, value2, getTextFieldsFromTable(informationSchema2 == null ? void 0 : informationSchema2[idx]));
   } else {
     throw new SriError({
       status: 404,
@@ -2314,7 +2351,7 @@ function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlP
         {
           code: "invalid.query.parameter",
           parameter,
-          possibleParameters: Object.keys(informationSchema2[idx])
+          possibleParameters: Object.keys((_b = informationSchema2 == null ? void 0 : informationSchema2[idx]) != null ? _b : {})
         }
       ]
     });
@@ -2418,13 +2455,13 @@ function informationSchema(db, sriConfig) {
     } else if (schema) {
       schemaParam = schema;
     }
-    query.sql(`SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
+    query.sql(
+      `SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
           LEFT JOIN information_schema.element_types e
             ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
                       = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
-          WHERE table_schema = `).param(schemaParam).sql(`AND EXISTS (
-            SELECT 1
-            FROM (VALUES `).arrayOfTuples(tableNames.map((tableName) => [tableName])).sql(`) AS t(table_name))`);
+          WHERE table_schema = `
+    ).param(schemaParam).sql(` AND`).valueIn("c.table_name", tableNames);
     const rowsByTable = _3.groupBy(yield pgExec(db, query), (r) => r.table_name);
     return Object.fromEntries(
       sriConfig.resources.filter((mapping) => !mapping.onlyCustom).map((mapping) => {

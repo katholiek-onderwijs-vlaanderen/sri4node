@@ -75,6 +75,26 @@ export type TPreparedSql = {
     values: (o: Record<string, string | number | boolean>) => TPreparedSql;
     array: (x: Array<string | number | boolean>) => TPreparedSql;
     arrayOfTuples(x: Array<Array<string | number | boolean>>): any;
+    /**
+     * Check if a value is in a list of values.
+     * You would think about 'x IN (list)' in SQL, but implementing it using an exists clause
+     * is better for performance.
+     * 'EXISTS (SELECT 1 FROM (VALUES (list[0]), (list[1]), ... (list[n])) as t(x) where t.x = x)'
+     *
+     * @param valueRef a string referencing the value to check like a column name or 'LOWER(columnname)'
+     * @param list an array of values to check against
+     */
+    valueIn(valueRef: string, list: Array<string | number | boolean | Date>): any;
+    /**
+     * Check if a tuple is in a list of tuples.
+     * You would think about '(x,y) IN (listOfTuples)' in SQL, but implementing it using an exists clause
+     * is better for performance.
+     * 'EXISTS (SELECT 1 FROM (VALUES (list[0][0],list[0][1]), ... (list[n][0],list[n][1])) as t(x) where t.x = (x,y))'
+     *
+     * @param valueRef a string referencing the tuple to check like a column name or 'LOWER(columnname)'
+     * @param list an array of tuples to check against
+     */
+    tupleIn(valueRef: string, list: Array<Array<string | number | boolean | Date>>): any;
     with: (nonrecursivequery: TPreparedSql, unionclause: string, recursivequery: TPreparedSql, virtualtablename: string) => TPreparedSql;
     appendQueryObject(queryObject2: TPreparedSql): TPreparedSql;
     toParameterizedSql: () => {
@@ -388,7 +408,7 @@ export type TSriConfig = {
     db?: pgPromise.IDatabase<unknown>;
     dbR?: pgPromise.IDatabase<unknown>;
     dbW?: pgPromise.IDatabase<unknown>;
-    informationSchema?: unknown;
+    informationSchema?: TInformationSchema;
     /** a short string that will be added to every request id while logging
      * (tis can help to differentiate between different api's while searching thourgh logs)
      */
