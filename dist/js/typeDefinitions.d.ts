@@ -1,5 +1,4 @@
 /// <reference types="node" />
-/// <reference types="express-serve-static-core" />
 /// <reference types="node" />
 /// <reference types="node" />
 import { Busboy, BusboyConfig } from 'busboy';
@@ -75,6 +74,7 @@ export type TPreparedSql = {
     keys: (o: Record<string, unknown>) => TPreparedSql;
     values: (o: Record<string, string | number | boolean>) => TPreparedSql;
     array: (x: Array<string | number | boolean>) => TPreparedSql;
+    arrayOfTuples(x: Array<Array<string | number | boolean>>): any;
     with: (nonrecursivequery: TPreparedSql, unionclause: string, recursivequery: TPreparedSql, virtualtablename: string) => TPreparedSql;
     appendQueryObject(queryObject2: TPreparedSql): TPreparedSql;
     toParameterizedSql: () => {

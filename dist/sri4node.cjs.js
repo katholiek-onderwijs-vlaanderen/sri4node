@@ -1895,7 +1895,7 @@ function prepareSQL(name) {
       return this;
     },
     array(x) {
-      if (x && x.length && x.length > 0) {
+      if (Array.isArray(x)) {
         for (let i = 0; i < x.length; i++) {
           this.param(x[i]);
           if (i < x.length - 1) {
@@ -1903,6 +1903,22 @@ function prepareSQL(name) {
           }
         }
       }
+      return this;
+    },
+    arrayOfTuples(x) {
+      x.forEach((tuple, i) => {
+        this.text += "(";
+        tuple.forEach((el, j) => {
+          this.param(el);
+          if (j < tuple.length - 1) {
+            this.text += ",";
+          }
+        });
+        this.text += ")";
+        if (i < x.length - 1) {
+          this.text += ",";
+        }
+      });
       return this;
     },
     keys(o) {
@@ -2073,16 +2089,16 @@ function filterString(select, filter, value2, mapping) {
     select.sql(` AND LOWER(${tablename}."${filter.key}"::text) >= LOWER(`).param(value2).sql(")");
   } else if (filter.operator === "In" && not && sensitive) {
     values = value2.split(",");
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND (${tablename}."${filter.key}"::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === "In" && !not && sensitive) {
     values = value2.split(",");
-    select.sql(` AND ${tablename}."${filter.key}"::text IN (`).array(values).sql(")");
+    select.sql(` AND ${tablename}."${filter.key}"::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
   } else if (filter.operator === "In" && not && !sensitive) {
     values = value2.split(",").map((v) => v.toLowerCase());
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === "In" && !not && !sensitive) {
     values = value2.split(",").map((v) => v.toLowerCase());
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) IN (`).array(values).sql(")");
+    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
   } else if (filter.operator === "RegEx" && not && sensitive) {
     select.sql(` AND ${tablename}."${filter.key}"::text !~ `).param(value2);
   } else if (filter.operator === "RegEx" && !not && sensitive) {
@@ -2213,16 +2229,16 @@ function filterJson(select, filter, value2, _mapping) {
       select.sql(` AND LOWER(${jsonKey}::text) >= LOWER(`).param(value2).sql(")");
     } else if (filter.operator === "In" && not && sensitive) {
       const values = value2.split(",");
-      select.sql(` AND (${jsonKey}::text NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND (${jsonKey}::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
     } else if (filter.operator === "In" && !not && sensitive) {
       const values = value2.split(",");
-      select.sql(` AND ${jsonKey}::text IN (`).array(values).sql(")");
+      select.sql(` AND ${jsonKey}::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
     } else if (filter.operator === "In" && not && !sensitive) {
       const values = value2.split(",").map((v) => v.toLowerCase());
-      select.sql(` AND (LOWER(${jsonKey}::text) NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND (LOWER(${jsonKey}::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
     } else if (filter.operator === "In" && !not && !sensitive) {
       const values = value2.split(",").map((v) => v.toLowerCase());
-      select.sql(` AND LOWER(${jsonKey}::text) IN (`).array(values).sql(")");
+      select.sql(` AND LOWER(${jsonKey}::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map((v) => [v])).sql(")");
     } else if (filter.operator === "RegEx" && not && sensitive) {
       select.sql(` AND ${jsonKey}::text !~ `).param(value2);
     } else if (filter.operator === "RegEx" && !not && sensitive) {
@@ -2446,14 +2462,7 @@ function informationSchema(db, sriConfig) {
                       = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
           WHERE table_schema = `).param(schemaParam).sql(`AND EXISTS (
             SELECT 1
-            FROM (VALUES`);
-    tableNames.forEach((tableName, index2) => {
-      if (index2 > 0) {
-        query.sql(",");
-      }
-      query.sql(`(`).param(tableName).sql(`)`);
-    });
-    query.sql(`) AS t(table_name))`);
+            FROM (VALUES `).arrayOfTuples(tableNames.map((tableName) => [tableName])).sql(`) AS t(table_name))`);
     const rowsByTable = import_lodash3.default.groupBy(yield pgExec(db, query), (r) => r.table_name);
     return Object.fromEntries(
       sriConfig.resources.filter((mapping) => !mapping.onlyCustom).map((mapping) => {

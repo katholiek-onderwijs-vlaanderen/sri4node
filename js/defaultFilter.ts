@@ -72,16 +72,16 @@ function filterString(select, filter, value, mapping) {
     select.sql(` AND LOWER(${tablename}."${filter.key}"::text) >= LOWER(`).param(value).sql(')');
   } else if (filter.operator === 'In' && not && sensitive) {
     values = value.split(',');
-    select.sql(` AND (${tablename}."${filter.key}"::text NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND (${tablename}."${filter.key}"::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === 'In' && !not && sensitive) {
     values = value.split(',');
-    select.sql(` AND ${tablename}."${filter.key}"::text IN (`).array(values).sql(')');
+    select.sql(` AND ${tablename}."${filter.key}"::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
   } else if (filter.operator === 'In' && not && !sensitive) {
     values = value.split(',').map((v) => v.toLowerCase());
-    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+    select.sql(` AND (LOWER(${tablename}."${filter.key}"::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
   } else if (filter.operator === 'In' && !not && !sensitive) {
     values = value.split(',').map((v) => v.toLowerCase());
-    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) IN (`).array(values).sql(')');
+    select.sql(` AND LOWER(${tablename}."${filter.key}"::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
   } else if (filter.operator === 'RegEx' && not && sensitive) {
     select.sql(` AND ${tablename}."${filter.key}"::text !~ `).param(value);
   } else if (filter.operator === 'RegEx' && !not && sensitive) {
@@ -240,16 +240,16 @@ function filterJson(select, filter, value, _mapping) {
       select.sql(` AND LOWER(${jsonKey}::text) >= LOWER(`).param(value).sql(')');
     } else if (filter.operator === 'In' && not && sensitive) {
       const values = value.split(',');
-      select.sql(` AND (${jsonKey}::text NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND (${jsonKey}::text NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
     } else if (filter.operator === 'In' && !not && sensitive) {
       const values = value.split(',');
-      select.sql(` AND ${jsonKey}::text IN (`).array(values).sql(')');
+      select.sql(` AND ${jsonKey}::text EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
     } else if (filter.operator === 'In' && not && !sensitive) {
       const values = value.split(',').map((v) => v.toLowerCase());
-      select.sql(` AND (LOWER(${jsonKey}::text) NOT IN (`).array(values).sql(`) OR ${filter.key}::text IS NULL)`);
+      select.sql(` AND (LOWER(${jsonKey}::text) NOT EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(`) OR ${filter.key}::text IS NULL)`);
     } else if (filter.operator === 'In' && !not && !sensitive) {
       const values = value.split(',').map((v) => v.toLowerCase());
-      select.sql(` AND LOWER(${jsonKey}::text) IN (`).array(values).sql(')');
+      select.sql(` AND LOWER(${jsonKey}::text) EXISTS (SELECT 1 FROM (VALUES `).arrayOfTuples(values.map(v => [v])).sql(')');
     } else if (filter.operator === 'RegEx' && not && sensitive) {
       select.sql(` AND ${jsonKey}::text !~ `).param(value);
     } else if (filter.operator === 'RegEx' && !not && sensitive) {

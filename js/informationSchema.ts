@@ -47,16 +47,17 @@ async function informationSchema(db: IDatabase<unknown>, sriConfig: TSriConfig):
     .param(schemaParam)
     .sql(`AND EXISTS (
             SELECT 1
-            FROM (VALUES`);
-  tableNames.forEach((tableName, index) => {
-    if (index > 0) {
-      query.sql(',');
-    }
-    query.sql(`(`)
-      .param(tableName)
-      .sql(`)`);
-  });
-  query.sql(`) AS t(table_name))`);
+            FROM (VALUES `).arrayOfTuples(tableNames.map((tableName) => [tableName]))
+  // tableNames.forEach((tableName, index) => {
+  //   if (index > 0) {
+  //     query.sql(',');
+  //   }
+  //   query.sql(`(`)
+  //     .param(tableName)
+  //     .sql(`)`);
+  // });
+  // query
+    .sql(`) AS t(table_name))`);
 
   const rowsByTable = _.groupBy(await common.pgExec(db, query), (r) => r.table_name);
 

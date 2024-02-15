@@ -35,8 +35,7 @@ function prepareSQL(name?:string):TPreparedSql {
     array(x:Array<string | number | boolean>) {
       // Convenience function for adding an array of values to a SQL statement.
       // The values are added comma-separated.
-
-      if (x && x.length && x.length > 0) {
+      if (Array.isArray(x)) {
         for (let i = 0; i < x.length; i++) {
           this.param(x[i]);
           if (i < x.length - 1) {
@@ -45,6 +44,22 @@ function prepareSQL(name?:string):TPreparedSql {
         }
       }
 
+      return this;
+    },
+    arrayOfTuples(x:Array<Array<string | number | boolean>>) {
+      x.forEach((tuple, i) => {
+        this.text += "(";
+        tuple.forEach((el, j) => {
+          this.param(el);
+          if (j < tuple.length - 1) {
+            this.text += ",";
+          }
+        });
+        this.text += ")";
+        if (i < x.length - 1) {
+          this.text += ",";
+        }
+      });
       return this;
     },
     keys(o) {
