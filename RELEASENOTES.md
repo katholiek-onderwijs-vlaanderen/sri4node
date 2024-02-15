@@ -1,5 +1,8 @@
 # Release Notes
 
+## version 2.3.29 (15-02-2024)
+* Improved information_schema query at start-up (using EXISTS instead of IN).
+
 ## version 2.3.28 (13-11-2023)
 * Bugfix: avoid sri4node crash in case of a database connection error during a db transaction.
 

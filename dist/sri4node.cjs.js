@@ -2440,13 +2440,20 @@ function informationSchema(db, sriConfig) {
     } else if (schema) {
       schemaParam = schema;
     }
-    query.sql(
-      `SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
-        LEFT JOIN information_schema.element_types e
-          ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
-                    = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
-        WHERE table_name in (`
-    ).array(tableNames).sql(") and table_schema = ").param(schemaParam);
+    query.sql(`SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
+          LEFT JOIN information_schema.element_types e
+            ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
+                      = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
+          WHERE table_schema = `).param(schemaParam).sql(`AND EXISTS (
+            SELECT 1
+            FROM (VALUES`);
+    tableNames.forEach((tableName, index2) => {
+      if (index2 > 0) {
+        query.sql(",");
+      }
+      query.sql(`(`).param(tableName).sql(`)`);
+    });
+    query.sql(`) AS t(table_name))`);
     const rowsByTable = import_lodash3.default.groupBy(yield pgExec(db, query), (r) => r.table_name);
     return Object.fromEntries(
       sriConfig.resources.filter((mapping) => !mapping.onlyCustom).map((mapping) => {
