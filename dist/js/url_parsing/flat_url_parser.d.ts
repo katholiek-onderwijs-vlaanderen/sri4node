@@ -21,4 +21,4 @@
  * @returns {String} the peggy grammar
  */
 declare function generateFlatQueryStringParserGrammar(flattenedJsonSchema: any): string;
-export { generateFlatQueryStringParserGrammar, };
+export { generateFlatQueryStringParserGrammar };

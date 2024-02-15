@@ -1,5 +1,5 @@
-import { error } from './common';
-import { TPreparedSql } from './typeDefinitions';
+import { error } from "./common";
+import { TPreparedSql } from "./typeDefinitions";
 /*
 A query object used to allow multiple functions to annotate a common piece for SQL
 independently from each other. For example : all 'query' functions in an sri4node
@@ -7,13 +7,13 @@ configuration can add pieces to the WHERE clause of a list resource.
 They can all add CTEs as well, without affecting one another.
 */
 
-const parameterPattern = '$?$?';
+const parameterPattern = "$?$?";
 
-function prepareSQL(name?:string):TPreparedSql {
+function prepareSQL(name?: string): TPreparedSql {
   return {
     name,
-    text: '',
-    params: [] as Array<string| number | boolean>,
+    text: "",
+    params: [] as Array<string | number | boolean>,
     param(x, noQuotes = false) {
       // Convenience function for adding a parameter to the text, it
       // automatically adds $x to the SQL text, and adds the supplied value
@@ -21,25 +21,25 @@ function prepareSQL(name?:string):TPreparedSql {
       this.params.push(x);
       this.text += parameterPattern;
       if (noQuotes) {
-        this.text += ':value';
+        this.text += ":value";
       }
 
       return this;
     },
-    sql(x:string) {
+    sql(x: string) {
       // Convenience function for adding a parameter to the SQL statement.
       this.text += x;
 
       return this;
     },
-    array(x:Array<string | number | boolean>) {
+    array(x: Array<string | number | boolean>) {
       // Convenience function for adding an array of values to a SQL statement.
       // The values are added comma-separated.
       if (Array.isArray(x)) {
         for (let i = 0; i < x.length; i++) {
           this.param(x[i]);
           if (i < x.length - 1) {
-            this.text += ',';
+            this.text += ",";
           }
         }
       }
@@ -61,7 +61,7 @@ function prepareSQL(name?:string):TPreparedSql {
      *  .sql(')');
      * ```
      */
-    arrayOfTuples(x:Array<Array<string | number | boolean>>) {
+    arrayOfTuples(x: Array<Array<string | number | boolean>>) {
       x.forEach((tuple, i) => {
         this.text += "(";
         tuple.forEach((el, j) => {
@@ -77,19 +77,19 @@ function prepareSQL(name?:string):TPreparedSql {
       });
       return this;
     },
-    valueIn(valueRef:string, values:Array<string | number | boolean | Date>) {
+    valueIn(valueRef: string, values: Array<string | number | boolean | Date>) {
       this.text += ` EXISTS (SELECT 1 FROM (VALUES `;
       this.arrayOfTuples(values.map((v) => [v]));
       this.text += `) AS t(v) WHERE t.v = ${valueRef})`;
       return this;
     },
-    tupleIn(tupleRef:string, values:Array<Array<string | number | boolean | Date>>) {
-      throw new Error('Not implemented');
+    tupleIn(tupleRef: string, values: Array<Array<string | number | boolean | Date>>) {
+      throw new Error("Not implemented");
       return this;
     },
     keys(o) {
       // Convenience function for adding all keys in an object (comma-separated)
-      const columnNames:string[] = [];
+      const columnNames: string[] = [];
       let key;
       let j;
 
@@ -98,11 +98,11 @@ function prepareSQL(name?:string):TPreparedSql {
           columnNames.push(key);
         }
       }
-      let sqlColumnNames = '';
+      let sqlColumnNames = "";
       for (j = 0; j < columnNames.length; j++) {
         sqlColumnNames += `"${columnNames[j]}"`;
         if (j < columnNames.length - 1) {
-          sqlColumnNames += ',';
+          sqlColumnNames += ",";
         }
       }
       this.text += sqlColumnNames;
@@ -118,7 +118,7 @@ function prepareSQL(name?:string):TPreparedSql {
       for (key in o) {
         if (Object.prototype.hasOwnProperty.call(o, key)) {
           if (!firstcolumn) {
-            this.text += ',';
+            this.text += ",";
           } else {
             firstcolumn = false;
           }
@@ -130,56 +130,56 @@ function prepareSQL(name?:string):TPreparedSql {
     },
     with(nonrecursivequery, unionclause, recursivequery, virtualtablename) {
       // Form : select.with(nonrecursiveterm,virtualtablename)
-      let tablename; let cte; let
-        countParamsInCurrentCtes = 0;
+      let tablename;
+      let cte;
+      let countParamsInCurrentCtes = 0;
 
       if (nonrecursivequery && unionclause && !recursivequery && !virtualtablename) {
         tablename = unionclause;
-        if (this.text.indexOf('WITH RECURSIVE') === -1) {
+        if (this.text.indexOf("WITH RECURSIVE") === -1) {
           this.text = `WITH RECURSIVE ${tablename} AS (${nonrecursivequery.text}) /*LASTCTE*/ ${this.text}`;
         } else {
           cte = `, ${tablename} AS (${nonrecursivequery.text}) /*LASTCTE*/ `;
           // Do not use text.replace() as this function special uses replacement patterns which can
           // interfere with our $$meta fields.
           // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
-          const textSplitted = this.text.split('/*LASTCTE*/');
+          const textSplitted = this.text.split("/*LASTCTE*/");
           countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
           this.text = textSplitted.join(cte);
         }
         this.params.splice(countParamsInCurrentCtes, 0, ...nonrecursivequery.params);
-      } else
+      }
       // Format : select.with(nonrecursiveterm, 'UNION' or 'UNION ALL', recursiveterm, virtualtablename)
-      if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
+      else if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
         unionclause = unionclause.toLowerCase().trim();
-        if (unionclause === 'union' || unionclause === 'union all') {
-          if (this.text.indexOf('WITH RECURSIVE') === -1) {
-            this.text = `WITH RECURSIVE ${virtualtablename
-            } AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ ${
-              this.text}`;
+        if (unionclause === "union" || unionclause === "union all") {
+          if (this.text.indexOf("WITH RECURSIVE") === -1) {
+            this.text = `WITH RECURSIVE ${virtualtablename} AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ ${this.text}`;
           } else {
-            cte = `, ${virtualtablename
-            } AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ `;
+            cte = `, ${virtualtablename} AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ `;
             // Do not use text.replace() as this function special uses replacement patterns which
             // can interfere with our $$meta fields.
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
-            const textSplitted = this.text.split('/*LASTCTE*/');
+            const textSplitted = this.text.split("/*LASTCTE*/");
             countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
             this.text = textSplitted.join(cte);
           }
           this.params.splice(
-            countParamsInCurrentCtes, 0, ...nonrecursivequery.params.concat(recursivequery.params)
+            countParamsInCurrentCtes,
+            0,
+            ...nonrecursivequery.params.concat(recursivequery.params),
           );
         } else {
-          throw new Error('Must use UNION or UNION ALL as union-clause');
+          throw new Error("Must use UNION or UNION ALL as union-clause");
         }
         tablename = virtualtablename;
       } else {
-        throw new Error('Parameter combination not supported...');
+        throw new Error("Parameter combination not supported...");
       }
 
       return this;
     },
-    toParameterizedSql():{ sql: string, values: Array<any> } {
+    toParameterizedSql(): { sql: string; values: Array<any> } {
       let { text } = this;
       const values = this.params;
       let paramCount = 1;
@@ -187,7 +187,8 @@ function prepareSQL(name?:string):TPreparedSql {
         for (let i = 0; i < values.length; i++) {
           const index = text.indexOf(parameterPattern);
           if (index === -1) {
-            const msg = 'Parameter count in query does not add up. Too few parameters in the query string';
+            const msg =
+              "Parameter count in query does not add up. Too few parameters in the query string";
             error(`** ${msg}`);
             throw new Error(msg);
           } else {
@@ -199,7 +200,8 @@ function prepareSQL(name?:string):TPreparedSql {
         }
         const index = text.indexOf(parameterPattern);
         if (index !== -1) {
-          const msg = 'Parameter count in query does not add up. Extra parameters in the query string.';
+          const msg =
+            "Parameter count in query does not add up. Extra parameters in the query string.";
           error(`** ${msg}`);
           throw new Error(msg);
         }
@@ -215,6 +217,4 @@ function prepareSQL(name?:string):TPreparedSql {
   };
 }
 
-export {
-  prepareSQL,
-};
+export { prepareSQL };

@@ -1,4 +1,4 @@
-import { THttpMethod, TBatchHandlerRecord, TSriRequestHandlerForBatch } from './typeDefinitions';
+import { THttpMethod, TBatchHandlerRecord, TSriRequestHandlerForBatch } from "./typeDefinitions";
 type TMatchedHref = {
     path: string;
     routeParams: any;
@@ -30,4 +30,4 @@ declare const batchOperation: TSriRequestHandlerForBatch;
  * It will return an object only containing status and no body, because the body is being streamed.
  */
 declare const batchOperationStreaming: TSriRequestHandlerForBatch;
-export { matchHref, matchBatch, batchOperation, batchOperationStreaming, };
+export { matchHref, matchBatch, batchOperation, batchOperationStreaming };

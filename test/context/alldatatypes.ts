@@ -1,27 +1,30 @@
-import { TResourceDefinition } from '../../sri4node';
+import { TResourceDefinition } from "../../sri4node";
 // import utils from '../utils';
-import * as Sri4Node from '../../index'
+import * as Sri4Node from "../../index";
 
-
-module.exports = function (sri4node: typeof Sri4Node) : TResourceDefinition {
+module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
   const $s = sri4node.schemaUtils;
   const $q = sri4node.queryUtils;
   const $m = sri4node.mapUtils;
 
   const checkRead = function (_tx, sriRequest, _elements) {
     const publicRoutes = [
-      '/alldatatypes?textIn=value',
-      '/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16',
+      "/alldatatypes?textIn=value",
+      "/alldatatypes/fd7e38e1-26c3-425e-9443-8a80722dfb16",
     ];
 
     if (sriRequest.userObject === undefined && !publicRoutes.includes(sriRequest.originalUrl)) {
-      throw new sriRequest.SriError({ status: 401, errors: [{ code: 'unauthorized' }] });
+      throw new sriRequest.SriError({ status: 401, errors: [{ code: "unauthorized" }] });
     }
   };
 
   const returnTestHeader = function (_tx, sriRequest, _elements) {
-    if (sriRequest.path === '/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3') {
-      throw new sriRequest.SriError({ status: 400, headers: { test: 'TestHeader' }, errors: [{ code: 'a.test.error.with.header' }] });
+    if (sriRequest.path === "/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3") {
+      throw new sriRequest.SriError({
+        status: 400,
+        headers: { test: "TestHeader" },
+        errors: [{ code: "a.test.error.with.header" }],
+      });
     }
   };
 
@@ -53,7 +56,7 @@ module.exports = function (sri4node: typeof Sri4Node) : TResourceDefinition {
           "A big integer field that will be sent as a string",
           undefined,
           undefined,
-          "[0-9]+"
+          "[0-9]+",
         ),
         numbersmallint: $s.integer("A numeric field."),
         numberdecimal: $s.numeric("A numeric field."),
@@ -65,7 +68,7 @@ module.exports = function (sri4node: typeof Sri4Node) : TResourceDefinition {
           "A big serial field that will be sent as a string",
           undefined,
           undefined,
-          "[0-9]+"
+          "[0-9]+",
         ),
       },
       required: [],

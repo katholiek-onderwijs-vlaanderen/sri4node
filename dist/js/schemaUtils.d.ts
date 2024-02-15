@@ -1,5 +1,5 @@
-import { JSONSchema4, JSONSchema4Object } from 'json-schema';
-import { FlattenedJsonSchema } from './typeDefinitions';
+import { JSONSchema4, JSONSchema4Object } from "json-schema";
+import { FlattenedJsonSchema } from "./typeDefinitions";
 /**
  * This will make sure we can easily find all possible dot-separated property names
  * by going through the keys in the object, because it will create a non-nested version

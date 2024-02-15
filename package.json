@@ -15,7 +15,7 @@
   },
   "scripts": {
     "//start": "node index.js",
-    "prepare": "( [ \"$(ls ./dist)\" = \"\" ] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE ) || echo \"[sri4node prepare script] dist/ folder already exists\"",
+    "prepare": "( \n case \"$(pwd)\" in \n  *\"/node_modules\"*) echo 'Not setting git core.hooksPath (installed as a dependency)';; \n *) git config core.hooksPath ./git-hooks && echo git core.hooksPath has been set to: $(git config core.hooksPath);; \n esac \n ); ( [ \"$(ls ./dist)\" = \"\" ] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE ) || echo \"[sri4node prepare script] dist/ folder already exists\"",
     "prebuild": "npm run clean",
     "build": "tsc --project .",
     "build:esbuild": "node esbuild.config.js && tsc --emitDeclarationOnly --declaration",
@@ -93,6 +93,7 @@
     "form-data": "^4.0.0",
     "iso-datestring-validator": "2.1.4",
     "kov-docker-utils": "git+https://github.com/katholiek-onderwijs-vlaanderen/kov-docker-utils.git",
+    "lint-staged": "^15.2.2",
     "mocha": "^10.2.0",
     "nodemon": "^2.0.19",
     "sinon": "^14.0.0",
@@ -120,5 +121,8 @@
     "url": "https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues"
   },
   "homepage": "https://github.com/katholiek-onderwijs-vlaanderen/sri4node",
-  "version": "2.3.29"
+  "version": "2.3.29",
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,css,md}": "npx prettier --write ."
+  }
 }

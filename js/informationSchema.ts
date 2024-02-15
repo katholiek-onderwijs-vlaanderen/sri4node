@@ -12,28 +12,31 @@ if(type === 'text') {
   // do something.
 }
 */
-import _ from 'lodash';
+import _ from "lodash";
 
-import { prepareSQL } from './queryObject';
-import * as common from './common';
-import { TInformationSchema, TSriConfig } from './typeDefinitions';
-import { IDatabase } from 'pg-promise';
+import { prepareSQL } from "./queryObject";
+import * as common from "./common";
+import { TInformationSchema, TSriConfig } from "./typeDefinitions";
+import { IDatabase } from "pg-promise";
 
 /**
  * Assumes that sriConfig.databaseConnectionParameters.schema is set to a single string !!!
  *
  */
-async function informationSchema(db: IDatabase<unknown>, sriConfig: TSriConfig): Promise<TInformationSchema> {
-  const tableNames = _.uniq(sriConfig.resources.map(mapping => common.tableFromMapping(mapping)));
-  const query = prepareSQL('information-schema');
+async function informationSchema(
+  db: IDatabase<unknown>,
+  sriConfig: TSriConfig,
+): Promise<TInformationSchema> {
+  const tableNames = _.uniq(sriConfig.resources.map((mapping) => common.tableFromMapping(mapping)));
+  const query = prepareSQL("information-schema");
   const { schema } = sriConfig.databaseConnectionParameters;
-  let schemaParam = 'public';
+  let schemaParam = "public";
   if (Array.isArray(schema)) {
     // eslint-disable-next-line prefer-destructuring
     schemaParam = schema[0];
     // prefer-destructuring would make this kind of ugly
     // ([schemaParam] = schema);
-  } else if (typeof schema === 'function') {
+  } else if (typeof schema === "function") {
     schemaParam = (await schema(db))?.toString() || schemaParam;
   } else if (schema) {
     schemaParam = schema;
@@ -44,7 +47,7 @@ async function informationSchema(db: IDatabase<unknown>, sriConfig: TSriConfig):
           LEFT JOIN information_schema.element_types e
             ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
                       = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
-          WHERE table_schema = `
+          WHERE table_schema = `,
     )
     .param(schemaParam)
     // .sql(`AND EXISTS (
@@ -58,17 +61,19 @@ async function informationSchema(db: IDatabase<unknown>, sriConfig: TSriConfig):
 
   return Object.fromEntries(
     sriConfig.resources
-      .filter(mapping => !mapping.onlyCustom)
-      .map(mapping => {
+      .filter((mapping) => !mapping.onlyCustom)
+      .map((mapping) => {
         return [
           mapping.type,
           Object.fromEntries(
-            rowsByTable[common.tableFromMapping(mapping)]
-              .map(c => [c.column_name, { type: c.data_type, element_type: c.element_type }]),
-          )];
-      }));
+            rowsByTable[common.tableFromMapping(mapping)].map((c) => [
+              c.column_name,
+              { type: c.data_type, element_type: c.element_type },
+            ]),
+          ),
+        ];
+      }),
+  );
 }
 
-export {
-  informationSchema,
-};
+export { informationSchema };

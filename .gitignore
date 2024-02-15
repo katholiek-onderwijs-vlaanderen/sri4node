@@ -7,3 +7,4 @@ npm-debug.log
 env.js
 .vscode
 sri4node_postgresdbfortests.*
+dist.test/

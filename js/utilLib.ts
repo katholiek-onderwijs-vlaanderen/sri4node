@@ -1,7 +1,7 @@
-import pMap from 'p-map';
-import { typeToConfig, pgExec, transformRowToObject } from './common';
-import { SriError, TSriRequest } from './typeDefinitions';
-import { prepareSQL } from './queryObject';
+import pMap from "p-map";
+import { typeToConfig, pgExec, transformRowToObject } from "./common";
+import { SriError, TSriRequest } from "./typeDefinitions";
+import { prepareSQL } from "./queryObject";
 
 /*
   Add references from a different resource to this resource.
@@ -11,44 +11,58 @@ import { prepareSQL } from './queryObject';
   */
 // TODO: refactor in v2.1 together with the whole expand story
 function addReferencingResources(
-  type: string, column: any, targetkey: string | number, excludeOnExpand: string | string[],
+  type: string,
+  column: any,
+  targetkey: string | number,
+  excludeOnExpand: string | string[],
 ) {
-  return async function (tx: any, sriRequest:TSriRequest, elements: { stored: any; }[]) {
+  return async function (tx: any, sriRequest: TSriRequest, elements: { stored: any }[]) {
     const { resources } = global.sri4node_configuration;
     const typeToMapping = typeToConfig(resources);
     const mapping = typeToMapping[type];
 
     if (Array.isArray(sriRequest.query.expand)) {
-      throw new SriError({ status: 500, errors: [{ code: 'multiple.expand.query.parameters.not.allowed', msg: 'Only one "expand" query parameter value can be specified.' }] });
+      throw new SriError({
+        status: 500,
+        errors: [
+          {
+            code: "multiple.expand.query.parameters.not.allowed",
+            msg: 'Only one "expand" query parameter value can be specified.',
+          },
+        ],
+      });
     }
 
-    const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : 'full';
+    const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : "full";
 
-    if (elements && elements.length && elements.length > 0 && expand !== 'none'
-        && (
-          (Array.isArray(excludeOnExpand) && !excludeOnExpand.includes(expand))
-          || !Array.isArray(excludeOnExpand)
-        )
+    if (
+      elements &&
+      elements.length &&
+      elements.length > 0 &&
+      expand !== "none" &&
+      ((Array.isArray(excludeOnExpand) && !excludeOnExpand.includes(expand)) ||
+        !Array.isArray(excludeOnExpand))
     ) {
-      const tablename = type.split('/')[type.split('/').length - 1];
+      const tablename = type.split("/")[type.split("/").length - 1];
       const query = prepareSQL();
-      const elementKeys:string[] = [];
+      const elementKeys: string[] = [];
       const elementKeysToElement = {};
       elements.forEach(({ stored: element }) => {
         const { permalink } = element.$$meta;
-        const elementKey = permalink.split('/')[2];
+        const elementKey = permalink.split("/")[2];
         elementKeys.push(elementKey);
         elementKeysToElement[elementKey] = element;
         element[targetkey] = [];
       });
 
-      query.sql(`select *, "${column}" as fkey from ${
-        tablename} where "${column}" in (`).array(elementKeys)
+      query
+        .sql(`select *, "${column}" as fkey from ${tablename} where "${column}" in (`)
+        .array(elementKeys)
         .sql(') and "$$meta.deleted" = false');
       const rows = await pgExec(tx, query);
-      await pMap(rows, async (row:Record<string,any>) => {
+      await pMap(rows, async (row: Record<string, any>) => {
         const element = elementKeysToElement[row.fkey];
-        const target:any = { href: `${type}/${row.key}` };
+        const target: any = { href: `${type}/${row.key}` };
 
         target.$$expanded = await transformRowToObject(row, mapping);
         element[targetkey].push(target);
@@ -57,6 +71,4 @@ function addReferencingResources(
   };
 }
 
-export {
-  addReferencingResources,
-};
+export { addReferencingResources };

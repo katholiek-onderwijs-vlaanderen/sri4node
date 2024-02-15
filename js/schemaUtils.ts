@@ -1,5 +1,5 @@
-import { JSONSchema4, JSONSchema4Object } from 'json-schema';
-import { FlattenedJsonSchema } from './typeDefinitions';
+import { JSONSchema4, JSONSchema4Object } from "json-schema";
+import { FlattenedJsonSchema } from "./typeDefinitions";
 
 /**
  * This will make sure we can easily find all possible dot-separated property names
@@ -33,32 +33,33 @@ import { FlattenedJsonSchema } from './typeDefinitions';
  * @returns a version of the json schema where every property name if on the top-level
  *          but with dot notation
  */
-function flattenJsonSchema(jsonSchema:JSONSchema4, pathToCurrent:string[] = [])
-:FlattenedJsonSchema {
+function flattenJsonSchema(
+  jsonSchema: JSONSchema4,
+  pathToCurrent: string[] = [],
+): FlattenedJsonSchema {
   // TODO: support oneOf, anyOf, allOf !!!
-  if (jsonSchema.type === 'object') {
+  if (jsonSchema.type === "object") {
     // old skool modification of an object is a bit easier to reason about in this case
     const retVal = {};
-    Object.entries(jsonSchema.properties || {})
-      .forEach(([pName, pSchema]) => {
-        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
-      });
+    Object.entries(jsonSchema.properties || {}).forEach(([pName, pSchema]) => {
+      Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, pName]));
+    });
     return retVal;
   }
-  if (jsonSchema.type === 'array') {
+  if (jsonSchema.type === "array") {
     // return Object.fromEntries(flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']);
     const retVal = {};
     if (Array.isArray(jsonSchema.items)) {
       jsonSchema.items?.forEach((pSchema) => {
-        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, '[*]']));
+        Object.assign(retVal, flattenJsonSchema(pSchema, [...pathToCurrent, "[*]"]));
       });
     } else if (jsonSchema.items) {
-      Object.assign(retVal, flattenJsonSchema(jsonSchema.items, [...pathToCurrent, '[*]']));
+      Object.assign(retVal, flattenJsonSchema(jsonSchema.items, [...pathToCurrent, "[*]"]));
     }
     return retVal;
   }
   const flattenedName = pathToCurrent.reduce((a, c) => {
-    if (c === '[*]') {
+    if (c === "[*]") {
       return `${a}${c}`;
     }
     return `${a}.${c}`;
@@ -70,21 +71,26 @@ function permalink(type: string, description: string): JSONSchema4 {
   const name = type.substring(1);
 
   return {
-    type: 'object',
+    type: "object",
     properties: {
       href: {
-        type: 'string',
+        type: "string",
         pattern: `^/${name}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`,
         description,
       },
     },
-    required: ['href'],
+    required: ["href"],
   };
 }
 
-function string(description: string, min?:number, max?:number, pattern?:string|string[]): JSONSchema4 {
-  const ret:JSONSchema4 = {
-    type: 'string',
+function string(
+  description: string,
+  min?: number,
+  max?: number,
+  pattern?: string | string[],
+): JSONSchema4 {
+  const ret: JSONSchema4 = {
+    type: "string",
     description,
   };
   if (min) {
@@ -95,7 +101,7 @@ function string(description: string, min?:number, max?:number, pattern?:string|s
   }
   if (pattern) {
     if (Array.isArray(pattern)) {
-      ret.oneOf = pattern.map( p => ({pattern: p}))
+      ret.oneOf = pattern.map((p) => ({ pattern: p }));
     } else {
       ret.pattern = pattern;
     }
@@ -104,9 +110,9 @@ function string(description: string, min?:number, max?:number, pattern?:string|s
   return ret;
 }
 
-function numeric(description: string, min?:number, max?:number): JSONSchema4 {
-  const ret:JSONSchema4 = {
-    type: 'number',
+function numeric(description: string, min?: number, max?: number): JSONSchema4 {
+  const ret: JSONSchema4 = {
+    type: "number",
     description,
   };
   if (min || min === 0) {
@@ -119,9 +125,9 @@ function numeric(description: string, min?:number, max?:number): JSONSchema4 {
   return ret;
 }
 
-function integer(description: string, min?:number, max?:number): JSONSchema4 {
-  const ret:JSONSchema4 = {
-    type: 'integer',
+function integer(description: string, min?: number, max?: number): JSONSchema4 {
+  const ret: JSONSchema4 = {
+    type: "integer",
     description,
   };
   if (min || min === 0) {
@@ -134,13 +140,13 @@ function integer(description: string, min?:number, max?:number): JSONSchema4 {
   return ret;
 }
 
-// email fun is used in mailer-api; 
+// email fun is used in mailer-api;
 // sam-api creates its own schema part with pattern: "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
 //   ==> add it here ?
 function email(description: string): JSONSchema4 {
   return {
-    type: 'string',
-    format: 'email',
+    type: "string",
+    format: "email",
     minLength: 1,
     maxLength: 254,
     description,
@@ -149,18 +155,18 @@ function email(description: string): JSONSchema4 {
 
 function url(description: string): JSONSchema4 {
   return {
-    type: 'string',
+    type: "string",
     minLength: 1,
     maxLength: 2000,
-    format: 'uri',
+    format: "uri",
     description,
   };
 }
 
 function belgianzipcode(description: string): JSONSchema4 {
   return {
-    type: 'string',
-    pattern: '^[0-9][0-9][0-9][0-9]$',
+    type: "string",
+    pattern: "^[0-9][0-9][0-9][0-9]$",
     description,
   };
 }
@@ -168,8 +174,8 @@ function belgianzipcode(description: string): JSONSchema4 {
 // seems to be only used in sri4node tests
 function phone(description: string): JSONSchema4 {
   return {
-    type: 'string',
-    pattern: '^[0-9]*$',
+    type: "string",
+    pattern: "^[0-9]*$",
     minLength: 9,
     maxLength: 10,
     description,
@@ -178,52 +184,53 @@ function phone(description: string): JSONSchema4 {
 
 function guid(description: string): JSONSchema4 {
   return {
-    type: 'string',
+    type: "string",
     description,
-    pattern: '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
-
+    pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
   };
 }
 
 function timestamp(description: string): JSONSchema4 {
   return {
-    type: 'string',
-    format: 'date-time',
+    type: "string",
+    format: "date-time",
     description,
   };
 }
 
 function boolean(description: string): JSONSchema4 {
   return {
-    type: 'boolean',
+    type: "boolean",
     description,
   };
 }
 
-function array(description: string, type?: "string" | "number" | "boolean" | JSONSchema4Object): JSONSchema4 {
-  const ret:JSONSchema4 = {
-    type: 'array',
+function array(
+  description: string,
+  type?: "string" | "number" | "boolean" | JSONSchema4Object,
+): JSONSchema4 {
+  const ret: JSONSchema4 = {
+    type: "array",
     description,
   };
-  if (type!==undefined) {
+  if (type !== undefined) {
     if (type instanceof Object) {
-      ret.items = { ...type }
+      ret.items = { ...type };
     } else {
-      ret.items =  { type };
+      ret.items = { type };
     }
   }
   return ret;
 }
 
 function enumeration(description: string, values: string[]): JSONSchema4 {
-  const ret:JSONSchema4 = {
-    type: 'string',
+  const ret: JSONSchema4 = {
+    type: "string",
     description,
     enum: values,
   };
   return ret;
 }
-
 
 function patchSchemaToDisallowAdditionalProperties(schema) {
   // TODO: support oenOf, allOf, anyOf
@@ -231,8 +238,10 @@ function patchSchemaToDisallowAdditionalProperties(schema) {
   if (patchedSchema.properties && patchedSchema.additionalProperties === undefined) {
     patchedSchema.additionalProperties = false;
     patchedSchema.properties = Object.fromEntries(
-      Object.entries(patchedSchema.properties)
-        .map((e) => [e[0], patchSchemaToDisallowAdditionalProperties(e[1])]),
+      Object.entries(patchedSchema.properties).map((e) => [
+        e[0],
+        patchSchemaToDisallowAdditionalProperties(e[1]),
+      ]),
     );
   }
   return patchedSchema;
@@ -254,4 +263,4 @@ export {
   array,
   enumeration,
   patchSchemaToDisallowAdditionalProperties,
-}
+};

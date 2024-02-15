@@ -1,70 +1,75 @@
 import { TSriConfig } from "../../js/typeDefinitions";
 
-import { assert } from 'chai';
-import { hrefToParsedObjectFactory, hrtimeToMilliseconds, sortUrlQueryParamParseTree } from '../../js/common';
+import { assert } from "chai";
+import {
+  hrefToParsedObjectFactory,
+  hrtimeToMilliseconds,
+  sortUrlQueryParamParseTree,
+} from "../../js/common";
 
 // const { generateNonFlatQueryStringParserGrammar, mergeArrays } = require('../../js/url_parsing/non_flat_url_parser')
 
-import * as $u from '../../js/schemaUtils';
+import * as $u from "../../js/schemaUtils";
 
-const sriConfig:TSriConfig = {
+const sriConfig: TSriConfig = {
   resources: [
     {
-      type: '/persons',
-      metaType: 'PERSON',
+      type: "/persons",
+      metaType: "PERSON",
       defaultlimit: 100,
       maxlimit: 1000,
       // is there a thing like defaultexpansion ???
       listResultDefaultIncludeCount: false,
       schema: {
-        "type": "object",
-        "properties": {
-          "$$meta": {
-            "type": "object",
-            "properties": {
-              "permalink": {
-                "type": "string",
-                "pattern": "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        type: "object",
+        properties: {
+          $$meta: {
+            type: "object",
+            properties: {
+              permalink: {
+                type: "string",
+                pattern: "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
               },
-              "schema": {
-                "type": "string",
-                "description": "A link to the json schema for /persons.",
-                "pattern": "^/persons/schema$"
+              schema: {
+                type: "string",
+                description: "A link to the json schema for /persons.",
+                pattern: "^/persons/schema$",
               },
-              "created": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was created (or imported if it was created before the import)."
+              created: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was created (or imported if it was created before the import).",
               },
-              "modified": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was last modified (or imported if it was last modified before the import)."
+              modified: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was last modified (or imported if it was last modified before the import).",
               },
-              "deleted": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted."
+              deleted: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted.",
               },
-              "type": {
-                "enum": [
-                  "PERSON"
-                ]
-              }
-            }
+              type: {
+                enum: ["PERSON"],
+              },
+            },
           },
-          "key": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          key: {
+            type: "string",
+            pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
           },
-          "sex": {
-            "enum": [
-              "FEMALE",
-              "MALE"
-            ]
+          sex: {
+            enum: ["FEMALE", "MALE"],
           },
-          "title": {
-            "enum": [
+          title: {
+            enum: [
               "Eerwaarde pater",
               "Ingenieur",
               "Hoogleraar",
@@ -74,287 +79,281 @@ const sriConfig:TSriConfig = {
               "Doctor",
               "Kanunnik",
               "Professor",
-              "Mevrouw"
-            ]
+              "Mevrouw",
+            ],
           },
-          "firstName": {
-            "type": "string",
-            "pattern": "^[^\\s!\\?\\.0-9][^!\\?\\.0-9]*[^\\s!\\?\\.0-9]$|^[^\\s!\\?\\.0-9]$",
-            "minLength": 1,
-            "maxLength": 63
+          firstName: {
+            type: "string",
+            pattern: "^[^\\s!\\?\\.0-9][^!\\?\\.0-9]*[^\\s!\\?\\.0-9]$|^[^\\s!\\?\\.0-9]$",
+            minLength: 1,
+            maxLength: 63,
           },
-          "lastName": {
-            "type": "string",
-            "pattern": "^[^\\s!\\?\\.0-9][^!\\?\\.0-9]*[^\\s!\\?\\.0-9]$|^[^\\s!\\?\\.0-9]$",
-            "minLength": 1,
-            "maxLength": 64
+          lastName: {
+            type: "string",
+            pattern: "^[^\\s!\\?\\.0-9][^!\\?\\.0-9]*[^\\s!\\?\\.0-9]$|^[^\\s!\\?\\.0-9]$",
+            minLength: 1,
+            maxLength: 64,
           },
-          "username": {
-            "type": "string",
-            "pattern": "^[a-z0-9]+([\\._\\-][a-z0-9]+)*$",
-            "minLength": 1,
-            "maxLength": 128
+          username: {
+            type: "string",
+            pattern: "^[a-z0-9]+([\\._\\-][a-z0-9]+)*$",
+            minLength: 1,
+            maxLength: 128,
           },
-          "dateOfBirth": {
-            "type": "string",
-            "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$"
+          dateOfBirth: {
+            type: "string",
+            pattern: "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$",
           },
-          "registrationNumber": {
-            "type": "string",
-            "pattern": "^[1-2][0-9]{2}[0-1][0-9][0-3][0-9][0-9]{4}$"
+          registrationNumber: {
+            type: "string",
+            pattern: "^[1-2][0-9]{2}[0-1][0-9][0-3][0-9][0-9]{4}$",
           },
-          "nationalIdentityNumber": {
-            "type": "string",
-            "pattern": "^[0-9]{2}[0-1][0-9][0-3][0-9] [0-9]{3} [0-9]{2}$"
+          nationalIdentityNumber: {
+            type: "string",
+            pattern: "^[0-9]{2}[0-1][0-9][0-3][0-9] [0-9]{3} [0-9]{2}$",
           },
-          "deceased": {
-            "type": "boolean",
-            "description": "If not present it is false."
+          deceased: {
+            type: "boolean",
+            description: "If not present it is false.",
           },
-          "emailAddresses": {
-            "type": "object",
-            "properties": {
-              "primary": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+          emailAddresses: {
+            type: "object",
+            properties: {
+              primary: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
+                required: ["href"],
               },
-              "office": {
-                "type": "object",
-                "description": "This is the secundary e-mailAddress. The property name is wrong, but to many clients depend on it to change it.",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+              office: {
+                type: "object",
+                description:
+                  "This is the secundary e-mailAddress. The property name is wrong, but to many clients depend on it to change it.",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
-              }
-            }
+                required: ["href"],
+              },
+            },
           },
-          "addresses": {
-            "type": "object",
-            "properties": {
-              "personal": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+          addresses: {
+            type: "object",
+            properties: {
+              personal: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
+                required: ["href"],
               },
-              "office": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+              office: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
-              }
-            }
+                required: ["href"],
+              },
+            },
           },
-          "phones": {
-            "type": "object",
-            "properties": {
-              "personal": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+          phones: {
+            type: "object",
+            properties: {
+              personal: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
+                required: ["href"],
               },
-              "office": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+              office: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
+                required: ["href"],
               },
-              "mobile": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+              mobile: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/contactdetails/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
-              }
-            }
+                required: ["href"],
+              },
+            },
           },
-          "bankAccounts": {
-            "type": "object",
-            "properties": {
-              "wages": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/bankaccounts/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+          bankAccounts: {
+            type: "object",
+            properties: {
+              wages: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/bankaccounts/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
+                required: ["href"],
               },
-              "expenseNotes": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/bankaccounts/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
+              expenseNotes: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/bankaccounts/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
                 },
-                "required": [
-                  "href"
-                ]
-              }
-            }
-          }
+                required: ["href"],
+              },
+            },
+          },
         },
-        "required": [
-          "key",
-          "firstName",
-          "lastName",
-          "username"
-        ]
+        required: ["key", "firstName", "lastName", "username"],
       },
     },
     {
-      type: '/organisations',
-      metaType: 'ORGANISATION',
+      type: "/organisations",
+      metaType: "ORGANISATION",
       defaultlimit: 20,
       maxlimit: 200,
       listResultDefaultIncludeCount: true,
       schema: {
-        "type": "object",
-        "properties": {
-          "$$meta": {
-            "type": "object",
-            "properties": {
-              "permalink": {
-                "type": "string",
-                "pattern": "^/organisations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        type: "object",
+        properties: {
+          $$meta: {
+            type: "object",
+            properties: {
+              permalink: {
+                type: "string",
+                pattern:
+                  "^/organisations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
               },
-              "docs": {
-                "type": "string",
-                "description": "A link to the documentation for organisations."
+              docs: {
+                type: "string",
+                description: "A link to the documentation for organisations.",
               },
-              "schema": {
-                "type": "string",
-                "pattern": "^/organisations/schema$",
-                "description": "link to the json schema for organisations"
+              schema: {
+                type: "string",
+                pattern: "^/organisations/schema$",
+                description: "link to the json schema for organisations",
               },
-              "type": {
-                "enum": [
-                  "ORGANISATION"
-                ]
-              }
-            }
+              type: {
+                enum: ["ORGANISATION"],
+              },
+            },
           },
-          "key": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          key: {
+            type: "string",
+            pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
           },
-          "$$currentName": {
-            "type": "string",
-            "description": "The name of the detail, that is applicable today. It is recommended to use $$name, since it will also work for inactive organisations."
+          $$currentName: {
+            type: "string",
+            description:
+              "The name of the detail, that is applicable today. It is recommended to use $$name, since it will also work for inactive organisations.",
           },
-          "$$name": {
-            "type": "string",
-            "description": "If the organisation is active today, it is the name of the detail that is applicable today. If the organisation was only active in the past, it is the name of the last detail. If the organisation is only active in the future, it is the name of the first detail."
+          $$name: {
+            type: "string",
+            description:
+              "If the organisation is active today, it is the name of the detail that is applicable today. If the organisation was only active in the past, it is the name of the last detail. If the organisation is only active in the future, it is the name of the first detail.",
           },
-          "$$startDate": {
-            "type": "string",
-            "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
-            "description": "The start date of the organisation. This is the startDate of the first detail."
+          $$startDate: {
+            type: "string",
+            pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+            description:
+              "The start date of the organisation. This is the startDate of the first detail.",
           },
-          "$$endDate": {
-            "type": "string",
-            "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
-            "description": "The end date of the organisation. This is the endDate of the last detail."
+          $$endDate: {
+            type: "string",
+            pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+            description:
+              "The end date of the organisation. This is the endDate of the last detail.",
           },
-          "institutionNumber": {
-            "type": "string",
-            "pattern": "^[0-9]{6}$"
+          institutionNumber: {
+            type: "string",
+            pattern: "^[0-9]{6}$",
           },
-          "purpose": {
-            "type": "object",
-            "properties": {
-              "description": {
-                "type": "string",
-                "maxLength": 255
+          purpose: {
+            type: "object",
+            properties: {
+              description: {
+                type: "string",
+                maxLength: 255,
               },
-              "vakgebied": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/vakgebieden/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
-                }
+              vakgebied: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/vakgebieden/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                },
               },
-              "studiegebied": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/studiegebieden/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
-                }
+              studiegebied: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/studiegebieden/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                },
               },
-              "theme": {
-                "type": "object",
-                "properties": {
-                  "href": {
-                    "type": "string",
-                    "pattern": "^/themes/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
-                }
+              theme: {
+                type: "object",
+                properties: {
+                  href: {
+                    type: "string",
+                    pattern:
+                      "^/themes/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                },
               },
-              "mainstructures": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "href": {
-                      "type": "string",
-                      "pattern": "^/mainstructures/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                    }
-                  }
-                }
+              mainstructures: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    href: {
+                      type: "string",
+                      pattern:
+                        "^/mainstructures/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                    },
+                  },
+                },
               },
-              "ouTypeOfTargetGroup": {
-                "enum": [
+              ouTypeOfTargetGroup: {
+                enum: [
                   "SCHOOL",
                   "SCHOOLLOCATION",
                   "BOARDING",
@@ -363,132 +362,119 @@ const sriConfig:TSriConfig = {
                   "CLBLOCATION",
                   "CVO",
                   "GOVERNINGINSTITUTION",
-                  "SCHOOLCOMMUNITY"
-                ]
-              }
-            }
+                  "SCHOOLCOMMUNITY",
+                ],
+              },
+            },
           },
-          "details": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          details: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              properties: {
+                key: {
+                  type: "string",
+                  pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
                 },
-                "startDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                startDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "endDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                endDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "name": {
-                  "type": "string",
-                  "maxLength": 128
+                name: {
+                  type: "string",
+                  maxLength: 128,
                 },
-                "shortName": {
-                  "type": "string",
-                  "maxLength": 36
+                shortName: {
+                  type: "string",
+                  maxLength: 36,
                 },
-                "callName": {
-                  "type": "string",
-                  "maxLength": 128
+                callName: {
+                  type: "string",
+                  maxLength: 128,
                 },
-                "statute": {
-                  "enum": [
+                statute: {
+                  enum: [
                     "BVBA",
                     "FEITELIJKE_VERENIGING",
                     "KOEPELVZW",
                     "NV",
                     "ONBEKEND",
                     "OVERHEID",
-                    "VZW"
-                  ]
-                }
+                    "VZW",
+                  ],
+                },
               },
-              "required": [
-                "key",
-                "startDate",
-                "name",
-                "shortName"
-              ]
-            }
+              required: ["key", "startDate", "name", "shortName"],
+            },
           },
-          "seatAddresses": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          seatAddresses: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                key: {
+                  type: "string",
+                  pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
                 },
-                "startDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                startDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "endDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                endDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "address": {
-                  "type": "object",
-                  "properties": {
-                    "street": {
-                      "type": "string"
+                address: {
+                  type: "object",
+                  properties: {
+                    street: {
+                      type: "string",
                     },
-                    "houseNumber": {
-                      "type": "string"
+                    houseNumber: {
+                      type: "string",
                     },
-                    "mailboxNumber": {
-                      "type": "string"
+                    mailboxNumber: {
+                      type: "string",
                     },
-                    "zipCode": {
-                      "type": "string"
+                    zipCode: {
+                      type: "string",
                     },
-                    "city": {
-                      "type": "string"
+                    city: {
+                      type: "string",
                     },
-                    "subCity": {
-                      "type": "string"
+                    subCity: {
+                      type: "string",
                     },
-                    "country": {
-                      "type": "string"
+                    country: {
+                      type: "string",
                     },
-                    "streetHref": {
-                      "type": "string"
+                    streetHref: {
+                      type: "string",
                     },
-                    "subCityHref": {
-                      "type": "string"
+                    subCityHref: {
+                      type: "string",
                     },
-                    "countryHref": {
-                      "type": "string"
-                    }
+                    countryHref: {
+                      type: "string",
+                    },
                   },
-                  "required": [
-                    "zipCode",
-                    "city",
-                    "country",
-                    "countryHref"
-                  ]
-                }
+                  required: ["zipCode", "city", "country", "countryHref"],
+                },
               },
-              "required": [
-                "key",
-                "startDate",
-                "address"
-              ]
-            }
+              required: ["key", "startDate", "address"],
+            },
           },
-          "addresses": {
-            "description": "This is depricated. Don't use it anymore! Use seatAddresses and locations"
+          addresses: {
+            description:
+              "This is depricated. Don't use it anymore! Use seatAddresses and locations",
           },
-          "type": {
-            "enum": [
+          type: {
+            enum: [
               "ANDERE",
               "BISDOM",
               "DIENST",
@@ -498,572 +484,542 @@ const sriConfig:TSriConfig = {
               "LEERPLANCOMMISSIE",
               "PROJECTGROEP",
               "VERGADERGROEP",
-              "LERARENNETWERK"
-            ]
+              "LERARENNETWERK",
+            ],
           },
-          "sensitive": {
-            "type": "boolean"
+          sensitive: {
+            type: "boolean",
           },
-          "locations": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          locations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                key: {
+                  type: "string",
+                  pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
                 },
-                "startDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                startDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "endDate": {
-                  "type": "string",
-                  "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                endDate: {
+                  type: "string",
+                  pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
                 },
-                "address": {
-                  "type": "object",
-                  "properties": {
-                    "street": {
-                      "type": "string"
+                address: {
+                  type: "object",
+                  properties: {
+                    street: {
+                      type: "string",
                     },
-                    "houseNumber": {
-                      "type": "string"
+                    houseNumber: {
+                      type: "string",
                     },
-                    "mailboxNumber": {
-                      "type": "string"
+                    mailboxNumber: {
+                      type: "string",
                     },
-                    "zipCode": {
-                      "type": "string"
+                    zipCode: {
+                      type: "string",
                     },
-                    "city": {
-                      "type": "string"
+                    city: {
+                      type: "string",
                     },
-                    "subCity": {
-                      "type": "string"
+                    subCity: {
+                      type: "string",
                     },
-                    "country": {
-                      "type": "string"
+                    country: {
+                      type: "string",
                     },
-                    "streetHref": {
-                      "type": "string"
+                    streetHref: {
+                      type: "string",
                     },
-                    "subCityHref": {
-                      "type": "string"
+                    subCityHref: {
+                      type: "string",
                     },
-                    "countryHref": {
-                      "type": "string"
-                    }
+                    countryHref: {
+                      type: "string",
+                    },
                   },
-                  "required": [
-                    "zipCode",
-                    "city",
-                    "country",
-                    "countryHref"
-                  ]
-                }
+                  required: ["zipCode", "city", "country", "countryHref"],
+                },
               },
-              "required": [
-                "key",
-                "startDate",
-                "address"
-              ]
-            }
-          },
-          "telecoms": {
-            "type": "object",
-            "properties": {
-              "phones": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                    },
-                    "number": {
-                      "type": "string",
-                      "oneOf": [
-                        {
-                          "pattern": "^0[15-8][0-9] [0-9]{2} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^0[2-3] [0-9]{3} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^0[49] [23][0-9]{2} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^04[0-9]{2} [0-9]{2} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^\\+[0-9]{7}[0-9]{0,8}$"
-                        },
-                        {
-                          "pattern": "^0800 [0-9]{2} [0-9]{3}$"
-                        }
-                      ]
-                    },
-                    "priority": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "number",
-                    "priority"
-                  ]
-                }
-              },
-              "faxes": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                    },
-                    "number": {
-                      "type": "string",
-                      "oneOf": [
-                        {
-                          "pattern": "^0[15-8][0-9] [0-9]{2} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^0[2-3] [0-9]{3} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^0[49] [23][0-9]{2} [0-9]{2} [0-9]{2}$"
-                        },
-                        {
-                          "pattern": "^\\+[0-9]{7}[0-9]{0,8}$"
-                        },
-                        {
-                          "pattern": "^0800 [0-9]{2} [0-9]{3}$"
-                        }
-                      ]
-                    },
-                    "priority": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "number",
-                    "priority"
-                  ]
-                }
-              },
-              "emails": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                    },
-                    "address": {
-                      "type": "string",
-                      "pattern": "^[_a-zA-Z0-9-&]+(\\.[_a-zA-Z0-9-&]+)*@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z][a-zA-Z]+$"
-                    },
-                    "priority": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "address",
-                    "priority"
-                  ]
-                }
-              },
-              "websites": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                    },
-                    "url": {
-                      "type": "string",
-                      "pattern": "^http\\://[a-zA-Z0-9\\-\\.]+\\.[a-zA-Z][a-zA-Z]+(/.*)*(\\?.*){0,1}$"
-                    },
-                    "priority": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "url",
-                    "priority"
-                  ]
-                }
-              }
+              required: ["key", "startDate", "address"],
             },
-            "required": [
-              "phones",
-              "faxes",
-              "emails",
-              "websites"
-            ]
           },
-          "$$relations": {
-            "type": "object",
-            "description": "For now they are ignored by the PUT operation",
-            "properties": {
-              "subOrganisations": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "href": {
-                      "type": "string"
+          telecoms: {
+            type: "object",
+            properties: {
+              phones: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
                     },
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                    number: {
+                      type: "string",
+                      oneOf: [
+                        {
+                          pattern: "^0[15-8][0-9] [0-9]{2} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^0[2-3] [0-9]{3} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^0[49] [23][0-9]{2} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^04[0-9]{2} [0-9]{2} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^\\+[0-9]{7}[0-9]{0,8}$",
+                        },
+                        {
+                          pattern: "^0800 [0-9]{2} [0-9]{3}$",
+                        },
+                      ],
                     },
-                    "startDate": {
-                      "type": "string",
-                      "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                    priority: {
+                      type: "integer",
                     },
-                    "endDate": {
-                      "type": "string",
-                      "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
-                    }
-                  }
-                }
+                  },
+                  required: ["key", "number", "priority"],
+                },
               },
-              "headOrganisations": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "href": {
-                      "type": "string"
+              faxes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
                     },
-                    "key": {
-                      "type": "string",
-                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                    number: {
+                      type: "string",
+                      oneOf: [
+                        {
+                          pattern: "^0[15-8][0-9] [0-9]{2} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^0[2-3] [0-9]{3} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^0[49] [23][0-9]{2} [0-9]{2} [0-9]{2}$",
+                        },
+                        {
+                          pattern: "^\\+[0-9]{7}[0-9]{0,8}$",
+                        },
+                        {
+                          pattern: "^0800 [0-9]{2} [0-9]{3}$",
+                        },
+                      ],
                     },
-                    "startDate": {
-                      "type": "string",
-                      "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
+                    priority: {
+                      type: "integer",
                     },
-                    "endDate": {
-                      "type": "string",
-                      "pattern": "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$"
-                    }
-                  }
-                }
-              }
-            }
-          }
+                  },
+                  required: ["key", "number", "priority"],
+                },
+              },
+              emails: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                    },
+                    address: {
+                      type: "string",
+                      pattern:
+                        "^[_a-zA-Z0-9-&]+(\\.[_a-zA-Z0-9-&]+)*@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z][a-zA-Z]+$",
+                    },
+                    priority: {
+                      type: "integer",
+                    },
+                  },
+                  required: ["key", "address", "priority"],
+                },
+              },
+              websites: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                    },
+                    url: {
+                      type: "string",
+                      pattern:
+                        "^http\\://[a-zA-Z0-9\\-\\.]+\\.[a-zA-Z][a-zA-Z]+(/.*)*(\\?.*){0,1}$",
+                    },
+                    priority: {
+                      type: "integer",
+                    },
+                  },
+                  required: ["key", "url", "priority"],
+                },
+              },
+            },
+            required: ["phones", "faxes", "emails", "websites"],
+          },
+          $$relations: {
+            type: "object",
+            description: "For now they are ignored by the PUT operation",
+            properties: {
+              subOrganisations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    href: {
+                      type: "string",
+                    },
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                    },
+                    startDate: {
+                      type: "string",
+                      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+                    },
+                    endDate: {
+                      type: "string",
+                      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+                    },
+                  },
+                },
+              },
+              headOrganisations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    href: {
+                      type: "string",
+                    },
+                    key: {
+                      type: "string",
+                      pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                    },
+                    startDate: {
+                      type: "string",
+                      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+                    },
+                    endDate: {
+                      type: "string",
+                      pattern: "^[1-2][0-9]{3}-[0-1][0-9]-[0-3][0-9]$",
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
-        "required": [
-          "key",
-          "details",
-          "type",
-          "telecoms"
-        ]
+        required: ["key", "details", "type", "telecoms"],
       },
     },
     {
-      type: '/responsibilities',
-      metaType: 'RESPONSIBILITY',
+      type: "/responsibilities",
+      metaType: "RESPONSIBILITY",
       // defaultlimit: 50, // removed on purpose to check the default sri4node limits
       // maxlimit: 500, // removed on purpose to check the default sri4node limits
       // listResultDefaultIncludeCount: true, // removed on purpose to check the default sri4node limits
       schema: {
-        "type": "object",
-        "properties": {
-          "$$meta": {
-            "type": "object",
-            "properties": {
-              "permalink": {
-                "type": "string",
-                "pattern": "^/responsibilities/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        type: "object",
+        properties: {
+          $$meta: {
+            type: "object",
+            properties: {
+              permalink: {
+                type: "string",
+                pattern:
+                  "^/responsibilities/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
               },
-              "schema": {
-                "type": "string",
-                "description": "A link to the json schema for /responsibilities.",
-                "pattern": "^/responsibilities/schema$"
+              schema: {
+                type: "string",
+                description: "A link to the json schema for /responsibilities.",
+                pattern: "^/responsibilities/schema$",
               },
-              "created": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was created (or imported if it was created before the import)."
+              created: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was created (or imported if it was created before the import).",
               },
-              "modified": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was last modified (or imported if it was last modified before the import)."
+              modified: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was last modified (or imported if it was last modified before the import).",
               },
-              "deleted": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted."
+              deleted: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted.",
               },
-              "type": {
-                "enum": [
-                  "RESPONSIBILITY"
-                ]
-              }
-            }
-          },
-          "key": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-          },
-          "person": {
-            "type": "object",
-            "properties": {
-              "href": {
-                "type": "string",
-                "pattern": "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-              }
+              type: {
+                enum: ["RESPONSIBILITY"],
+              },
             },
-            "required": [
-              "href"
-            ]
           },
-          "organisation": {
-            "type": "object",
-            "properties": {
-              "href": {
-                "type": "string",
-                "oneOf": [
-                  {
-                    "pattern": "^/organisations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/schools/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/boardings/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/governinginstitutions/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/cvos/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/clbs/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/schoolcommunities/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  },
-                  {
-                    "pattern": "^/sam/organisationalunits/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                  }
-                ]
-              }
-            }
+          key: {
+            type: "string",
+            pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
           },
-          "position": {
-            "type": "object",
-            "properties": {
-              "href": {
-                "type": "string",
-                "pattern": "^/positions/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-              }
+          person: {
+            type: "object",
+            properties: {
+              href: {
+                type: "string",
+                pattern: "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+              },
             },
-            "required": [
-              "href"
-            ]
+            required: ["href"],
           },
-          "customPositionTitle": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+          organisation: {
+            type: "object",
+            properties: {
+              href: {
+                type: "string",
+                oneOf: [
+                  {
+                    pattern:
+                      "^/organisations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern:
+                      "^/schools/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern:
+                      "^/boardings/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern:
+                      "^/governinginstitutions/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern: "^/cvos/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern: "^/clbs/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern:
+                      "^/schoolcommunities/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                  {
+                    pattern:
+                      "^/sam/organisationalunits/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                  },
+                ],
+              },
+            },
           },
-          "remark": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+          position: {
+            type: "object",
+            properties: {
+              href: {
+                type: "string",
+                pattern:
+                  "^/positions/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+              },
+            },
+            required: ["href"],
           },
-          "startDate": {
-            "type": "string",
-            "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$"
+          customPositionTitle: {
+            type: "string",
+            minLength: 1,
+            maxLength: 64,
           },
-          "endDate": {
-            "type": "string",
-            "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$"
-          }
+          remark: {
+            type: "string",
+            minLength: 1,
+            maxLength: 256,
+          },
+          startDate: {
+            type: "string",
+            pattern: "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$",
+          },
+          endDate: {
+            type: "string",
+            pattern: "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]$",
+          },
         },
-        "required": [
-          "key",
-          "person",
-          "organisation",
-          "startDate"
-        ]
+        required: ["key", "person", "organisation", "startDate"],
       },
     },
     {
-      type: '/propertiesnamedafterfilters',
-      metaType: 'PROPERTIESNAMEDAFTERFILTERS',
+      type: "/propertiesnamedafterfilters",
+      metaType: "PROPERTIESNAMEDAFTERFILTERS",
       defaultlimit: 100,
       maxlimit: 1000,
       // is there a thing like defaultexpansion ???
       listResultDefaultIncludeCount: false,
       schema: {
-        "type": "object",
-        "properties": {
-          "$$meta": {
-            "type": "object",
-            "properties": {
-              "permalink": {
-                "type": "string",
-                "pattern": "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        type: "object",
+        properties: {
+          $$meta: {
+            type: "object",
+            properties: {
+              permalink: {
+                type: "string",
+                pattern: "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
               },
-              "schema": {
-                "type": "string",
-                "description": "A link to the json schema for /persons.",
-                "pattern": "^/persons/schema$"
+              schema: {
+                type: "string",
+                description: "A link to the json schema for /persons.",
+                pattern: "^/persons/schema$",
               },
-              "created": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was created (or imported if it was created before the import)."
+              created: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was created (or imported if it was created before the import).",
               },
-              "modified": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was last modified (or imported if it was last modified before the import)."
+              modified: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was last modified (or imported if it was last modified before the import).",
               },
-              "deleted": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted."
+              deleted: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted.",
               },
-              "type": {
-                "enum": [
-                  "PERSON"
-                ]
-              }
-            }
+              type: {
+                enum: ["PERSON"],
+              },
+            },
           },
-          "key": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          key: {
+            type: "string",
+            pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
           },
           limit: {
-            type: 'integer',
+            type: "integer",
             minimum: 3,
             // exclusiveMaximum: 100, // shouod be aboolean
             maximum: 99, // =te same as exclusiveMaximum 100, so the test should keep working
           },
           descending: {
-            type: 'boolean',
+            type: "boolean",
           },
           expand: {
-            type: 'boolean', // another type than the 'expand' listControl parameter expects
+            type: "boolean", // another type than the 'expand' listControl parameter expects
           },
-          offset: $u.timestamp('The time offset'),
+          offset: $u.timestamp("The time offset"),
           // 'orderBy', 'descending', 'limit', 'keyOffset', 'expand', 'hrefs', 'modifiedSince', '$$includeCount', 'offset'];
           multipleOfThree: {
-            type: 'integer',
+            type: "integer",
             multipleOf: 3,
-          }
+          },
         },
       },
     },
     {
-      type: '/propertieswithcomplexstructure',
-      metaType: 'PROPERTIESWITHCOMPLEXSTRUCTURE',
+      type: "/propertieswithcomplexstructure",
+      metaType: "PROPERTIESWITHCOMPLEXSTRUCTURE",
       defaultlimit: 10,
       maxlimit: 100,
       // is there a thing like defaultexpansion ???
       listResultDefaultIncludeCount: false,
       schema: {
-        "type": "object",
-        "properties": {
-          "$$meta": {
-            "type": "object",
-            "properties": {
-              "permalink": {
-                "type": "string",
-                "pattern": "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        type: "object",
+        properties: {
+          $$meta: {
+            type: "object",
+            properties: {
+              permalink: {
+                type: "string",
+                pattern: "^/persons/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
               },
-              "schema": {
-                "type": "string",
-                "description": "A link to the json schema for /persons.",
-                "pattern": "^/persons/schema$"
+              schema: {
+                type: "string",
+                description: "A link to the json schema for /persons.",
+                pattern: "^/persons/schema$",
               },
-              "created": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was created (or imported if it was created before the import)."
+              created: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was created (or imported if it was created before the import).",
               },
-              "modified": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was last modified (or imported if it was last modified before the import)."
+              modified: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was last modified (or imported if it was last modified before the import).",
               },
-              "deleted": {
-                "type": "string",
-                "pattern": "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
-                "description": "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted."
+              deleted: {
+                type: "string",
+                pattern:
+                  "^(1[8-9]|2[0-9])[0-9]{2}-[0-1][0-9]-[0-3][0-9]T([01][0-9]|2[0-3])(:([0-5][0-9])){2}(\\.[0-9]+)?Z$",
+                description:
+                  "The timestamp on which this resource was deleted. If this property is present the resource is deleted, otherwise it is not deleted.",
               },
-              "type": {
-                "enum": [
-                  "PERSON"
-                ]
-              }
-            }
+              type: {
+                enum: ["PERSON"],
+              },
+            },
           },
-          "key": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          key: {
+            type: "string",
+            pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
           },
           simpleStringArray: {
             type: "array",
             minItems: 3,
-            items: { type: 'string' },
+            items: { type: "string" },
           },
           simpleBooleanArray: {
             type: "array",
             minItems: 3,
-            items: { type: 'boolean' },
+            items: { type: "boolean" },
           },
           simpleIntegerArray: {
             type: "array",
             minItems: 3,
-            items: { type: 'integer', maximum: 3 },
+            items: { type: "integer", maximum: 3 },
           },
           simpleNumberArray: {
             type: "array",
             minItems: 3,
-            items: { type: 'number' },
+            items: { type: "number" },
           },
           singleTuple: {
             type: "array",
-            prefixItems: [
-              { type: "integer" },
-              { type: "string" },
-              { type: "boolan" },
-            ],
+            prefixItems: [{ type: "integer" }, { type: "string" }, { type: "boolan" }],
             minItems: 3,
             items: [],
           },
           tuples: {
-            "type": "array",
-            "items": [
+            type: "array",
+            items: [
               {
-                "type": "array",
-                "prefixItems": [
-                  { "type": "integer" },
-                  { "type": "string" },
-                  { "type": "boolan" },
-                ],
-                "minItems": 3,
-                "items": false,
+                type: "array",
+                prefixItems: [{ type: "integer" }, { type: "string" }, { type: "boolan" }],
+                minItems: 3,
+                items: false,
               },
             ],
           },
@@ -1075,11 +1031,9 @@ const sriConfig:TSriConfig = {
   databaseConnectionParameters: {},
 };
 
-
-
 const hrefToNonFlatParsedObject = hrefToParsedObjectFactory(sriConfig);
 
-const hrefToNonFlatParsedObjectExecutionTimes:number[] = [];
+const hrefToNonFlatParsedObjectExecutionTimes: number[] = [];
 /**
  * This wraps the parse function to keep track of the execution times, so we can add
  * some tests add the end that check if the average execution speeds were high enough...
@@ -1093,8 +1047,7 @@ const hrefToNonFlatParsedObjectWrapped = (input) => {
   const hrElapsed = process.hrtime(hrstart);
   hrefToNonFlatParsedObjectExecutionTimes.push(hrtimeToMilliseconds(hrElapsed));
   return normalizedUrl;
-}
-
+};
 
 /**
  * Only check if the expected param gets added IN THE RIGHT SUBTREE,
@@ -1105,7 +1058,11 @@ const hrefToNonFlatParsedObjectWrapped = (input) => {
  * @param {String} expectedParamValue: should be the default, either as configured in sriConfig or the sri4node default
  * @returns
  */
- function checkHrefToNonFlatParsedObjectContains(inputHref, expectedSubTreeName, expectedParseTreeItem) {
+function checkHrefToNonFlatParsedObjectContains(
+  inputHref,
+  expectedSubTreeName,
+  expectedParseTreeItem,
+) {
   const parsedUrl = hrefToNonFlatParsedObjectWrapped(inputHref);
   assert.deepInclude(
     parsedUrl.parseTree[expectedSubTreeName],
@@ -1113,7 +1070,7 @@ const hrefToNonFlatParsedObjectWrapped = (input) => {
     `The expected parseTree item '${JSON.stringify(expectedParseTreeItem)}' has not been added to the url parse tree in section '${expectedSubTreeName}'.
 This is the actual subtree:
 ${JSON.stringify(parsedUrl.parseTree[expectedSubTreeName], null, 2)}`,
-  )
+  );
   // assert.deepEqual(
   //   parsedUrl.parseTree.find(f => f.operator === paramName).value,
   //   expectedParamValue,
@@ -1121,69 +1078,67 @@ ${JSON.stringify(parsedUrl.parseTree[expectedSubTreeName], null, 2)}`,
   // );
 }
 
-describe('commons.js: flattenJsonSchema(...)', () => {
-  it('should produce a flattened json schema', () => {
+describe("commons.js: flattenJsonSchema(...)", () => {
+  it("should produce a flattened json schema", () => {
     assert.deepEqual(
-      $u.flattenJsonSchema(
-        {
-          type: 'object',
-          properties: {
-            a: {
-              type: 'object',
-              properties: {
-                b: { type: 'string' },
-              },
+      $u.flattenJsonSchema({
+        type: "object",
+        properties: {
+          a: {
+            type: "object",
+            properties: {
+              b: { type: "string" },
             },
           },
         },
-      ),
+      }),
       {
-        'a.b': { type: 'string' },
+        "a.b": { type: "string" },
       },
     );
 
     assert.deepEqual(
       $u.flattenJsonSchema({
-        type: 'object',
+        type: "object",
         properties: {
           a: {
-            type: 'object',
+            type: "object",
             properties: {
-              bb: { type: 'string' },
+              bb: { type: "string" },
               cc: {
-                type: 'object',
+                type: "object",
                 properties: {
                   ddd: {
-                    type: 'boolean',
+                    type: "boolean",
                   },
                 },
               },
-              ee: { type: 'boolean' },
+              ee: { type: "boolean" },
             },
           },
-          i: { type: 'number' },
+          i: { type: "number" },
         },
       }),
       {
-        'a.bb': { type: 'string' },
-        'a.cc.ddd': { type: 'boolean' },
-        'a.ee': { type: 'boolean' },
-        'i': { type: 'number' },
+        "a.bb": { type: "string" },
+        "a.cc.ddd": { type: "boolean" },
+        "a.ee": { type: "boolean" },
+        i: { type: "number" },
       },
     );
 
     assert.deepEqual(
       $u.flattenJsonSchema({
-        type: 'object',
+        type: "object",
         properties: {
           a: {
-            type: 'object',
+            type: "object",
             properties: {
-              bb: { type: 'number' },
+              bb: { type: "number" },
               cc: {
-                type: 'array',
+                type: "array",
                 items: {
-                    type: 'string',
+                  type: "string",
                 },
               },
             },
@@ -1191,20 +1146,30 @@ describe('commons.js: flattenJsonSchema(...)', () => {
         },
       }),
       {
-        'a.bb': { type: 'number' },
-        'a.cc[*]': { type: 'string' }, // is this what we want to indicate that something is an array
+        "a.bb": { type: "number" },
+        "a.cc[*]": { type: "string" }, // is this what we want to indicate that something is an array
       },
     );
-
   });
 });
 
-
-describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
-  it('sorts a parseTree as expected', () => {
-    const metaDeletedInFalse = { property: '$$meta.deleted', operator: 'IN', invertOperator: false, caseInsensitive: true, value: false };
-    const firstNameInJohn = { property: 'firstName', operator: 'IN', invertOperator: false, caseInsensitive: true, value: 'John' };
-    const limit30 = { operator: 'LIST_LIMIT', value: 30 };
+describe("commons.js: sortUrlQueryParamParseTree(...)", () => {
+  it("sorts a parseTree as expected", () => {
+    const metaDeletedInFalse = {
+      property: "$$meta.deleted",
+      operator: "IN",
+      invertOperator: false,
+      caseInsensitive: true,
+      value: false,
+    };
+    const firstNameInJohn = {
+      property: "firstName",
+      operator: "IN",
+      invertOperator: false,
+      caseInsensitive: true,
+      value: "John",
+    };
+    const limit30 = { operator: "LIST_LIMIT", value: 30 };
 
     // const expansionFull = { operator: 'EXPANSION', value: 'FULL' };
     // 1:{property: '$$meta.deleted', operator: 'IN', value: Array(1)}
@@ -1212,31 +1177,11 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
     // 3:{operator: 'LIST_META_INCLUDE_COUNT', value: false}
     // 4:{property: 'firstName', operator: 'IN', invertOperator: false, value: Array(1), caseInsensitive: true}
 
-    const sorted1 = sortUrlQueryParamParseTree([
-      firstNameInJohn,
-      metaDeletedInFalse,
-    ])
-    assert.deepStrictEqual(
-      sorted1,
-      [
-        metaDeletedInFalse,
-        firstNameInJohn,
-      ],
-    );
+    const sorted1 = sortUrlQueryParamParseTree([firstNameInJohn, metaDeletedInFalse]);
+    assert.deepStrictEqual(sorted1, [metaDeletedInFalse, firstNameInJohn]);
 
-    const sorted2 = sortUrlQueryParamParseTree([
-      limit30,
-      firstNameInJohn,
-      metaDeletedInFalse,
-    ]);
-    assert.deepStrictEqual(
-      sorted2,
-      [
-        limit30,
-        metaDeletedInFalse,
-        firstNameInJohn,
-      ],
-    );
+    const sorted2 = sortUrlQueryParamParseTree([limit30, firstNameInJohn, metaDeletedInFalse]);
+    assert.deepStrictEqual(sorted2, [limit30, metaDeletedInFalse, firstNameInJohn]);
   });
 });
 
@@ -1247,8 +1192,8 @@ describe('commons.js: sortUrlQueryParamParseTree(...)', () => {
  * In this parser I also want to try to include the defaults immediatley in the peggy output,
  * instead of adding a second step for adding the mssing defaults
  */
-describe('non_flat_url_parser.ts', () => {
-  describe('parsing of standard filters', () => {
+describe("non_flat_url_parser.ts", () => {
+  describe("parsing of standard filters", () => {
     // it('mergeArrays (used for adding defaults) should work as expected', () => {
     //   assert.deepEqual(
     //     mergeArrays([1, 2], [2, 3]),
@@ -1264,35 +1209,29 @@ describe('non_flat_url_parser.ts', () => {
     //   );
     // });
 
-    it('should know what to do with ?dryRun=true', () => {
+    it("should know what to do with ?dryRun=true", () => {
       // doesn't seem to matter a lot for list resources or gets in general, so maybe they are simply not supported on gets?
       // on the other hand, adding this somewhere to the parse tree does seem to make sense
-      console.log('                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)');
+      console.log(
+        "                TO BE IMPLEMENTED IN A FUTURE VERSION (both tests and functionality)",
+      );
     });
 
-    it('should put list control parameter in the right subsection', () => {
+    it("should put list control parameter in the right subsection", () => {
       // const parsed = parse('/persons?limit=5');
       // console.log(JSON.stringify(parse('/persons?limit=5'), null, 2));
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?limit=5',
-        'listControl',
-        {
-          operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
-          value: 5,
-        },
-      );
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?orderBy=lastName,firstName',
-        'listControl',
-        {
-          operator: { name: 'LIST_ORDER_BY', type: 'string', multiValued: true },
-          value: ['lastName', 'firstName'],
-        },
-      );
+      checkHrefToNonFlatParsedObjectContains("/persons?limit=5", "listControl", {
+        operator: { name: "LIST_LIMIT", type: "integer", multiValued: false },
+        value: 5,
+      });
+      checkHrefToNonFlatParsedObjectContains("/persons?orderBy=lastName,firstName", "listControl", {
+        operator: { name: "LIST_ORDER_BY", type: "string", multiValued: true },
+        value: ["lastName", "firstName"],
+      });
     });
 
-    it.skip('should put mapping parameter in the right subsection', () => {
-      assert.fail('Test (& functionality) not implemented');
+    it.skip("should put mapping parameter in the right subsection", () => {
+      assert.fail("Test (& functionality) not implemented");
 
       // checkHrefToNonFlatParsedObjectContains(
       //   '/persons?omit=firstName,sex',
@@ -1330,131 +1269,122 @@ describe('non_flat_url_parser.ts', () => {
       // );
     });
 
-    it('should add the proper defaults when missing', () => {
-      const personsWithoutDefaultsHref = '/persons';
+    it("should add the proper defaults when missing", () => {
+      const personsWithoutDefaultsHref = "/persons";
 
-      checkHrefToNonFlatParsedObjectContains(
-        personsWithoutDefaultsHref,
-        'listControl',
-        {
-          operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
-          value: 30,
-        },
-      );
+      checkHrefToNonFlatParsedObjectContains(personsWithoutDefaultsHref, "listControl", {
+        operator: { name: "LIST_LIMIT", type: "integer", multiValued: false },
+        value: 30,
+      });
 
-      checkHrefToNonFlatParsedObjectContains(
-        personsWithoutDefaultsHref,
-        'listControl',
-        {
-          operator: { name: 'LIST_ORDER_BY', type: 'string', multiValued: true },
-          value: ['$$meta.created', 'key'],
-        },
-      );
+      checkHrefToNonFlatParsedObjectContains(personsWithoutDefaultsHref, "listControl", {
+        operator: { name: "LIST_ORDER_BY", type: "string", multiValued: true },
+        value: ["$$meta.created", "key"],
+      });
 
-      checkHrefToNonFlatParsedObjectContains(
-        personsWithoutDefaultsHref,
-        'listControl',
-        {
-          operator: { name: 'LIST_ORDER_DESCENDING', type: 'boolean', multiValued: false },
-          value: false,
-        },
-      );
-
+      checkHrefToNonFlatParsedObjectContains(personsWithoutDefaultsHref, "listControl", {
+        operator: { name: "LIST_ORDER_DESCENDING", type: "boolean", multiValued: false },
+        value: false,
+      });
     });
 
-    it('should put property filter parameter in the right subsection', () => {
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?firstNameGreater=J',
-        'rowFilters',
-        {
-          property: { name: 'firstName', type: 'string', multiValued: false },
-          operator: { name: 'GT', multiValued: false },
-          invertOperator: false,
-          caseInsensitive: true,
-          value: 'J',
-        },
-      );
+    it("should put property filter parameter in the right subsection", () => {
+      checkHrefToNonFlatParsedObjectContains("/persons?firstNameGreater=J", "rowFilters", {
+        property: { name: "firstName", type: "string", multiValued: false },
+        operator: { name: "GT", multiValued: false },
+        invertOperator: false,
+        caseInsensitive: true,
+        value: "J",
+      });
     });
 
-    it('should translate missing property filter operator (meaning EQUALS) to IN', () => {
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?firstName=John',
-        'rowFilters',
-        {
-          property: { name: 'firstName', type: 'string', multiValued: false },
-          operator: { name: 'IN', multiValued: true },
-          invertOperator: false,
-          caseInsensitive: true,
-          value: ['John'],
-        },
-      );
+    it("should translate missing property filter operator (meaning EQUALS) to IN", () => {
+      checkHrefToNonFlatParsedObjectContains("/persons?firstName=John", "rowFilters", {
+        property: { name: "firstName", type: "string", multiValued: false },
+        operator: { name: "IN", multiValued: true },
+        invertOperator: false,
+        caseInsensitive: true,
+        value: ["John"],
+      });
 
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?deceased=true',
-        'rowFilters',
-        {
-          property: { name: 'deceased', type: 'boolean', multiValued: false },
-          operator: { name: 'IN', multiValued: true },
-          invertOperator: false,
-          caseInsensitive: true,
-          value: [true],
-        },
+      checkHrefToNonFlatParsedObjectContains("/persons?deceased=true", "rowFilters", {
+        property: { name: "deceased", type: "boolean", multiValued: false },
+        operator: { name: "IN", multiValued: true },
+        invertOperator: false,
+        caseInsensitive: true,
+        value: [true],
+      });
+    });
+
+    it("should translate NOT LTE to GT (and all other similar cases)", () => {
+      [
+        ["LT", "GTE"],
+        ["LTE", "GT"],
+        ["GT", "LTE"],
+        ["GTE", "LT"],
+      ].forEach(([inverted, translated]) =>
+        checkHrefToNonFlatParsedObjectContains(
+          `/persons?firstName_NOT_${inverted}=John`,
+          "rowFilters",
+          {
+            property: { name: "firstName", type: "string", multiValued: false },
+            operator: { name: translated, multiValued: false },
+            invertOperator: false,
+            caseInsensitive: true,
+            value: "John",
+          },
+        ),
       );
     });
 
-    it('should translate NOT LTE to GT (and all other similar cases)', () => {
-      [ ['LT', 'GTE'], ['LTE', 'GT'], ['GT', 'LTE'], ['GTE', 'LT'] ]
-        .forEach(
-          ([inverted, translated]) => checkHrefToNonFlatParsedObjectContains(
-            `/persons?firstName_NOT_${inverted}=John`,
-            'rowFilters',
-            {
-              property: { name: 'firstName', type: 'string', multiValued: false },
-              operator: { name: translated, multiValued: false },
-              invertOperator: false,
-              caseInsensitive: true,
-              value: 'John',
-            },
-          )
-        );
-    });
-
-    it('should support conditional JSON-schema (or this or that / if-then-else etc)');
+    it("should support conditional JSON-schema (or this or that / if-then-else etc)");
 
     // https://json-schema.org/understanding-json-schema/reference/conditionals.html
     // also if aor a sub-schema can be either variation A or variation B
-    it('should NOT support filtering on additionalProperties (if JSON-schema does allow extra properties)');
+    it(
+      "should NOT support filtering on additionalProperties (if JSON-schema does allow extra properties)",
+    );
 
-    it('should complain when an argument is unexpected (like a string when an integer was expected etc.)', () => {
+    it("should complain when an argument is unexpected (like a string when an integer was expected etc.)", () => {
       // TODO: a value outside of the allowed enum
 
       // use a non-boolean where a boolean was expected
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/persons?deceased_IN=true,345'),
+      assert.throws(() => hrefToNonFlatParsedObjectWrapped("/persons?deceased_IN=true,345"));
+
+      assert.throws(() => hrefToNonFlatParsedObjectWrapped("/persons?deceased_IN=hello,true"));
+
+      assert.throws(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=true").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/persons?deceased_IN=hello,true'),
+      assert.doesNotThrow(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=66").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
-      assert.throws(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=true').parseTree.rowFilters, null, 2)
-      );
-
-      assert.doesNotThrow(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=66').parseTree.rowFilters, null, 2)
-      );
-
-      assert.doesNotThrow(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?descending=true').parseTree.rowFilters, null, 2)
+      assert.doesNotThrow(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?descending=true").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
       // use a non-integer where an integer was expected
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=true'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=true"),
       );
 
-      
       // // use a string where an integer was expected
       // assert.throws(
       //   () => hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=three'),
@@ -1480,7 +1410,7 @@ describe('non_flat_url_parser.ts', () => {
       // );
     });
 
-    it('should complain when an argument does not match the regular expression, the enum values list or or the upper and lower limits, ... as defined in the JSON-schema', () => {
+    it("should complain when an argument does not match the regular expression, the enum values list or or the upper and lower limits, ... as defined in the JSON-schema", () => {
       // cfr. https://json-schema.org/understanding-json-schema/reference/string.html#regular-expressions
       // "pattern": "^[^\\s!\\?\\.0-9][^!\\?\\.0-9]*[^\\s!\\?\\.0-9]$|^[^\\s!\\?\\.0-9]$",
       // "minLength": 1,
@@ -1490,72 +1420,94 @@ describe('non_flat_url_parser.ts', () => {
       // numbers: https://json-schema.org/understanding-json-schema/reference/numeric.html#numeric-types
       // multipleOf, minimum, maximum, exclusiveMinimum, exclusiveMaximum
 
-
       // 0 instead of O is not a valid firstName acording to the regexp
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/persons?firstName=J0hn'),
-      );
+      assert.throws(() => hrefToNonFlatParsedObjectWrapped("/persons?firstName=J0hn"));
 
       // 'Eerwaarde patat' is not a valid value in the enum
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/persons?title_IN=Eerwaarde patat,Mevrouw'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped("/persons?title_IN=Eerwaarde patat,Mevrouw"),
       );
 
       // a string longer than maxLength
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/persons?firstName=Ditiseenhelelangevoornaamdieinfeietezolangisdathijmeerdanvierenzestigtekensbevatendatisteveel'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped(
+          "/persons?firstName=Ditiseenhelelangevoornaamdieinfeietezolangisdathijmeerdanvierenzestigtekensbevatendatisteveel",
+        ),
       );
 
       // a number greater than exclusiveMaximum
-      assert.throws(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=123').parseTree.rowFilters, null, 2)
+      assert.throws(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=123").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
       // a number equal to exclusiveMaximum
-      assert.throws(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=100').parseTree.rowFilters, null, 2)
+      assert.throws(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=100").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
       // a number less than minimum
-      assert.throws(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=1').parseTree.rowFilters, null, 2)
+      assert.throws(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=1").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
-      
       // a number that is not a multipleOf the value indicated in the schema
-      assert.throws(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?multipleOfThree=7').parseTree.rowFilters, null, 2)
+      assert.throws(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?multipleOfThree=7")
+            .parseTree.rowFilters,
+          null,
+          2,
+        ),
       );
 
-      assert.doesNotThrow(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?multipleOfThree=9').parseTree.rowFilters, null, 2)
+      assert.doesNotThrow(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?multipleOfThree=9")
+            .parseTree.rowFilters,
+          null,
+          2,
+        ),
       );
 
-      assert.doesNotThrow(
-        () => JSON.stringify(hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?descending=true').parseTree.rowFilters, null, 2)
+      assert.doesNotThrow(() =>
+        JSON.stringify(
+          hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?descending=true").parseTree
+            .rowFilters,
+          null,
+          2,
+        ),
       );
 
       // use a non-integer where an integer was expected
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped('/propertiesnamedafterfilters?limit=true'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped("/propertiesnamedafterfilters?limit=true"),
       );
-
     });
 
-
-    it('should parse the arguments as the proper type', () => {
-      checkHrefToNonFlatParsedObjectContains(
-        '/persons?deceased_IN=true,false',
-        'rowFilters',
-        {
-          property: { name: 'deceased', type: 'boolean', multiValued: false },
-          operator: { name: 'IN', multiValued: true },
-          invertOperator: false,
-          caseInsensitive: true,
-          value: [ true, false ],
-        },
-      );
-    })
+    it("should parse the arguments as the proper type", () => {
+      checkHrefToNonFlatParsedObjectContains("/persons?deceased_IN=true,false", "rowFilters", {
+        property: { name: "deceased", type: "boolean", multiValued: false },
+        operator: { name: "IN", multiValued: true },
+        invertOperator: false,
+        caseInsensitive: true,
+        value: [true, false],
+      });
+    });
   });
 
   // currently q searches in all text fields + word+word2 finds resources containing both words
@@ -1568,7 +1520,6 @@ describe('non_flat_url_parser.ts', () => {
   // { properties: [ { name: 'firstName', type: 'string', multiValued: false } ], operator: { name: 'IN', type: 'string', multiValued: false } }
   //
   // { properties: [ 'key', 'firstName', 'lastName' ], operator: { name: 'Q', type: 'string', multiValued: false } }
-
 
   // maybe you want to only search in a subset of all text fields?
   // * do we want to allow the user to control that from the query params?
@@ -1591,33 +1542,31 @@ describe('non_flat_url_parser.ts', () => {
 
   // We cann allow extra properties in the JSON-schema
   // myBigintField: { type: 'integer', _DBTYPE_: 'bigint', minimum: 300 }
-  it('should properly parse the q parameter');
-
+  it("should properly parse the q parameter");
 
   // on the 'view' built on content api, it uses extra parameters like 'preview'
-  it('should properly parse custom filters');
-
+  it("should properly parse custom filters");
 
   // cfr. common/pg_connect for how some data is being translated different than pg's defaults.
-  describe('check all supported datatypes like BigInt, integer, boolean, string, ...', () => {
-    it.skip('should support integer', () => {
+  describe("check all supported datatypes like BigInt, integer, boolean, string, ...", () => {
+    it.skip("should support integer", () => {
       // todo
     });
-    it.skip('should support BigInt', () => {
+    it.skip("should support BigInt", () => {
       // todo
     });
-    it.skip('should support number', () => {
+    it.skip("should support number", () => {
       // todo
     });
-    it.skip('should support boolean', () => {
+    it.skip("should support boolean", () => {
       // todo
     });
-    it.skip('should support string', () => {
+    it.skip("should support string", () => {
       // todo
     });
   });
 
-  describe('special cases related to backwards compatibilty', () => {
+  describe("special cases related to backwards compatibilty", () => {
     /**
      * Imagine you have a resource with a property called limit.
      *
@@ -1628,34 +1577,29 @@ describe('non_flat_url_parser.ts', () => {
      *
      * /things?limt=5&_LIST_LIMIT=10 will return 10 things where limit=5
      */
-    it('should give a property filter named after an old-school listControl filter (like limit) precedence', () => {
+    it("should give a property filter named after an old-school listControl filter (like limit) precedence", () => {
       // limit is considered a property, so a row filter should be defined
-      checkHrefToNonFlatParsedObjectContains(
-        '/propertiesnamedafterfilters?limit=5',
-        'rowFilters',
-        {
-          property: { name: 'limit', type: 'integer', multiValued: false },
-          operator: { name: 'IN', multiValued: true },
-          invertOperator: false,
-          caseInsensitive: true,
-          value: [5],
-        },
-      );
+      checkHrefToNonFlatParsedObjectContains("/propertiesnamedafterfilters?limit=5", "rowFilters", {
+        property: { name: "limit", type: "integer", multiValued: false },
+        operator: { name: "IN", multiValued: true },
+        invertOperator: false,
+        caseInsensitive: true,
+        value: [5],
+      });
 
       // limit is considered a property, so the LIST_LIMIT will jst use the default!
       checkHrefToNonFlatParsedObjectContains(
-        '/propertiesnamedafterfilters?limit=5',
-        'listControl',
+        "/propertiesnamedafterfilters?limit=5",
+        "listControl",
         {
-          operator: { name: 'LIST_LIMIT', type: 'integer', multiValued: false },
+          operator: { name: "LIST_LIMIT", type: "integer", multiValued: false },
           value: 30,
         },
       );
     });
   });
 
-  describe('related to arrays and other \'complex\' objects', () => {
-
+  describe("related to arrays and other 'complex' objects", () => {
     /**
      * Could we somehow find a nice syntax for nested arrays?
      * Hard to do when it's just a comma-separated list.
@@ -1663,7 +1607,7 @@ describe('non_flat_url_parser.ts', () => {
      * but maybe that is no problem.
      * It also makes it look like arithmetics, saying 'calculate the most inner brackets first'
      * and it solves any number of sublevels: (a,(b,z)),(c,d),(e,f)
-     * 
+     *
      * Would this change our syntax as in: an array argument MUST always be surrounded by ()
      * meaning: firstName_IN=John,Doe would not work because an array is expected?
      *          (it should have been firstName_IN=(John,Doe) then)
@@ -1672,101 +1616,100 @@ describe('non_flat_url_parser.ts', () => {
      *    is firstName_IN=(John,Doe) equivalent to firstName_IN=John,Doe
      *    OR does that mean firstName_IN=((John,Doe)) ???
      */
-    it('should be able to handle comma-separated string arrays as values', () => {
+    it("should be able to handle comma-separated string arrays as values", () => {
       checkHrefToNonFlatParsedObjectContains(
-        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5',
-        'rowFilters',
+        "/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5",
+        "rowFilters",
         {
-          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
-          operator: { name: 'CONTAINS', multiValued: true },
+          property: { name: "simpleStringArray[*]", type: "string", multiValued: true },
+          operator: { name: "CONTAINS", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ '5' ],
+          value: ["5"],
         },
       );
 
       checkHrefToNonFlatParsedObjectContains(
-        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5,hello',
-        'rowFilters',
+        "/propertieswithcomplexstructure?simpleStringArray%5B*%5D_CONTAINS=5,hello",
+        "rowFilters",
         {
-          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
-          operator: { name: 'CONTAINS', multiValued: true },
+          property: { name: "simpleStringArray[*]", type: "string", multiValued: true },
+          operator: { name: "CONTAINS", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ '5', 'hello' ],
+          value: ["5", "hello"],
         },
       );
 
       checkHrefToNonFlatParsedObjectContains(
-        '/propertieswithcomplexstructure?simpleStringArray%5B*%5D=5,hello,true',
-        'rowFilters',
+        "/propertieswithcomplexstructure?simpleStringArray%5B*%5D=5,hello,true",
+        "rowFilters",
         {
-          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
-          operator: { name: 'IN', multiValued: true },
+          property: { name: "simpleStringArray[*]", type: "string", multiValued: true },
+          operator: { name: "IN", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ ['5', 'hello', 'true'] ],
+          value: [["5", "hello", "true"]],
         },
       );
 
       checkHrefToNonFlatParsedObjectContains(
-        encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true)'),
-        'rowFilters',
+        encodeURI("/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true)"),
+        "rowFilters",
         {
-          property: { name: 'simpleStringArray[*]', type: 'string', multiValued: true },
-          operator: { name: 'IN', multiValued: true },
+          property: { name: "simpleStringArray[*]", type: "string", multiValued: true },
+          operator: { name: "IN", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ ['5', 'hello', 'true'] ],
+          value: [["5", "hello", "true"]],
         },
       );
 
       // fail on unbalanced parenthesis
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped(
-          encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped(
+          encodeURI("/propertieswithcomplexstructure?simpleStringArray[*]=(5,hello,true"),
         ),
       );
 
       // fail on unbalanced parenthesis
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped(
-          encodeURI('/propertieswithcomplexstructure?simpleStringArray[*]=5,hello,true)'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped(
+          encodeURI("/propertieswithcomplexstructure?simpleStringArray[*]=5,hello,true)"),
         ),
       );
     });
 
-    it('should be able to handle comma-separated integer arrays as values', () => {
+    it("should be able to handle comma-separated integer arrays as values", () => {
       checkHrefToNonFlatParsedObjectContains(
-        encodeURI('/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,2)'),
-        'rowFilters',
+        encodeURI("/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,2)"),
+        "rowFilters",
         {
-          property: { name: 'simpleIntegerArray[*]', type: 'integer', multiValued: true },
-          operator: { name: 'IN', multiValued: true },
+          property: { name: "simpleIntegerArray[*]", type: "integer", multiValued: true },
+          operator: { name: "IN", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ [ 1, 2 ] ],
+          value: [[1, 2]],
         },
       );
 
-
       // mamximum is defined on simpleIntegerArray items, so ideally this should fail
       // when giving it a value that is more than that maximum
-      assert.throws(
-        () => hrefToNonFlatParsedObjectWrapped(
-          encodeURI('/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,77)'),
+      assert.throws(() =>
+        hrefToNonFlatParsedObjectWrapped(
+          encodeURI("/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,77)"),
         ),
       );
 
       checkHrefToNonFlatParsedObjectContains(
-        encodeURI('/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,2)'),
-        'rowFilters',
+        encodeURI("/propertieswithcomplexstructure?simpleIntegerArray[*]=(1,2)"),
+        "rowFilters",
         {
-          property: { name: 'simpleIntegerArray[*]', type: 'integer', multiValued: true },
-          operator: { name: 'IN', multiValued: true },
+          property: { name: "simpleIntegerArray[*]", type: "integer", multiValued: true },
+          operator: { name: "IN", multiValued: true },
           invertOperator: false,
           caseInsensitive: true,
-          value: [ [ 1, 2 ] ],
+          value: [[1, 2]],
         },
       );
     });
@@ -1775,7 +1718,7 @@ describe('non_flat_url_parser.ts', () => {
      * since for arrays we already have a custom syntax that is unlike JSON
      * I think we should also find a simplified 'key: value' syntax to express
      * objects/maps/key-value stores.
-     * 
+     *
      * Since we don't use quotation marks in arrays, I would also not use quotation marks
      * in objects.
      * So maybe something like
@@ -1786,12 +1729,10 @@ describe('non_flat_url_parser.ts', () => {
      * OR even simply only using comma's?
      * {key,value,key2,value2}
      */
-    it('should be able to handle entire objects as values');
-
+    it("should be able to handle entire objects as values");
   });
 
-  describe('special filters to help with special resources like periods or relations', () => {
-
+  describe("special filters to help with special resources like periods or relations", () => {
     /**
      * In /organisations API, we have the following filters: statuses=ACTIVE,FUTURE,ABOLISHED
      * Something similar (which are basically filters that work on the PERIOD instead of the single
@@ -1800,36 +1741,32 @@ describe('non_flat_url_parser.ts', () => {
      * or whether there are fields starting with start and end (could be start,end or startTime,endTime
      * ...), or whether these fields should be configured specifically
      * (something similar to period: true, periodeStartfield:...)
-     * 
+     *
      * _DATETIME=NOW()&_PERIODVALIDITY_IN=PAST,PRESENT,FUTURE (NOW() or $NOW or whatever should be
      * the default, but you should be able to override)
      * The _DATETIME could also be useful for other filters that might exist that need a reference
      * date/time.
      */
-    it.skip('should allow for some special default filters for resources with a time PERIOD');
-
+    it.skip("should allow for some special default filters for resources with a time PERIOD");
 
     /**
      * In some API's we have a lot of filters that help us with traversing GRAPHS or tree-like
      * structures: tos=,froms=, fromTypes=, toTypes=..., depth
-     * 
+     *
      * which would be 'normalized' as to.href_IN
      */
-    it.skip('should allow for some special default filters for resources expressing an EDGE');
+    it.skip("should allow for some special default filters for resources expressing an EDGE");
 
-    it.skip('should allow combining default filters for resources expressing an EDGE and a PERIOD');
+    it.skip("should allow combining default filters for resources expressing an EDGE and a PERIOD");
   });
 
-  describe('parsing speed', () => {
-    it('should be low on average', () => {
-      const averageExecutionTime = hrefToNonFlatParsedObjectExecutionTimes.reduce((a,c) => a + c, 0) / (hrefToNonFlatParsedObjectExecutionTimes.length || 1);
+  describe("parsing speed", () => {
+    it("should be low on average", () => {
+      const averageExecutionTime =
+        hrefToNonFlatParsedObjectExecutionTimes.reduce((a, c) => a + c, 0) /
+        (hrefToNonFlatParsedObjectExecutionTimes.length || 1);
 
-      assert.isAtMost(
-        averageExecutionTime,
-        2.5,
-        'Parsing is too slow on average!',
-      );
+      assert.isAtMost(averageExecutionTime, 2.5, "Parsing is too slow on average!");
     });
   });
-
 });

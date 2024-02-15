@@ -1,530 +1,689 @@
 // Utility methods for calling the SRI interface
-import { assert } from 'chai';
-import { THttpClient } from '../httpClient';
+import { assert } from "chai";
+import { THttpClient } from "../httpClient";
 
 module.exports = function (httpClient: THttpClient) {
-  describe('Generic Filters', () => {
-    describe('In match', () => {
-      describe('String fields', () => {
+  describe("Generic Filters", () => {
+    describe("In match", () => {
+      describe("String fields", () => {
         // text
-        it('should find one resource of type text among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textIn=value,another,thing', auth: 'kevin' });
+        it("should find one resource of type text among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textIn=value,another,thing",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
-        it('should find all the resources of type text that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textIn=test,Value,A%20value%20with%20spaces', auth: 'kevin' });
+        it("should find all the resources of type text that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textIn=test,Value,A%20value%20with%20spaces",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
-          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
+          assert.equal(response.body.results[1].$$expanded.text, "A value with spaces");
         });
 
-        it('should not find resources of type text with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textIn=not-present,nothing,no', auth: 'kevin' });
+        it("should not find resources of type text with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textIn=not-present,nothing,no",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type text case sensitive', async () => {
-          const q = '/alldatatypes?textCaseSensitiveIn=test,Value,A%20value%20with%20spaces';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type text case sensitive", async () => {
+          const q = "/alldatatypes?textCaseSensitiveIn=test,Value,A%20value%20with%20spaces";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
-          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
+          assert.equal(response.body.results[1].$$expanded.text, "A value with spaces");
         });
 
-        it('should not find all the resources of type text case sensitive', async () => {
-          const q = '/alldatatypes?textCaseSensitiveIn=test,value,a%20value%20with%20spaces';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should not find all the resources of type text case sensitive", async () => {
+          const q = "/alldatatypes?textCaseSensitiveIn=test,value,a%20value%20with%20spaces";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type text with a not match', async () => {
-          const q = '/alldatatypes?textNotIn=test,a%20value%20with%20spaces';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type text with a not match", async () => {
+          const q = "/alldatatypes?textNotIn=test,a%20value%20with%20spaces";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
-        it('should find all the resources of type text with a not match case sensitive', async () => {
-          const q = '/alldatatypes?textCaseSensitiveNotIn=test,value';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type text with a not match case sensitive", async () => {
+          const q = "/alldatatypes?textCaseSensitiveNotIn=test,value";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
-          assert.equal(response.body.results[1].$$expanded.text, 'A value with spaces');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
+          assert.equal(response.body.results[1].$$expanded.text, "A value with spaces");
         });
 
         // varchar
-        it('should find one resource of type varchar among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textvarcharIn=value,Varchar,thing', auth: 'kevin' });
+        it("should find one resource of type varchar among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textvarcharIn=value,Varchar,thing",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
+          assert.equal(response.body.results[0].$$expanded.textvarchar, "varchar");
         });
 
-        it('should find all the resources of type varchar that match', async () => {
-          const q = '/alldatatypes?textvarcharIn=test,Varchar,Not%20a%20text%20varchar';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type varchar that match", async () => {
+          const q = "/alldatatypes?textvarcharIn=test,Varchar,Not%20a%20text%20varchar";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
-          assert.equal(response.body.results[1].$$expanded.textvarchar, 'not a text varchar');
+          assert.equal(response.body.results[0].$$expanded.textvarchar, "varchar");
+          assert.equal(response.body.results[1].$$expanded.textvarchar, "not a text varchar");
         });
 
-        it('should not find resources of type varchar with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textvarcharIn=not-present,nothing,no', auth: 'kevin' });
+        it("should not find resources of type varchar with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textvarcharIn=not-present,nothing,no",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type varchar case sensitive', async () => {
-          const q = '/alldatatypes?textvarcharCaseSensitiveIn=test,varchar,Not%20a%20text%20varchar';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type varchar case sensitive", async () => {
+          const q =
+            "/alldatatypes?textvarcharCaseSensitiveIn=test,varchar,Not%20a%20text%20varchar";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.textvarchar, 'varchar');
+          assert.equal(response.body.results[0].$$expanded.textvarchar, "varchar");
         });
 
-        it('should not find all the resources of type varchar case sensitive', async () => {
-          const q = '/alldatatypes?textvarcharCaseSensitiveIn=test,Varchar,Not%20a%20text%20varchar';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should not find all the resources of type varchar case sensitive", async () => {
+          const q =
+            "/alldatatypes?textvarcharCaseSensitiveIn=test,Varchar,Not%20a%20text%20varchar";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type varchar with a not match', async () => {
-          const q = '/alldatatypes?textvarcharNotIn=test,Not%20a%20text%20varchar';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type varchar with a not match", async () => {
+          const q = "/alldatatypes?textvarcharNotIn=test,Not%20a%20text%20varchar";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
-        it('should find all the resources of type varchar with a not match case sensitive', async () => {
-          const q = '/alldatatypes?textvarcharCaseSensitiveNotIn=test,Varchar';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type varchar with a not match case sensitive", async () => {
+          const q = "/alldatatypes?textvarcharCaseSensitiveNotIn=test,Varchar";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // char
-        it('should find one resource of type char among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textcharIn=value,Char,thing', auth: 'kevin' });
+        it("should find one resource of type char among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textcharIn=value,Char,thing",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
+          assert.equal(response.body.results[0].$$expanded.textchar.trim(), "char");
         });
 
-        it('should find all the resources of type char that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textcharIn=test,Char,Not%20a%20text%20char', auth: 'kevin' });
+        it("should find all the resources of type char that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textcharIn=test,Char,Not%20a%20text%20char",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
-          assert.equal(response.body.results[1].$$expanded.textchar.trim(), 'not a text char');
+          assert.equal(response.body.results[0].$$expanded.textchar.trim(), "char");
+          assert.equal(response.body.results[1].$$expanded.textchar.trim(), "not a text char");
         });
 
-        it('should not find resources of type char with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?textcharIn=not-present,nothing,no', auth: 'kevin' });
+        it("should not find resources of type char with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?textcharIn=not-present,nothing,no",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type char case sensitive', async () => {
-          const q = '/alldatatypes?textcharCaseSensitiveIn=test,char,Not%20a%20text%20char';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type char case sensitive", async () => {
+          const q = "/alldatatypes?textcharCaseSensitiveIn=test,char,Not%20a%20text%20char";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(response.body.results[0].$$expanded.textchar.trim(), 'char');
+          assert.equal(response.body.results[0].$$expanded.textchar.trim(), "char");
         });
 
-        it('should not find all the resources of type char case sensitive', async () => {
-          const q = '/alldatatypes?textcharCaseSensitiveIn=test,Char,Not%20a%20text%20char';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should not find all the resources of type char case sensitive", async () => {
+          const q = "/alldatatypes?textcharCaseSensitiveIn=test,Char,Not%20a%20text%20char";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type char with a not match', async () => {
-          const q = '/alldatatypes?textcharNotIn=test,Not%20a%20text%20char';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type char with a not match", async () => {
+          const q = "/alldatatypes?textcharNotIn=test,Not%20a%20text%20char";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
-        it('should find all the resources of type char with a not match case sensitive', async () => {
-          const q = '/alldatatypes?textcharCaseSensitiveNotIn=test,Char';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type char with a not match case sensitive", async () => {
+          const q = "/alldatatypes?textcharCaseSensitiveNotIn=test,Char";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
       });
 
-      describe('Numeric fields', () => {
+      describe("Numeric fields", () => {
         // numeric
-        it('should find one resource of type numeric among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberIn=16.11,413,45', auth: 'kevin' });
+        it("should find one resource of type numeric among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberIn=16.11,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.number, 16.11);
         });
 
-        it('should find all the resources of type numeric that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberIn=0,16.11,34,11', auth: 'kevin' });
+        it("should find all the resources of type numeric that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberIn=0,16.11,34,11",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.number, 16.11);
           assert.equal(response.body.results[1].$$expanded.number, 11);
         });
 
-        it('should not find resources of type numeric with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type numeric with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type numeric with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberNotIn=16.11,413,45', auth: 'kevin' });
+        it("should find all the resources of type numeric with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberNotIn=16.11,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // integer
-        it('should find one resource of type integer among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberintIn=1611,2456,-34', auth: 'kevin' });
+        it("should find one resource of type integer among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberintIn=1611,2456,-34",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numberint, 2456);
         });
 
-        it('should find all the resources of type integer that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberintIn=0,1611,2456,-23,1358,10', auth: 'kevin' });
+        it("should find all the resources of type integer that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberintIn=0,1611,2456,-23,1358,10",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberint, 2456);
           assert.equal(response.body.results[1].$$expanded.numberint, 1358);
         });
 
-        it('should not find resources of type integer with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberintIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type integer with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberintIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type integer with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberintNotIn=1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type integer with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberintNotIn=1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // bigint
-        it('should find one resource of type bigint among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigintIn=1611,314159,-34', auth: 'kevin' });
+        it("should find one resource of type bigint among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigintIn=1611,314159,-34",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numberbigint, 314159);
         });
 
-        it('should find all the resources of type bigint that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigintIn=0,314159,-23,7500000000,10', auth: 'kevin' });
+        it("should find all the resources of type bigint that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigintIn=0,314159,-23,7500000000,10",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberbigint, 314159);
           assert.equal(response.body.results[1].$$expanded.numberbigint, 7500000000);
         });
 
-        it('should not find resources of type bigint with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigintIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type bigint with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigintIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type bigint with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigintNotIn=1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type bigint with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigintNotIn=1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // smallint
-        it('should find one resource of type smallint among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallintIn=1611,-4159,-34', auth: 'kevin' });
+        it("should find one resource of type smallint among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallintIn=1611,-4159,-34",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numbersmallint, -4159);
         });
 
-        it('should find all the resources of type smallint that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallintIn=-4159,3159,-23,7560,10', auth: 'kevin' });
+        it("should find all the resources of type smallint that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallintIn=-4159,3159,-23,7560,10",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numbersmallint, -4159);
           assert.equal(response.body.results[1].$$expanded.numbersmallint, 7560);
         });
 
-        it('should not find resources of type smallint with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallintIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type smallint with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallintIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type smallint with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallintNotIn=1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type smallint with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallintNotIn=1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // decimal
-        it('should find one resource of type decimal among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdecimalIn=16.11,-4159,-3424.234', auth: 'kevin' });
+        it("should find one resource of type decimal among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdecimalIn=16.11,-4159,-3424.234",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numberdecimal, -3424.234);
         });
 
-        it('should find all the resources of type decimal that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdecimalIn=-3424.234,314159,456.222,7560,10', auth: 'kevin' });
+        it("should find all the resources of type decimal that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdecimalIn=-3424.234,314159,456.222,7560,10",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberdecimal, -3424.234);
           assert.equal(response.body.results[1].$$expanded.numberdecimal, 456.222);
         });
 
-        it('should not find resources of type decimal with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdecimalIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type decimal with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdecimalIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type decimal with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdecimalNotIn=16.11,413,45', auth: 'kevin' });
+        it("should find all the resources of type decimal with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdecimalNotIn=16.11,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // real
-        it('should find one resource of type real among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberrealIn=16.11,1200,-3424.234', auth: 'kevin' });
+        it("should find one resource of type real among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberrealIn=16.11,1200,-3424.234",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numberreal, 1200);
         });
 
-        it('should find all the resources of type real that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberrealIn=-3424.234,314159,1200,7560,12000', auth: 'kevin' });
+        it("should find all the resources of type real that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberrealIn=-3424.234,314159,1200,7560,12000",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberreal, 1200);
           assert.equal(response.body.results[1].$$expanded.numberreal, 12000);
         });
 
-        it('should not find resources of type real with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberrealIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type real with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberrealIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type real with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberrealNotIn=16.11,413,45', auth: 'kevin' });
+        it("should find all the resources of type real with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberrealNotIn=16.11,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // double precision
-        it('should find one resource of type double precision among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdoubleprecisionIn=100.454545,-12.121212,-3424.234', auth: 'kevin' });
+        it("should find one resource of type double precision among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdoubleprecisionIn=100.454545,-12.121212,-3424.234",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
           assert.equal(response.body.results[0].$$expanded.numberdoubleprecision, -12.121212);
         });
 
-        it('should find all the resources of type double precision that match', async () => {
-          const q = '/alldatatypes?numberdoubleprecisionIn=-3424.234,-12.121212,1200,100.4545454,12000';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources of type double precision that match", async () => {
+          const q =
+            "/alldatatypes?numberdoubleprecisionIn=-3424.234,-12.121212,1200,100.4545454,12000";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberdoubleprecision, -12.121212);
           assert.equal(response.body.results[1].$$expanded.numberdoubleprecision, 100.4545454);
         });
 
-        it('should not find resources of type double precision with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdoubleprecisionIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type double precision with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdoubleprecisionIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type double precision with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberdoubleprecisionNotIn=16.11,413,45', auth: 'kevin' });
+        it("should find all the resources of type double precision with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberdoubleprecisionNotIn=16.11,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(response.body.results[0].$$expanded.text, 'Value');
+          assert.equal(response.body.results[0].$$expanded.text, "Value");
         });
 
         // smallserial
-        it('should find one resource of type smallserial among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallserialIn=100,121,36', auth: 'kevin' });
+        it("should find one resource of type smallserial among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallserialIn=100,121,36",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numbersmallserial, 121);
         });
 
-        it('should find all the resources of type smallserial that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallserialIn=-121,-12,36,368,12000', auth: 'kevin' });
+        it("should find all the resources of type smallserial that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallserialIn=-121,-12,36,368,12000",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numbersmallserial, 368);
         });
 
-        it('should not find resources of type smallserial with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallserialIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type smallserial with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallserialIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type smallserial with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallserialNotIn=1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type smallserial with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallserialNotIn=1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.numbersmallserial, 1);
         });
 
         // serial
-        it('should find one resource of type serial among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberserialIn=100,1210,36', auth: 'kevin' });
+        it("should find one resource of type serial among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberserialIn=100,1210,36",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberserial, 1210);
         });
 
-        it('should find all the resources of type serial that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberserialIn=-1210,-12,36,3680,12000', auth: 'kevin' });
+        it("should find all the resources of type serial that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberserialIn=-1210,-12,36,3680,12000",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberserial, 3680);
         });
 
-        it('should not find resources of type serial with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberserialIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type serial with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberserialIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type serial with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberserialNotIn=1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type serial with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberserialNotIn=1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.numberserial, 1);
         });
 
         // bigserial
-        it('should find one resource of type bigserial among options that do not exist', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigserialIn=100,12100,36', auth: 'kevin' });
+        it("should find one resource of type bigserial among options that do not exist", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigserialIn=100,12100,36",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberbigserial, 12100);
         });
 
-        it('should find all the resources of type bigserial that match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigserialIn=-12100,-12,36,36800,12000', auth: 'kevin' });
+        it("should find all the resources of type bigserial that match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigserialIn=-12100,-12,36,36800,12000",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
           assert.equal(response.body.results[0].$$expanded.numberbigserial, 36800);
         });
 
-        it('should not find resources of type bigserial with a value that does not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numberbigserialIn=1511,413,45', auth: 'kevin' });
+        it("should not find resources of type bigserial with a value that does not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numberbigserialIn=1511,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources of type smallserial with a not match', async () => {
-          const response = await httpClient.get({ path: '/alldatatypes?numbersmallserialNotIn=1,1611,413,45', auth: 'kevin' });
+        it("should find all the resources of type smallserial with a not match", async () => {
+          const response = await httpClient.get({
+            path: "/alldatatypes?numbersmallserialNotIn=1,1611,413,45",
+            auth: "kevin",
+          });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
           assert.equal(response.body.results[0].$$expanded.numberbigserial, 2);
         });
       });
 
-      describe('Timestamp fields', () => {
-        it('should find one resource among options that do not exist', async () => {
-          const q = '/alldatatypes?publicationIn=2015-01-01T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+      describe("Timestamp fields", () => {
+        it("should find one resource among options that do not exist", async () => {
+          const q =
+            "/alldatatypes?publicationIn=2015-01-01T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 1);
-          assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
-            new Date('2015-01-01T00:00:00+02:00').getTime());
+          assert.equal(
+            new Date(response.body.results[0].$$expanded.publication).getTime(),
+            new Date("2015-01-01T00:00:00+02:00").getTime(),
+          );
         });
 
-        it('should find all the resources that match', async () => {
-          let q = '/alldatatypes?publicationIn=2015-01-01T00:00:00-03:00,2015-01-01T00:00:00%2B02:00,';
-          q += '2015-03-04T22:00:00-03:00';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources that match", async () => {
+          let q =
+            "/alldatatypes?publicationIn=2015-01-01T00:00:00-03:00,2015-01-01T00:00:00%2B02:00,";
+          q += "2015-03-04T22:00:00-03:00";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
-          assert.equal(new Date(response.body.results[0].$$expanded.publication).getTime(),
-            new Date('2015-01-01T00:00:00+02:00').getTime());
-          assert.equal(new Date(response.body.results[1].$$expanded.publication).getTime(),
-            new Date('2015-03-04T22:00:00-03:00').getTime());
+          assert.equal(
+            new Date(response.body.results[0].$$expanded.publication).getTime(),
+            new Date("2015-01-01T00:00:00+02:00").getTime(),
+          );
+          assert.equal(
+            new Date(response.body.results[1].$$expanded.publication).getTime(),
+            new Date("2015-03-04T22:00:00-03:00").getTime(),
+          );
         });
 
-        it('should not find resources with a value that does not match', async () => {
-          const q = '/alldatatypes?publicationIn=2015-01-21T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should not find resources with a value that does not match", async () => {
+          const q =
+            "/alldatatypes?publicationIn=2015-01-21T00:00:00%2B02:00,2014-01-01T00:00:00%2B02:00";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 0);
         });
 
-        it('should find all the resources with a not match', async () => {
-          const q = '/alldatatypes?publicationNotIn=2015-01-01T00:00:00%2B02:00';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources with a not match", async () => {
+          const q = "/alldatatypes?publicationNotIn=2015-01-01T00:00:00%2B02:00";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 5);
-          assert.equal(new Date(response.body.results[4].$$expanded.publication).getTime(),
-            new Date('2015-03-05T01:00:00.000Z').getTime());
+          assert.equal(
+            new Date(response.body.results[4].$$expanded.publication).getTime(),
+            new Date("2015-03-05T01:00:00.000Z").getTime(),
+          );
         });
       });
 
-      describe('Permalink fields', () => {
-        it('should find all the resources with an in match', async () => {
-          const q = '/jsonb?foo.hrefIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+      describe("Permalink fields", () => {
+        it("should find all the resources with an in match", async () => {
+          const q =
+            "/jsonb?foo.hrefIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
         });
 
-        it('should find all the resources with a case sensitive in match', async () => {
-          const q = '/jsonb?foo.hrefCaseSensitiveIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find all the resources with a case sensitive in match", async () => {
+          const q =
+            "/jsonb?foo.hrefCaseSensitiveIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2);
         });
 
         // Remark: the last two tests will fail if ran individually as they depend on earlier changes to the database
         // by other testcases.
-        it('should find no resources with a not in match', async () => {
-          const q = '/jsonb?foo.hrefNotIn=/foO/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/Foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find no resources with a not in match", async () => {
+          const q =
+            "/jsonb?foo.hrefNotIn=/foO/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/Foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2); // jsonb put test case adds one new
         });
 
-        it('should find no resources with a case sensitive not in match', async () => {
-          const q = '/jsonb?foo.hrefCaseSensitiveNotIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a';
-          const response = await httpClient.get({ path: q, auth: 'kevin' });
+        it("should find no resources with a case sensitive not in match", async () => {
+          const q =
+            "/jsonb?foo.hrefCaseSensitiveNotIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
+          const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
           assert.equal(response.body.results.length, 2); // jsonb put test case adds one new
         });

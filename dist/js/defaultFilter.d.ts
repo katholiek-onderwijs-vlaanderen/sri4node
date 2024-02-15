@@ -1,8 +1,8 @@
 /// <reference types="node" />
-import { IDatabase } from 'pg-promise';
-import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
-import { IClient } from 'pg-promise/typescript/pg-subset';
-import { ParsedUrlQuery } from 'querystring';
+import { IDatabase } from "pg-promise";
+import { TPreparedSql, TResourceDefinition } from "./typeDefinitions";
+import { IClient } from "pg-promise/typescript/pg-subset";
+import { ParsedUrlQuery } from "querystring";
 /**
  * The default filter gets multiple arguments in order to analyze
  * how the user wants the result filtered.

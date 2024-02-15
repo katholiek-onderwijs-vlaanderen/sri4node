@@ -17,7 +17,7 @@ function instrument(middleware, name) {
       if (res._timer && res._timer.times) {
         res._timer.times[name] = {
           from_start: now - res._timer.start,
-          last: now - res._timer.last
+          last: now - res._timer.last,
         };
         res._timer.last = now;
       }
@@ -25,9 +25,9 @@ function instrument(middleware, name) {
     };
   }
 
-  if (typeof middleware === 'function') {
+  if (typeof middleware === "function") {
     const position = instrumented++;
-    name = name || middleware.name || 'anonymous middlware #' + position;
+    name = name || middleware.name || "anonymous middlware #" + position;
     return bindWrapper(middleware, name);
   }
 
@@ -36,9 +36,9 @@ function instrument(middleware, name) {
     const position = instrumented++;
     let newname;
     if (name) {
-      newname = name + ' #' + itter++;
+      newname = name + " #" + itter++;
     }
-    newname = newname || m.name || 'anonymous middlware #' + position;
+    newname = newname || m.name || "anonymous middlware #" + position;
     return bindWrapper(m, newname);
   });
 }
@@ -47,7 +47,7 @@ function calculate(req, res) {
   // sillyness to cleanup reporting
   const report = {
     request: { url: req.url, headers: req.headers },
-    timers: { startup: { from_start: 0 } }
+    timers: { startup: { from_start: 0 } },
   };
 
   const reportedTimers = res._timer.times;
@@ -56,7 +56,7 @@ function calculate(req, res) {
     const reportNames = Object.keys(report.timers);
     const lastReport = reportNames[reportNames.length - 1];
 
-    if (typeof timer === 'string') {
+    if (typeof timer === "string") {
       report.timers[lastReport].took = reportedTimers[timer].last;
       report.timers[lastReport].from_start = reportedTimers[timer].from_start;
       report.timers[timer] = {};
@@ -79,9 +79,9 @@ function report(req, res) {
   if (OFF || !res._timer || !res._timer.times) return;
 
   // report
-  console.log('------------------------------');
+  console.log("------------------------------");
   console.dir(calculate(req, res));
-  console.log('------------------------------');
+  console.log("------------------------------");
 }
 
 function init(reporter) {
@@ -92,12 +92,12 @@ function init(reporter) {
     res._timer = {
       start: now,
       last: now,
-      times: {}
+      times: {},
     };
 
-    reporter = (typeof reporter === 'function') ? reporter : report;
+    reporter = typeof reporter === "function" ? reporter : report;
 
-    res.on('finish', function onResponseFinish() {
+    res.on("finish", function onResponseFinish() {
       reporter(req, res);
     });
 

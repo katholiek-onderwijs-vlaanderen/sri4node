@@ -1,10 +1,10 @@
 /// <reference types="node" />
-import pSettle from 'p-settle';
-import queue from 'emitter-queue';
-import Emitter from 'events';
-import { TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from './typeDefinitions';
-import { IDatabase } from 'pg-promise';
-import { IClient } from 'pg-promise/typescript/pg-subset';
+import pSettle from "p-settle";
+import queue from "emitter-queue";
+import Emitter from "events";
+import { TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from "./typeDefinitions";
+import { IDatabase } from "pg-promise";
+import { IClient } from "pg-promise/typescript/pg-subset";
 /**
  * "Phase syncing" is a way to control synchronization between multiple requests handlers (multiple items
  * of batch request). Jobs (sri request handlers) are divided into 'phases' (steps, subtasks) and jobs are
@@ -31,8 +31,8 @@ declare class PhaseSyncer {
      */
     ctrlEmitter: any;
     /**
-    * channel for communication from the controlling process towards the PhaseSyncer instance
-    */
+     * channel for communication from the controlling process towards the PhaseSyncer instance
+     */
     jobEmitter: queue;
     /**
      * promise of the jobWrapperFun which runs the sri request handler
@@ -59,12 +59,20 @@ declare class PhaseSyncer {
  * @param {string} parameters.beforePhaseHooks - hooks which will be called before starting each new phase
  * @returns
  */
-declare function phaseSyncedSettle(jobList: Array<readonly [TSriRequestHandlerForPhaseSyncer, readonly [IDatabase<unknown, IClient>, TSriRequest, TResourceDefinition | null, TSriInternalUtils]]>, { concurrency, beforePhaseHooks }?: {
+declare function phaseSyncedSettle(jobList: Array<readonly [
+    TSriRequestHandlerForPhaseSyncer,
+    readonly [
+        IDatabase<unknown, IClient>,
+        TSriRequest,
+        TResourceDefinition | null,
+        TSriInternalUtils
+    ]
+]>, { concurrency, beforePhaseHooks }?: {
     concurrency?: number;
     beforePhaseHooks?: any[];
 }): Promise<pSettle.PromiseResult<any>[] | {
     isFulfilled: boolean;
     reason: any;
 }[]>;
-export { phaseSyncedSettle, };
+export { phaseSyncedSettle };
 export type { PhaseSyncer };

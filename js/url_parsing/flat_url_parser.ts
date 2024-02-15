@@ -22,18 +22,19 @@
  */
 function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const allMultiValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, _v]) => k.endsWith('[*]'))
+    .filter(([k, _v]) => k.endsWith("[*]"))
     .map(([k, _v]) => encodeURIComponent(k))
     .sort()
     .reverse();
   const allSingleValuedPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
-    .filter(([k, _v]) => !k.endsWith('[*]'))
+    .filter(([k, _v]) => !k.endsWith("[*]"))
     .map(([k, _v]) => encodeURIComponent(k))
     .sort()
     .reverse();
   const allPropertyNamesSortedInReverse = Object.entries(flattenedJsonSchema)
     .map(([k, _v]) => encodeURIComponent(k))
-    .sort().reverse();
+    .sort()
+    .reverse();
 
   const hasMultiValuedProperties = allMultiValuedPropertyNamesSortedInReverse.length > 0;
 
@@ -43,11 +44,11 @@ function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   const propertyNameToOtherThanStringTypeMap = {
     ...Object.fromEntries(
       Object.entries(flattenedJsonSchema)
-        .filter(([_k, v]:[string, Record<string, unknown>]) => !v.enum && v.type !== 'string')
-        .map(([k, v]:[string, Record<string, unknown>]) => [k, v.type]),
+        .filter(([_k, v]: [string, Record<string, unknown>]) => !v.enum && v.type !== "string")
+        .map(([k, v]: [string, Record<string, unknown>]) => [k, v.type]),
     ),
-    '$$meta.deleted': 'boolean',
-    '$$meta.version': 'integer',
+    "$$meta.deleted": "boolean",
+    "$$meta.version": "integer",
     // [encodeURIComponent('$$meta.modified')]: 'string',
   };
 
@@ -252,16 +253,16 @@ function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
 
     // important to list the longest properties first (if a shorter property's name is the start of a longer property's name) !!!
     // example: "firstNameCapital" / "firstName" / "lastName"
-    Property = ${allPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ')}
+    Property = ${allPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(" / ")}
 
     // if there are no multi-valued properties (simple 'non-object' arrays) we'll match on '\' because it should not be in any url
     // this keeps things simpler (as in: the grammar always has MultiValuedProperty defined but it should never match anything in real life)
     // WARNING:by splitting them up into MultiValuedProperty and SingleValuedProperty we could potentially get invalid matches
     //    if for example "data" would be a MultiValuedProperty and "database" a SingleValuedProperty
     //    the MultiValuedProperty would match first (the way it's currently written)
-    MultiValuedProperty = ${hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ') : '"\\\\"'}
+    MultiValuedProperty = ${hasMultiValuedProperties ? allMultiValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(" / ") : '"\\\\"'}
 
-    SingleValuedProperty = ${hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(' / ') : '"\\\\"'}
+    SingleValuedProperty = ${hasSingleValuedProperties ? allSingleValuedPropertyNamesSortedInReverse.map((n) => `"${n}"`).join(" / ") : '"\\\\"'}
   `;
 
   // ${ allPropertyNamesSortedInReverse.map(n => `"${n}"`).join(' / ') }
@@ -269,6 +270,4 @@ function generateFlatQueryStringParserGrammar(flattenedJsonSchema) {
   return grammar;
 }
 
-export {
-  generateFlatQueryStringParserGrammar,
-};
+export { generateFlatQueryStringParserGrammar };

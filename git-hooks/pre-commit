@@ -1,0 +1,2 @@
+# get all staged files and run prettier over them (cfr. package.json:lint-staged property!)
+npx lint-staged
