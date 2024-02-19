@@ -1,5 +1,9 @@
 # Release Notes
 
+## version 2.3.31 (19-02-2024)
+
+- Updated json-stream-stringify to 3.1.2 solving an issue where the stream would not be closed properly in some cases.
+
 ## version 2.3.30 (19-02-2024)
 
 - All default filters use EXISTS instead of IN queries now. This is a performance improvement for large datasets.
