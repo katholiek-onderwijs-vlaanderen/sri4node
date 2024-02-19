@@ -9,11 +9,11 @@
  * (so we don't need to know the absolute path of the sri4node module file)
  * we don't neede to suffer.
  */
-import * as pug from 'pug';
+import * as pug from "pug";
 declare const index: pug.compileTemplate;
 declare const resource: pug.compileTemplate;
 declare const staticFiles: {
-    'bootstrap.min.css': string;
-    'custom.css': string;
+    "bootstrap.min.css": string;
+    "custom.css": string;
 };
-export { index, resource, staticFiles, };
+export { index, resource, staticFiles };

@@ -17,10 +17,7 @@ import { IClient } from "pg-promise/typescript/pg-subset";
  * @param {Array<Integer>} hrtime tuple [seconds, nanoseconds]
  * @returns the input translated to milliseconds
  */
-declare function hrtimeToMilliseconds([seconds, nanoseconds]: [
-    number,
-    number
-]): number;
+declare function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number;
 declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).

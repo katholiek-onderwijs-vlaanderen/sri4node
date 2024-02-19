@@ -2,23 +2,23 @@ import { TResourceDefinition } from "../../sri4node";
 
 module.exports = function (sri4node, _extra) {
   const $s = sri4node.schemaUtils;
-  const r : TResourceDefinition = {
-    type: '/table',
-    metaType: 'SRI4NODE_TABLE',
+  const r: TResourceDefinition = {
+    type: "/table",
+    metaType: "SRI4NODE_TABLE",
     map: {
       select: {},
-      from: {}
+      from: {},
     },
     schema: {
-      $schema: 'http://json-schema.org/schema#',
-      title: 'A table with protected keywords, to check escaping of sri4node',
-      type: 'object',
+      $schema: "http://json-schema.org/schema#",
+      title: "A table with protected keywords, to check escaping of sri4node",
+      type: "object",
       properties: {
-        key: $s.guid('GUID for this table.'),
-        select: $s.string(''),
-        from: $s.string('')
+        key: $s.guid("GUID for this table."),
+        select: $s.string(""),
+        from: $s.string(""),
       },
-      required: ['select', 'from']
+      required: ["select", "from"],
     },
   };
   return r;

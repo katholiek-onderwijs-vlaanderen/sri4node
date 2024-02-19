@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
-import { assert } from 'chai';
-import { TSriServerInstance } from '../js/typeDefinitions';
+import { assert } from "chai";
+import { TSriServerInstance } from "../js/typeDefinitions";
 
 /**
  * These tests depend on the fact that sriConfig.databaseConnectionParameters.connectionInitSql
@@ -8,26 +8,28 @@ import { TSriServerInstance } from '../js/typeDefinitions';
  *
  * This way we can check if that table contains the expected records.
  */
-module.exports = function (testContext: { sriServerInstance: null | TSriServerInstance }, httpClient) {
-  describe('sriConfig.databaseConnectionParameters.connectionInitSql', function () {
-    it('connectionInitSql should be executed', async function () {
+module.exports = function (
+  testContext: { sriServerInstance: null | TSriServerInstance },
+  httpClient,
+) {
+  describe("sriConfig.databaseConnectionParameters.connectionInitSql", function () {
+    it("connectionInitSql should be executed", async function () {
       // make sure at least one conncetion is made by doing an api call
-      const response = await httpClient.get({path: '/communities?orderBy=name'});
+      const response = await httpClient.get({ path: "/communities?orderBy=name" });
 
-      assert.equal(response.status, 200, 'response.status is not as expected');
+      assert.equal(response.status, 200, "response.status is not as expected");
 
       const db = (testContext.sriServerInstance as TSriServerInstance).db;
 
       // check if the table is not empty, indicating that the connectionInitSql was executed
-      const rows = await db.any('select * from db_connections');
+      const rows = await db.any("select * from db_connections");
       console.log("rows", JSON.stringify(rows, null, 2));
-      assert.isAbove(rows.length, 0, 'db_connections table is empty');
+      assert.isAbove(rows.length, 0, "db_connections table is empty");
     });
-
   });
 
-  describe('sriConfig.startUp hook', function () {
-    it('startup hook should be executed', async () => {
+  describe("sriConfig.startUp hook", function () {
+    it("startup hook should be executed", async () => {
       // in context.ts, the startup hook will make a change to the database
       // so we can check here whether that change actually had any effect
       assert.equal(
@@ -42,13 +44,13 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
           `)
         )?.trigger_exists,
         true,
-        "The trigger named vsko_do_nothing_trigger_countries should have been created at startup"
+        "The trigger named vsko_do_nothing_trigger_countries should have been created at startup",
       );
     });
   });
 
-  describe('sri4node should do some DB changes if needed', function () {
-    it('add $$meta.version fields if missing', async () => {
+  describe("sri4node should do some DB changes if needed", function () {
+    it("add $$meta.version fields if missing", async () => {
       assert.equal(
         (
           await testContext.sriServerInstance?.db.one(`
@@ -61,11 +63,11 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
         `)
         )?.column_exists,
         true,
-        "Although schema.sql does not define a $$meta.version column, it should have been added by sri4node at startup"
+        "Although schema.sql does not define a $$meta.version column, it should have been added by sri4node at startup",
       );
     });
 
-    it('add version update trigger if missing', async () => {
+    it("add version update trigger if missing", async () => {
       assert.equal(
         (
           await testContext.sriServerInstance?.db.one(`
@@ -78,7 +80,7 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
           `)
         )?.trigger_exists,
         true,
-        "The trigger named vsko_resource_version_trigger_alldatatypes should have been created at startup"
+        "The trigger named vsko_resource_version_trigger_alldatatypes should have been created at startup",
       );
     });
 
@@ -95,7 +97,7 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
           `)
         )?.trigger_exists,
         false,
-        "The 'old' trigger named vsko_resource_version_trigger_sri4node_alldatatypes (which contains the schema name sri4node) should have been dropped at startup"
+        "The 'old' trigger named vsko_resource_version_trigger_sri4node_alldatatypes (which contains the schema name sri4node) should have been dropped at startup",
       );
 
       // assert.equal(resultOldVersionTrigger, null, "The 'old' trigger named vsko_resource_version_trigger_sri4node_alldatatypes (which contains the schema name sri4node) should have been dropped at startup");
@@ -112,7 +114,7 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
           `)
         )?.trigger_exists,
         true,
-        "The other trigger named vsko_do_nothing_trigger_alldatatypes should NOT have been dropped at startup"
+        "The other trigger named vsko_do_nothing_trigger_alldatatypes should NOT have been dropped at startup",
       );
     });
   });

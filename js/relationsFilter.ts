@@ -1,8 +1,8 @@
-import _ from 'lodash';
-import { IDatabase } from 'pg-promise';
-import * as common from './common';
-import { TPreparedSql, TResourceDefinition } from './typeDefinitions';
-import { ParsedUrlQuery } from 'querystring';
+import _ from "lodash";
+import { IDatabase } from "pg-promise";
+import * as common from "./common";
+import { TPreparedSql, TResourceDefinition } from "./typeDefinitions";
+import { ParsedUrlQuery } from "querystring";
 
 function fromTypesFilter(
   value: string,
@@ -11,7 +11,7 @@ function fromTypesFilter(
   _database: IDatabase<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery
+  _urlParameters: ParsedUrlQuery,
 ) {
   let sql;
   let fromCondition;
@@ -27,9 +27,7 @@ function fromTypesFilter(
     const table = common.tableFromMapping(mapping);
     types = value.split(",").join("','");
     fromTable =
-      mapping.map.from.references.split("/")[
-        mapping.map.from.references.split("/").length - 1
-      ];
+      mapping.map.from.references.split("/")[mapping.map.from.references.split("/").length - 1];
 
     sql =
       select.text.indexOf("count") !== -1
@@ -50,7 +48,7 @@ function toTypesFilter(
   _database: IDatabase<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery
+  _urlParameters: ParsedUrlQuery,
 ) {
   let sql;
   let fromCondition;
@@ -65,10 +63,7 @@ function toTypesFilter(
 
     const table = common.tableFromMapping(mapping);
     types = value.split(",").join("','");
-    toTable =
-      mapping.map.to.references.split("/")[
-        mapping.map.to.references.split("/").length - 1
-      ];
+    toTable = mapping.map.to.references.split("/")[mapping.map.to.references.split("/").length - 1];
 
     sql =
       select.text.indexOf("count") !== -1
@@ -89,14 +84,12 @@ function fromsFilter(
   _database: IDatabase<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery
+  _urlParameters: ParsedUrlQuery,
 ) {
   if (value) {
     const table = common.tableFromMapping(mapping);
 
-    const froms = value
-      .split(",")
-      .map((val) => val.split("/")[val.split("/").length - 1]);
+    const froms = value.split(",").map((val) => val.split("/")[val.split("/").length - 1]);
 
     select.sql(` AND ${table}.from in (`).array(froms).sql(")");
   }
@@ -109,14 +102,12 @@ function tosFilter(
   _database: IDatabase<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery
+  _urlParameters: ParsedUrlQuery,
 ) {
   if (value) {
     const table = common.tableFromMapping(mapping);
 
-    const tos = value
-      .split(",")
-      .map((val) => val.split("/")[val.split("/").length - 1]);
+    const tos = value.split(",").map((val) => val.split("/")[val.split("/").length - 1]);
 
     select.sql(` AND ${table}.to in (`).array(tos).sql(")");
   }

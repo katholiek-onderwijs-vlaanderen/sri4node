@@ -1,48 +1,69 @@
-import _ from 'lodash';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-import jsonPatch from 'fast-json-patch';
-import pMap from 'p-map';
-import { Operation } from 'fast-json-patch';
-import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from './typeDefinitions';
+import _ from "lodash";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import jsonPatch from "fast-json-patch";
+import pMap from "p-map";
+import { Operation } from "fast-json-patch";
+import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from "./typeDefinitions";
 import {
-  debug, error, sqlColumnNames, pgExec, pgResult, transformRowToObject, transformObjectToRow,
-  errorAsCode, isEqualSriObject, setServerTimingHdr, getParentSriRequest,
-  getParentSriRequestFromRequestMap, tableFromMapping, typeToMapping, getPgp, findPropertyInJsonSchema,
-} from './common';
-import { prepareSQL } from './queryObject';
-import { applyHooks } from './hooks';
+  debug,
+  error,
+  sqlColumnNames,
+  pgExec,
+  pgResult,
+  transformRowToObject,
+  transformObjectToRow,
+  errorAsCode,
+  isEqualSriObject,
+  setServerTimingHdr,
+  getParentSriRequest,
+  getParentSriRequestFromRequestMap,
+  tableFromMapping,
+  typeToMapping,
+  getPgp,
+  findPropertyInJsonSchema,
+} from "./common";
+import { prepareSQL } from "./queryObject";
+import { applyHooks } from "./hooks";
 
-import * as expand from './expand';
+import * as expand from "./expand";
 // import { expand } from './expand';
-import { PhaseSyncer } from './phaseSyncedSettle';
-import { IDatabase } from 'pg-promise';
+import { PhaseSyncer } from "./phaseSyncedSettle";
+import { IDatabase } from "pg-promise";
 
 const ajv = new Ajv({ coerceTypes: true }); // options can be passed, e.g. {allErrors: true}
 addFormats(ajv);
 
-const makeMultiError = (type) => () => new SriError({
-  status: 409,
-  errors: [{
-    code: `multi.${type}.failed`,
-    msg: `An error occurred during multi row ${type}. There is no indication which request(s)/row(s) caused the error, `
-      + `to find out more information retry with individual ${type}s.`,
-  }],
-});
+const makeMultiError = (type) => () =>
+  new SriError({
+    status: 409,
+    errors: [
+      {
+        code: `multi.${type}.failed`,
+        msg:
+          `An error occurred during multi row ${type}. There is no indication which request(s)/row(s) caused the error, ` +
+          `to find out more information retry with individual ${type}s.`,
+      },
+    ],
+  });
 
-const multiInsertError = makeMultiError('insert');
-const multiUpdateError = makeMultiError('update');
-const multiDeleteError = makeMultiError('delete');
+const multiInsertError = makeMultiError("insert");
+const multiUpdateError = makeMultiError("update");
+const multiDeleteError = makeMultiError("delete");
 
 function queryByKeyRequestKey(sriRequest: TSriRequest, mapping: TResourceDefinition, key: string) {
-  debug('trace', `queryByKeyRequestKey(${key})`);
+  debug("trace", `queryByKeyRequestKey(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
   if (findPropertyInJsonSchema(mapping.schema, "key") && mapping.validateKey) {
     const validKey = mapping.validateKey(key);
     if (!validKey) {
-      throw new SriError({ status: 400, errors: mapping.validateKey.errors?.map((e) => ({ code: 'key.invalid', key, err: e })) || [] });
+      throw new SriError({
+        status: 400,
+        errors:
+          mapping.validateKey.errors?.map((e) => ({ code: "key.invalid", key, err: e })) || [],
+      });
     }
   }
 
@@ -56,70 +77,90 @@ function queryByKeyRequestKey(sriRequest: TSriRequest, mapping: TResourceDefinit
   parentSriRequest.queryByKeyFetchList[type].push(key);
 }
 
-function queryByKeyGetResult(sriRequest: TSriRequest, mapping: TResourceDefinition, key: string, wantsDeleted: boolean) {
-  debug('trace', `queryByKeyGetResult(${key})`);
+function queryByKeyGetResult(
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+  key: string,
+  wantsDeleted: boolean,
+) {
+  debug("trace", `queryByKeyGetResult(${key})`);
   const { type } = mapping;
   const parentSriRequest = getParentSriRequest(sriRequest);
 
-  if (parentSriRequest.queryByKeyResults === undefined || parentSriRequest.queryByKeyResults[type] === undefined) {
+  if (
+    parentSriRequest.queryByKeyResults === undefined ||
+    parentSriRequest.queryByKeyResults[type] === undefined
+  ) {
     const msg = `The function queryByKey did not produce the expected output for key ${key} and type ${type}`;
     error(msg);
     throw new SriError({
       status: 500,
-      errors: [{
-        code: 'fetching.key.failed', type, key, msg,
-      }],
+      errors: [
+        {
+          code: "fetching.key.failed",
+          type,
+          key,
+          msg,
+        },
+      ],
     });
   }
 
   const row = parentSriRequest.queryByKeyResults[type][key];
   if (row !== undefined) {
-    if (row['$$meta.deleted'] && !wantsDeleted) {
-      return { code: 'resource.gone' };
+    if (row["$$meta.deleted"] && !wantsDeleted) {
+      return { code: "resource.gone" };
     }
-    return { code: 'found', object: transformRowToObject(row, mapping) };
+    return { code: "found", object: transformRowToObject(row, mapping) };
   }
-  return { code: 'not.found' };
+  return { code: "not.found" };
 }
 
 const beforePhaseQueryByKey: TBeforePhase = async function (sriRequestMap, _jobMap, _pendingJobs) {
   const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
   if (sriRequest.queryByKeyFetchList !== undefined) {
     const types = Object.keys(sriRequest.queryByKeyFetchList);
-    const results = await pMap(types, async (type) => {
-      const keys = sriRequest.queryByKeyFetchList[type];
-      const table = tableFromMapping(typeToMapping(type));
-      const columns = sqlColumnNames(typeToMapping(type));
-      const query = prepareSQL(`select-rows-by-key-from-${table}`);
-      const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
-      query.sql(`SELECT ${columns}
-                       FROM UNNEST(`)
-        .param(keys)
-        .sql(`::${keyDbType}[]) "key"
+    const results = await pMap(
+      types,
+      async (type) => {
+        const keys = sriRequest.queryByKeyFetchList[type];
+        const table = tableFromMapping(typeToMapping(type));
+        const columns = sqlColumnNames(typeToMapping(type));
+        const query = prepareSQL(`select-rows-by-key-from-${table}`);
+        const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
+        query
+          .sql(
+            `SELECT ${columns}
+                       FROM UNNEST(`,
+          )
+          .param(keys).sql(`::${keyDbType}[]) "key"
                        INNER JOIN "${table}" USING ("key");`);
 
-      const rows = await pgExec(sriRequest.dbT, query); // pass no sriRequest because timing is already registered in beforePhase hook
+        const rows = await pgExec(sriRequest.dbT, query); // pass no sriRequest because timing is already registered in beforePhase hook
 
-      return Object.fromEntries(rows.map((r) => [r.key, r]));
-    }, { concurrency: 3 });
+        return Object.fromEntries(rows.map((r) => [r.key, r]));
+      },
+      { concurrency: 3 },
+    );
 
     sriRequest.queryByKeyResults = Object.fromEntries(_.zip(types, results));
     delete sriRequest.queryByKeyFetchList;
   }
-}
+};
 
-async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
+async function getRegularResource(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+) {
   const { key } = sriRequest.params;
 
   await phaseSyncer.phase();
   await phaseSyncer.phase();
   await phaseSyncer.phase();
 
-  await applyHooks('before read',
-    mapping.beforeRead || [],
-    (f) => f(tx,
-      sriRequest),
-    sriRequest);
+  await applyHooks("before read", mapping.beforeRead || [], (f) => f(tx, sriRequest), sriRequest);
 
   await phaseSyncer.phase();
 
@@ -127,14 +168,20 @@ async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknow
 
   await phaseSyncer.phase();
 
-  const result = queryByKeyGetResult(sriRequest, mapping, key,
-    sriRequest.query['$$meta.deleted'] === 'true'
-    || sriRequest.query['$$meta.deleted'] === 'any');
+  const result = queryByKeyGetResult(
+    sriRequest,
+    mapping,
+    key,
+    sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any",
+  );
 
-  if (result.code == 'resource.gone') {
-    throw new SriError({ status: 410, errors: [{ code: 'resource.gone', msg: 'Resource is gone' }] });
-  } else if (result.code == 'not.found') {
-    throw new SriError({ status: 404, errors: [{ code: 'not.found', msg: 'Not Found' }] });
+  if (result.code == "resource.gone") {
+    throw new SriError({
+      status: 410,
+      errors: [{ code: "resource.gone", msg: "Resource is gone" }],
+    });
+  } else if (result.code == "not.found") {
+    throw new SriError({ status: 404, errors: [{ code: "not.found", msg: "Not Found" }] });
   }
 
   const element = result.object;
@@ -143,20 +190,25 @@ async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknow
 
   element.$$meta.type = mapping.metaType;
 
-  debug('trace', '* executing expansion');
+  debug("trace", "* executing expansion");
   await expand.executeExpansion(tx, sriRequest, [element], mapping);
 
   await phaseSyncer.phase();
 
-  debug('trace', '* executing afterRead functions on results');
-  await applyHooks('after read',
+  debug("trace", "* executing afterRead functions on results");
+  await applyHooks(
+    "after read",
     mapping.afterRead || [],
-    (f) => f(tx, sriRequest, [{
-      permalink: element.$$meta.permalink,
-      incoming: null,
-      stored: element,
-    }]),
-    sriRequest);
+    (f) =>
+      f(tx, sriRequest, [
+        {
+          permalink: element.$$meta.permalink,
+          incoming: null,
+          stored: element,
+        },
+      ]),
+    sriRequest,
+  );
 
   await phaseSyncer.phase();
 
@@ -166,13 +218,16 @@ async function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknow
 function getSchemaValidationErrors(json, schema, validateSchema) {
   const valid = validateSchema(json);
   if (!valid) {
-    console.log('Schema validation revealed errors.');
+    console.log("Schema validation revealed errors.");
     console.log(validateSchema.errors);
-    console.log('JSON schema was : ');
+    console.log("JSON schema was : ");
     console.log(JSON.stringify(schema, null, 2));
-    console.log('Document was : ');
+    console.log("Document was : ");
     console.log(JSON.stringify(json, null, 2));
-    return (validateSchema.errors || []).map((e) => ({ code: errorAsCode(e.message || ''), err: e }));
+    return (validateSchema.errors || []).map((e) => ({
+      code: errorAsCode(e.message || ""),
+      err: e,
+    }));
   }
   return null;
 }
@@ -186,29 +241,40 @@ function getSchemaValidationErrors(json, schema, validateSchema) {
  * @param {TResourceDefinition} mapping
  * @param {*} previousQueriedByKey
  */
-async function preparePatchInsideTransaction(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
+async function preparePatchInsideTransaction(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+) {
   const { key } = sriRequest.params;
   const patch = (sriRequest.body || []) as Operation[];
   // const patch:Operation[] = sriRequest.body?.map((b) => b.body as unknown as Operation) || [];
 
-  debug('trace', `PATCH processing starting key ${key}`);
+  debug("trace", `PATCH processing starting key ${key}`);
 
   queryByKeyRequestKey(sriRequest, mapping, key);
   await phaseSyncer.phase();
   const result = queryByKeyGetResult(sriRequest, mapping, key, false);
 
-  if (result.code !== 'found') {
+  if (result.code !== "found") {
     // it wouldn't make sense to PATCH a deleted resource I guess?
-    throw new SriError({ status: 410, errors: [{ code: 'resource.gone', msg: 'Resource is gone' }] });
+    throw new SriError({
+      status: 410,
+      errors: [{ code: "resource.gone", msg: "Resource is gone" }],
+    });
   }
 
   // overwrite the body with the patched previous record
   try {
     // RFC6902 (with 'op' and 'path'), RFC7396 (just a sparse object) NOT currently supported
     sriRequest.body = jsonPatch.applyPatch(result.object, patch, true, false).newDocument;
-    debug('trace', `Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
+    debug("trace", `Patched resource looks like this: ${JSON.stringify(sriRequest.body, null, 2)}`);
   } catch (e) {
-    throw new SriError({ status: 400, errors: [{ code: 'patch.invalid', msg: 'The patch could not be applied.', error: e }] });
+    throw new SriError({
+      status: 400,
+      errors: [{ code: "patch.invalid", msg: "The patch could not be applied.", error: e }],
+    });
   }
 
   // from now on behave like a PUT of the patched object
@@ -226,26 +292,38 @@ async function preparePatchInsideTransaction(phaseSyncer: PhaseSyncer, tx: IData
  * run the same query again. Useful for implementing a PATCH which will simply behave as if it were
  * a PUT after patching.
  */
-async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sriRequest: TSriRequest,
-  mapping: TResourceDefinition, previousQueriedByKey: any = undefined) {
+async function preparePutInsideTransaction(
+  phaseSyncer: PhaseSyncer,
+  tx: any,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+  previousQueriedByKey: any = undefined,
+) {
   const key = sriRequest.params.key;
-  const obj = sriRequest.body
+  const obj = sriRequest.body;
   const table = tableFromMapping(mapping);
 
-  debug('trace', `PUT processing starting for key ${key}`);
+  debug("trace", `PUT processing starting for key ${key}`);
 
   if (obj.key !== undefined && obj.key.toString() !== key) {
-    throw new SriError({ status: 400, errors: [{ code: 'key.mismatch', msg: 'Key in the request url does not match the key in the body.' }] })
+    throw new SriError({
+      status: 400,
+      errors: [
+        { code: "key.mismatch", msg: "Key in the request url does not match the key in the body." },
+      ],
+    });
   }
 
   // Treat fields with explicit null values the same as missing fields.
   // We remove them now, before validation (otherwise validation will fail). They will be set
   // to null again in 'transformObjectToRow' (just as fields missing in the original request).
-  Object.keys(obj).forEach(k => {
-    if (obj[k] === null) { delete obj[k] }
-  })
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] === null) {
+      delete obj[k];
+    }
+  });
 
-  debug('trace', 'Validating schema.');
+  debug("trace", "Validating schema.");
   if (mapping.schema) {
     // if (!mapping.schemaWithoutAdditionalProperties) {
     //   mapping.schemaWithoutAdditionalProperties = schemaUtils.patchSchemaToDisallowAdditionalProperties(mapping.schema)
@@ -255,61 +333,68 @@ async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sr
     const validationErrors = getSchemaValidationErrors(obj, mapping.schema, mapping.validateSchema);
     if (validationErrors !== null) {
       const errors = { validationErrors };
-      const schemaUrl = `https://${sriRequest.headers['host']}${mapping.type}/schema`;
-      throw new SriError({ status: 409, errors: [{ code: 'validation.errors', msg: 'Validation error(s)', errors, schemaUrl }] })
+      const schemaUrl = `https://${sriRequest.headers["host"]}${mapping.type}/schema`;
+      throw new SriError({
+        status: 409,
+        errors: [{ code: "validation.errors", msg: "Validation error(s)", errors, schemaUrl }],
+      });
     } else {
-      debug('trace', 'Schema validation passed.');
+      debug("trace", "Schema validation passed.");
     }
     const hrend = process.hrtime(hrstart);
-    setServerTimingHdr(sriRequest, 'schema-validation', hrend[0] * 1000 + hrend[1] / 1000000);
+    setServerTimingHdr(sriRequest, "schema-validation", hrend[0] * 1000 + hrend[1] / 1000000);
   }
 
-  const permalink = mapping.type + '/' + key
+  const permalink = mapping.type + "/" + key;
 
   let result;
   if (previousQueriedByKey !== undefined) {
     // In this case no 'await phaseSyncer.phase()' is necessary because this happens in case of patch
     // and preparePatchInsideTransaction() has already done an 'await phaseSyncer.phase()' while querying
     // the resource.
-    result = previousQueriedByKey
+    result = previousQueriedByKey;
   } else {
     queryByKeyRequestKey(sriRequest, mapping, key);
     await phaseSyncer.phase();
     result = queryByKeyGetResult(sriRequest, mapping, key, false);
   }
 
-  if (result.code == 'resource.gone') {
+  if (result.code == "resource.gone") {
     // we are dealing with a PUT on a deleted resource
     //  -> treat this as a new CREATE
     //  -> remove old resource from DATABASE and then continue the "insert" code path
 
-    const deleteQ = prepareSQL('delete-' + table);
+    const deleteQ = prepareSQL("delete-" + table);
     deleteQ.sql(`delete from "${table}" where "key" = `).param(key);
 
     const deleteRes = await pgResult(tx, deleteQ, sriRequest);
 
     if (deleteRes.rowCount !== 1) {
-      debug('trace', 'Removal of soft deleted resource failed ?!');
-      debug('trace', JSON.stringify(deleteRes))
-      throw new SriError({ status: 500, errors: [{ code: 'delete.failed', msg: 'Removal of soft deleted resource failed.' }] })
+      debug("trace", "Removal of soft deleted resource failed ?!");
+      debug("trace", JSON.stringify(deleteRes));
+      throw new SriError({
+        status: 500,
+        errors: [{ code: "delete.failed", msg: "Removal of soft deleted resource failed." }],
+      });
     }
   }
 
   sriRequest.containsDeleted = false;
   await phaseSyncer.phase();
 
-  if (result.code != 'found') {
+  if (result.code != "found") {
     // insert new element
 
-    await applyHooks('before insert'
-      , mapping.beforeInsert || []
-      , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null }])
-      , sriRequest
-    )
+    await applyHooks(
+      "before insert",
+      mapping.beforeInsert || [],
+      (f) => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: null }]),
+      sriRequest,
+    );
 
-    await phaseSyncer.phase()
+    await phaseSyncer.phase();
 
-    const newRow: any = transformObjectToRow(obj, mapping, true)
+    const newRow: any = transformObjectToRow(obj, mapping, true);
     newRow.key = key;
 
     const type = mapping.type;
@@ -326,29 +411,31 @@ async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sr
     parentSriRequest.putRowsToInsert[type].push(newRow);
     parentSriRequest.putRowsToInsertIDs.push(sriRequest.id);
 
-    return { opType: 'insert', obj, permalink };
+    return { opType: "insert", obj, permalink };
   } else {
     // update existing element
-    const prevObj = result.object
+    const prevObj = result.object;
 
-    await applyHooks('before update'
-      , mapping.beforeUpdate || []
-      , f => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: prevObj }])
-      , sriRequest)
+    await applyHooks(
+      "before update",
+      mapping.beforeUpdate || [],
+      (f) => f(tx, sriRequest, [{ permalink: permalink, incoming: obj, stored: prevObj }]),
+      sriRequest,
+    );
 
-    await phaseSyncer.phase()
+    await phaseSyncer.phase();
 
     // If new resource is the same as the one in the database => don't update the resource. Otherwise meta
     // data fields 'modified date' and 'version' are updated. PUT should be idempotent.
     if (isEqualSriObject(prevObj, obj, mapping)) {
-      debug('trace', 'Putted resource does NOT contain changes -> ignore PUT.');
+      debug("trace", "Putted resource does NOT contain changes -> ignore PUT.");
       await phaseSyncer.phase();
       await phaseSyncer.phase();
       await phaseSyncer.phase();
-      return { retVal: { status: 200 } }
+      return { retVal: { status: 200 } };
     }
 
-    const updateRow = transformObjectToRow(obj, mapping, false)
+    const updateRow = transformObjectToRow(obj, mapping, false);
     updateRow["$$meta.modified"] = new Date();
 
     const type = mapping.type;
@@ -365,9 +452,8 @@ async function preparePutInsideTransaction(phaseSyncer: PhaseSyncer, tx: any, sr
     parentSriRequest.putRowsToUpdate[type].push(updateRow);
     parentSriRequest.putRowsToUpdateIDs.push(sriRequest.id);
 
-    return { opType: 'update', obj, prevObj, permalink };
+    return { opType: "update", obj, prevObj, permalink };
   }
-
 }
 
 async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
@@ -375,9 +461,9 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
 
   const throwIfDbTUndefined = (sriReq: TSriRequest): void => {
     if (sriReq?.dbT === undefined) {
-      throw new Error('[beforePhaseInsertUpdateDelete] Expected sriRequest.dbT to be defined');
+      throw new Error("[beforePhaseInsertUpdateDelete] Expected sriRequest.dbT to be defined");
     }
-  }
+  };
   throwIfDbTUndefined(sriRequest);
 
   const pgp = getPgp();
@@ -401,7 +487,7 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
         await sriRequest.dbT?.none(query);
       } catch (err) {
         sriRequest.multiInsertFailed = true;
-        if (err.code === '25P02') {
+        if (err.code === "25P02") {
           // postgres transaction aborted error -> caused by earlier error
           sriRequest.multiDeleteError = err;
         }
@@ -429,7 +515,7 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
         await sriRequest.dbT?.none(update);
       } catch (err) {
         sriRequest.multiUpdateFailed = true;
-        if (err.code === '25P02') {
+        if (err.code === "25P02") {
           // postgres transaction aborted error -> caused by earlier error
           sriRequest.multiDeleteError = err;
         }
@@ -457,7 +543,7 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
         await sriRequest.dbT?.none(update);
       } catch (err) {
         sriRequest.multiDeleteFailed = true;
-        if (err.code === '25P02') {
+        if (err.code === "25P02") {
           // postgres transaction aborted error -> caused by earlier error
           sriRequest.multiDeleteError = err;
         }
@@ -470,9 +556,14 @@ async function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJob
   sriRequest.rowsToDelete = undefined;
 }
 
-async function handlePutResult(phaseSyncer: PhaseSyncer, sriRequest: TSriRequest, mapping: TResourceDefinition, state) {
+async function handlePutResult(
+  phaseSyncer: PhaseSyncer,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+  state,
+) {
   const parentSriRequest = getParentSriRequest(sriRequest);
-  if (state.opType === 'insert') {
+  if (state.opType === "insert") {
     if (parentSriRequest.multiInsertFailed) {
       if (parentSriRequest.multiInsertError !== undefined) {
         const err = parentSriRequest.multiInsertError;
@@ -484,10 +575,15 @@ async function handlePutResult(phaseSyncer: PhaseSyncer, sriRequest: TSriRequest
 
     await phaseSyncer.phase();
 
-    await applyHooks('after insert',
+    await applyHooks(
+      "after insert",
       mapping.afterInsert,
-      (f) => f(sriRequest.dbT, sriRequest, [{ permalink: state.permalink, incoming: state.obj, stored: null }]),
-      sriRequest);
+      (f) =>
+        f(sriRequest.dbT, sriRequest, [
+          { permalink: state.permalink, incoming: state.obj, stored: null },
+        ]),
+      sriRequest,
+    );
 
     await phaseSyncer.phase();
 
@@ -504,19 +600,29 @@ async function handlePutResult(phaseSyncer: PhaseSyncer, sriRequest: TSriRequest
 
   await phaseSyncer.phase();
 
-  await applyHooks('after update',
+  await applyHooks(
+    "after update",
     mapping.afterUpdate || [],
-    (f) => f(sriRequest.dbT, sriRequest, [{ permalink: state.permalink, incoming: state.obj, stored: state.prevObj }]),
-    sriRequest);
+    (f) =>
+      f(sriRequest.dbT, sriRequest, [
+        { permalink: state.permalink, incoming: state.obj, stored: state.prevObj },
+      ]),
+    sriRequest,
+  );
 
   await phaseSyncer.phase();
 
   return { status: 200 };
 }
 
-async function createOrUpdateRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
+async function createOrUpdateRegularResource(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+) {
   await phaseSyncer.phase();
-  debug('trace', '* sri4node PUT processing invoked.');
+  debug("trace", "* sri4node PUT processing invoked.");
   try {
     const state = await preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping);
     if (state.retVal !== undefined) {
@@ -528,19 +634,27 @@ async function createOrUpdateRegularResource(phaseSyncer: PhaseSyncer, tx: IData
   } catch (err) {
     // intercept db constraint violation errors and return 409 error
     if (err.constraint !== undefined) {
-      throw new SriError({ status: 409, errors: [{ code: 'db.constraint.violation', msg: err.detail }] });
+      throw new SriError({
+        status: 409,
+        errors: [{ code: "db.constraint.violation", msg: err.detail }],
+      });
     } else {
       if (!(err instanceof SriError || err?.__proto__?.constructor?.name)) {
-        throw new SriError({ status: 500, errors: [{ code: 'sql.error', msg: err.message, err }] });
+        throw new SriError({ status: 500, errors: [{ code: "sql.error", msg: err.message, err }] });
       }
       throw err;
     }
   }
 }
 
-async function patchRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
+async function patchRegularResource(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+) {
   await phaseSyncer.phase();
-  debug('trace', '* sri4node PATCH processing invoked.');
+  debug("trace", "* sri4node PATCH processing invoked.");
   try {
     const state = await preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping);
     if (state.retVal !== undefined) {
@@ -552,33 +666,44 @@ async function patchRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unkn
   } catch (err) {
     // intercept db constraint violation errors and return 409 error
     if (err.constraint !== undefined) {
-      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
       console.log(err);
-      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-      throw new SriError({ status: 409, errors: [{ code: 'db.constraint.violation', msg: err.detail }] });
+      console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+      throw new SriError({
+        status: 409,
+        errors: [{ code: "db.constraint.violation", msg: err.detail }],
+      });
     } else {
       throw err;
     }
   }
 }
 
-async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition) {
+async function deleteRegularResource(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequest,
+  mapping: TResourceDefinition,
+) {
   try {
     await phaseSyncer.phase();
 
-    debug('trace', 'sri4node DELETE invoked');
+    debug("trace", "sri4node DELETE invoked");
     const { key } = sriRequest.params;
 
     queryByKeyRequestKey(sriRequest, mapping, key);
 
     await phaseSyncer.phase();
 
-    const result = queryByKeyGetResult(sriRequest, mapping, key,
-      sriRequest.query['$$meta.deleted'] === 'true'
-      || sriRequest.query['$$meta.deleted'] === 'any');
+    const result = queryByKeyGetResult(
+      sriRequest,
+      mapping,
+      key,
+      sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any",
+    );
 
-    if (result.code != 'found') {
-      debug('trace', 'No row affected - the resource is already gone');
+    if (result.code != "found") {
+      debug("trace", "No row affected - the resource is already gone");
       await phaseSyncer.phase();
       await phaseSyncer.phase();
       await phaseSyncer.phase();
@@ -589,17 +714,19 @@ async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unk
       await phaseSyncer.phase();
 
       const prevObj = result.object;
-      await applyHooks('before delete',
+      await applyHooks(
+        "before delete",
         mapping.beforeDelete || [],
         (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
-        sriRequest);
+        sriRequest,
+      );
 
       await phaseSyncer.phase();
 
       const deleteRow = {
         key,
-        '$$meta.modified': new Date(),
-        '$$meta.deleted': true,
+        "$$meta.modified": new Date(),
+        "$$meta.deleted": true,
       };
 
       const { type } = mapping;
@@ -620,9 +747,17 @@ async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unk
 
       if (parentSriRequest.multiDeleteFailed) {
         if (parentSriRequest.multiDeleteError !== undefined) {
-          if (parentSriRequest.multiDeleteError.code === '25P02') {
+          if (parentSriRequest.multiDeleteError.code === "25P02") {
             // postgres transaction aborted error -> caused by earlier error
-            throw new SriError({ status: 202, errors: [{ code: 'transaction.failed', msg: 'Request cancelled due to database error generated by accompanying request in batch.' }] });
+            throw new SriError({
+              status: 202,
+              errors: [
+                {
+                  code: "transaction.failed",
+                  msg: "Request cancelled due to database error generated by accompanying request in batch.",
+                },
+              ],
+            });
           }
           const err = parentSriRequest.multiDeleteError;
           throw err;
@@ -633,17 +768,22 @@ async function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unk
 
       await phaseSyncer.phase();
 
-      await applyHooks('after delete',
+      await applyHooks(
+        "after delete",
         mapping.afterDelete || [],
         (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
-        sriRequest);
+        sriRequest,
+      );
     }
     await phaseSyncer.phase();
     return { status: 200 };
   } catch (err) {
     // intercept db constraint violation errors and return 409 error
     if (err.constraint !== undefined) {
-      throw new SriError({ status: 409, errors: [{ code: 'db.constraint.violation', msg: err.detail }] });
+      throw new SriError({
+        status: 409,
+        errors: [{ code: "db.constraint.violation", msg: err.detail }],
+      });
     } else {
       throw err;
     }

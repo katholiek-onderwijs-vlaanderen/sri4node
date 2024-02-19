@@ -1,6 +1,6 @@
-import pMap from 'p-map';
-import { TResourceDefinition } from '../../sri4node';
-import * as Sri4Node from '../../index';
+import pMap from "p-map";
+import { TResourceDefinition } from "../../sri4node";
+import * as Sri4Node from "../../index";
 
 module.exports = function (sri4node: typeof Sri4Node) {
   const $m = sri4node.mapUtils;
@@ -8,19 +8,29 @@ module.exports = function (sri4node: typeof Sri4Node) {
   const $q = sri4node.queryUtils;
 
   async function invalidQueryParameter() {
-    throw new sri4node.SriError({ status: 404, errors: [{ code: 'invalid.query.parameter' }] });
+    throw new sri4node.SriError({ status: 404, errors: [{ code: "invalid.query.parameter" }] });
   }
 
   function disallowOneCommunity(forbiddenKey) {
     return async function (_tx, sriRequest, elements) {
-      if (sriRequest.httpMethod === 'GET') {
-        await pMap(elements, async (e:any) => {
-          if (sriRequest.path === `/communities/${forbiddenKey}`
-                || (sriRequest.query.expand !== undefined && e.permalink === `/communities/${forbiddenKey}`)) {
-            sri4node.debug('mocha', `security method disallowedOneCommunity for ${forbiddenKey} denies access`);
-            throw new sriRequest.SriError({ status: 403, errors: [{ code: 'forbidden' }] });
-          }
-        }, { concurrency: 1 });
+      if (sriRequest.httpMethod === "GET") {
+        await pMap(
+          elements,
+          async (e: any) => {
+            if (
+              sriRequest.path === `/communities/${forbiddenKey}` ||
+              (sriRequest.query.expand !== undefined &&
+                e.permalink === `/communities/${forbiddenKey}`)
+            ) {
+              sri4node.debug(
+                "mocha",
+                `security method disallowedOneCommunity for ${forbiddenKey} denies access`,
+              );
+              throw new sriRequest.SriError({ status: 403, errors: [{ code: "forbidden" }] });
+            }
+          },
+          { concurrency: 1 },
+        );
       }
     };
   }
@@ -28,8 +38,10 @@ module.exports = function (sri4node: typeof Sri4Node) {
   // Don't really need the extra parameters when using CTE.
   async function parameterWithExtraQuery(_value, select, _param, tx, count) {
     if (count) {
-      const query = sri4node.utils.prepareSQL('create-allcommunitykeys');
-      query.sql('CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities');
+      const query = sri4node.utils.prepareSQL("create-allcommunitykeys");
+      query.sql(
+        "CREATE TEMPORARY TABLE allcommunitykeys ON COMMIT DROP AS SELECT key FROM communities",
+      );
       await sri4node.utils.executeSQL(tx, query);
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys") ');
@@ -40,8 +52,10 @@ module.exports = function (sri4node: typeof Sri4Node) {
 
   async function parameterWithExtraQuery2(_value, select, _param, tx, count) {
     if (count) {
-      const query = sri4node.utils.prepareSQL('create-allcommunitykeys2');
-      query.sql('CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities');
+      const query = sri4node.utils.prepareSQL("create-allcommunitykeys2");
+      query.sql(
+        "CREATE TEMPORARY TABLE allcommunitykeys2 ON COMMIT DROP AS SELECT key FROM communities",
+      );
       await sri4node.utils.executeSQL(tx, query);
 
       select.sql(' AND "key" NOT IN (SELECT "key" FROM "allcommunitykeys2") ');
@@ -51,8 +65,8 @@ module.exports = function (sri4node: typeof Sri4Node) {
   }
 
   async function addMessageCountToCommunities(tx, _sriRequest, elements) {
-    sri4node.debug('mocha', 'addMessageCountToCommunities');
-    sri4node.debug('mocha', elements);
+    sri4node.debug("mocha", "addMessageCountToCommunities");
+    sri4node.debug("mocha", elements);
 
     if (elements.length > 0) {
       // Lets do this efficiently. Remember that we receive an array of elements.
@@ -61,44 +75,58 @@ module.exports = function (sri4node: typeof Sri4Node) {
       // community in ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','57561082-1506-41e8-a57e-98fee9289e0c');
       const keyToElement = {};
       const keys = elements.map(({ permalink, stored }) => {
-        const key = permalink.split('/')[2];
+        const key = permalink.split("/")[2];
         keyToElement[key] = stored;
         return key;
       });
 
       const query = sri4node.utils.prepareSQL();
-      query.sql('SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (');
+      query.sql(
+        "SELECT community, count(*) as messagecount FROM messages GROUP BY community HAVING community in (",
+      );
       query.array(keys);
-      query.sql(')');
+      query.sql(")");
       const rows = await sri4node.utils.executeSQL(tx, query);
-      rows.forEach((row) => keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10));
+      rows.forEach(
+        (row) => (keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10)),
+      );
     }
   }
 
-  const r : TResourceDefinition = {
-    type: '/communities',
-    metaType: 'SRI4NODE_COMMUNITY',
+  const r: TResourceDefinition = {
+    type: "/communities",
+    metaType: "SRI4NODE_COMMUNITY",
     schema: {
-      $schema: 'http://json-schema.org/schema#',
-      title: 'A local group in the LETS system.',
-      type: 'object',
+      $schema: "http://json-schema.org/schema#",
+      title: "A local group in the LETS system.",
+      type: "object",
       properties: {
-        key: $s.guid('Key of this group.'),
-        name: $s.string('Name of this group. Normally named \'LETS [locale]\'.'),
-        street: $s.string('Street of the organisational seat address.'),
-        streetnumber: $s.string('Street number of the organisational seat address.'),
-        streetbus: $s.string('Postal box of the organisational seat address.'),
-        zipcode: $s.belgianzipcode('4 digit postal code of the city for the organisational seat address.'),
-        city: $s.string('City for the organisational seat address.'),
-        phone: $s.phone('Contact phone number for the group.'),
-        email: $s.email('Contact email for the group.'),
-        adminpassword: $s.string('Administrative password for the group.'),
-        website: $s.url('Website URL for the group.'),
-        facebook: $s.url('URL to the facebook page of the group.'),
-        currencyname: $s.string('Name of the local currency for the group.'),
+        key: $s.guid("Key of this group."),
+        name: $s.string("Name of this group. Normally named 'LETS [locale]'."),
+        street: $s.string("Street of the organisational seat address."),
+        streetnumber: $s.string("Street number of the organisational seat address."),
+        streetbus: $s.string("Postal box of the organisational seat address."),
+        zipcode: $s.belgianzipcode(
+          "4 digit postal code of the city for the organisational seat address.",
+        ),
+        city: $s.string("City for the organisational seat address."),
+        phone: $s.phone("Contact phone number for the group."),
+        email: $s.email("Contact email for the group."),
+        adminpassword: $s.string("Administrative password for the group."),
+        website: $s.url("Website URL for the group."),
+        facebook: $s.url("URL to the facebook page of the group."),
+        currencyname: $s.string("Name of the local currency for the group."),
       },
-      required: ['name', 'street', 'streetnumber', 'zipcode',
-        'city', 'phone', 'email', 'currencyname'],
+      required: [
+        "name",
+        "street",
+        "streetnumber",
+        "zipcode",
+        "city",
+        "phone",
+        "email",
+        "currencyname",
+      ],
     },
     map: {
       name: {},
@@ -140,19 +168,19 @@ module.exports = function (sri4node: typeof Sri4Node) {
       // For example :
       // $$messagecount: 17
       addMessageCountToCommunities,
-      disallowOneCommunity('6531e471-7514-43cc-9a19-a72cf6d27f4c'),
+      disallowOneCommunity("6531e471-7514-43cc-9a19-a72cf6d27f4c"),
     ],
     customRoutes: [
       {
-        routePostfix: '/customroute_via_internal_interface',
-        httpMethods: ['GET'],
+        routePostfix: "/customroute_via_internal_interface",
+        httpMethods: ["GET"],
         handler: async (tx, sriRequest, _customMapping) => {
           const getRequest = {
-            href: '/persons/de32ce31-af0c-4620-988e-1d0de282ee9d',
-            verb: 'GET',
+            href: "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",
+            verb: "GET",
             dbT: tx,
             parentSriRequest: sriRequest,
-            body: '',
+            body: "",
           };
 
           return global.sri4node_internal_interface(getRequest);

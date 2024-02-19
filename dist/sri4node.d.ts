@@ -1,12 +1,12 @@
-import { Application } from 'express';
-import { error, pgConnect, pgExec, tableFromMapping, transformRowToObject, transformObjectToRow, typeToMapping, urlToTypeAndKey, parseResource, debugAnyChannelAllowed } from './js/common';
-import { prepareSQL } from './js/queryObject';
-import { TSriConfig, TSriServerInstance } from './js/typeDefinitions';
-import * as queryUtils from './js/queryUtils';
-import * as schemaUtils from './js/schemaUtils';
-import * as mapUtils from './js/mapUtils';
-import * as listResource from './js/listResource';
-import * as utilLib from './js/utilLib';
+import { Application } from "express";
+import { error, pgConnect, pgExec, tableFromMapping, transformRowToObject, transformObjectToRow, typeToMapping, urlToTypeAndKey, parseResource, debugAnyChannelAllowed } from "./js/common";
+import { prepareSQL } from "./js/queryObject";
+import { TSriConfig, TSriServerInstance } from "./js/typeDefinitions";
+import * as queryUtils from "./js/queryUtils";
+import * as schemaUtils from "./js/schemaUtils";
+import * as mapUtils from "./js/mapUtils";
+import * as listResource from "./js/listResource";
+import * as utilLib from "./js/utilLib";
 /**
  * Exposes a bunch of utility functions.
  */
@@ -32,4 +32,4 @@ declare const utils: {
 declare function configure(app: Application, sriConfig: TSriConfig): Promise<TSriServerInstance>;
 export { configure, debugAnyChannelAllowed as debug, // debugAnyChannelAllowed(ch, msg) => debug(null, ch, msg)
 error, queryUtils, mapUtils, schemaUtils, utils, };
-export * from './js/typeDefinitions';
+export * from "./js/typeDefinitions";

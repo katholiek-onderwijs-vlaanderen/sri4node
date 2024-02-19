@@ -18,35 +18,39 @@ You will also want to install Express.js :
 
     $ npm install --save express
 
-Express.js is *technically* not a dependency (as in npm dependencies) of sri4node. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
+Express.js is _technically_ not a dependency (as in npm dependencies) of sri4node. But you need to pass it in when configuring. This allows you to keep full control over the order of registering express middleware.
 
 # Logging
 
 Logging can be enabled in the sri4node configuration by specifying the `logdebug` property. This property should be defined as an object with following fields:
-* `channels`: **mandatory**, can be either `'all'` to get all possible logging or a list with names of the channels for which logging is desired. The available logchannels are:
-  * `general`: information about plugins loaded and routes registered
-  * `db`: information about database interaction (task/transaction start/commit/rollback/end)
-  * `sql`: the sql being executed
-  * `requests`: logs start and end of a request with timing  
-  * `hooks`: informations about hooks being executed (start/stop/failure with timing)
-  * `server-timing`: logs timing information about the request (same as in the ServerTiming header would be returned)
-  * `batch`: information about batch parts being executed
-  * `trace`: detailed information of interal sri4node flow (schema validation, expansion, count, ...)
-  * `phaseSyncer`: information about the `phase syncer` mechanism
-  * `overloadProtection`: information from the `overload protection`mechanism
-  * `mocha`: extra debug logging when running the mocha test suite 
-* `statuses`: **optional**, a list with status codes; if specified, logging is only done for requests returning the specified statuses
+
+- `channels`: **mandatory**, can be either `'all'` to get all possible logging or a list with names of the channels for which logging is desired. The available logchannels are:
+  - `general`: information about plugins loaded and routes registered
+  - `db`: information about database interaction (task/transaction start/commit/rollback/end)
+  - `sql`: the sql being executed
+  - `requests`: logs start and end of a request with timing
+  - `hooks`: informations about hooks being executed (start/stop/failure with timing)
+  - `server-timing`: logs timing information about the request (same as in the ServerTiming header would be returned)
+  - `batch`: information about batch parts being executed
+  - `trace`: detailed information of interal sri4node flow (schema validation, expansion, count, ...)
+  - `phaseSyncer`: information about the `phase syncer` mechanism
+  - `overloadProtection`: information from the `overload protection`mechanism
+  - `mocha`: extra debug logging when running the mocha test suite
+- `statuses`: **optional**, a list with status codes; if specified, logging is only done for requests returning the specified statuses
 
 An example:
+
 ```javascript
-logdebug: { 
+logdebug: {
   channels: [ 'general', 'requests', 'trace' ] },
-  statuses: [ 500 ] 
+  statuses: [ 500 ]
 }
 ```
+
 On a running sri4node instance the logdebug configuration can be altered with a POST call to `/setlogdebug` with the new logdebug configuration object as body.
 
 An example of such POST call with curl:
+
 ```console
 $ curl -u <username> --request POST 'https://<servername>/setlogdebug' \
 --header 'Content-Type: application/json' \
@@ -176,23 +180,25 @@ The declaration of the editor is a reference to a second resource (/person), whi
             ]
         });
 
-Many properties of the sri4node config object have defaults and can be omitted. 
+Many properties of the sri4node config object have defaults and can be omitted.
 
 There is only 1 way to configure the database which sri4node uses:
-* Specify sri4nodeConfig.databaseConnectionParameters in the sri4node configuration.
-    * These are any format as supported by [connection syntax](https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax) of the DB library + a 'schema' property
-    * You can also specify the pg-promise [initialization options](http://vitaly-t.github.io/pg-promise/module-pg-promise.html) by adding a property databaseLibraryInitOptions
+
+- Specify sri4nodeConfig.databaseConnectionParameters in the sri4node configuration.
+  - These are any format as supported by [connection syntax](https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax) of the DB library + a 'schema' property
+  - You can also specify the pg-promise [initialization options](http://vitaly-t.github.io/pg-promise/module-pg-promise.html) by adding a property databaseLibraryInitOptions
 
 These mechanisms have been made obsolete:
-* [OBSOLETE > 2.3] ~~Specify an already initiated database object in the sri4node configuration. This way has two variants: 
-    * db: the global sri4node pg-promise database object used for all database work.
-    * dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW), useful if you work with read-replica's.~~
-* [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
-* [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
+
+- [OBSOLETE > 2.3] ~~Specify an already initiated database object in the sri4node configuration. This way has two variants:
+  - db: the global sri4node pg-promise database object used for all database work.
+  - dbR and dbW: specify different global sri4node pg-promise database objects for read-only database work (dbR) and other database work (dbW), useful if you work with read-replica's.~~
+- [OBSOLETE > 2.3] ~~Specifying the database connection string in the DATABASE_URL environment variable~~
+- [OBSOLETE > 2.3] ~~Specifying the database connection string in the defaultdatabaseurl field in the sri4node configuration~~
 
 To enable [pg-monitor](https://www.npmjs.com/package/pg-monitor) (detailed logging about database interaction), set the boolean `enablePgMonitor` in the sri4node configuration on `true`.
 
-Next step is to pass the sri4node config object to the async sri4node configure function. The configure function will return a sriServerInstance object containing 
+Next step is to pass the sri4node config object to the async sri4node configure function. The configure function will return a sriServerInstance object containing
 a reference to pgp (an initialised version of the pgPromise library, see http://vitaly-t.github.io/pg-promise), db (pgPromise database object, see http://vitaly-t.github.io/pg-promise/Database.html) and app (the Axpress application).
 
     const sriServerInstance = await sri4node.configure(app, sriConfig);
@@ -204,8 +210,6 @@ Now we can start Express.js to start serving up our SRI REST interface :
         console.log('Node app is running at localhost:'' + app.get('port'))
     });
 
-
-
 # Changes in sri4node 2.0
 
 In the latest version, we decided to rewrite a few things in order to be able to fix long-known problems (including the fact that GETs inside BATCH operations was not properly supported).
@@ -214,25 +218,25 @@ So if your new to sri4node, it's best to jump to [Usage](#usage) for the general
 
 ## 'request' parameter
 
-In order to fix the BATCH problem, we had to replace the express request object by our own version (which is *very* similar). At any point in the chain, you can add properties to this object that you might need later on, like the current user or something else.
+In order to fix the BATCH problem, we had to replace the express request object by our own version (which is _very_ similar). At any point in the chain, you can add properties to this object that you might need later on, like the current user or something else.
 
 The 'sriRequest' object will have the following properties (but the developer can of course add its own extra properties like user or something else to this object)
 
- * path: path of the request 
- * originalUrl: full url of the request 
- * query: parameters passed via the query string of the url, as object like express `{ key: value, key2: value2 }` 
- * params: parameters matched in the request route like UUID in /person/:UUID => /persons/cf2dccb2-c77c-4402-e044-d4856467bfb8, as object like express `{ key: value, key2: value2 }`
- * httpMethod: http method of the request (POST GET PUT DELETE (PATCH))
- * headers: headers of the original request (same for all requests in batch) 
- * protocol: protocol of original request (same for all requests in batch) 
- * body: body of the request 
- * sriType: type of the matching entry in the sri4node resources config
- * isBatchPart: boolean indicating whether the request being executed is part of a batch
- * dbT: database task (if the request is read-only) or transaction object (if the request is not read-only), which can be used to access the database.
- * context: an object which can be used for storing information shared between requests of the same batch (by default an empty object)
- * SriError: constructor to create an error object to throw in a handler in case of error \
- `new SriError( { status, errors = [], headers = {} } )`
- * userData: an object which can be used by applications using sri4node to store information associated with a request. It is initialized as an empty object.
+- path: path of the request
+- originalUrl: full url of the request
+- query: parameters passed via the query string of the url, as object like express `{ key: value, key2: value2 }`
+- params: parameters matched in the request route like UUID in /person/:UUID => /persons/cf2dccb2-c77c-4402-e044-d4856467bfb8, as object like express `{ key: value, key2: value2 }`
+- httpMethod: http method of the request (POST GET PUT DELETE (PATCH))
+- headers: headers of the original request (same for all requests in batch)
+- protocol: protocol of original request (same for all requests in batch)
+- body: body of the request
+- sriType: type of the matching entry in the sri4node resources config
+- isBatchPart: boolean indicating whether the request being executed is part of a batch
+- dbT: database task (if the request is read-only) or transaction object (if the request is not read-only), which can be used to access the database.
+- context: an object which can be used for storing information shared between requests of the same batch (by default an empty object)
+- SriError: constructor to create an error object to throw in a handler in case of error \
+  `new SriError( { status, errors = [], headers = {} } )`
+- userData: an object which can be used by applications using sri4node to store information associated with a request. It is initialized as an empty object.
 
 ### 'me'
 
@@ -240,12 +244,11 @@ We also removed the [me](###identify) concept, allowing the implementer to add s
 
 ## dryRun
 
-The possibility of appending '/validate' to a PUT request to see wether it would succeed is replaced by a more general 'dry run' mode. This mode is activated by adding `?dryRun=true` to the request parameters. This means that the request is executed and responsed as normal, but in the end the database transaction corresponding to the request is rolled back. 
+The possibility of appending '/validate' to a PUT request to see wether it would succeed is replaced by a more general 'dry run' mode. This mode is activated by adding `?dryRun=true` to the request parameters. This means that the request is executed and responsed as normal, but in the end the database transaction corresponding to the request is rolled back.
 
 ## PATCH support
 
 A valid patch is in [RFC6902 format][https://tools.ietf.org/html/rfc6902].
-
 
 ## Throwing errors (the http response code)
 
@@ -257,7 +260,7 @@ throw new sriRequest.SriError( { status = 500, errors = [], headers = {} } )
 
 When you throw an SriError somewhere in your hook code, the current request handling is terminated (of course the db transaction is also cancelled) and the request is answered according to the SriError object. So statuscode and headers of the response are set according to the values of the fields in the SirError object and the body of the response will be a JSON object contain the status (status code) and errors (errors provided in the SirError object, with 'type' field of each error set to 'ERROR' if not specified). All parameters of the SriError constructor have default values, so each parameter can be omitted.
 
-If your code ever needs to catch SriError object (for example to do some logging), you should rethrow the original SriError at the end of the catch. At some places in sri4node the type of the error object is checked and treated different in case the type is SriError. So in case something else is throw or returned at the end of a catch, sri4node might behave unexpected. 
+If your code ever needs to catch SriError object (for example to do some logging), you should rethrow the original SriError at the end of the catch. At some places in sri4node the type of the error object is checked and treated different in case the type is SriError. So in case something else is throw or returned at the end of a catch, sri4node might behave unexpected.
 
 An example of the usage of setting extra http headers is setting the Location headers in case of redirect when not logged.
 
@@ -265,7 +268,7 @@ An example of the usage of setting extra http headers is setting the Location he
 
 At the same time we took this opportunity to rename, add and remove a few 'hooks' (functions like onread, on...).
 
-As a general principle for renaming those functions, we think that sri4node should make less assumptions about *what* these hooks are meant for, but make it clear to the implementer *when* the hook will be called.
+As a general principle for renaming those functions, we think that sri4node should make less assumptions about _what_ these hooks are meant for, but make it clear to the implementer _when_ the hook will be called.
 
 For example: 'validate' will be replaced by 'beforeinsert/beforeupdate' to make it clear when the operation happens, but the function name doesn't suggest anymore what you should do at that time. Of course you could do some validation of the input before an insert, but you might as well dance the lambada if you wish. Sri4node shouldn't have an opinion about that.
 
@@ -280,7 +283,7 @@ Gobal hooks can be defined in the root of the sri4node config and are called for
 #### startUp
 
 ```javascript
-startUp(db, pgp)
+startUp(db, pgp);
 ```
 
 This function is called during sri4node configuration, before anything is registered in express.
@@ -291,7 +294,7 @@ or to do very specific stuff on the pgp library instance.
 #### transformRequest
 
 ```javascript
-transformRequest(expressRequest, sriRequest, tx)
+transformRequest(expressRequest, sriRequest, tx);
 ```
 
 This function is called at the very start of each http request (i.e. for batch only once). Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe add the user's identity if it can be deducted from the headers).
@@ -301,12 +304,12 @@ This function is called at the very start of each http request (i.e. for batch o
 New hook which will be called before each `phase` of a request is executed (phases are parts of requests, they are used to synchronize between executing batch operations in parallel, see [Batch execution order](#Batch-execution-order)).
 
 ```javascript
-beforePhase(sriRequestMap, jobMap, pendingJobs)
+beforePhase(sriRequestMap, jobMap, pendingJobs);
 ```
 
-* `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
-* `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
-* `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
+- `sriRequestMap` is a Map (phaseSyncer id => sriRequest) containing all sriRequests being processed (one for each parallel batch operation).
+- `jobMap` is a Map (phaseSyncer id => phaseSyncer) containing all phaseSyncer objects (one for each parallel batch operation).
+- `pendingJobs` is a Set containing the ids of phaseSyncer objects which are still pending.
 
 #### errorHandler
 
@@ -314,7 +317,7 @@ This hook will be called in case an exception is catched during the handling of 
 Warning: in case of an early error, the parameter sriRequest might be undefined!
 
 ```javascript
-errorHandler(sriRequest, error)
+errorHandler(sriRequest, error);
 ```
 
 #### afterRequest
@@ -322,7 +325,7 @@ errorHandler(sriRequest, error)
 New hook which will be called after the request is handled. At the moment this handler is called, the database task/transaction is already closed and the response is already sent to the client.
 
 ```javascript
-afterRequest(sriRequest)
+afterRequest(sriRequest);
 ```
 
 ### Resource specific hooks
@@ -333,13 +336,12 @@ Resource specific hooks can be defined in an element of the `resources` list in 
 
 These functions replace [validate](###validate) and [secure](###secure). They are called before any changes to a record on the database are performed. Since you get both the incoming version of the resource and the one currently stored in the DB here, you could do some validation here (for example if a certain property can not be altered once the resource has been created).
 
- * `beforeRead( tx, sriRequest )` 
- * `beforeUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )` 
- * `beforeInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
- * `beforeDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+- `beforeRead( tx, sriRequest )`
+- `beforeUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
+- `beforeInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+- `beforeDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
-
-The tx is a task or transaction object (a task in case of read-only context [GET], a transaction in case of possible write context [PUT,POST,DELETE]) from the pg-promise library, so you can do DB queries (*a validation check that can only be done by querying other resources too*) or updates (*maybe some logging*) here if needed. `tx.query(...)`
+The tx is a task or transaction object (a task in case of read-only context [GET], a transaction in case of possible write context [PUT,POST,DELETE]) from the pg-promise library, so you can do DB queries (_a validation check that can only be done by querying other resources too_) or updates (_maybe some logging_) here if needed. `tx.query(...)`
 
 The last parameter will always be an array (but it will most of the time only contain one element, but in the case of lists it could have many element). This makes it easy to implement this function once with an `array.forEach( x => ... )` and allows you to make optimizations (if possible) for list queries.
 
@@ -376,12 +378,12 @@ const validationHook = (tx, sriRequest, elements) => {  // can be used for befor
 
 The existing [afterread](#afterread), [afterupdate/afterinsert](###afterupdate/afterinsert) and [afterdelete](#afterdelete) functions will get a new signature, more in line with all the other functions (same parameters).
 
-`stored` should still be the one *before* the operation was executed.
+`stored` should still be the one _before_ the operation was executed.
 
- * `afterRead( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
- * `afterUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
- * `afterInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
- * `afterDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+- `afterRead( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
+- `afterUpdate( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: { … } } ] ) )`
+- `afterInsert( tx, sriRequest, [ { permalink: …, incoming: { … }, stored: null } ] ) )`
+- `afterDelete( tx, sriRequest, [ { permalink: …, incoming: null, stored: { … } } ] ) )`
 
 #### transformResponse
 
@@ -392,35 +394,36 @@ This will be called just before sending out the response to the client, and it a
 This can be used if you want to generate custom output that is not necessarily sri-compliant on some route. It should not be necessary for a normal sri-compliant API (but you never know).
 
 ```javascript
-transformResponse( tx, sriRequest, sriResult )
+transformResponse(tx, sriRequest, sriResult);
 ```
 
 The sriResult object has at least following properties:
- * status
- * body
-And optionally:
- * headers
+
+- status
+- body
+  And optionally:
+- headers
 
 ### Resource map specific hook
 
 Resource map specific hooks can be defined in a `field/column` object in the `map` object of an element of the `resources` list in the sri4node config. The mapping hooks are called when mapping database rows to/from sri objects of the resource type for which the are specified.
 
-#### fieldToColumn and columnToField(popertyName, value) 
+#### fieldToColumn and columnToField(popertyName, value)
 
 Individual properties can be transformed when going to or coming from the database.
 
 For example: an sri array of references could be stored as an array of permalinks on the DB, but should be transformed to `[ { href: "..." }, { href: "..." }, ... ]` in the API. These functions could do that mapping from API-to-DB and back. Also when storing dates as dates, but outputting them as strings in the API, this would be the place to do the transformation.
 
 These hooks replace the now obsolete [onread](###onread)/[oninsert/onupdate](###oninsert/onupdate)... and should be configured as part of the 'mapping' component in your sri config object.
- 
- * `fieldToColumn(propertyName, value)`
- * `columnToField(propertyName, value)`
+
+- `fieldToColumn(propertyName, value)`
+- `columnToField(propertyName, value)`
 
 ### Performance enhancements
 
 A count query is a heavy query in Postgres in case of a huge table. Therefore the count in the list result is made optional. By adding `listResultDefaultIncludeCount: false` to the configuration of a resource the count will be omitted by default. This setting can be overriden in a list query by appending `?$$includeCount=[boolean]` to the query parameters.
 
-Other performance enhancement is to use key offsets for the next links instead of count offsets (prev links are skipped due to not being usefull in a scenario with key offsets). Count offset is becoming more and more time consuming when the count increases (as postgres needs to construct all the results before the requested set to get the starting point) while for key offset an index can be used to determine the starting point. 
+Other performance enhancement is to use key offsets for the next links instead of count offsets (prev links are skipped due to not being usefull in a scenario with key offsets). Count offset is becoming more and more time consuming when the count increases (as postgres needs to construct all the results before the requested set to get the starting point) while for key offset an index can be used to determine the starting point.
 
 ## Plugins
 
@@ -435,6 +438,7 @@ Often they will require some dependency to be handed to them, and so they will e
 function that gets the current sri4node library, and some configuration object as input.
 
 Example:
+
 ```javascript
 import { myPluginFactory } from 'my-plugin'
 
@@ -462,6 +466,7 @@ If your plugin instance needs an instance of the current sri4node library (for e
 Our suggestion is that every plugin author exports a single myPluginFactory(...) function that gets everything it needs as an argument and which returns the plugin instance.
 
 Example:
+
 ```typescript
 
 function afterUpdate(sri4node) {
@@ -494,28 +499,28 @@ In a batch all operations in an inner list are executed in 'parallel' (in practi
 
 An overview of what happens during the different phases of all possible batch operations:
 
-| Phase  | Get - Single                           | Get - List                   | Insert/Update/Patch          | Delete                    | Custom non-streaming |
-|:-------:|:--------------------------------------:|:----------------------------:|:----------------------------:|:-------------------------:|:--------------------:|
-|0|-|-|validation<br>$\textsf{\color{green}prepare QBK}$|$\textsf{\color{green}prepare QBK}$|-|
-|1|-|-|$\textsf{\color{green}query QBK}$<br>handle RE-PUT|$\textsf{\color{green}query QBK}$|-|
-|2|$\textsf{\color{blue}beforeRead}$|$\textsf{\color{blue}beforeRead}$|$\textsf{\color{blue}beforeInsert/Update}$|$\textsf{\color{blue}beforeDelete}$|$\textsf{\color{blue}beforeHandler}$|
-|3|$\textsf{\color{green}prepare QBK}$|query<br>processing|$\textsf{\color{green}prepare multi insert/update}$|$\textsf{\color{green}prepare multi delete}$|$\textsf{\color{blue}handler}$|
-|4|$\textsf{\color{green}query QBK}$<br>processing<br>expansion|-|$\textsf{\color{green}query multi insert/update}$|$\textsf{\color{green}query multi delete}$|-|
-|5|$\textsf{\color{blue}afterRead}$ |$\textsf{\color{blue}afterRead}$|$\textsf{\color{blue}afterInsert/Update}$ |$\textsf{\color{blue}afterDelete}$ |$\textsf{\color{blue}afterHandler}$ |
-|6|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|$\textsf{\color{blue}afterRequest}$<br>return result|
-
+| Phase |                         Get - Single                         |                      Get - List                      |                 Insert/Update/Patch                  |                        Delete                        |                 Custom non-streaming                 |
+| :---: | :----------------------------------------------------------: | :--------------------------------------------------: | :--------------------------------------------------: | :--------------------------------------------------: | :--------------------------------------------------: |
+|   0   |                              -                               |                          -                           |  validation<br>$\textsf{\color{green}prepare QBK}$   |         $\textsf{\color{green}prepare QBK}$          |                          -                           |
+|   1   |                              -                               |                          -                           |  $\textsf{\color{green}query QBK}$<br>handle RE-PUT  |          $\textsf{\color{green}query QBK}$           |                          -                           |
+|   2   |              $\textsf{\color{blue}beforeRead}$               |          $\textsf{\color{blue}beforeRead}$           |      $\textsf{\color{blue}beforeInsert/Update}$      |         $\textsf{\color{blue}beforeDelete}$          |         $\textsf{\color{blue}beforeHandler}$         |
+|   3   |             $\textsf{\color{green}prepare QBK}$              |                 query<br>processing                  | $\textsf{\color{green}prepare multi insert/update}$  |     $\textsf{\color{green}prepare multi delete}$     |            $\textsf{\color{blue}handler}$            |
+|   4   | $\textsf{\color{green}query QBK}$<br>processing<br>expansion |                          -                           |  $\textsf{\color{green}query multi insert/update}$   |      $\textsf{\color{green}query multi delete}$      |                          -                           |
+|   5   |               $\textsf{\color{blue}afterRead}$               |           $\textsf{\color{blue}afterRead}$           |      $\textsf{\color{blue}afterInsert/Update}$       |          $\textsf{\color{blue}afterDelete}$          |         $\textsf{\color{blue}afterHandler}$          |
+|   6   |     $\textsf{\color{blue}afterRequest}$<br>return result     | $\textsf{\color{blue}afterRequest}$<br>return result | $\textsf{\color{blue}afterRequest}$<br>return result | $\textsf{\color{blue}afterRequest}$<br>return result | $\textsf{\color{blue}afterRequest}$<br>return result |
 
 At the start of each phase a hook beforePhase() is executed, these are not shown in the table above. Marked in blue are hooks which might be provided by the application using sri4node. Marked in green are the beforePhase hooks used by sri4node itself to implement QBK and multi insert/update/delete.
 
 QKB (QueryByKey) is a mechanism to bundle read requests of different elements in batch (instead of doing potentially a lot individual database operations). In the prepare phase all types and keys are collected, and in the next phase elements are fetched with one query for each resource type.
 
 Multi insert/update/delete is a mechanism to bundle insert, update and delete operations of a batch (instead of doing potentially a lot individual database operations). In the prepare phase all relevant data is collected, and in the next phase a bulk db operation is executed for each kind of operation and each resource type.
- 
+
 If a batch contains multiple lists, these lists are handled **in order** list by list (with the inner lists executed in 'phaseSynced parallel' as described above).
- 
+
 So how you construct your batch determines which operations go 'phaseSynced' parallel and which go in order.
- 
+
 A batch like the one below will be able to retrieve a newly created resource:
+
 ```
 [
   [ {
@@ -552,8 +557,9 @@ A batch like the one below will be able to retrieve a newly created resource:
 At the beginning of all transactions in sri4node the database constraints in Postgres are set DEFERRED. At the end of the transaction before comitting the constraints are set back to IMMEDIATE (which results in evaluation at that moment). This is necessary to be able to multiple operations in batch and only check the constraints at the end of all operations. For example to create in a batch multiple resoures which are linked at with foreign keys at database level (example a batch creation of a person together with a contactdetail for that person).
 
 **But** this will only work for certain types constraints and only if they are defined DEFERRABLE. From the postgres documentation (https://www.postgresql.org/docs/9.2/sql-set-constraints.html):
+
 > Currently, only UNIQUE, PRIMARY KEY, REFERENCES (foreign key), and EXCLUDE constraints are affected by this setting. NOT NULL and CHECK constraints are always checked immediately when a row is inserted or modified (not at the end of the statement). Uniqueness and exclusion constraints that have not been declared DEFERRABLE are also checked immediately.
- 
+
 An example from samenscholing where foreign keys are defined DEFERRABLE:
 
 ```sql
@@ -575,31 +581,31 @@ CREATE TABLE organisationalunits_relations (
 
 To be able to keep track of requests in the server logging and at the client, sri4node generates a short id for each request (reqId - not guaranteed to be unique). This ID is used in all the sri4node logging (and also in the logging of sri4node application when they use `debug` and `error` from sri4node `common`), sri4node error responses and is passed to the client in the `vsko-req-id` header.
 
-
 ## Internal requests
 
 Sometimes one wants to do sri4node operations on its own API, but within the state of the current transaction. Internal requests can be used for this purpose. You provide similar input as a http request in a javascript object with the database transaction to execute it on. The internal calls follow the same code path as http requests (inclusive plugins like for example security checks or version tracking). global.sri4node_internal_interface has following fields:
 
-* href: mandatory field
-* verb: mandatory field
-* dbT: mandatory field - database transaction of the current request
-* parentSriRequest: mandatory field - the sriRequest of the current request
-* headers: optional field 
-* body: optional field
+- href: mandatory field
+- verb: mandatory field
+- dbT: mandatory field - database transaction of the current request
+- parentSriRequest: mandatory field - the sriRequest of the current request
+- headers: optional field
+- body: optional field
 
 In case of a streaming request, following fields are also required:
 
-* inStream: stream to read from 
-* outStream: stream to write to 
-* setHeader: function called to set headers before streaming
-* setStatus: function called to set the status before streaming
-* streamStarted: function which should return true in case streaming is started
+- inStream: stream to read from
+- outStream: stream to write to
+- setHeader: function called to set headers before streaming
+- setStatus: function called to set the status before streaming
+- streamStarted: function which should return true in case streaming is started
 
 The result will be either an object with fields status and body or an error (most likely an SriError).
 
 **Remark**: sri4node makes a distinction between a database task (consider this as a connection, no commit/rollback) and a transaction. For GETs a task database object is provided, while requests which potentially may modify the database receive a transaction object. With internal requests this has the consequence that in case your initial sri4node requests is a read-only operation (GET), you get database task for your internal request to operate on. If the internal request then writes via this task, the changes will not be rollbacked in case the request is not succesfully ended.
 
 An example:
+
 ```
     const internalReq = {
         href: '/deploys/f5b002fc-9622-4a16-8021-b71189966e48',
@@ -616,7 +622,7 @@ An example:
 An extra hook is defined to be able to copy data set by transformRequest (like use data) from the original (parent) request to the new internal request.
 
 ```javascript
-transformInternalRequest(tx, sriRequest, parentSriRequest)
+transformInternalRequest(tx, sriRequest, parentSriRequest);
 ```
 
 This function is called at creation of each sriRequest created via the 'internal' interface.
@@ -629,9 +635,10 @@ The mechanism works quite trivial by requiring a 'pipeline' for each requests ru
 
 To enable this mechanism, an `overloadProtection` object needs to be configured in the sri4node configuration with following fields:
 
-* maxPipelines: mandatory field - the maximum number of requests being processed at the same time; addional requests will be refused with a 503 error
+- maxPipelines: mandatory field - the maximum number of requests being processed at the same time; addional requests will be refused with a 503 error
 
-For example: 
+For example:
+
 ```
     overloadProtection: {
         maxPipelines: 15
@@ -640,14 +647,16 @@ For example:
 
 ## isPartOf query
 
-With the isPartOf query one can check if a given raw url A is a subset of the given raw urls in list B. 
+With the isPartOf query one can check if a given raw url A is a subset of the given raw urls in list B.
 
 The syntax of the query request is POST to `/[resource]/isPartOf` with a JSON body containing an object with 2 fields:
-* `a`: an object with field `href` containing a raw url (can be a single resource or a list url) 
-* `b`: an object with fields `hrefs` containing a list of raw urls (each element in list B can also be a single resource or a list url)
-The reply is a JSON array with all raw urls from list B for which url A is a subset (urls B and A are compared by resolving them to a set of single resources and checking if set A is a subset or equal of set B).
+
+- `a`: an object with field `href` containing a raw url (can be a single resource or a list url)
+- `b`: an object with fields `hrefs` containing a list of raw urls (each element in list B can also be a single resource or a list url)
+  The reply is a JSON array with all raw urls from list B for which url A is a subset (urls B and A are compared by resolving them to a set of single resources and checking if set A is a subset or equal of set B).
 
 An example request:
+
 ```
 POST /messages/isPartOf
 { 
@@ -657,21 +666,23 @@ POST /messages/isPartOf
       , "/messages"] }
 }
 ```
+
 with an example reply:
+
 ```
-[ "/messages?type=request", "/messages" ] 
+[ "/messages?type=request", "/messages" ]
 ```
 
 Remark: the raw url A and all raw urls in list B needs to be of the same type [resource].
 
 ## Additions to the sri4node configuration object
 
-* [OBSOLETE] ~~dbConnectionInitSql~~ (use databaseConnectionParameters.connectionInitSql instead): optional sql string which will be executed at the start of each new database connection
+- [OBSOLETE] ~~dbConnectionInitSql~~ (use databaseConnectionParameters.connectionInitSql instead): optional sql string which will be executed at the start of each new database connection
 
 By default sri4node will initialize the database connection based on the sri4node configuration object. But one can also pass database connection(s) to sri4node (initialized with the pgInit and/or pgConnect functions - see also General Utilities, just below) in case extreme customization is required (you should be able to handle almost all cases by specifying databaseConnectionParameters and databaseLibraryInitOptions). These database connection(s) can be passed with following fields in the sri4node configuration object:
 
-* db: a pgp database connection object,
-* dbR and dbW: two pgp database connection objects, one for reading and one for writing (can be used when working with database followers)
+- db: a pgp database connection object,
+- dbR and dbW: two pgp database connection objects, one for reading and one for writing (can be used when working with database followers)
 
 ## Reserved and required fields (mandatory)
 
@@ -679,75 +690,75 @@ There are 4 columns that every resource table must have (it's mandatory).
 
 Those are:
 
-* "$$meta.deleted" boolean not null default false,
-* "$$meta.modified" timestamp with time zone not null default current_timestamp,
-* "$$meta.created" timestamp with time zone not null default current_timestamp,
-* "$$meta.version" number which is increased on each change of the resource
+- "$$meta.deleted" boolean not null default false,
+- "$$meta.modified" timestamp with time zone not null default current_timestamp,
+- "$$meta.created" timestamp with time zone not null default current_timestamp,
+- "$$meta.version" number which is increased on each change of the resource
 
 The application will fail to register a resource that lacks these fields (and show a message to the user)
 
 For performance reasons it's highly suggested that an index is created for each column:
 
-* CREATE INDEX table_created ON *table* ("$$meta.created");
-* CREATE INDEX table_modified ON *table* ("$$meta.modified");
-* CREATE INDEX table_deleted ON *table* ("$$meta.deleted");
-* CREATE INDEX table_verion ON *table* ("$$meta.version");
+- CREATE INDEX table*created ON \_table* ("$$meta.created");
+- CREATE INDEX table*modified ON \_table* ("$$meta.modified");
+- CREATE INDEX table*deleted ON \_table* ("$$meta.deleted");
+- CREATE INDEX table*verion ON \_table* ("$$meta.version");
 
 The following index is for the default order by:
 
-* CREATE INDEX table_created_key ON *table* ("$$meta.created", "key");
+- CREATE INDEX table*created_key ON \_table* ("$$meta.created", "key");
 
 It is also highly suggested to have indices on fields which can be used to filter the resources in a list resource request. Both a plain index as a LOWER() index are required as the default equality check is a case insensitive check.
-
 
 ## Processing Pipeline
 
 sri4node has a very simple processing pipeline for mapping SRI resources onto a database.
 We explain the possible HTTP operations below :
-* reading regular resources (GET)
-* updating/creating regular resources (PUT/PATCH)
-* deleting regular resources (DELETE)
-* reading *list* resources (queries) (GET)
 
-In essence we map 1 *regular* resource to a database row.
-A *list* resource corresponds to a query on a database table.
+- reading regular resources (GET)
+- updating/creating regular resources (PUT/PATCH)
+- deleting regular resources (DELETE)
+- reading _list_ resources (queries) (GET)
 
-Expansion on list resource can be specified as `expand=results`, this will include all *regular* resources in your *list* resource.
+In essence we map 1 _regular_ resource to a database row.
+A _list_ resource corresponds to a query on a database table.
+
+Expansion on list resource can be specified as `expand=results`, this will include all _regular_ resources in your _list_ resource.
 A shorthand version of this is `expand=full`.
-Expansion on list resource can also be specified as `expand=results.x.y,results.u.v.w`, where `x.y` and `u.v.w` can be any path in the expanded *regular* resource.
-This will include related *regular* resources.
+Expansion on list resource can also be specified as `expand=results.x.y,results.u.v.w`, where `x.y` and `u.v.w` can be any path in the expanded _regular_ resource.
+This will include related _regular_ resources.
 
-Expansion on *regular* resource can be specified as `expand=u.v,x.y.z`, where `u.v` and `x.y.z` can be any reference to related *regular* resources.
-This will include related *regular* resources.
+Expansion on _regular_ resource can be specified as `expand=u.v,x.y.z`, where `u.v` and `x.y.z` can be any reference to related _regular_ resources.
+This will include related _regular_ resources.
 
-When reading a *regular* resource a database row is transformed into an SRI resource by doing this :
+When reading a _regular_ resource a database row is transformed into an SRI resource by doing this :
 
 1. Execute `transformRequest` functions.
 2. Execute `beforeRead` functions.
 3. Retrieve the row and convert all columns into a JSON key-value pair (keys map directly to the database column name).
-All standard postgreSQL datatypes are converted automatically to JSON.
-Values can be transformed by an `columnToField` function (if configured).
-By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
-As they are mapped with `{ references: '/type' }`.
+   All standard postgreSQL datatypes are converted automatically to JSON.
+   Values can be transformed by an `columnToField` function (if configured).
+   By default references to other resources (GUIDs in the database) are expanded to form a relative URL.
+   As they are mapped with `{ references: '/type' }`.
 4. Add a `$$meta` section to the response document.
 5. Execute `afterread` functions to allow you to manipulate the result JSON.
 6. Execute `transformResponse` functions to allow you to manipulate the request result.
 
-When creating or updating a *regular* resource, a database row is updated/inserted by doing this :
+When creating or updating a _regular_ resource, a database row is updated/inserted by doing this :
 
 1. Execute `transformRequest` functions.
 2. Perform schema validation on the incoming resource.
-If the schema is violated, the client will receive a 409 Conflict.
+   If the schema is violated, the client will receive a 409 Conflict.
 3. Execute `beforeInsert` or `beforeUpdate` functions.
 4. Convert the JSON document into a simple key-value object.
-Keys map 1:1 with database columns.
-All incoming values are passed through the `fieldToColumn` function for conversion (if configured).
-By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
+   Keys map 1:1 with database columns.
+   All incoming values are passed through the `fieldToColumn` function for conversion (if configured).
+   By default references to other resources (relative links in the JSON document) are reduced to foreign keys values (GUIDs) in the database.
 5. insert or update the database row.
 6. Execute `afterUpdate` or `afterInsert` functions.
 7. Execute `transformResponse` functions to allow you to manipulate the request result.
 
-When deleting a *regular* resource :
+When deleting a _regular_ resource :
 
 1. Execute `transformRequest` functions.
 2. Execute `beforeDelete` functions.
@@ -755,20 +766,18 @@ When deleting a *regular* resource :
 4. Execute `afterDelete` functions.
 5. Execute `transformResponse` functions to allow you to manipulate the request result.
 
-
-When reading a *list* resource :
+When reading a _list_ resource :
 
 1. Execute `transformRequest` functions.
 2. Execute `beforeRead` functions.
 3. If count is requested: Generate a `SELECT COUNT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
 4. Execute a `SELECT` statement and execute all registered `query` functions to annotate the `WHERE` clause of the query.
-The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `defaultFilter` function. It is this default function that will be called if no other query function was registered.
+   The `query` functions are executed if they appear in the request URL as parameters. The `query` section can also define a `defaultFilter` function. It is this default function that will be called if no other query function was registered.
 5. Retrieve the results, and expand if necessary (i.e. generate a JSON document for the result row - and add it as `$$expanded`).
-See the [SRI specification][sri-specs-list-resources] for more details.
+   See the [SRI specification][sri-specs-list-resources] for more details.
 6. Build a list resource with a `$$meta` section + a `results` section.
 7. Execute `afterRead` functions to allow you to manipulate the result JSON.
 8. Execute `transformResponse` functions to allow you to manipulate the request result.
-
 
 That's it ! :-).
 
@@ -819,7 +828,7 @@ No return value is expected, the functions manipulate the element in-place.
 A selection of predefined functions is available in `sri4node.mapUtils` (usually assign to `$m`).
 See below for details.
 
-### query 
+### query
 
 All queries are URLs.
 Any allowed URL parameter is interpreted by these functions.
@@ -839,7 +848,7 @@ The functions are assumed to be asynchronuous and are 'awaited'.
 When the URL parameter was applied to the query object, then the promise should `resolve()`.
 If one query function rejects its promise, the client received 404 Not Found and all error objects by all rejecting `query` functions in the body.
 It should reject with one or an array of error objects that correspond to the [SRI definition][sri-errors].
-Mind you that *path* does not makes sense for errors on URL parameters, so it is ommited.
+Mind you that _path_ does not makes sense for errors on URL parameters, so it is ommited.
 
 If a query parameter is supplied that is not supported, the client also receives a 404 Not Found and a listing of supported query parameters.
 
@@ -851,10 +860,10 @@ The function receives these parameters :
 
 - `tx` is a database task object, allowing you to execute extra SQL statements.
 - `sriRequest` is an object containing information about the request.
-- `elements` is an array of one or more objects: 
-    - `permalink` is the permalink of the resource
-    - `incoming` is the received version of the resoured (null in case of afterRead)
-    - `stored` is the stored version of the resource
+- `elements` is an array of one or more objects:
+  - `permalink` is the permalink of the resource
+  - `incoming` is the received version of the resoured (null in case of afterRead)
+  - `stored` is the stored version of the resource
 
 The functions are assumed to be asynchronuous and are 'awaited'.
 If one of the `afterread` methods rejects its promise, all error objects are returned to the client, who receives a 500 Internal Error response by default. It should `reject()` with an object that correspond to the SRI definition of an [error][sri-errors].
@@ -867,14 +876,13 @@ The function receives these parameters :
 
 - `tx` is a database transaction object, allowing you to execute extra SQL statements.
 - `sriRequest` is an object containing information about the request.
-- `elements` is an array of one or more objects: 
-    - `permalink` is the permalink of the resource
-    - `incoming` is the received version of the resoured 
-    - `stored` is the stored version of the resource (null in case of afterInsert)
+- `elements` is an array of one or more objects:
+  - `permalink` is the permalink of the resource
+  - `incoming` is the received version of the resoured
+  - `stored` is the stored version of the resource (null in case of afterInsert)
 
 The functions are assumed to be asynchronuous and are 'awaited'.
 In case an error is thrown, all executed SQL (including the INSERT/UPDATE of the resource) is rolled back.
-
 
 ### afterDelete
 
@@ -883,13 +891,12 @@ The function receives these parameters :
 
 - `tx` is a database transaction object, allowing you to execute extra SQL statements.
 - `sriRequest` is an object containing information about the request.
-- `elements` is an array of one or more objects: 
-    - `permalink` is the permalink of the resource
-    - `incoming` is the received version of the resoured (null in case of afterDelete)
-    - `stored` is the stored version of the resource
+- `elements` is an array of one or more objects:
+  - `permalink` is the permalink of the resource
+  - `incoming` is the received version of the resoured (null in case of afterDelete)
+  - `stored` is the stored version of the resource
 
 The functions are assumed to be asynchronuous and are 'awaited'.
-
 
 ## resource specific configuration variables
 
@@ -905,46 +912,51 @@ Can be used to restrict the methods which are allowed on a resource. If not spec
 
 Can be used to override the tablename in case it does not match the resource name.
 
-
 ### Custom Routes
 
 There are three different custom scenario's possible. Two parameters are needed in all scenario's:
 
- - `routePostfix`: is appended to the route of the resource where the custom route is defined, example '/:key/simple'
- - `httpMethods`: array with http verbs the custom route matches
+- `routePostfix`: is appended to the route of the resource where the custom route is defined, example '/:key/simple'
+- `httpMethods`: array with http verbs the custom route matches
 
 Optionally `alterMapping` can be used to create an altered mapping version for the custom route based on the normal resource mapping. For example, in the custom mapping transformResponse can be defined to alter the response specificly for the custom route.
- - `alterMapping`: function (mapping) => {}
+
+- `alterMapping`: function (mapping) => {}
 
 Optionally `readOnly` can be set to `true` to get a task pg-promise object instead of a transaction object in the custom route handler.
 
 The possbile scenario's:
-  - A 'like' scenario: this scenario acts similar as an existing resource, only with a different custom mapping created with an `alterMapping` function. Parameters:
-    - `like`: defines the path of regular resource to used example: "/:key". 
- - Plain custom handler: a handler generates all the custom output. Parameters:
-    - `handler`: function dealing with the request: (tx, sriRequest, customMapping) => {}. Expected return is an object containing status, body and optionally headers.
-    Optionally a before- and afterHandler can be defined:
-    - `beforeHandler` (tx, sriRequest, customMapping) => {}
-    - `afterHandler` (tx, sriRequest, customMapping, result) => {}
- - Streaming scenario. The output stream can be JSON or binary stream
-    - `streamingHandler` (tx, sriRequest, stream) => {}.  The streamingHandler should only return after streaming is done.
-    Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
-    - `beforeStreamingHandler` (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists. 
-    
-    To enable binary streaming:
-    - `binaryStream: true`
-    When doing binary streaming it makes sense to use the beforeStreamingHandler to set some 'Content-*' headers specifying the type of content.
 
-    In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy: 
-    - `busBoy`: true
-    The busBoy event handlers can be set in the beforeStreamingHandler or the streamingHandler. 
-    - `busBoyConfig`: optional config object to be passed to busBoy (headers will be set by sri4node).
+- A 'like' scenario: this scenario acts similar as an existing resource, only with a different custom mapping created with an `alterMapping` function. Parameters:
+  - `like`: defines the path of regular resource to used example: "/:key".
+- Plain custom handler: a handler generates all the custom output. Parameters:
+  - `handler`: function dealing with the request: (tx, sriRequest, customMapping) => {}. Expected return is an object containing status, body and optionally headers.
+    Optionally a before- and afterHandler can be defined:
+  - `beforeHandler` (tx, sriRequest, customMapping) => {}
+  - `afterHandler` (tx, sriRequest, customMapping, result) => {}
+- Streaming scenario. The output stream can be JSON or binary stream
+
+  - `streamingHandler` (tx, sriRequest, stream) => {}. The streamingHandler should only return after streaming is done.
+    Optionally a beforeStreamingHandler can be defined to set status and headers (as they cannot be changed anymore once streaming is started):
+  - `beforeStreamingHandler` (tx, sriRequest, customMapping) => { }. Returns an object containing `status` and `headers`. Headers is a list of [ headerName, headerValue ] lists.
+
+  To enable binary streaming:
+
+  - `binaryStream: true`
+    When doing binary streaming it makes sense to use the beforeStreamingHandler to set some 'Content-\*' headers specifying the type of content.
+
+  In the streaming scenario it is also possible to (streamingly) read multipart form data with busBoy:
+
+  - `busBoy`: true
+    The busBoy event handlers can be set in the beforeStreamingHandler or the streamingHandler.
+  - `busBoyConfig`: optional config object to be passed to busBoy (headers will be set by sri4node).
 
 Streaming custom requests cannot be used in batch, the others can be used in batch.
 
-For examples of all the custom scenarios, see the code in the sri4node tests: 
- - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
- - https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
+For examples of all the custom scenarios, see the code in the sri4node tests:
+
+- https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/testCustomRoutes.js
+- https://github.com/katholiek-onderwijs-vlaanderen/sri4node/blob/master/test/context/persons.js
 
 ## Limiting results
 
@@ -965,10 +977,11 @@ If you understand the above processing pipeline,
 reading the source for one of these functions should contain no surprises.
 
 ### General Utilities
+
 The utilities are found in `sri4node.utils`.
 
-
 #### prepareSQL()
+
 Used for preparing SQL. Supply a `name` to keep the query in the database as a prepared statement.
 It returns a query object with these functions :
 
@@ -978,9 +991,9 @@ It returns a query object with these functions :
 - `keys(value)` adds all keys in an object comma-separated to the SQL statement.
 - `values(value)` is a method for appending all values of an object as parameters to the SQL statement. `keys` and `values` have the same iteration order.
 - `with(query, virtualtablename)` is a method for adding a different query object as `WITH` statement to this query.
-Allows you to use postgres Common Table Expressions (CTE) in your request parameters.
-You can refer in the query to the virtual table you named with `virtualtablename`.
-Use `$u.prepareSQL()` to build the SQL statement for your CTE.
+  Allows you to use postgres Common Table Expressions (CTE) in your request parameters.
+  You can refer in the query to the virtual table you named with `virtualtablename`.
+  Use `$u.prepareSQL()` to build the SQL statement for your CTE.
 
 All the methods on the query object can be chained. It forms a simple fluent interface.
 
@@ -993,6 +1006,7 @@ Example of using a common table expression :
     query.with(cte,'virtualtable');
 
 #### executeSQL(database, query)
+
 Used for executing SQL.
 Call with the a `database` object you received, and a `query` object (as returned by `prepareSQL()`, or as received for `query` functions).
 The function returns a [Q promise][kriskowal-q].
@@ -1000,6 +1014,7 @@ The function returns a [Q promise][kriskowal-q].
 make sure that the connection is disposed regardless of the result.**
 
 #### addReferencingResources(type, foreignkey, targetkey)
+
 Afterread utility function. Adds, for convenience, an array of referencing resource to the currently retrieved resource(s).
 It will add an array of references to resource of `type` to the currently retrieved resource.
 Specify the foreign key column (in the table of those referencing resource) via `foreignkey`.
@@ -1007,7 +1022,8 @@ Specify the desired key (should be `$$somekey`, as it is not actually a part of 
 
 #### convertListResourceURLToSQL(req, mapping, count, database, query)
 
-#### 
+####
+
 Receives a query object and constructs the SQL for a list query.
 
 Arguments:
@@ -1021,10 +1037,12 @@ Arguments:
 This returns a promise that it's fulfilled when the `query` object contains the constructed SQL.
 
 ### Mapping Utilities
+
 Provides various utilities for mapping between postgres and JSON.
 These functions can be found in `sri4node.mapUtils`.
 
 #### removeifnull
+
 Remove key from object if value was null/undefined.
 
     sri4node = require('sri4node');
@@ -1042,6 +1060,7 @@ Remove key from object if value was null/undefined.
     }
 
 #### remove
+
 Always remove this key.
 
     sri4node = require('sri4node');
@@ -1059,6 +1078,7 @@ Always remove this key.
     }
 
 #### now
+
 Override with current server timestamp.
 
     sri4node = require('sri4node');
@@ -1076,6 +1096,7 @@ Override with current server timestamp.
     }
 
 #### value()
+
 Override with a fixed value.
 
     sri4node = require('sri4node');
@@ -1092,8 +1113,8 @@ Override with a fixed value.
         ...
     }
 
-
 #### parse
+
 Convert string into JSON.
 
     sri4node = require('sri4node');
@@ -1115,6 +1136,7 @@ Convert string into JSON.
     }
 
 #### stringify
+
 Convert JSON into string.
 
     sri4node = require('sri4node');
@@ -1136,6 +1158,7 @@ Convert JSON into string.
     }
 
 ### JSON Schema Utilities
+
 These functions are found in `sri4node.schemaUtils`.
 Provides various utilities for keeping your JSON schema definition compact and readable.
 `description` is always used to document your resources.
@@ -1164,6 +1187,7 @@ You can use these functions, but when they are insufficient you can insert any v
 They are only provided for convenience.
 
 #### permalink(type, description)
+
 Used for declaring permalinks.
 Example : `$s.permalink('/persons','The creator of the article.')`.
 Generated schema fragment :
@@ -1183,6 +1207,7 @@ Generated schema fragment :
     }
 
 #### string(description, min, max)
+
 As you should define your postgres columns as type `text` setting minimum and maximum length is usually omitted.
 Example: `$s.string('Title of the article.',5)`.
 Generated schema fragment :
@@ -1195,6 +1220,7 @@ Generated schema fragment :
     }
 
 #### numeric(description)
+
 Defines a property as numeric.
 Example: `$s.numeric('The amount of ...')`.
 Generated schema fragment :
@@ -1206,6 +1232,7 @@ Generated schema fragment :
     }
 
 #### email(description)
+
 Defines an email.
 Example: `$s.email('Personal email of the customer.')`.
 Generated schema fragment :
@@ -1219,6 +1246,7 @@ Generated schema fragment :
     }
 
 #### url(description)
+
 Defines a URL.
 Example: `$s.url('The homepage of the organisational unit.')`.
 Generated schema fragment :
@@ -1231,9 +1259,9 @@ Generated schema fragment :
         description: description
     }
 
-
 #### belgianzipcode(description)
-Defines a *Belgian* zipcode.
+
+Defines a _Belgian_ zipcode.
 Example: `$s.zipcode('The zipcode of the address')`.
 Generated schema fragment :
 
@@ -1244,6 +1272,7 @@ Generated schema fragment :
     }
 
 #### phone(description)
+
 Defines a telephone number.
 Example: `$s.phone('The telephone of the customer')`.
 Generated schema fragment :
@@ -1257,6 +1286,7 @@ Generated schema fragment :
     }
 
 #### timestamp(description)
+
 Defines a JSON timestamp.
 Example: `$s.timestamp('The creation date/time of this resource')`.
 Generated schema fragment :
@@ -1268,6 +1298,7 @@ Generated schema fragment :
     }
 
 #### boolean(description)
+
 Defines a JSON boolean.
 Example: `$s.boolean('Does she love me or does she not ?')`
 Generated schema fragment :
@@ -1278,6 +1309,7 @@ Generated schema fragment :
     }
 
 #### guid(description)
+
 Defines a column as GUID.
 Example: `$s.guid('API-key for a plugin')`
 Generated schema fragment :
@@ -1289,6 +1321,7 @@ Generated schema fragment :
     }
 
 ### Query functions
+
 The functions are found in `sri4node.queryUtils`.
 Provides pre-packaged filters for use as `query` function in a resource configuration.
 The example assume you have stored `sri4node.queryUtils` in $q as a shortcut.
@@ -1298,6 +1331,7 @@ The example assume you have stored `sri4node.queryUtils` in $q as a shortcut.
     var $q = sri4node.queryUtils;
 
 #### filterReferencedType(type, columnname)
+
 Can be used to filter on referenced resources.
 Example: /content resources have a key `creator` that references /persons.
 A list resource `/content?creator=/persons/{guid}` can be created by adding this query function :
@@ -1344,10 +1378,10 @@ Read the specification for details. Example queries are :
     GET /schools?nameContains=vbs
     GET /schools?nameCaseInsensitive=Minnestraal
     GET /schools?seatAddresses.key=a39c809e-a3a4-11e3-ace8-005056872b95
-    
+
 ### Relations query filters
 
-When a resource is detected as a relation (has from and to properties) some query filters are added for the list resources. 
+When a resource is detected as a relation (has from and to properties) some query filters are added for the list resources.
 
     {
         type: '/relations',
@@ -1360,19 +1394,22 @@ When a resource is detected as a relation (has from and to properties) some quer
             ...
         }
     }
-    
+
 #### fromTypes
+
 Can be used to filter those relations where the 'from' resource is some of the given types.
 
 #### toTypes
+
 Can be used to filter those relations where the 'to' resource is some of the given types.
 
 #### froms
-Filter those relations where the 'from' resources is one of the given ones. 
+
+Filter those relations where the 'from' resources is one of the given ones.
 
 #### tos
-Filter those relations where the 'to' resources is one of the given ones. 
 
+Filter those relations where the 'to' resources is one of the given ones.
 
 Example queries are :
 
@@ -1389,63 +1426,65 @@ When you want more information about a resource you can access `/resource/docs`
 
 ## validateDocs
 
-To document validate functions you need to add *validateDocs* to the resource configuration.
-*validateDocs* has to include a description and possible error codes of the validate function.
+To document validate functions you need to add _validateDocs_ to the resource configuration.
+_validateDocs_ has to include a description and possible error codes of the validate function.
 
-  validate: [
-      validateAuthorVersusThemes
-  ],
-  validateDocs: {
-      validateAuthorVersusThemes: {
-          description: "Validate if author or theme exists",
-          errors: [{
-              code: 'not.a.desert',
-              description: 'This is not a desert.'
-          }]
-      }
-  }
+validate: [
+validateAuthorVersusThemes
+],
+validateDocs: {
+validateAuthorVersusThemes: {
+description: "Validate if author or theme exists",
+errors: [{
+code: 'not.a.desert',
+description: 'This is not a desert.'
+}]
+}
+}
 
 ## queryDocs
 
-To document a custom query function you need to add *queryDocs* to the resource configuration.
-*queryDocs* has to include the description of the query function.
+To document a custom query function you need to add _queryDocs_ to the resource configuration.
+_queryDocs_ has to include the description of the query function.
 
-  query: {
-      editor: $q.filterReferencedType('/persons','editor'),
-      defaultFilter: $q.defaultFilter
-  },
-  queryDocs: {
-      editor: 'Allow to filer on an editor.'
-  }
+query: {
+editor: $q.filterReferencedType('/persons','editor'),
+defaultFilter: $q.defaultFilter
+},
+queryDocs: {
+editor: 'Allow to filer on an editor.'
+}
 
 ## Description
 
 #### Interface
-You can describe your sri interface by using the *description* variable in the root for your configuration
 
-  description: 'A description about the collection of resources'
+You can describe your sri interface by using the _description_ variable in the root for your configuration
+
+description: 'A description about the collection of resources'
 
 #### Resource
-You can describe a resource by using the to use *schema* > *title*
 
-  title: 'An article on the websites/mailinglists'
+You can describe a resource by using the to use _schema_ > _title_
+
+title: 'An article on the websites/mailinglists'
 
 #### Property
-If you want to describe a property of a resource you need to use *schema* > *properties* > *property* > *description* :
 
-  properties : {
-      authors: {
-          type: 'string'
-          description: 'Comma-separated list of authors.'
-      }
-  }
+If you want to describe a property of a resource you need to use _schema_ > _properties_ > _property_ > _description_ :
+
+properties : {
+authors: {
+type: 'string'
+description: 'Comma-separated list of authors.'
+}
+}
 
 Or use the schemaUtils function:
 
-  properties : {
-      authors: $s.string('Comma-separated list of authors.')
-  }
-
+properties : {
+authors: $s.string('Comma-separated list of authors.')
+}
 
 # Contributions
 
@@ -1458,7 +1497,6 @@ The software is licensed under [LGPL license](https://www.gnu.org/licenses/lgpl.
 [express-request]: http://expressjs.com/4x/api.html#req
 [express-response]: http://expressjs.com/4x/api.html#res
 [kriskowal-q]: https://github.com/kriskowal/q
-
 [sri-specs]: https://github.com/dimitrydhondt/sri
 [sri-specs-list-resources]: https://github.com/dimitrydhondt/sri#list-resources
 [sri-specs-batch]: https://github.com/dimitrydhondt/sri#batch-operations

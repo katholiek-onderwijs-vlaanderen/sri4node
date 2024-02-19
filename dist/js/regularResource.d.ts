@@ -1,6 +1,6 @@
-import { TSriRequest, TBeforePhase, TResourceDefinition } from './typeDefinitions';
-import { PhaseSyncer } from './phaseSyncedSettle';
-import { IDatabase } from 'pg-promise';
+import { TSriRequest, TBeforePhase, TResourceDefinition } from "./typeDefinitions";
+import { PhaseSyncer } from "./phaseSyncedSettle";
+import { IDatabase } from "pg-promise";
 declare const beforePhaseQueryByKey: TBeforePhase;
 declare function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
     status: number;

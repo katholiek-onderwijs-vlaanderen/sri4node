@@ -1,5 +1,5 @@
 import { TResourceDefinition } from "../../sri4node";
-import * as Sri4Node from '../../index';
+import * as Sri4Node from "../../index";
 
 module.exports = function (sri4node: typeof Sri4Node) {
   const $s = sri4node.schemaUtils;
@@ -16,25 +16,25 @@ module.exports = function (sri4node: typeof Sri4Node) {
   //   sri4node.debug('mocha', select.text);
   // }
 
-  const r : TResourceDefinition = {
-    type: '/selfreferential',
-    metaType: 'SRI4NODE_SELFREFERENTIAL',
+  const r: TResourceDefinition = {
+    type: "/selfreferential",
+    metaType: "SRI4NODE_SELFREFERENTIAL",
     map: {
       key: {},
       name: {},
       parent: {
-        references: '/selfreferential'
-      }
+        references: "/selfreferential",
+      },
     },
     schema: {
-      $schema: 'http://json-schema.org/schema#',
-      title: 'An object that contains references to resources of the same type.',
-      type: 'object',
+      $schema: "http://json-schema.org/schema#",
+      title: "An object that contains references to resources of the same type.",
+      type: "object",
       properties: {
-        key: $s.guid('GUID for this selfreferential.'),
-        name: $s.string('The name of the selfreferential.'),
-        parent: $s.permalink('/selfreferential', 'A link to the parent.'),
-      }
+        key: $s.guid("GUID for this selfreferential."),
+        name: $s.string("The name of the selfreferential."),
+        parent: $s.permalink("/selfreferential", "A link to the parent."),
+      },
     },
     query: {
       // allParentsOf

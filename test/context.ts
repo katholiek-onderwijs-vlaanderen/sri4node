@@ -7,14 +7,20 @@ context.serve();
 */
 
 // External includes
-import express from 'express';
-import { getParentSriRequestFromRequestMap } from '../js/common';
+import express from "express";
+import { getParentSriRequestFromRequestMap } from "../js/common";
 
-import { TSriConfig, SriError, TSriRequest, TLogDebug, TSriServerInstance } from '../js/typeDefinitions';
-import utils from './utils';
-import { Server } from 'http';
-import { IDatabase, IMain } from 'pg-promise';
-import { IClient } from 'pg-promise/typescript/pg-subset';
+import {
+  TSriConfig,
+  SriError,
+  TSriRequest,
+  TLogDebug,
+  TSriServerInstance,
+} from "../js/typeDefinitions";
+import utils from "./utils";
+import { Server } from "http";
+import { IDatabase, IMain } from "pg-promise";
+import { IClient } from "pg-promise/typescript/pg-subset";
 
 let configCache: any = null;
 
@@ -26,8 +32,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       connectionString: "postgres://sri4node:sri4node@localhost:15432/postgres",
       ssl: false,
       schema: "sri4node",
-      connectionInitSql:
-        'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+      connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),
@@ -36,10 +41,10 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       async (db: IDatabase<unknown, IClient>, pgp: IMain) => {
         // crash if either db or pgp is undefined
         if (!db?.connect) {
-          throw new Error('startUp hook error: db parameter is not what we expected');
+          throw new Error("startUp hook error: db parameter is not what we expected");
         }
         if (!pgp?.pg) {
-          throw new Error('startUp hook error: pgp parameter is not what we expected');
+          throw new Error("startUp hook error: pgp parameter is not what we expected");
         }
 
         // add a useless trigger to the countries table
@@ -78,21 +83,14 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
                 });
               }
             }
-          }
+          },
         );
       },
 
       // count the number of calls to beforePhase
-      async (
-        sriRequestMap: Map<string, TSriRequest>,
-        _jobMap,
-        _pendingJobs
-      ) => {
+      async (sriRequestMap: Map<string, TSriRequest>, _jobMap, _pendingJobs) => {
         // find parent sriRequest
-        const sriRequest = getParentSriRequestFromRequestMap(
-          sriRequestMap,
-          true
-        );
+        const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap, true);
         if (sriRequest.userData.beforePhaseCntr === undefined) {
           if (sriRequest.userData) {
             sriRequest.userData.beforePhaseCntr = 0;
@@ -112,9 +110,7 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     afterRequest: [
       (sriRequest) => {
         dummyLogger.log(`afterRequest hook of ${sriRequest.id}`);
-        dummyLogger.log(
-          `final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`
-        );
+        dummyLogger.log(`final beforePhaseCntr: ${sriRequest.userData.beforePhaseCntr}`);
       },
     ],
 
@@ -130,7 +126,13 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
   return config;
 }
 
-async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceFiles): Promise<{ server: Server, sriServerInstance: TSriServerInstance }> {
+async function serve(
+  sri4node,
+  port,
+  logdebug: TLogDebug,
+  dummyLogger,
+  resourceFiles,
+): Promise<{ server: Server; sriServerInstance: TSriServerInstance }> {
   const theConfig = config(sri4node, logdebug, dummyLogger, resourceFiles);
 
   // Need to pass in express.js and node-postgress as dependencies.
@@ -150,14 +152,10 @@ async function serve(sri4node, port, logdebug: TLogDebug, dummyLogger, resourceF
 
 function getConfiguration() {
   if (configCache === null) {
-    throw new Error('please first configure the context');
+    throw new Error("please first configure the context");
   }
 
   return configCache;
 }
 
-export {
-  config,
-  serve,
-  getConfiguration,
-};
+export { config, serve, getConfiguration };

@@ -1,5 +1,5 @@
-import peggy from 'peggy';
-import { FlattenedJsonSchema, TResourceDefinition, TSriConfig } from '../typeDefinitions';
+import peggy from "peggy";
+import { FlattenedJsonSchema, TResourceDefinition, TSriConfig } from "../typeDefinitions";
 /**
  * This grammar should generate a parseTree that is non-flat, so different 'types' of filters
  * are put together in one subtree.
@@ -46,4 +46,4 @@ interface SriParser extends peggy.Parser {
     origParse: typeof peggy.parser.parse;
 }
 declare function generateNonFlatQueryStringParser(sriConfigDefaults?: TSriConfig, sriConfigResourceDefinition?: TResourceDefinition, allowedStartRules?: string[] | undefined): SriParser;
-export { SriParser, generateNonFlatQueryStringParserGrammar, generateNonFlatQueryStringParser, };
+export { SriParser, generateNonFlatQueryStringParserGrammar, generateNonFlatQueryStringParser };

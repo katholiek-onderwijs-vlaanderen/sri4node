@@ -16,4 +16,4 @@
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
 declare function executeExpansion(db: any, sriRequest: any, elements: any, mapping: any): Promise<void>;
-export { executeExpansion, };
+export { executeExpansion };

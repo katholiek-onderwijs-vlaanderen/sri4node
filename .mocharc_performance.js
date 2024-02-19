@@ -1,5 +1,5 @@
-'use strict';
+"use strict";
 
 module.exports = {
-  spec: 'test_performance/tests'
+  spec: "test_performance/tests",
 };

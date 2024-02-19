@@ -1,6 +1,6 @@
 import { TResourceDefinition } from "../../sri4node";
 
-import * as Sri4Node from '../../index'
+import * as Sri4Node from "../../index";
 
 /**
  * This one returns a schema containing oneOf, anyOf or allOf, tomake sure that

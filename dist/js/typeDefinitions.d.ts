@@ -1,24 +1,23 @@
 /// <reference types="node" />
-/// <reference types="express-serve-static-core" />
 /// <reference types="node" />
 /// <reference types="node" />
-import { Busboy, BusboyConfig } from 'busboy';
-import { Request } from 'express';
-import { Operation } from 'fast-json-patch';
-import { IncomingHttpHeaders } from 'http2';
-import { JSONSchema4 } from 'json-schema';
-import pgPromise from 'pg-promise';
-import { IClient, IConnectionParameters } from 'pg-promise/typescript/pg-subset';
-import stream from 'stream';
-import { PhaseSyncer } from './phaseSyncedSettle';
+import { Busboy, BusboyConfig } from "busboy";
+import { Request } from "express";
+import { Operation } from "fast-json-patch";
+import { IncomingHttpHeaders } from "http2";
+import { JSONSchema4 } from "json-schema";
+import pgPromise from "pg-promise";
+import { IClient, IConnectionParameters } from "pg-promise/typescript/pg-subset";
+import stream from "stream";
+import { PhaseSyncer } from "./phaseSyncedSettle";
 import { ValidateFunction } from "ajv";
-import { ParsedUrlQuery } from 'querystring';
+import { ParsedUrlQuery } from "querystring";
 export type TPluginConfig = Record<string, unknown>;
 export type TUriPath = string;
-export type THttpMethod = 'GET' | 'PUT' | 'DELETE' | 'PATCH' | 'POST';
-export type TDebugChannel = 'general' | 'db' | 'sql' | 'requests' | 'hooks' | 'server-timing' | 'batch' | 'trace' | 'phaseSyncer' | 'overloadProtection' | 'mocha';
+export type THttpMethod = "GET" | "PUT" | "DELETE" | "PATCH" | "POST";
+export type TDebugChannel = "general" | "db" | "sql" | "requests" | "hooks" | "server-timing" | "batch" | "trace" | "phaseSyncer" | "overloadProtection" | "mocha";
 export type TLogDebug = {
-    channels: Set<TDebugChannel> | TDebugChannel[] | 'all';
+    channels: Set<TDebugChannel> | TDebugChannel[] | "all";
     statuses?: Set<number> | Array<number>;
 };
 export type TDebugLogFunction = (channel: TDebugChannel | string, x: (() => string) | string) => void;
@@ -75,6 +74,27 @@ export type TPreparedSql = {
     keys: (o: Record<string, unknown>) => TPreparedSql;
     values: (o: Record<string, string | number | boolean>) => TPreparedSql;
     array: (x: Array<string | number | boolean>) => TPreparedSql;
+    arrayOfTuples(x: Array<Array<string | number | boolean>>, cast?: Array<string>): any;
+    /**
+     * Check if a value is in a list of values.
+     * You would think about 'x IN (list)' in SQL, but implementing it using an exists clause
+     * is better for performance.
+     * 'EXISTS (SELECT 1 FROM (VALUES (list[0]), (list[1]), ... (list[n])) as t(x) where t.x = x)'
+     *
+     * @param valueRef a string referencing the value to check like a column name or 'LOWER(columnname)'
+     * @param list an array of values to check against
+     */
+    valueIn(valueRef: string, list: Array<string | number | boolean | Date>, cast?: string): any;
+    /**
+     * Check if a tuple is in a list of tuples.
+     * You would think about '(x,y) IN (listOfTuples)' in SQL, but implementing it using an exists clause
+     * is better for performance.
+     * 'EXISTS (SELECT 1 FROM (VALUES (list[0][0],list[0][1]), ... (list[n][0],list[n][1])) as t(x) where t.x = (x,y))'
+     *
+     * @param valueRef a string referencing the tuple to check like a column name or 'LOWER(columnname)'
+     * @param list an array of tuples to check against
+     */
+    tupleIn(valueRef: string, list: Array<Array<string | number | boolean | Date>>, cast?: Array<string>): any;
     with: (nonrecursivequery: TPreparedSql, unionclause: string, recursivequery: TPreparedSql, virtualtablename: string) => TPreparedSql;
     appendQueryObject(queryObject2: TPreparedSql): TPreparedSql;
     toParameterizedSql: () => {
@@ -85,7 +105,7 @@ export type TPreparedSql = {
 export type TInformationSchema = {
     [resourcePath: string]: {
         [columnName: string]: {
-            type: 'ARRAY';
+            type: "ARRAY";
             element_type: string;
         } | {
             type: string;
@@ -138,7 +158,7 @@ export type TSriRequest = {
     setHeader?: (key: string, value: string) => void;
     setStatus?: (statusCode: number) => void;
     streamStarted?: () => boolean;
-    protocol: '_internal_' | 'http' | 'https' | string | undefined;
+    protocol: "_internal_" | "http" | "https" | string | undefined;
     isBatchPart?: boolean;
     serverTiming: {
         [key: string]: unknown;
@@ -159,8 +179,8 @@ export type TSriRequest = {
     multiUpdateError?: any;
     rowsToDelete?: Record<string, Array<{
         key: string;
-        '$$meta.modified': Date;
-        '$$meta.deleted': boolean;
+        "$$meta.modified": Date;
+        "$$meta.deleted": boolean;
     }>>;
     rowsToDeleteIDs?: Array<string>;
     multiDeleteFailed?: boolean;
@@ -169,7 +189,7 @@ export type TSriRequest = {
     userObject?: any;
 };
 export type TInternalSriRequest = {
-    protocol: '_internal_';
+    protocol: "_internal_";
     href: string;
     verb: THttpMethod;
     dbT: pgPromise.IDatabase<unknown>;
@@ -210,7 +230,7 @@ export type TResourceMetaType = Uppercase<string>;
  * If we find more useful functions later, we can also easily add them to this object in the future.
  */
 export type TSriInternalUtils = {
-    internalSriRequest: (internalReq: Omit<TInternalSriRequest, 'protocol' | 'serverTiming'>) => Promise<TSriResult>;
+    internalSriRequest: (internalReq: Omit<TInternalSriRequest, "protocol" | "serverTiming">) => Promise<TSriResult>;
 };
 export type TSriQueryFun = {
     [key: string]: (value: string, select: TPreparedSql, key: string, database: pgPromise.IDatabase<unknown, IClient>, doCount: boolean, mapping: TResourceDefinition, urlParameters: ParsedUrlQuery) => void;
@@ -265,7 +285,7 @@ export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
         status: number;
         headers: Array<[key: string, value: string]>;
     } | undefined>;
-    streamingHandler: (tx: pgPromise.IDatabase<unknown>, sriRequest: TSriRequest, stream: import('stream').Duplex, internalUtils: TSriInternalUtils) => Promise<void>;
+    streamingHandler: (tx: pgPromise.IDatabase<unknown>, sriRequest: TSriRequest, stream: import("stream").Duplex, internalUtils: TSriInternalUtils) => Promise<void>;
 };
 /**
  * This is the part of TResourceDefinition where the customRoutes are defined
@@ -388,7 +408,7 @@ export type TSriConfig = {
     db?: pgPromise.IDatabase<unknown>;
     dbR?: pgPromise.IDatabase<unknown>;
     dbW?: pgPromise.IDatabase<unknown>;
-    informationSchema?: unknown;
+    informationSchema?: TInformationSchema;
     /** a short string that will be added to every request id while logging
      * (tis can help to differentiate between different api's while searching thourgh logs)
      */
@@ -410,7 +430,7 @@ export type TSriConfig = {
      * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
      */
     batchHandlerMap?: {
-        [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, 'route'> & {
+        [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, "route"> & {
             route: Record<string, any>;
         }>;
     };
@@ -440,7 +460,7 @@ export type TSriConfig = {
      * This is a global hook. This hook will be called in case an exception is catched during the handling of an SriResquest.
      * After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
      * Warning: in case of an early error, sriRequest might be undefined!
-    */
+     */
     errorHandler?: Array<(sriRequest: TSriRequest, error: Error, internalUtils: TSriInternalUtils) => void>;
     /**
      * This is a global hook. It will be called after the request is handled (without errors). At the moment this handler is called,
@@ -474,7 +494,7 @@ export type TSriConfig = {
      */
     streamingKeepAliveTimeoutMillis?: number;
 };
-export type ParseTreeType = 'string' | 'number' | 'integer' | 'boolean';
+export type ParseTreeType = "string" | "number" | "integer" | "boolean";
 export type ParseTreeProperty = {
     name: string;
     type: ParseTreeType;

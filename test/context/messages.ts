@@ -1,5 +1,5 @@
-import { TResourceDefinition } from '../../sri4node';
-import * as Sri4Node from '../../index';
+import { TResourceDefinition } from "../../sri4node";
+import * as Sri4Node from "../../index";
 
 module.exports = function (sri4node: typeof Sri4Node) {
   const $m = sri4node.mapUtils;
@@ -8,109 +8,103 @@ module.exports = function (sri4node: typeof Sri4Node) {
   const $u = sri4node.utils;
 
   async function messagesPostedSince(value, select) {
-    select.sql(' and posted > ').param(value);
+    select.sql(" and posted > ").param(value);
   }
 
   function validateMoreThan(_field, max) {
     return async function (_tx, sriRequest, elements) {
-      elements.forEach( ({ incoming }) => {
+      elements.forEach(({ incoming }) => {
         if (incoming.amount <= max) {
-          sri4node.debug('mocha', 'Should be more, or equal to ' + max);
-          throw new sriRequest.SriError({status: 409, errors: [{code: 'not.enough'}]})
-        }        
-      } )
+          sri4node.debug("mocha", "Should be more, or equal to " + max);
+          throw new sriRequest.SriError({ status: 409, errors: [{ code: "not.enough" }] });
+        }
+      });
     };
   }
 
-  async function addExtraKeysAfterRead( _tx, _sriRequest, elements ) {
-    elements.forEach( ({ stored }) => {
-      if (stored!=null) {
-        stored.$$afterread = 'added by afterread method';
-      }      
-    })
+  async function addExtraKeysAfterRead(_tx, _sriRequest, elements) {
+    elements.forEach(({ stored }) => {
+      if (stored != null) {
+        stored.$$afterread = "added by afterread method";
+      }
+    });
   }
 
   const cteOneGuid = async function (_value, select) {
     const cte = $u.prepareSQL();
-    cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
-    select.with(cte, 'cte');
+    cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
+    select.with(cte, "cte");
     select.sql(' AND "key" IN (SELECT key FROM cte)');
   };
 
   const cteOneGuid2 = async function (_value, select) {
     const cte = $u.prepareSQL();
-    cte.sql('SELECT "key" FROM messages where title = ').param('Rabarberchutney');
-    select.with(cte, 'cte2');
+    cte.sql('SELECT "key" FROM messages where title = ').param("Rabarberchutney");
+    select.with(cte, "cte2");
     select.sql(' AND "key" IN (SELECT key FROM cte2)');
   };
 
-  const r : TResourceDefinition = {
-    type: '/messages',
-    metaType: 'SRI4NODE_MESSAGE',
+  const r: TResourceDefinition = {
+    type: "/messages",
+    metaType: "SRI4NODE_MESSAGE",
     listResultDefaultIncludeCount: false,
-    
+
     map: {
       person: {
-        references: '/persons'
+        references: "/persons",
       },
       posted: {
-        fieldToColumn: [ $m.now ]
+        fieldToColumn: [$m.now],
       },
       type: {},
       title: {},
       description: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       amount: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       unit: {
-        columnToField: [ $m.removeifnull ]
+        columnToField: [$m.removeifnull],
       },
       community: {
-        references: '/communities'
-      }
+        references: "/communities",
+      },
     },
     schema: {
-      $schema: 'http://json-schema.org/schema#',
-      title: 'A messages posted to the LETS members.',
-      type: 'object',
+      $schema: "http://json-schema.org/schema#",
+      title: "A messages posted to the LETS members.",
+      type: "object",
       properties: {
-        key: $s.guid('GUID for this message.'),
-        person: $s.permalink('/persons', 'A permalink to the person that placed the message.'),
+        key: $s.guid("GUID for this message."),
+        person: $s.permalink("/persons", "A permalink to the person that placed the message."),
         type: {
-          type: 'string',
-          description: 'Is this message offering something, or is it requesting something ?',
-          enum: ['offer', 'request']
+          type: "string",
+          description: "Is this message offering something, or is it requesting something ?",
+          enum: ["offer", "request"],
         },
-        title: $s.string('A short summary of the message. A plain text string.'),
-        description: $s.string('A more elaborate description. An HTML string.'),
-        amount: $s.numeric('Amount suggested by the author.'),
-        unit: $s.string('Unit in which amount was suggested by the author.'),
-        community: $s.permalink('/communities', 'In what community was the message placed ? ' +
-                                'The permalink to the community.')
+        title: $s.string("A short summary of the message. A plain text string."),
+        description: $s.string("A more elaborate description. An HTML string."),
+        amount: $s.numeric("Amount suggested by the author."),
+        unit: $s.string("Unit in which amount was suggested by the author."),
+        community: $s.permalink(
+          "/communities",
+          "In what community was the message placed ? " + "The permalink to the community.",
+        ),
       },
-      required: ['person', 'type', 'title', 'community']
+      required: ["person", "type", "title", "community"],
     },
     query: {
-      communities: $q.filterReferencedType('/communities', 'community'),
+      communities: $q.filterReferencedType("/communities", "community"),
       postedSince: messagesPostedSince, // For compatability, to be removed.
       modifiedsince: messagesPostedSince,
       cteOneGuid: cteOneGuid,
       cteOneGuid2: cteOneGuid2,
-      defaultFilter: $q.defaultFilter
+      defaultFilter: $q.defaultFilter,
     },
-    afterRead: [
-      addExtraKeysAfterRead
-    ],
-    afterInsert: [
-      validateMoreThan('amount', 10),
-      validateMoreThan('amount', 20)
-    ],
-    afterUpdate: [
-      validateMoreThan('amount', 10),
-      validateMoreThan('amount', 20)
-    ],
+    afterRead: [addExtraKeysAfterRead],
+    afterInsert: [validateMoreThan("amount", 10), validateMoreThan("amount", 20)],
+    afterUpdate: [validateMoreThan("amount", 10), validateMoreThan("amount", 20)],
   };
   return r;
 };

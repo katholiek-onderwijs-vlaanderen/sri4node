@@ -72,7 +72,6 @@ esbuild
   })
   .catch(() => process.exit(1));
 
-
 esbuild
   .build({
     format: "cjs",
