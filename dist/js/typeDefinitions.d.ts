@@ -74,7 +74,7 @@ export type TPreparedSql = {
     keys: (o: Record<string, unknown>) => TPreparedSql;
     values: (o: Record<string, string | number | boolean>) => TPreparedSql;
     array: (x: Array<string | number | boolean>) => TPreparedSql;
-    arrayOfTuples(x: Array<Array<string | number | boolean>>): any;
+    arrayOfTuples(x: Array<Array<string | number | boolean>>, cast?: Array<string>): any;
     /**
      * Check if a value is in a list of values.
      * You would think about 'x IN (list)' in SQL, but implementing it using an exists clause
@@ -84,7 +84,7 @@ export type TPreparedSql = {
      * @param valueRef a string referencing the value to check like a column name or 'LOWER(columnname)'
      * @param list an array of values to check against
      */
-    valueIn(valueRef: string, list: Array<string | number | boolean | Date>): any;
+    valueIn(valueRef: string, list: Array<string | number | boolean | Date>, cast?: string): any;
     /**
      * Check if a tuple is in a list of tuples.
      * You would think about '(x,y) IN (listOfTuples)' in SQL, but implementing it using an exists clause
@@ -94,7 +94,7 @@ export type TPreparedSql = {
      * @param valueRef a string referencing the tuple to check like a column name or 'LOWER(columnname)'
      * @param list an array of tuples to check against
      */
-    tupleIn(valueRef: string, list: Array<Array<string | number | boolean | Date>>): any;
+    tupleIn(valueRef: string, list: Array<Array<string | number | boolean | Date>>, cast?: Array<string>): any;
     with: (nonrecursivequery: TPreparedSql, unionclause: string, recursivequery: TPreparedSql, virtualtablename: string) => TPreparedSql;
     appendQueryObject(queryObject2: TPreparedSql): TPreparedSql;
     toParameterizedSql: () => {

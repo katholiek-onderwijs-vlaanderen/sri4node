@@ -204,31 +204,20 @@ function filterNumericOrTimestamp(
   } else if (filter.operator === "In") {
     const parseFunc = isTimestamp ? (v: string) => v : Number.parseFloat;
     if (filter.postfix === "Not") {
-      // TODO: make timstamps also use .valueIn !!!
-      if (isTimestamp) {
-        select
-          .sql(` AND ("${filter.key}" NOT IN (`)
-          .array(value.split(","))
-          .sql(`) OR "${filter.key}" IS NULL)`);
-      } else {
-        select
-          .sql(` AND ( NOT `)
-          .valueIn(
-            isTimestamp ? `${filter.key}::text` : filter.key,
-            value.split(",").map((v) => parseFunc(v)),
-          )
-          .sql(` OR "${filter.key}" IS NULL )`);
-      }
-    } else {
-      // TODO: make timstamps also use .valueIn !!!
-      if (isTimestamp) {
-        select.sql(` AND "${filter.key}" IN (`).array(value.split(",")).sql(")");
-      } else {
-        select.sql(` AND`).valueIn(
-          filter.key,
+      select
+        .sql(` AND ( NOT `)
+        .valueIn(
+          isTimestamp ? `${filter.key}::timestamptz` : filter.key,
           value.split(",").map((v) => parseFunc(v)),
-        );
-      }
+          isTimestamp ? "timestamptz" : undefined,
+        )
+        .sql(` OR "${filter.key}" IS NULL )`);
+    } else {
+      select.sql(` AND`).valueIn(
+        filter.key,
+        value.split(",").map((v) => parseFunc(v)),
+        isTimestamp ? "timestamptz" : undefined,
+      );
     }
   } else if (filter.postfix === "Not") {
     select.sql(` AND "${filter.key}" <> `).param(value);

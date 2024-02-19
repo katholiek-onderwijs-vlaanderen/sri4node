@@ -61,29 +61,46 @@ function prepareSQL(name?: string): TPreparedSql {
      *  .sql(')');
      * ```
      */
-    arrayOfTuples(x: Array<Array<string | number | boolean>>) {
-      x.forEach((tuple, i) => {
+    arrayOfTuples(tuples: Array<Array<string | number | boolean>>, cast?: Array<string>) {
+      tuples.forEach((tuple, i) => {
         this.text += "(";
         tuple.forEach((el, j) => {
           this.param(el);
+          if (i === 0 && cast && cast[j]) {
+            this.text += `::${cast[j]}`;
+          }
           if (j < tuple.length - 1) {
             this.text += ",";
           }
         });
         this.text += ")";
-        if (i < x.length - 1) {
+        if (i < tuples.length - 1) {
           this.text += ",";
         }
       });
       return this;
     },
-    valueIn(valueRef: string, values: Array<string | number | boolean | Date>) {
+    valueIn(valueRef: string, values: Array<string | number | boolean | Date>, cast?: string) {
       this.text += ` EXISTS (SELECT 1 FROM (VALUES `;
-      this.arrayOfTuples(values.map((v) => [v]));
+      this.arrayOfTuples(
+        values.map((v) => [v]),
+        [cast],
+      );
       this.text += `) AS t(v) WHERE t.v = ${valueRef})`;
       return this;
     },
-    tupleIn(tupleRef: string, values: Array<Array<string | number | boolean | Date>>) {
+    /**
+     * @todo IMPLMENT
+     *
+     * @param tupleRef
+     * @param values
+     * @returns
+     */
+    tupleIn(
+      tupleRef: string,
+      values: Array<Array<string | number | boolean | Date>>,
+      cast?: Array<string>,
+    ) {
       throw new Error("Not implemented");
       return this;
     },
