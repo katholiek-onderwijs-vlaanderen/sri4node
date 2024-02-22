@@ -14,9 +14,16 @@ module.exports = function (httpClient) {
         responsePromiseResolved = true;
       });
 
+      // OBSOLETE: if we run using docker compose, it would be better to close the connections
+      // but keep the database running
       await exec(
         `./node_modules/kov-docker-utils/kov-docker-utils postgres stop sri4node_postgresdbfortests 15432 && ./node_modules/kov-docker-utils/kov-docker-utils postgres start sri4node_postgresdbfortests 15432`,
       );
+
+      // SELECT pg_terminate_backend(pg_stat_activity.pid)
+      // FROM pg_stat_activity
+      // WHERE pg_stat_activity.datname = 'target_database'
+      //   AND pid <> pg_backend_pid();
 
       assert.equal(
         responsePromiseResolved,
