@@ -994,7 +994,7 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
                       WHERE proname = 'vsko_resource_version_inc_function'
                         AND nspname = '${schemaNameOrPublic}'
                     ) THEN
-        CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS OPAQUE AS '
+        CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS TRIGGER AS '
         BEGIN
           NEW."$$meta.version" := OLD."$$meta.version" + 1;
           RETURN NEW;
