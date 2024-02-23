@@ -87,7 +87,6 @@
     "expect.js": "^0.3.1",
     "form-data": "^4.0.0",
     "iso-datestring-validator": "2.1.4",
-    "kov-docker-utils": "git+https://github.com/katholiek-onderwijs-vlaanderen/kov-docker-utils.git",
     "lint-staged": "^15.2.2",
     "mocha": "^10.2.0",
     "sinon": "^14.0.0",
