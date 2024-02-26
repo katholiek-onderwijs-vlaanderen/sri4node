@@ -29,10 +29,9 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
-      connectionString:
-        process.env.INSIDE_DOCKER === "true"
-          ? "postgres://postgres:postgres@sri4nodepostgresdbfortests:5432/postgres"
-          : "postgres://sri4node:sri4node@localhost:15432/postgres",
+      // use network_mode=local when tests run in docker container
+      // => connectionString stays the same (see docker-compose.yml)
+      connectionString: "postgres://sri4node:sri4node@localhost:15432/postgres",
       ssl: false,
       schema: "sri4node",
       connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',

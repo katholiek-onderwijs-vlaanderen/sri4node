@@ -1,8 +1,9 @@
 version: "3.9"
 services:
   sri4nodepostgresdbfortests:
-    image: postgres:${SRI4NODE_TESTS_POSTGRES_VERSION:-11}
-    container_name: sri4node_pg${SRI4NODE_TESTS_POSTGRES_VERSION:-11}_fortests
+    image: postgres:${SRI4NODE_TESTS_POSTGRES_VERSION:-15-alpine}
+    # put buth node version and postgres version in the container name to avoid conflicts
+    container_name: sri4node${SRI4NODE_TESTS_NODE_VERSION:-16}pg${SRI4NODE_TESTS_POSTGRES_VERSION:-15-alpine}_testdb
     # expose:
     #   - 5432
     ports:
@@ -25,30 +26,51 @@ services:
       sri4nodepostgresdbfortests:
         condition: service_healthy
     image: node:${SRI4NODE_TESTS_NODE_VERSION:-16}
-    container_name: sri4node${SRI4NODE_TESTS_NODE_VERSION:-16}pg${SRI4NODE_TESTS_POSTGRES_VERSION:-11}tests
+    # Put only node version (not postgres version) in the container name
+    # to reuse the npm cache when testing with different postgres versions
+    # This choice makes it impossible to run tests with the same node version
+    # but different postgres versions at the same time, but tests for different node verions
+    # could still run in parallel
+    container_name: sri4node${SRI4NODE_TESTS_NODE_VERSION:-16}tests
     user: "root"
     working_dir: /home/node/sri4node
     volumes:
       - ../:/home/node/source_app
     tty: true
+    # by using the host network for the container that runs the tests,
+    # we can always use the same db connection details both locally and from inside docker
+    network_mode: host
     command: > # > denotes a long string separated over multiple lines, escape $ with $$ !!!
       bash -c '
         echo "Current user: $$(whoami)" && pwd &&
+        INSTALLED_BEFORE=$(ls ./node_modules | wc -l) &&
         cp -r ../source_app/* . &&
         chown -R node:node . &&
         # ls &&
         # | tr "\r" "\n"
         su node -c '\''
           npmi() {
-            [ "${SRI4NODE_TESTS_SKIP_NPM_INSTALL}" = "true" ] || {
+            [ "$${SRI4NODE_TESTS_SKIP_NPM_INSTALL}" = "true" ] || {
               rm -rf node_modules docs dist* package-lock.json &&
-              echo "==== start npm install (using node $$( node --version ) and npm $$( npm --version ))" &&
-              npm install --foreground-scripts=true --log-level info
+                echo "==== start npm install (using node $$( node --version ) and npm $$( npm --version ))" &&
+                (
+                  # export NODE_OPTIONS="--max-old-space-size=4096 --dns-result-order=ipv4first"
+                  npm config set registry http://registry.yarnpkg.com
+                  npm config set loglevel notice
+                  npm config set node-options="--max-old-space-size=2048 --dns-result-order=ipv4first"
+                  npm config set fetch-retries 10
+                  npm config set fetch-retry-factor 2
+                  npm config set fetch-retry-mintimeout 100
+                  npm config set fetch-retry-maxtimeout 10000
+                  npm config set fetch-timeout 5000
+                  # npmp --force --unsafe-perm --strict-ssl=false ???
+                  npm install --foreground-scripts=true --no-progress
+                )
             }
           }
           echo "Current user: $$(whoami)" &&
-          ( npmi || npmi || npmi || npmi ) &&
-          npm run test:inside_docker
+            ( npmi || npmi || npmi || npmi ) &&
+            npm run test:inside_docker $${SRI4NODE_TESTS_TEST_COMMAND_ARGS}
         '\''
       '
   ### OBSOLETE, use sri4nodetests instead
@@ -57,7 +79,7 @@ services:
   #     sri4nodepostgresdbfortests:
   #       condition: service_healthy
   #   image: node:16
-  #   container_name: sri4node16pg${SRI4NODE_TESTS_POSTGRES_VERSION:-11}tests
+  #   container_name: sri4node16pg${SRI4NODE_TESTS_POSTGRES_VERSION:-15-alpine}tests
   #   user: "root"
   #   working_dir: /home/node/sri4node
   #   volumes:

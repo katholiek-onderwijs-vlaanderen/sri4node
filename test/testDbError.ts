@@ -1,7 +1,41 @@
-import { assert } from "chai";
+import { assert, config } from "chai";
 import exec from "await-exec";
+import { Server } from "http";
+import { TSriServerInstance } from "../sri4node";
+import { getConfiguration } from "./context";
 
-module.exports = function (httpClient) {
+/**
+ * Connect to the database in order to have a separate connection to the database that can be used
+ * to break the other connections and test the error handling of the server.
+ */
+async function breakDbConnections(sriServerInstance: TSriServerInstance | null) {
+  // TODO: This assumes docker compose is used which makes it a lot harder to run the tests inside a docker container
+  // So if we run tests inside a docker container, it would be better to close the connections
+  // await exec(
+  //   `cd ./docker && docker compose stop sri4nodepostgresdbfortests && docker compose up --wait sri4nodepostgresdbfortests`,
+  // );
+
+  const sri4nodeConfig = getConfiguration();
+  const dbConnection = sriServerInstance?.pgp(sri4nodeConfig.databaseConnectionParameters);
+  if (!dbConnection) {
+    throw new Error("[breakDbconnections] Database connection is not available");
+  }
+
+  // const result = await dbConnection?.query("SELECT * FROM pg_stat_activity WHERE /* pg_stat_activity.datname = 'postgres' AND */ pid <> pg_backend_pid();");
+
+  // close all connections to the database, except for the current one
+  await dbConnection?.query(
+    `SELECT pg_terminate_backend(pg_stat_activity.pid)
+    FROM pg_stat_activity
+    WHERE pg_stat_activity.datname = 'postgres' AND
+      pid <> pg_backend_pid();`,
+  );
+}
+
+module.exports = function (
+  httpClient,
+  testContext: { server: null | Server; sriServerInstance: null | TSriServerInstance },
+) {
   describe("Database connection errors", () => {
     it("db connection reset during task", async () => {
       const responsePromise = httpClient.get({
@@ -14,16 +48,7 @@ module.exports = function (httpClient) {
         responsePromiseResolved = true;
       });
 
-      // TODO: This assumes docker compose is used which makes it a lot harder to run the tests inside a docker container
-      // So if we run tests inside a docker container, it would be better to close the connections
-      await exec(
-        `cd ./docker && docker compose stop sri4nodepostgresdbfortests && docker compose up --wait sri4nodepostgresdbfortests`,
-      );
-
-      // SELECT pg_terminate_backend(pg_stat_activity.pid)
-      // FROM pg_stat_activity
-      // WHERE pg_stat_activity.datname = 'target_database'
-      //   AND pid <> pg_backend_pid();
+      await breakDbConnections(testContext.sriServerInstance);
 
       assert.equal(
         responsePromiseResolved,
@@ -58,10 +83,7 @@ module.exports = function (httpClient) {
         responsePromiseResolved = true;
       });
 
-      // TODO: This assumes docker compose is used which makes it a lot harder to run the tests inside a docker container
-      await exec(
-        `cd ./docker && docker compose stop sri4nodepostgresdbfortests && docker compose up --wait sri4nodepostgresdbfortests`,
-      );
+      await breakDbConnections(testContext.sriServerInstance);
 
       assert.equal(
         responsePromiseResolved,

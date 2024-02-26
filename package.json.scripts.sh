@@ -63,7 +63,7 @@ test() {
   fi
 
   npm run test:cleanup
-  ( cd $(npm prefix)/docker && docker compose up --wait sri4nodepostgresdbfortests ) &&
+  ( cd $(npm prefix)/docker && SRI4NODE_TESTS_NODE_VERSION=$(node --version) docker compose up --wait sri4nodepostgresdbfortests ) &&
     ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
   R=$?
   npm run test:cleanup
@@ -101,6 +101,7 @@ test_on_docker() {
       echo
       export SRI4NODE_TESTS_POSTGRES_VERSION=$POSTGRESVERSION
       export SRI4NODE_TESTS_NODE_VERSION=$NODEVERSION
+      # use exit code from sri4nodetests container, and ONLY RUN srinodetests container (hence the 2 times)
       docker compose up --exit-code-from sri4nodetests sri4nodetests
       EXITCODE=$?
       echo
@@ -110,7 +111,12 @@ test_on_docker() {
       else
         local MSG="$( printf "\e[1;31m%s\e[0m\n" "======== Tests on node ${NODEVERSION} and postgres ${POSTGRESVERSION} FAILED with exit code $EXITCODE ========" )"
       fi
-      npm run test:cleanup
+      ### bring the database server down, but no other cleanup so we could
+      ### reuse node docker container?
+      ### Would speed up matrix testing, (because npm cache can be used),
+      ### but would be even faster if the npm install is only done when needed
+      docker compose stop sri4nodepostgresdbfortests && docker compose rm -f sri4nodepostgresdbfortests
+      # npm run test:cleanup
       printf "\n$MSG\n"
       local ALL_MESSAGES="$ALL_MESSAGES\n$MSG"
       [ $EXITCODE -eq 0 ] || [ $CONTINUE = 'true' ] || return $EXITCODE
