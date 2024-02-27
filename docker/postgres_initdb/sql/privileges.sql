@@ -15,6 +15,6 @@ $f$;
 SELECT exec('ALTER TABLE sri4node.' ||
             quote_ident(s.relname) || ' OWNER TO sri4node')
   FROM (SELECT relname
-          FROM pg_class c JOIN pg_namespace n ON (c.relnamespace = n.oid) 
-         WHERE nspname = 'sri4node' AND 
+          FROM pg_class c JOIN pg_namespace n ON (c.relnamespace = n.oid)
+         WHERE nspname = 'sri4node' AND
                relkind IN ('r','S','v') ORDER BY relkind = 'S') s;

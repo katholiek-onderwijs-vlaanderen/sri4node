@@ -1,5 +1,14 @@
 # Release Notes
 
+## version 2.3.32 (28-02-2024)
+
+- Added default statement_timeout of 30 seconds to the database connection parameters.
+  This will protect the database against overloading, when queries time out somewhere else
+  and the user retries the same query. This allows the database to recover more quickly
+  after such an overload situation. The statement_timeout can be overridden by the user.
+- Work on testing: it is now easy to test against various combinations of nodejs and postgres.
+  Also added a github workflow to matrix test multiple combinations on each commit.
+
 ## version 2.3.31 (19-02-2024)
 
 - Updated json-stream-stringify to 3.1.2 solving an issue where the stream would not be closed properly in some cases.

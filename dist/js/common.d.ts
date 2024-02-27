@@ -4,7 +4,7 @@ import { IInitOptions } from "pg-promise";
 import pgPromise from "pg-promise";
 import { Application, Request, Response } from "express";
 import { Readable } from "stream";
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
+import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema, TPreparedSql } from "./typeDefinitions";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
 import { IClient } from "pg-promise/typescript/pg-subset";
@@ -254,7 +254,16 @@ declare function pgConnect(sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatab
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
 declare function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined): pgPromise.PreparedStatement;
-declare function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<any>;
+/**
+ * Execute a query using the pg-promise library.
+ *
+ * @param db IDatabase interface (can be pgPromise's db object, but also a tx object or a task)
+ * @param query a TPreparedSql object
+ * @param sriRequest optional, used to set the server-timing header
+ * @param statementTimeout the number of milliseconds after which the query will be terminated by postgres
+ * @returns the query results
+ */
+declare function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query: TPreparedSql, sriRequest?: TSriRequest, statementTimeout?: number): Promise<any>;
 declare function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<pgPromise.IResultExt<unknown>>;
 declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode?: {
     begin(cap?: boolean | undefined): string;
@@ -267,7 +276,15 @@ declare function startTask(db: pgPromise.IDatabase<unknown, IClient>): Promise<{
     t: unknown;
     endTask: () => Promise<void>;
 }>;
-declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string): Promise<void>;
+/**
+ *
+ * @param db
+ * @param tableName
+ * @param schemaName
+ * @param statementTimeout if set, override statement_timeout for this transaction
+ *                         (instead of using the connection wide property)
+ */
+declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string, statementTimeout?: number): Promise<void>;
 declare function getCountResult(tx: any, countquery: any, sriRequest: any): Promise<number>;
 /**
  * Given a single resource definition from sriConfig.resources
@@ -278,6 +295,12 @@ declare function getCountResult(tx: any, countquery: any, sriRequest: any): Prom
 declare function tableFromMapping(mapping: TResourceDefinition): any;
 declare function isEqualSriObject(obj1: any, obj2: any, mapping: any): any;
 declare function stringifyError(e: any): string;
+/**
+ * Gets all settled promises from the array and returns a new array
+ * with either the resolved value, or an instance of SriError.
+ * @param results
+ * @returns
+ */
 declare function settleResultsToSriResults(results: any): any;
 declare function createReadableStream(objectMode?: boolean): Readable;
 declare function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse?: boolean): any;

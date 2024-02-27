@@ -787,6 +787,14 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     const currentInformationSchema = await informationSchema(dbR, sriConfig);
     global.sri4node_configuration.informationSchema = currentInformationSchema;
 
+    const { statement_timeout } = sriConfig.databaseConnectionParameters;
+    // use a timeout of minimum 5 seconds (or whatever higher value configured by the user)
+    // for the check queries
+    const timeoutForCheckQueries = Math.max(
+      5000,
+      typeof statement_timeout === "number" ? statement_timeout : 5000,
+    );
+
     // Do automatic DB updates that are part of sri4node's standard behavior (like adding version triggers)
     await pMap(
       sriConfig.resources,
@@ -796,7 +804,12 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             sriConfig.databaseConnectionParameters?.schema ||
             sriConfig.databaseLibraryInitOptions?.schema;
           const schemaName = Array.isArray(schema) ? schema[0] : schema?.toString();
-          await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
+          await installVersionIncTriggerOnTable(
+            dbW,
+            tableFromMapping(mapping),
+            schemaName,
+            timeoutForCheckQueries,
+          );
         }
       },
       { concurrency: 1 },

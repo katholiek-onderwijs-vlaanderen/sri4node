@@ -186,6 +186,12 @@ There is only 1 way to configure the database which sri4node uses:
 
 - Specify sri4nodeConfig.databaseConnectionParameters in the sri4node configuration.
   - These are any format as supported by [connection syntax](https://github.com/vitaly-t/pg-promise/wiki/Connection-Syntax) of the DB library + a 'schema' property
+    We set some defaults, which can be overridden by the user if needed:
+    - `max: 16` (maximum number of connections in the pool)
+    - `idleTimeoutMillis: 2_000` (2 seconds - time a client is allowed to remain idle before being closed)
+    - `connectionTimeoutMillis: 14_400_000` (4 hours - time to wait for a connection to become available)
+    - `statement_timeout: 30_000`, (30 seconds - time a query is allowed to run before being cancelled by postgres)
+    - `schema: 'public'` (the schema to use for the database connection)
   - You can also specify the pg-promise [initialization options](http://vitaly-t.github.io/pg-promise/module-pg-promise.html) by adding a property databaseLibraryInitOptions
 
 These mechanisms have been made obsolete:

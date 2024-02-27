@@ -35,6 +35,8 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
       ssl: false,
       schema: "sri4node",
       connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+      // cut off queries that take longer than 200ms
+      statement_timeout: 200,
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),
@@ -53,6 +55,8 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
         // in order to test whether the startup hook gets executed
         // and can be used to make changes to the database
         return await db.query(`
+          START TRANSACTION;
+          SET LOCAL statement_timeout = 5000;
           DO $___$
           BEGIN
             -- create trigger 'vsko_do_nothing_trigger_countries' if not yet present
@@ -68,7 +72,8 @@ function config(sri4node, logdebug, dummyLogger, resourceFiles) {
           END
           $___$
           LANGUAGE 'plpgsql';
-              `);
+          COMMIT;
+        `);
       },
     ],
     beforePhase: [

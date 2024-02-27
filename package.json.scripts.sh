@@ -15,13 +15,13 @@
 
 # prepare -> will set the git core.hooksPath to ./git-hooks
 prepare() {
-  ( 
-    case "$(pwd)" in 
-      *"/node_modules"*) echo 'Not setting git core.hooksPath (installed as a dependency)';; 
+  (
+    case "$(pwd)" in
+      *"/node_modules"*) echo 'Not setting git core.hooksPath (installed as a dependency)';;
       *) git config core.hooksPath ./git-hooks && echo git core.hooksPath has been set to: $(git config core.hooksPath);;
-    esac 
+    esac
   )
-  ( 
+  (
     [ "$(ls ./dist)" = "" ] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE ) || echo "[sri4node prepare script] dist/ folder already exists"
 }
 

@@ -9,6 +9,13 @@ They can all add CTEs as well, without affecting one another.
 
 const parameterPattern = "$?$?";
 
+/**
+ * A factory that returns a TPreparedSql object with the given name,
+ * which can be used to construct sql queries in a dot-chaining manner.
+ *
+ * @param name
+ * @returns a TPreparedSql object with the given name
+ */
 function prepareSQL(name?: string): TPreparedSql {
   return {
     name,

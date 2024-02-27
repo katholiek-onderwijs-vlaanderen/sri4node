@@ -29,7 +29,7 @@ async function informationSchema(
 ): Promise<TInformationSchema> {
   const tableNames = _.uniq(sriConfig.resources.map((mapping) => common.tableFromMapping(mapping)));
   const query = prepareSQL("information-schema");
-  const { schema } = sriConfig.databaseConnectionParameters;
+  const { schema, statement_timeout } = sriConfig.databaseConnectionParameters;
   let schemaParam = "public";
   if (Array.isArray(schema)) {
     // eslint-disable-next-line prefer-destructuring
@@ -50,14 +50,19 @@ async function informationSchema(
           WHERE table_schema = `,
     )
     .param(schemaParam)
-    // .sql(`AND EXISTS (
-    //         SELECT 1
-    //         FROM (VALUES `).arrayOfTuples(tableNames.map((tableName) => [tableName]))
-    // .sql(`) AS t(table_name))`);
     .sql(` AND`)
     .valueIn("c.table_name", tableNames);
 
-  const rowsByTable = _.groupBy(await common.pgExec(db, query), (r) => r.table_name);
+  // use a timeout of minimum 5 seconds (or whatever higher value configured by the user)
+  // for the check queries
+  const timeoutForCheckQueries = Math.max(
+    5000,
+    typeof statement_timeout === "number" ? statement_timeout : 5000,
+  );
+  const rowsByTable = _.groupBy(
+    await common.pgExec(db, query, undefined, timeoutForCheckQueries),
+    (r) => r.table_name,
+  );
 
   return Object.fromEntries(
     sriConfig.resources

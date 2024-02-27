@@ -28,6 +28,7 @@ import {
   SriError,
   TLogDebug,
   TInformationSchema,
+  TPreparedSql,
 } from "./typeDefinitions";
 import { generateNonFlatQueryStringParser } from "./url_parsing/non_flat_url_parser";
 import url from "url";
@@ -1015,6 +1016,7 @@ async function pgConnect(sri4nodeConfig: TSriConfig) {
     max: 16,
     connectionTimeoutMillis: 2_000, // 2 seconds
     idleTimeoutMillis: 14_400_000, // 4 hours
+    statement_timeout: 30_000, // 30 seconds, any statement taking longer than this will be terminated
     ...sri4nodeConfig.databaseConnectionParameters,
   };
 
@@ -1031,29 +1033,54 @@ function createPreparedStatement(details: pgPromise.IPreparedStatement | undefin
   return new pgp.PreparedStatement(details);
 }
 
-// Q wrapper for executing SQL statement on a node-postgres client.
-//
-// Instead the db object is a node-postgres Query config object.
-// See : https://github.com/brianc/node-postgres/wiki/Client#method-query-prepared.
-//
-// name : the name for caching as prepared statement, if desired.
-// text : The SQL statement, use $1,$2, etc.. for adding parameters.
-// values : An array of java values to be inserted in $1,$2, etc..
-//
-// It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
-async function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query, sriRequest?: TSriRequest) {
-  const { sql, values } = query.toParameterizedSql();
+/**
+ * Execute a query using the pg-promise library.
+ *
+ * @param db IDatabase interface (can be pgPromise's db object, but also a tx object or a task)
+ * @param query a TPreparedSql object
+ * @param sriRequest optional, used to set the server-timing header
+ * @param statementTimeout the number of milliseconds after which the query will be terminated by postgres
+ * @returns the query results
+ */
+async function pgExec(
+  db: pgPromise.IDatabase<unknown, IClient>,
+  query: TPreparedSql,
+  sriRequest?: TSriRequest,
+  statementTimeout?: number,
+) {
+  if (statementTimeout) {
+    const dbConnection = await db.connect();
+    try {
+      // this query needs enough time, regardless of what statement_timeout has been set by the user !!!
+      await dbConnection.none("START TRANSACTION; SET LOCAL statement_timeout = $1;", [
+        statementTimeout,
+      ]);
+      const { sql, values } = query.toParameterizedSql();
+      const hrstart = process.hrtime();
+      const dbResult = await dbConnection.query(sql, values);
+      const hrElapsed = process.hrtime(hrstart);
+      if (sriRequest) {
+        setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+      }
+      await dbConnection.none("ROLLBACK;");
+      return dbResult;
+    } finally {
+      dbConnection.done();
+    }
+  } else {
+    const { sql, values } = query.toParameterizedSql();
 
-  debug("sql", () => pgp?.as.format(sql, values));
+    debug("sql", () => pgp?.as.format(sql, values));
 
-  const hrstart = process.hrtime();
-  const result = await db.query(sql, values);
-  const hrElapsed = process.hrtime(hrstart);
-  if (sriRequest) {
-    setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+    const hrstart = process.hrtime();
+    const result = await db.query(sql, values);
+    const hrElapsed = process.hrtime(hrstart);
+    if (sriRequest) {
+      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+    }
+
+    return result;
   }
-
-  return result;
 }
 
 async function pgResult(
@@ -1226,13 +1253,24 @@ async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
   }
 }
 
+/**
+ * Installs the version increment trigger on the given table.
+ *
+ * @param db
+ * @param tableName
+ * @param schemaName
+ * @param statementTimeout if set, override statement_timeout for this transaction
+ *                         (instead of using the connection wide property)
+ */
 async function installVersionIncTriggerOnTable(
   db: pgPromise.IDatabase<unknown, IClient>,
   tableName: string,
   schemaName?: string,
+  statementTimeout?: number,
 ) {
   // 2023-09: at a certain point we added the schemaname to the triggername which causes problems when
-  // copying a database to another schema (trigger gets created twice), so we'll use the
+  // copying a database to another schema (trigger gets created twice),
+  // so we'll drop the old trigger if it exists
   const tgNameToBeDropped = `vsko_resource_version_trigger_${
     schemaName !== undefined ? schemaName : ""
   }_${tableName}`;
@@ -1242,6 +1280,7 @@ async function installVersionIncTriggerOnTable(
   const schemaNameOrPublic = schemaName !== undefined ? schemaName : "public";
 
   const plpgsql = `
+    ${statementTimeout !== undefined ? "START TRANSACTION; SET LOCAL statement_timeout = $1;" : ""}
     DO $___$
     BEGIN
       -- 1. add column '$$meta.version' if not yet present
@@ -1285,8 +1324,9 @@ async function installVersionIncTriggerOnTable(
     END
     $___$
     LANGUAGE 'plpgsql';
+    ${statementTimeout !== undefined ? "COMMIT;" : ""}
   `;
-  await db.query(plpgsql);
+  await db.query(plpgsql, statementTimeout !== undefined ? [statementTimeout] : undefined);
 }
 
 async function getCountResult(tx, countquery, sriRequest) {
@@ -1345,6 +1385,12 @@ function stringifyError(e) {
   return JSON.stringify(e);
 }
 
+/**
+ * Gets all settled promises from the array and returns a new array
+ * with either the resolved value, or an instance of SriError.
+ * @param results
+ * @returns
+ */
 function settleResultsToSriResults(results) {
   return results.map((res) => {
     if (res.isFulfilled) {
@@ -1365,6 +1411,7 @@ function settleResultsToSriResults(results) {
     error(
       "___________________________________________________________________________________________",
     );
+
     return new SriError({
       status: 500,
       errors: [

@@ -778,23 +778,45 @@ function pgConnect(sri4nodeConfig) {
       max: 16,
       connectionTimeoutMillis: 2e3,
       // 2 seconds
-      idleTimeoutMillis: 144e5
+      idleTimeoutMillis: 144e5,
+      // 4 hours
+      statement_timeout: 3e4
     }, sri4nodeConfig.databaseConnectionParameters);
     console.log(`Using database connection object : [${JSON.stringify(cn)}]`);
     return pgp(cn);
   });
 }
-function pgExec(db, query, sriRequest) {
+function pgExec(db, query, sriRequest, statementTimeout) {
   return __async(this, null, function* () {
-    const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
-    const hrstart = process.hrtime();
-    const result = yield db.query(sql, values);
-    const hrElapsed = process.hrtime(hrstart);
-    if (sriRequest) {
-      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+    if (statementTimeout) {
+      const dbConnection = yield db.connect();
+      try {
+        yield dbConnection.none("START TRANSACTION; SET LOCAL statement_timeout = $1;", [
+          statementTimeout
+        ]);
+        const { sql, values } = query.toParameterizedSql();
+        const hrstart = process.hrtime();
+        const dbResult = yield dbConnection.query(sql, values);
+        const hrElapsed = process.hrtime(hrstart);
+        if (sriRequest) {
+          setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+        }
+        yield dbConnection.none("ROLLBACK;");
+        return dbResult;
+      } finally {
+        dbConnection.done();
+      }
+    } else {
+      const { sql, values } = query.toParameterizedSql();
+      debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
+      const hrstart = process.hrtime();
+      const result = yield db.query(sql, values);
+      const hrElapsed = process.hrtime(hrstart);
+      if (sriRequest) {
+        setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+      }
+      return result;
     }
-    return result;
   });
 }
 function pgResult(db, query, sriRequest) {
@@ -931,12 +953,13 @@ function startTask(db) {
     }
   });
 }
-function installVersionIncTriggerOnTable(db, tableName, schemaName) {
+function installVersionIncTriggerOnTable(db, tableName, schemaName, statementTimeout) {
   return __async(this, null, function* () {
     const tgNameToBeDropped = `vsko_resource_version_trigger_${schemaName !== void 0 ? schemaName : ""}_${tableName}`;
     const tgname = `vsko_resource_version_trigger_${tableName}`;
     const schemaNameOrPublic = schemaName !== void 0 ? schemaName : "public";
     const plpgsql = `
+    ${statementTimeout !== void 0 ? "START TRANSACTION; SET LOCAL statement_timeout = $1;" : ""}
     DO $___$
     BEGIN
       -- 1. add column '$$meta.version' if not yet present
@@ -980,8 +1003,9 @@ function installVersionIncTriggerOnTable(db, tableName, schemaName) {
     END
     $___$
     LANGUAGE 'plpgsql';
+    ${statementTimeout !== void 0 ? "COMMIT;" : ""}
   `;
-    yield db.query(plpgsql);
+    yield db.query(plpgsql, statementTimeout !== void 0 ? [statementTimeout] : void 0);
   });
 }
 function getCountResult(tx, countquery, sriRequest) {
@@ -2639,7 +2663,7 @@ function informationSchema(db, sriConfig) {
     var _a;
     const tableNames = _3.uniq(sriConfig.resources.map((mapping) => tableFromMapping(mapping)));
     const query = prepareSQL("information-schema");
-    const { schema } = sriConfig.databaseConnectionParameters;
+    const { schema, statement_timeout } = sriConfig.databaseConnectionParameters;
     let schemaParam = "public";
     if (Array.isArray(schema)) {
       schemaParam = schema[0];
@@ -2655,7 +2679,11 @@ function informationSchema(db, sriConfig) {
                       = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
           WHERE table_schema = `
     ).param(schemaParam).sql(` AND`).valueIn("c.table_name", tableNames);
-    const rowsByTable = _3.groupBy(yield pgExec(db, query), (r) => r.table_name);
+    const timeoutForCheckQueries = Math.max(
+      5e3,
+      typeof statement_timeout === "number" ? statement_timeout : 5e3
+    );
+    const rowsByTable = _3.groupBy(yield pgExec(db, query, void 0, timeoutForCheckQueries), (r) => r.table_name);
     return Object.fromEntries(
       sriConfig.resources.filter((mapping) => !mapping.onlyCustom).map((mapping) => {
         return [
@@ -4876,6 +4904,11 @@ function configure(app, sriConfig) {
       yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp2));
       const currentInformationSchema = yield informationSchema(dbR, sriConfig);
       global.sri4node_configuration.informationSchema = currentInformationSchema;
+      const { statement_timeout } = sriConfig.databaseConnectionParameters;
+      const timeoutForCheckQueries = Math.max(
+        5e3,
+        typeof statement_timeout === "number" ? statement_timeout : 5e3
+      );
       yield pMap8(
         sriConfig.resources,
         (mapping) => __async(this, null, function* () {
@@ -4883,7 +4916,12 @@ function configure(app, sriConfig) {
           if (!mapping.onlyCustom) {
             const schema = ((_a = sriConfig.databaseConnectionParameters) == null ? void 0 : _a.schema) || ((_b = sriConfig.databaseLibraryInitOptions) == null ? void 0 : _b.schema);
             const schemaName = Array.isArray(schema) ? schema[0] : schema == null ? void 0 : schema.toString();
-            yield installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
+            yield installVersionIncTriggerOnTable(
+              dbW,
+              tableFromMapping(mapping),
+              schemaName,
+              timeoutForCheckQueries
+            );
           }
         }),
         { concurrency: 1 }
