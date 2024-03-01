@@ -1,13 +1,23 @@
 # Release Notes
 
-## version 2.3.32 (28-02-2024)
+## version 2.3.33 (??-03-2024)
 
 - Added default statement_timeout of 30 seconds to the database connection parameters.
   This will protect the database against overloading, when queries time out somewhere else
   and the user retries the same query. This allows the database to recover more quickly
-  after such an overload situation. The statement_timeout can be overridden by the user.
+  after such an overload situation. The statement_timeout can be overridden by the user,
+  but we think it's a good default to have.
+
+## version 2.3.32 (01-03-2024)
+
+- Version compatible with postgres > 12
+  A small change was needed to vsko_resource_version_inc_function() that gets created a startup if
+  it does not exist yet. That means that existing api's will work on postgres 15, but if this
+  trigger function would removed, the api would not be able to start with older sri4node versions.
 - Work on testing: it is now easy to test against various combinations of nodejs and postgres.
   Also added a github workflow to matrix test multiple combinations on each commit.
+
+  Example: `npm run test:on_docker -- [--continue] 16,11-alpine 16,12-alpine 18,12 20,15`
 
 ## version 2.3.31 (19-02-2024)
 
