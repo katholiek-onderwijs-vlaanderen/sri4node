@@ -1,5 +1,16 @@
 # Release Notes
 
+## version 2.3.32 (01-03-2024)
+
+- Version compatible with postgres > 12
+  A small change was needed to vsko_resource_version_inc_function() that gets created a startup if
+  it does not exist yet. That means that existing api's will work on postgres 15, but if this
+  trigger function would removed, the api would not be able to start with older sri4node versions.
+- Work on testing: it is now easy to test against various combinations of nodejs and postgres.
+  Also added a github workflow to matrix test multiple combinations on each commit.
+
+  Example: `npm run test:on_docker -- [--continue] 16,11-alpine 16,12-alpine 18,12 20,15`
+
 ## version 2.3.31 (19-02-2024)
 
 - Updated json-stream-stringify to 3.1.2 solving an issue where the stream would not be closed properly in some cases.
