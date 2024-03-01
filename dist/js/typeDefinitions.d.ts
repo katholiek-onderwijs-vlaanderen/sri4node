@@ -1,5 +1,4 @@
 /// <reference types="node" />
-/// <reference types="express-serve-static-core" />
 /// <reference types="node" />
 /// <reference types="node" />
 import { Busboy, BusboyConfig } from "busboy";

@@ -195,7 +195,7 @@ describe("Sri4node SERVER TESTS", function () {
   runTestIfNeeded("./testInformationSchema.ts", [testContext]);
   runTestIfNeeded("./testCustomRoutes.ts", [httpClient]);
 
-  runTestIfNeeded("./testDbError.ts", [httpClient]);
+  runTestIfNeeded("./testDbError.ts", [httpClient, testContext]);
 });
 
 export {};

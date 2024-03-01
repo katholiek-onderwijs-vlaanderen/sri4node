@@ -8,3 +8,4 @@ env.js
 .vscode
 sri4node_postgresdbfortests.*
 dist.test/
+testondocker/

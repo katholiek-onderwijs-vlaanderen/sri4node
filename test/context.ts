@@ -22,13 +22,15 @@ import { Server } from "http";
 import { IDatabase, IMain } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 
-let configCache: any = null;
+let configCache: TSriConfig;
 
 function config(sri4node, logdebug, dummyLogger, resourceFiles) {
   const config: TSriConfig = {
     // For debugging SQL can be logged.
     logdebug,
     databaseConnectionParameters: {
+      // use network_mode=local when tests run in docker container
+      // => connectionString stays the same (see docker-compose.yml)
       connectionString: "postgres://sri4node:sri4node@localhost:15432/postgres",
       ssl: false,
       schema: "sri4node",
@@ -151,7 +153,7 @@ async function serve(
 }
 
 function getConfiguration() {
-  if (configCache === null) {
+  if (!configCache) {
     throw new Error("please first configure the context");
   }
 
