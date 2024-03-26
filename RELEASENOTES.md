@@ -1,5 +1,11 @@
 # Release Notes
 
+## version 2.3.33 (26-03-2024)
+
+- package.json fix exports['.'].import so that the ESM module can be imported correctly
+  by using `import * as sri4node from 'sri4node';`
+  (was pointing to ./dist/sri4node.esm.js instead of ./dist/sri4node.esm.mjs)
+
 ## version 2.3.32 (01-03-2024)
 
 - Version compatible with postgres > 12

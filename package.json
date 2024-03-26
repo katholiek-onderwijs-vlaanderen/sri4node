@@ -10,7 +10,7 @@
   "exports": {
     ".": {
       "require": "./dist/sri4node.cjs.js",
-      "import": "./dist/sri4node.esm.js"
+      "import": "./dist/sri4node.esm.mjs"
     }
   },
   "scripts": {
@@ -116,6 +116,6 @@
   "homepage": "https://github.com/katholiek-onderwijs-vlaanderen/sri4node",
   "version": "2.3.32",
   "lint-staged": {
-    "*.{js,ts,jsx,tsx,json,css,md}": "npx prettier --write ."
+    "*": "npx prettier --ignore-unknown --write"
   }
 }
