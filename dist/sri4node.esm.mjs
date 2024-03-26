@@ -2057,22 +2057,26 @@ function prepareSQL(name) {
      * ```
      */
     arrayOfTuples(tuples, cast) {
-      tuples.forEach((tuple, i) => {
-        this.text += "(";
-        tuple.forEach((el, j) => {
-          this.param(el);
-          if (i === 0 && cast && cast[j]) {
-            this.text += `::${cast[j]}`;
-          }
-          if (j < tuple.length - 1) {
+      if (tuples.length === 0) {
+        this.text += "()";
+      } else {
+        tuples.forEach((tuple, i) => {
+          this.text += "(";
+          tuple.forEach((el, j) => {
+            this.param(el);
+            if (i === 0 && cast && cast[j]) {
+              this.text += `::${cast[j]}`;
+            }
+            if (j < tuple.length - 1) {
+              this.text += ",";
+            }
+          });
+          this.text += ")";
+          if (i < tuples.length - 1) {
             this.text += ",";
           }
         });
-        this.text += ")";
-        if (i < tuples.length - 1) {
-          this.text += ",";
-        }
-      });
+      }
       return this;
     },
     valueIn(valueRef, values, cast) {
@@ -2085,7 +2089,7 @@ function prepareSQL(name) {
       return this;
     },
     /**
-     * @todo IMPLMENT
+     * @todo IMPLEMENT
      *
      * @param tupleRef
      * @param values
@@ -2647,6 +2651,9 @@ function informationSchema(db, sriConfig) {
       schemaParam = ((_a = yield schema(db)) == null ? void 0 : _a.toString()) || schemaParam;
     } else if (schema) {
       schemaParam = schema;
+    }
+    if (tableNames.length === 0) {
+      return {};
     }
     query.sql(
       `SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
@@ -5420,6 +5427,28 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
         app,
         // informationSchema: currentInformationSchema, // maybe later
         close: () => __async(this, null, function* () {
+          if (Array.isArray(sriConfig.plugins)) {
+            const alreadyClosed = /* @__PURE__ */ new Set();
+            yield pMap8(
+              sriConfig.plugins,
+              (plugin) => __async(this, null, function* () {
+                if (plugin.close) {
+                  try {
+                    if (!plugin.uuid || !alreadyClosed.has(plugin.uuid)) {
+                      yield plugin.close(global.sri4node_configuration, dbW);
+                    }
+                  } catch (err) {
+                    console.error(`Error closing plugin ${plugin.uuid}: ${err}`);
+                  } finally {
+                    if (plugin.uuid) {
+                      alreadyClosed.add(plugin.uuid);
+                    }
+                  }
+                }
+              }),
+              { concurrency: 1 }
+            );
+          }
           db && (yield db.$pool.end());
         })
       };

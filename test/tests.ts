@@ -150,6 +150,7 @@ describe("Sri4node SERVER TESTS", function () {
   });
 
   runTestIfNeeded("./testSri4nodeConfigure.ts", [testContext, httpClient]);
+  runTestIfNeeded("./testPlugins.ts", [httpClient, dummyLogger]);
 
   runTestIfNeeded("./testOrderBy.ts", [httpClient]);
   runTestIfNeeded("./testHooks.ts", [httpClient, dummyLogger]);

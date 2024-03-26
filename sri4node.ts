@@ -92,6 +92,7 @@ import { ServerResponse } from "http";
 import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
+import { IClient } from "pg-promise/typescript/pg-subset";
 
 const ajv = new Ajv({
   // 2023-10: do not enable strict yet as it might break existing api's
@@ -868,7 +869,10 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     global.sri4node_loaded_plugins = new Map();
 
-    global.sri4node_install_plugin = async (plugin) => {
+    global.sri4node_install_plugin = async (plugin: {
+      uuid: undefined;
+      install: (arg0: any, arg1: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+    }) => {
       console.log(`Installing plugin ${util.inspect(plugin)}`);
       // load plugins with a uuid only once; backwards compatible with old system without uuid
       if (plugin.uuid !== undefined && global.sri4node_loaded_plugins.has(plugin.uuid)) {
@@ -1469,6 +1473,30 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       // informationSchema: currentInformationSchema, // maybe later
 
       close: async () => {
+        // we don't install plugins with the same uuid twice, so we also don't close them twice!
+        if (Array.isArray(sriConfig.plugins)) {
+          const alreadyClosed = new Set<string>();
+          await pMap(
+            sriConfig.plugins,
+            async (plugin) => {
+              if (plugin.close) {
+                try {
+                  if (!plugin.uuid || !alreadyClosed.has(plugin.uuid)) {
+                    await plugin.close(global.sri4node_configuration, dbW);
+                  }
+                } catch (err) {
+                  console.error(`Error closing plugin ${plugin.uuid}: ${err}`);
+                } finally {
+                  if (plugin.uuid) {
+                    alreadyClosed.add(plugin.uuid);
+                  }
+                }
+              }
+            },
+            { concurrency: 1 },
+          );
+        }
+
         db && (await db.$pool.end());
       },
     };

@@ -16,7 +16,35 @@ import { PhaseSyncer } from "./phaseSyncedSettle";
 import { ValidateFunction } from "ajv";
 import { ParsedUrlQuery } from "querystring";
 
-export type TPluginConfig = Record<string, unknown>;
+/**
+ * This is the type definition for the plugin configuration object.
+ */
+export type TPluginConfig = {
+  /**
+   * Should be present in every plugin, and should be a unique identifier for the plugin.
+   *
+   */
+  uuid?: string;
+
+  /** 'installs' the plugin by making modifications to the sriConfig object
+   * (for example adding hooks to existing paths, or adding new paths).
+   * The second parameter is an initialized database connection so the plugin
+   * can do some database operations on startup.
+   *
+   */
+  install: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+  // Record<string, unknown>;
+
+  /**
+   * This is called when the api is being closed. It can be used to clean up resources.
+   * (like onnotification subscriptions to the database for example)
+   *
+   * @param sriConfig
+   * @param db
+   * @returns
+   */
+  close?: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+};
 
 // for example /llinkid/activityplanning, so should only start with a slash
 // and maybe only lowercase etc???
