@@ -10,7 +10,7 @@
   "exports": {
     ".": {
       "require": "./dist/sri4node.cjs.js",
-      "import": "./dist/sri4node.esm.js"
+      "import": "./dist/sri4node.esm.mjs"
     }
   },
   "scripts": {
