@@ -73,6 +73,7 @@ import {
   TSriRequestHandlerForBatch,
   TSriInternalUtils,
   TSriRequestHandlerForPhaseSyncer,
+  TPluginConfig,
 } from "./js/typeDefinitions";
 import * as queryUtils from "./js/queryUtils";
 import * as schemaUtils from "./js/schemaUtils";
@@ -92,7 +93,6 @@ import { ServerResponse } from "http";
 import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
-import { IClient } from "pg-promise/typescript/pg-subset";
 
 const ajv = new Ajv({
   // 2023-10: do not enable strict yet as it might break existing api's
@@ -869,10 +869,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     global.sri4node_loaded_plugins = new Map();
 
-    global.sri4node_install_plugin = async (plugin: {
-      uuid: undefined;
-      install: (arg0: any, arg1: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
-    }) => {
+    global.sri4node_install_plugin = async (plugin: TPluginConfig) => {
       console.log(`Installing plugin ${util.inspect(plugin)}`);
       // load plugins with a uuid only once; backwards compatible with old system without uuid
       if (plugin.uuid !== undefined && global.sri4node_loaded_plugins.has(plugin.uuid)) {

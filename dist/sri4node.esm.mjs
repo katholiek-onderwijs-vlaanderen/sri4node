@@ -2057,26 +2057,22 @@ function prepareSQL(name) {
      * ```
      */
     arrayOfTuples(tuples, cast) {
-      if (tuples.length === 0) {
-        this.text += "()";
-      } else {
-        tuples.forEach((tuple, i) => {
-          this.text += "(";
-          tuple.forEach((el, j) => {
-            this.param(el);
-            if (i === 0 && cast && cast[j]) {
-              this.text += `::${cast[j]}`;
-            }
-            if (j < tuple.length - 1) {
-              this.text += ",";
-            }
-          });
-          this.text += ")";
-          if (i < tuples.length - 1) {
+      tuples.forEach((tuple, i) => {
+        this.text += "(";
+        tuple.forEach((el, j) => {
+          this.param(el);
+          if (i === 0 && cast && cast[j]) {
+            this.text += `::${cast[j]}`;
+          }
+          if (j < tuple.length - 1) {
             this.text += ",";
           }
         });
-      }
+        this.text += ")";
+        if (i < tuples.length - 1) {
+          this.text += ",";
+        }
+      });
       return this;
     },
     valueIn(valueRef, values, cast) {

@@ -62,26 +62,22 @@ function prepareSQL(name?: string): TPreparedSql {
      * ```
      */
     arrayOfTuples(tuples: Array<Array<string | number | boolean>>, cast?: Array<string>) {
-      if (tuples.length === 0) {
-        this.text += "()";
-      } else {
-        tuples.forEach((tuple, i) => {
-          this.text += "(";
-          tuple.forEach((el, j) => {
-            this.param(el);
-            if (i === 0 && cast && cast[j]) {
-              this.text += `::${cast[j]}`;
-            }
-            if (j < tuple.length - 1) {
-              this.text += ",";
-            }
-          });
-          this.text += ")";
-          if (i < tuples.length - 1) {
+      tuples.forEach((tuple, i) => {
+        this.text += "(";
+        tuple.forEach((el, j) => {
+          this.param(el);
+          if (i === 0 && cast && cast[j]) {
+            this.text += `::${cast[j]}`;
+          }
+          if (j < tuple.length - 1) {
             this.text += ",";
           }
         });
-      }
+        this.text += ")";
+        if (i < tuples.length - 1) {
+          this.text += ",";
+        }
+      });
       return this;
     },
     valueIn(valueRef: string, values: Array<string | number | boolean | Date>, cast?: string) {
