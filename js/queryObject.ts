@@ -90,7 +90,7 @@ function prepareSQL(name?: string): TPreparedSql {
       return this;
     },
     /**
-     * @todo IMPLMENT
+     * @todo IMPLEMENT
      *
      * @param tupleRef
      * @param values

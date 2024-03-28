@@ -24,7 +24,14 @@ import { IClient } from "pg-promise/typescript/pg-subset";
 
 let configCache: TSriConfig;
 
-function config(sri4node, logdebug, dummyLogger, resourceFiles) {
+import * as sri4nodeTS from "../index";
+
+function config(
+  sri4node: typeof sri4nodeTS,
+  logdebug: TLogDebug,
+  dummyLogger: Console,
+  resourceFiles: Array<string>,
+) {
   const config: TSriConfig = {
     // For debugging SQL can be logged.
     logdebug,

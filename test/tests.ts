@@ -198,4 +198,16 @@ describe("Sri4node SERVER TESTS", function () {
   runTestIfNeeded("./testDbError.ts", [httpClient, testContext]);
 });
 
+/**
+ * because of storing stuff on global, we currently cannot instantiate multiple
+ * server instances at the same time, so we need to run these tests in a separate phase.
+ *
+ * Because the tests about plugins create another sri4node server instance (containing no resources)
+ * global.sri4node_configuration would be overwritten, so global.sri4node_configuration.resources
+ * would suddenly be empty, which would cause all the next tests to fail.
+ */
+describe("Sri4node SERVER TESTS - phase 2", function () {
+  runTestIfNeeded("./testPlugins.ts", [httpClient, dummyLogger]);
+});
+
 export {};

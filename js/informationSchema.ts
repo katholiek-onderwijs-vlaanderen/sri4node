@@ -41,6 +41,12 @@ async function informationSchema(
   } else if (schema) {
     schemaParam = schema;
   }
+
+  if (tableNames.length === 0) {
+    // avoid useless query (which will fail as well)
+    return {};
+  }
+
   query
     .sql(
       `SELECT c.table_name, c.column_name, c.data_type, e.data_type AS element_type from information_schema.columns c
@@ -50,10 +56,6 @@ async function informationSchema(
           WHERE table_schema = `,
     )
     .param(schemaParam)
-    // .sql(`AND EXISTS (
-    //         SELECT 1
-    //         FROM (VALUES `).arrayOfTuples(tableNames.map((tableName) => [tableName]))
-    // .sql(`) AS t(table_name))`);
     .sql(` AND`)
     .valueIn("c.table_name", tableNames);
 

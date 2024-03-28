@@ -37,7 +37,7 @@ function generateRandomPerson(
   };
 }
 
-module.exports = function (httpClient: THttpClient, dummyLogger) {
+module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
   describe("HOOKS", () => {
     describe("Global hooks", () => {
       describe("transformRequest/transformInternalRequest", () => {

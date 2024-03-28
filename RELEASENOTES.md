@@ -1,5 +1,35 @@
 # Release Notes
 
+cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
+
+- `Added` for new features.
+- `Changed` for changes in existing functionality.
+- `Deprecated` for soon-to-be removed features.
+- `Removed` for now removed features.
+- `Fixed` for any bug fixes.
+- `Security` in case of vulnerabilities.
+
+## [Unreleased]
+
+### Added
+
+- close() method to the Plugin interface, which is called when close() is called on the sri4node server instance
+
+### Changed
+
+- RELEASENOTES.md tries to follow the format as defined in keepachangelog.com now
+  (but if we change the format of the title, we'd probably have to fix the npm release script as well!)
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Startup would fail if 'resources' in the configuration was an empty array
+
+### Security
+
 ## version 2.3.33 (26-03-2024)
 
 - package.json fix exports['.'].import so that the ESM module can be imported correctly
