@@ -7,6 +7,8 @@ The specification can [be found here][sri-specs].
 
 The implementation supports storage on a postgres database.
 
+[![Matrix tests on multiple Node.js and Postgres versions](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/actions/workflows/matrix_tests_different_node_and_postgres_versions.yml/badge.svg)](https://github.com/katholiek-onderwijs-vlaanderen/sri4node/actions/workflows/matrix_tests_different_node_and_postgres_versions.yml)
+
 # Installing
 
 Installation is simple using npm :
