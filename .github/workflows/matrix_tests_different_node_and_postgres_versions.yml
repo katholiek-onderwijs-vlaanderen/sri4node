@@ -6,9 +6,9 @@ name: Matrix tests on multiple Node.js and Postgres versions
 on:
   workflow_dispatch: {}
   push:
-    branches: ["main", "feature/improve_tests_to_test_on_multiple_postgres_versions"]
+    branches: ["main", "master"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "master"]
 
 jobs:
   build:
