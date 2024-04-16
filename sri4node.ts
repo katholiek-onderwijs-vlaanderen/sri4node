@@ -289,9 +289,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     }
 
     // set the overload protection as first middleware to drop requests as soon as possible
-    global.overloadProtection = overloadProtectionFactory(sriInternalConfig.overloadProtection);
+    const overloadProtection = overloadProtectionFactory(sriInternalConfig.overloadProtection);
     app.use(async (_req, res, next) => {
-      if (global.overloadProtection.canAccept()) {
+      if (overloadProtection.canAccept()) {
         next();
       } else {
         debug("overloadProtection", "DROPPED REQ", sriInternalConfig.logdebug);
@@ -496,6 +496,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
           sriRequest,
           sriInternalUtils,
           sriInternalConfig.informationSchema,
+          overloadProtection,
         );
       } else {
         const job = [func as TSriRequestHandlerForPhaseSyncer, [dbT, sriRequest, mapping]] as const;
@@ -563,9 +564,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       // in string format instead of Date objects
       return JSON.parse(JSON.stringify(result));
     };
-
-    //// DO NOT USE global.sri4node_internal_interface in the code, but pass it as an argument to the function!
-    // global.sri4node_internal_interface = internalSriRequest;
 
     // so we can add it to every sriRequest via expressRequest.app.get('sriInternalRequest')
     const sriInternalUtils: TSriInternalUtils = {
@@ -670,7 +668,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
           } else {
             readOnly = readOnly0;
           }
-          global.overloadProtection.startPipeline();
+          overloadProtection.startPipeline();
 
           const reqId = httpContext.get("reqId");
           if (reqId !== undefined) {
@@ -926,7 +924,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             });
           }
         } finally {
-          global.overloadProtection.endPipeline();
+          overloadProtection.endPipeline();
         }
       };
 

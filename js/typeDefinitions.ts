@@ -862,6 +862,7 @@ export type TSriRequestHandlerForBatch = (
   sriRequest: TSriRequest,
   sriInternalUtils: TSriInternalUtils,
   informationSchema: TInformationSchema,
+  overloadProtection: TOverloadProtection,
 ) => Promise<TSriResult>;
 
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
@@ -920,6 +921,16 @@ export type TSriResult = {
 export type TOverloadProtectionConfig = {
   maxPipelines: number;
   retryAfter?: number;
+};
+
+/**
+ * A stateful object that exposes methods to help protect against overload
+ */
+export type TOverloadProtection = {
+  canAccept: () => boolean;
+  startPipeline: (nr?: number) => number;
+  endPipeline: (nr?: number) => void;
+  addExtraDrops: (nr: number) => void;
 };
 
 export type TJobMap = Map<string, PhaseSyncer>;

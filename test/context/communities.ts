@@ -183,7 +183,6 @@ module.exports = function (sri4node: typeof Sri4Node) {
             body: "",
           };
 
-          // return global.sri4node_internal_interface(getRequest);
           return sriInternalUtils.internalSriRequest(getRequest);
         },
       },

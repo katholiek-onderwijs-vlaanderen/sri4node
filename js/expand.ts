@@ -13,8 +13,6 @@ import {
 import {
   SriError,
   TAfterReadHook,
-  TInformationSchema,
-  TPgColumns,
   TResourceDefinitionInternal,
   TSriInternalUtils,
   TSriRequestExternal,

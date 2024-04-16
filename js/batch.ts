@@ -15,7 +15,6 @@ import {
   settleResultsToSriResults,
   generateSriRequest,
   createReadableStream,
-  resourceDefToResourceDefInternal,
   isSriError,
 } from "./common";
 import {
@@ -32,6 +31,7 @@ import {
   TSriInternalConfig,
   TInformationSchema,
   TResourceDefinitionInternal,
+  TOverloadProtection,
 } from "./typeDefinitions";
 
 /**
@@ -223,10 +223,11 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
     sriRequest: TSriRequestExternal,
     sriInternalUtils: TSriInternalUtils,
     _informationSchema: TInformationSchema,
+    overloadProtection: TOverloadProtection,
   ): Promise<TSriResult> {
     const reqBody: Array<TSriBatchElement> = (sriRequest.body as Array<TSriBatchElement>) || [];
     const batchConcurrency = Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency);
-    global.overloadProtection.startPipeline(batchConcurrency);
+    overloadProtection.startPipeline(batchConcurrency);
     try {
       let batchFailed = false;
 
@@ -384,7 +385,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
       return { status, body: batchResults };
     } finally {
-      global.overloadProtection.endPipeline(batchConcurrency);
+      overloadProtection.endPipeline(batchConcurrency);
     }
   };
 
@@ -395,10 +396,11 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
     sriRequest: TSriRequestExternal,
     sriInternalUtils: TSriInternalUtils,
     _informationSchema: TInformationSchema,
+    overloadProtection: TOverloadProtection,
   ): Promise<TSriResult> => {
     let keepAliveTimer: NodeJS.Timer | null = null;
     const reqBody = sriRequest.body;
-    const batchConcurrency = global.overloadProtection.startPipeline(
+    const batchConcurrency = overloadProtection.startPipeline(
       Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency),
     );
     try {
@@ -504,7 +506,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
               await phaseSyncedSettle(
                 batchJobs,
                 {
-                  concurrency: batchConcurrency,
+                  concurrency: batchConcurrency ?? undefined,
                   beforePhaseHooks: sriInternalConfig.beforePhase,
                 },
                 sriInternalConfig,
@@ -632,7 +634,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer);
       }
-      global.overloadProtection.endPipeline(batchConcurrency);
+      overloadProtection.endPipeline(batchConcurrency);
     }
   };
 
