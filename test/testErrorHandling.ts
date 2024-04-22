@@ -2,8 +2,23 @@
 import assert from "assert";
 import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";
+import { util } from "chai";
+import { Server } from "http";
+import { TSriServerInstance } from "../sri4node";
+import { SinonSpy, spy } from "sinon";
+import sinon from "sinon";
+import * as context from "./context";
+import { resolve } from "path";
+import { createMethodCalledPromise } from "./utils";
 
-module.exports = function (httpClient: THttpClient) {
+module.exports = function (
+  httpClient: THttpClient,
+  testContext: {
+    server: null | Server;
+    sriServerInstance: null | TSriServerInstance;
+    context: typeof context;
+  },
+) {
   const communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
 
   function generateRandomPerson(key, communityPermalink) {
@@ -24,7 +39,7 @@ module.exports = function (httpClient: THttpClient) {
     };
   }
 
-  describe("Error handling", () => {
+  describe("Error handling for internal errors", () => {
     const key = uuid.v4();
     const p = generateRandomPerson(key, communityDendermonde);
 
@@ -143,5 +158,71 @@ module.exports = function (httpClient: THttpClient) {
     //   });
 
     // });
+  });
+
+  /**
+   * Iin this secton, we want to check what happens when a client brealks the connection,
+   * or when the connection gets broken by something in between like a proxy server or
+   * a load balancer.
+   */
+  describe("Error handling for external errors", () => {
+    // const key = uuid.v4();
+    // const p = generateRandomPerson(key, communityDendermonde);
+
+    describe("Client ends connection before response received", () => {
+      describe("GET requests", () => {
+        it("should recover and return the db conneciton to the pool if connection broken after connection", async () => {
+          // now try to break the connection directly after the db connection has been set up
+          try {
+            context.resetPgpStats();
+            const connectCalledPromise = createMethodCalledPromise(
+              context.pgpStats.connect,
+              "push",
+            );
+            const responsePromise = httpClient.get({
+              path: `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
+              auth: "sabine",
+            });
+            await connectCalledPromise;
+            await httpClient.destroy();
+            await responsePromise;
+            assert.fail("Expected an error to be thrown");
+          } catch (e) {
+            // this is expected to throw
+            assert.equal(e.message, "htpclient.failure");
+          }
+          assert.equal(context.pgpStats.connect.length, 1);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          assert.equal(context.pgpStats.disconnect.length, 1);
+        });
+        it("should recover and return the db conneciton to the pool if connection broken after transaction", async () => {
+          try {
+            context.resetPgpStats();
+            const taskCalledPromise = createMethodCalledPromise(context.pgpStats.task, "push");
+            const responsePromise = httpClient.get({
+              path: `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
+              auth: "sabine",
+            });
+            await taskCalledPromise;
+            await httpClient.destroy();
+            await responsePromise;
+            assert.fail("Expected an error to be thrown");
+          } catch (e) {
+            // this is expected to throw
+            assert.equal(e.message, "htpclient.failure");
+          }
+          // check if 1 new task has been created
+          assert.equal(context.pgpStats.task.length, 1);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          assert.equal(context.pgpStats.disconnect.length, 1);
+        });
+      });
+      it.skip("should recover and return the db conneciton to the pool after a put request", async () => {
+        // todo
+      });
+      it.skip("should recover and return the db conneciton to the pool after a delete request", async () => {
+        // todo
+      });
+    });
   });
 };

@@ -21,8 +21,21 @@ prepare() {
       *) git config core.hooksPath ./git-hooks && echo git core.hooksPath has been set to: $(git config core.hooksPath);;
     esac 
   )
-  ( 
-    [ "$(ls ./dist)" = "" ] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE ) || echo "[sri4node prepare script] dist/ folder already exists"
+
+  # check if the files as defined in package.json, main and module exist
+  # read the package.json file, and extract the main and module fields
+  local MAIN=$(node -p 'require("./package.json").main')
+  local MODULE=$(node -p 'require("./package.json").module')
+
+  if [ "$MAIN" != "" ] && [ ! -f "$MAIN" ]; then
+    echo "[sri4node prepare script] The main file '$MAIN' as defined in package.json does not exist, so we'll run 'npm run build:esbuild'"
+    npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE
+  elif [ "$MODULE" != "" ] && [ ! -f "$MODULE" ]; then
+    echo "[sri4node prepare script] The module file '$MODULE' as defined in package.json does not exist, so we'll run 'npm run build:esbuild'"
+    npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE
+  else
+    echo "[sri4node prepare script] dist/ folder exists and seems to contain the right files, so we won't be running 'npm run build:esbuild' in order to savesome time"
+  fi
 }
 
 # prebuild -> will clean the dist folder

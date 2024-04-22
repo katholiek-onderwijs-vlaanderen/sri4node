@@ -28,6 +28,19 @@ export type THttpClient = {
   delete: (req: THttpRequest) => Promise<THttpResponse>;
   post: (req: THttpRequest) => Promise<THttpResponse>;
   patch: (req: THttpRequest) => Promise<THttpResponse>;
+  /**
+   * This asynchronous method uses unidicClient.destroy internally to destroy the client,
+   * and then creates a new client.
+   * This is useful when you want to test if eveything is stable even when the connection
+   * gets broken.
+   *
+   * Here is the explanation of unidiciClient.destroy:
+   * > Destroy the client abruptly with the given err. All the pending and running requests will be
+   *   asynchronously aborted and error. Waits until socket is closed before invoking the callback
+   *   (or returning a promise if no callback is provided). Since this operation is asynchronously
+   *   dispatched there might still be some progress on dispatched requests.
+   */
+  destroy: () => Promise<void>;
 };
 
 const handleHttpRequest = async (
@@ -72,7 +85,7 @@ const handleHttpRequest = async (
 
 export default {
   httpClientFactory: (base: string): THttpClient => {
-    const undiciClient = new undici.Client(base);
+    let undiciClient = new undici.Client(base);
     return {
       get: (req: THttpRequest): Promise<THttpResponse> =>
         handleHttpRequest("GET", req, undiciClient),
@@ -84,6 +97,10 @@ export default {
         handleHttpRequest("POST", req, undiciClient),
       patch: (req: THttpRequest): Promise<THttpResponse> =>
         handleHttpRequest("PATCH", req, undiciClient),
+      destroy: async (): Promise<void> => {
+        await undiciClient.destroy();
+        undiciClient = new undici.Client(base);
+      },
     };
   },
 };

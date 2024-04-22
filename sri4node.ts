@@ -842,14 +842,14 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             if (readOnly === true) {
               debug(
                 "db",
-                "++ Exception caught. Closing database task. ++",
+                `++ Exception caught. Closing database task. ++\n${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
                 sriInternalConfig.logdebug,
               );
               await endTask();
             } else {
               debug(
                 "db",
-                "++ Exception caught. Rolling back database transaction. ++",
+                `++ Exception caught. Rolling back database transaction. ++\n${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
                 sriInternalConfig.logdebug,
               );
               await rejectTx();

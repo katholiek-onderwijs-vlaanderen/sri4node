@@ -177,7 +177,7 @@ describe("Sri4node SERVER TESTS", function () {
   runTestIfNeeded("./testModified.ts", [httpClient]);
   runTestIfNeeded("./testResourceType.ts", [httpClient]);
   runTestIfNeeded("./testExpand.ts", [httpClient]);
-  runTestIfNeeded("./testErrorHandling.ts", [httpClient]);
+  runTestIfNeeded("./testErrorHandling.ts", [httpClient, testContext]);
   runTestIfNeeded("./testIsPartOf.ts", [httpClient]);
   runTestIfNeeded("./testBatch.ts", [httpClient]);
   runTestIfNeeded("./testInternalRequest.ts", [httpClient]);

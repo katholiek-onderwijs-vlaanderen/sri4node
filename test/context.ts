@@ -19,15 +19,49 @@ import {
 } from "../js/typeDefinitions";
 import * as utils from "./utils";
 import { Server } from "http";
-import { IDatabase, IMain } from "pg-promise";
+import { IDatabase, IEventContext, IMain } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 import _ from "lodash";
+
+/**
+ * Type to store args of pgp callbacks, so we can look at then later
+ */
+type TPgpStats = {
+  connect: Array<{ client: IClient; databaseContext; useCount: number }>;
+  disconnect: Array<{ client: IClient; databaseContext }>;
+  error: Array<{ error; eventContext: IEventContext<IClient> }>;
+  query: Array<{ eventContext: IEventContext<IClient> }>;
+  task: Array<{ eventContext: IEventContext<IClient> }>;
+  transact: Array<{ eventContext: IEventContext<IClient> }>;
+};
 
 let configCache: TSriConfig;
 let configCacheClone: TSriConfig;
 
+/**
+ * We will keep all the event calls here, so that we get a list of
+ * everything that has been done on the library.
+ */
+const pgpStats: TPgpStats = {
+  connect: [],
+  disconnect: [],
+  error: [],
+  query: [],
+  task: [],
+  transact: [],
+};
+
 import * as sri4nodeTS from "../index";
 
+/**
+ * Creates the TSriConfig object.
+ *
+ * @param sri4node
+ * @param logdebug
+ * @param dummyLogger
+ * @param resourceFiles
+ * @returns
+ */
 function config(
   sri4node: typeof sri4nodeTS,
   logdebug: TLogDebugExternal,
@@ -44,6 +78,32 @@ function config(
       ssl: false,
       schema: "sri4node",
       connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+    },
+    databaseLibraryInitOptions: {
+      connect(client, databaseContext, useCount) {
+        console.log("\x1b[32m", "                    connect called", "\x1b[0m");
+        pgpStats.connect.push({ client, databaseContext, useCount });
+      },
+      disconnect(client, databaseContext) {
+        console.log("\x1b[32m", "                    disconnect called", "\x1b[0m");
+        pgpStats.disconnect.push({ client, databaseContext });
+      },
+      error(error, eventContext) {
+        console.log("\x1b[32m", "                    error called", "\x1b[0m");
+        pgpStats.error.push({ error, eventContext });
+      },
+      query(eventContext) {
+        console.log("\x1b[32m", "                    query called", "\x1b[0m");
+        pgpStats.query.push({ eventContext });
+      },
+      task(eventContext) {
+        console.log("\x1b[32m", "                    task called", "\x1b[0m");
+        pgpStats.task.push({ eventContext });
+      },
+      transact(eventContext) {
+        console.log("\x1b[32m", "                    transact called", "\x1b[0m");
+        pgpStats.transact.push({ eventContext });
+      },
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),
@@ -184,4 +244,14 @@ function getConfigurationClone() {
   return configCacheClone;
 }
 
-export { config, serve, getConfiguration, getConfigurationClone };
+/**
+ * Makes ure all the arrays in the pgpStats object are emptied again.
+ *
+ * (Just setting the array length to 0, replacing each pgpStats[k] with an empty array seems
+ * to break the pg-promise hooks (=> no events recorded anymore).
+ */
+function resetPgpStats() {
+  Object.keys(pgpStats).forEach((k) => (pgpStats[k].length = 0));
+}
+
+export { config, serve, getConfiguration, getConfigurationClone, pgpStats, resetPgpStats };

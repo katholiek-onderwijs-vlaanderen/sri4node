@@ -9,20 +9,7 @@ import express from "express";
 import * as context from "./context";
 import { IDatabase } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
-
-/**
- * User this function to add a spy if none is present yet, and if one is present, to reset
- * @param obj
- * @param method
- * @returns
- */
-function addOrResetSpy(obj: any, method: string): sinon.SinonSpy {
-  if (obj[method].callCount) {
-    (obj[method] as sinon.SinonSpy).resetHistory();
-    return obj[method] as sinon.SinonSpy;
-  }
-  return sinon.spy(obj, method);
-}
+import { addOrResetSpy } from "./utils";
 
 /**
  * Test suite for the plugins part.
