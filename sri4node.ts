@@ -59,6 +59,7 @@ import {
   typeToConfig,
   settleResultsToSriResults,
   isSriError,
+  generatePgColumns,
 } from "./js/common";
 // import * as batch from "./js/batch";
 import { prepareSQL } from "./js/queryObject";
@@ -166,6 +167,10 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     const pgp = pgInit(sriConfig.databaseLibraryInitOptions, extraOptions);
 
     const db = await pgConnect(pgp, sriConfig);
+
+    // before doing anything else, call startUp hook
+    await applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp));
+
     const currentInformationSchema = await getInformationSchema(db, sriConfig);
 
     // if the db does not match, we can bail out early
@@ -198,49 +203,10 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       dbR: db,
       dbW: db,
       informationSchema: currentInformationSchema,
-      pgColumns: Object.fromEntries(
-        sriConfig.resources
-          .filter((resource) => !resource.onlyCustom)
-          .map((resource) => {
-            const { type } = resource;
-            const table = tableFromMapping(typeToMapping(type, sriConfig.resources));
-            const columns = JSON.parse(
-              `[${sqlColumnNames(typeToMapping(type, sriConfig.resources))}]`,
-            ).filter((cname) => !cname.startsWith("$$meta."));
-            const dummyUpdateRow = transformObjectToRow(
-              {},
-              resource,
-              false,
-              currentInformationSchema,
-            );
-
-            const ret: TSriInternalConfig["pgColumns"]["/things"] = {
-              insert: new pgp.helpers.ColumnSet(columns, { table }),
-              update: generatePgColumnSet(
-                [...new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
-                type,
-                table,
-                currentInformationSchema,
-                pgp,
-              ),
-              delete: generatePgColumnSet(
-                ["key", "$$meta.modified", "$$meta.deleted"],
-                type,
-                table,
-                currentInformationSchema,
-                pgp,
-              ),
-            };
-
-            return [table, ret];
-          }),
-      ),
+      pgColumns: generatePgColumns(sriConfig, currentInformationSchema, pgp),
       // will be filled in later (after some async operations to the DB)
       batchHandlerMap: { GET: [], POST: [], PUT: [], PATCH: [], DELETE: [] },
     };
-
-    // before registering routes in express, call startUp hook
-    await applyHooks("start up", sriInternalConfig.startUp || [], (f) => f(db, pgp));
 
     // Do automatic DB updates that are part of sri4node's standard behavior (like adding version triggers)
     await pMap(

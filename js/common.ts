@@ -33,6 +33,7 @@ import {
   TAfterReadHook,
   TSriInternalUtils,
   TSriRequest,
+  TPgColumns,
 } from "./typeDefinitions";
 import { generateNonFlatQueryStringParser } from "./url_parsing/non_flat_url_parser";
 import EventEmitter from "events";
@@ -2220,6 +2221,45 @@ function isSriError(x): x is SriError {
   return x instanceof SriError || x?.__proto__?.constructor?.name === "SriError";
 }
 
+function generatePgColumns(
+  sriConfig: TSriConfig,
+  currentInformationSchema: TInformationSchema,
+  pgp: IMain,
+): TPgColumns {
+  return Object.fromEntries(
+    sriConfig.resources
+      .filter((resource) => !resource.onlyCustom)
+      .map((resource) => {
+        const { type } = resource;
+        const table = tableFromMapping(typeToMapping(type, sriConfig.resources));
+        const columns = JSON.parse(
+          `[${sqlColumnNames(typeToMapping(type, sriConfig.resources))}]`,
+        ).filter((cname) => !cname.startsWith("$$meta."));
+        const dummyUpdateRow = transformObjectToRow({}, resource, false, currentInformationSchema);
+
+        const ret: TSriInternalConfig["pgColumns"]["/things"] = {
+          insert: new pgp.helpers.ColumnSet(columns, { table }),
+          update: generatePgColumnSet(
+            [...new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
+            type,
+            table,
+            currentInformationSchema,
+            pgp,
+          ),
+          delete: generatePgColumnSet(
+            ["key", "$$meta.modified", "$$meta.deleted"],
+            type,
+            table,
+            currentInformationSchema,
+            pgp,
+          ),
+        };
+
+        return [table, ret];
+      }),
+  );
+}
+
 export {
   hrtimeToMilliseconds,
   isLogChannelEnabled,
@@ -2267,4 +2307,5 @@ export {
   toArray,
   resourceDefToResourceDefInternal,
   isSriError,
+  generatePgColumns,
 };

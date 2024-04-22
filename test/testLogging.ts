@@ -22,7 +22,7 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      assert.ok(logLines.length === 0);
+      assert.equal(logLines.length, 0);
     });
 
     it("single get - default logging", async () => {

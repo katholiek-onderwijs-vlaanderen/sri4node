@@ -81,27 +81,27 @@ function config(
     },
     databaseLibraryInitOptions: {
       connect(client, databaseContext, useCount) {
-        console.log("\x1b[32m", "                    connect called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        connect called", "\x1b[0m");
         pgpStats.connect.push({ client, databaseContext, useCount });
       },
       disconnect(client, databaseContext) {
-        console.log("\x1b[32m", "                    disconnect called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        disconnect called", "\x1b[0m");
         pgpStats.disconnect.push({ client, databaseContext });
       },
       error(error, eventContext) {
-        console.log("\x1b[32m", "                    error called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        error called", "\x1b[0m");
         pgpStats.error.push({ error, eventContext });
       },
       query(eventContext) {
-        console.log("\x1b[32m", "                    query called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        query called", "\x1b[0m");
         pgpStats.query.push({ eventContext });
       },
       task(eventContext) {
-        console.log("\x1b[32m", "                    task called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        task called", "\x1b[0m");
         pgpStats.task.push({ eventContext });
       },
       transact(eventContext) {
-        console.log("\x1b[32m", "                    transact called", "\x1b[0m");
+        // console.log("\x1b[32m", "                                        transact called", "\x1b[0m");
         pgpStats.transact.push({ eventContext });
       },
     },
