@@ -2221,6 +2221,16 @@ function isSriError(x): x is SriError {
   return x instanceof SriError || x?.__proto__?.constructor?.name === "SriError";
 }
 
+/**
+ * Helper function to generate the pgColumns property of the sriInternalConfig object.
+ * These are basically pg-promise ColumnSet objects that are used later for
+ * insert, update and delete operations on the database.
+ *
+ * @param sriConfig
+ * @param currentInformationSchema
+ * @param pgp
+ * @returns
+ */
 function generatePgColumns(
   sriConfig: TSriConfig,
   currentInformationSchema: TInformationSchema,
