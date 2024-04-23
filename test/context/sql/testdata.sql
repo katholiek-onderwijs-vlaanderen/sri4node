@@ -1,4 +1,18 @@
+-- MAKE SURE EACH STATEMENT IS ON A SINGLE LINE !!!
+-- WE NEED TO EXECUTE THIS SCRIPT LINE BY LINE, OTHERWISE THE $$meta.created dates are all the same,
+-- and unfortunately in our tests we use the insert order to determine the order of the results.
+
+
+-- SET LOCAL statement_timeout = '1min';
+
+-- DO
+-- $testdata$
+-- BEGIN
+
 SET search_path TO sri4node;
+
+-- -- only do this if the communities table is currently empty
+-- IF NOT EXISTS (SELECT 1 FROM communities) THEN
 
 -- groups
 INSERT INTO "communities" VALUES ('8bf649b4-c50a-4ee9-9b02-877aa0a71849','LETS, Regio Dendermonde', 'Beekveldstraat', '1A', '2', '9280', 'Lebbeke', '0495940592', 'letsdendermonde@gmail.com','admin','http://www.letsdendermonde.be','https://www.facebook.com/pages/LETS-Regio-Dendermonde/113915938675095?ref=ts&fref=ts','duim');
@@ -43,49 +57,49 @@ INSERT INTO "selfreferential" VALUES ('55ac49a0-34c8-4c33-9c8b-acfcb1578a91','le
 INSERT INTO "selfreferential" VALUES ('ab142ea6-7e79-4f93-82d3-8866b0c8d46b','level3','55ac49a0-34c8-4c33-9c8b-acfcb1578a91');
 
 -- A table that contains a JSONB column, for testing JSONB column support
-insert into jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}');
-insert into jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849"}');
-insert into jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}', '{"href": "/foo/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}');
+INSERT INTO jsonb values ('10f00e9a-f953-488b-84fe-24b31ee9d504','{"productDeliveryOptions": [ {"product": "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}');
+INSERT INTO jsonb values ('400882f3-38c7-4b4f-8f75-d76effeae59f','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/362c4fd7-42e1-4668-8cfc-a479cc8e374a"}]}', '{"href": "/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849"}');
+INSERT INTO jsonb values ('70f06f9d-e376-4404-9e17-10f93a14fedb','{"productDeliveryOptions": [ {"product": "/store/products/3c29f798-5cc3-461b-b43d-c1b8ba2fa67a", "deliveryOption":"/store/deliveryoptions/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}]}', '{"href": "/foo/b9fc5ae0-b245-4d57-a7da-42c5747c2043"}');
 
 -- Data for the generic Filters
-insert into alldatatypes (key, id, text) values ('fd7e38e1-26c3-425e-9443-8a80722dfb16', 1, 'Value');
-insert into alldatatypes (key, id, text) values ('de3d49e0-70df-4cf1-ad1e-6e8645049977', 2, 'A value with spaces');
-insert into alldatatypes (key, id, number) values ('fc548cf1-67ca-4a19-be94-2e27c52b4826', 3, 16.11);
-insert into alldatatypes (key, id, number) values ('aa9bd4a4-1f3d-4de2-b574-e99258907ec8', 4, 11);
-insert into alldatatypes (key, id, publication) values ('c18388fb-69ec-49f0-8ef6-b4ae6c31cb51', 5, '2015-01-01T00:00:00+02:00');
-insert into alldatatypes (key, id, publication) values ('45cb050f-cb40-455e-8456-75bf438dfd7b', 6, '2015-03-04T22:00:00-03:00');
-insert into alldatatypes (key, id, texts) values ('5cd4aa7d-1bcf-472e-9684-0a2f2429a67d', 7, '{"Standard", "ROA", "interface"}');
-insert into alldatatypes (key, id, texts) values ('1bd7c289-4f84-4e1b-94a4-f9df3ade3cd1', 8, '{"Resource", "oriented", "architecture"}');
-insert into alldatatypes (key, id, numbers) values ('a8aa8ac4-0819-457e-9b23-c285bc62cdd1', 9, '{3, 5, 8, 13}');
-insert into alldatatypes (key, id, numbers) values ('c4aec3a2-3901-47d6-9e5e-a2e9e6fef17d', 10, '{2, 3, 5, 7, 11}');
-insert into alldatatypes (key, id, publications) values ('b8277193-13b8-4c9a-ba5e-78487fb5eb94', 11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
-insert into alldatatypes (key, id, publications) values ('693ae016-44ec-4eed-aa92-6a1c20a387c4', 12, '{"2013-01-01T00:00:00+02:00", "2013-04-01T00:00:00+02:00", "2013-07-01T00:00:00+02:00"}');
-insert into alldatatypes (key, id, text, text2, number) values ('10a54b9a-59b0-43f4-a799-0e83708aca26', 13, 'VSKO', 'this is for testing multiple', 450);
-insert into alldatatypes (key, id, text, text2, number) values ('310338e1-37b0-4b26-a43c-75a6ba8b4bd0', 14, 'dienst informatica', 'for multiple q queries', 230);
-insert into alldatatypes (key, id, text, text2, number) values ('5331b27e-36c9-4f51-a806-ae228367a79b', 15, 'combined unit', 'out of ideas', 1000);
-insert into alldatatypes (key, id, numberint) values ('a531fee7-8650-4dfd-9021-bb56f152d6ee', 16, 2456);
-insert into alldatatypes (key, id, numberint) values ('1920bff6-0ab1-4b6a-ad45-f3342118109b', 17, 1358);
-insert into alldatatypes (key, id, numberbigint) values ('88230278-74c5-4546-90f9-5f44c4e68838', 18, 314159);
-insert into alldatatypes (key, id, numberbigint) values ('5bfdf4bb-9e47-4e55-ab5a-d739866a095b', 19, 7500000000);
-insert into alldatatypes (key, id, numbersmallint) values ('295273b7-5890-4bce-bd10-af65125fa05e', 20, -4159);
-insert into alldatatypes (key, id, numbersmallint) values ('8ee0bbeb-7b60-4d0b-a16f-5a5c5910217d', 21, 7560);
-insert into alldatatypes (key, id, numberdecimal) values ('35747d98-737b-44c1-8f20-d69030f1eb62', 22, -3424.234);
-insert into alldatatypes (key, id, numberdecimal) values ('f5208d7e-2368-4868-8ec3-21cfefa3f3ce', 23, 456.222);
-insert into alldatatypes (key, id, numberreal) values ('ffb9ad42-2c8f-465c-a28a-ef8c42d8841b', 24, 1200);
-insert into alldatatypes (key, id, numberreal) values ('9628fe5c-792a-4812-8c00-742fb11aeca7', 25, 12000);
-insert into alldatatypes (key, id, numberdoubleprecision) values ('52e920a2-348e-4573-8420-1c5537e2b088', 26, -12.121212);
-insert into alldatatypes (key, id, numberdoubleprecision) values ('bbddbee1-05ce-4283-8472-4c0d19eafb5e', 27, 100.4545454);
-insert into alldatatypes (key, id, numbersmallserial) values ('60930ed4-32fd-4c97-9e93-40d6730a9561', 28, 121);
-insert into alldatatypes (key, id, numbersmallserial) values ('e2aad7ad-babb-4f88-8be9-b7f1f6550202', 29, 368);
-insert into alldatatypes (key, id, numberserial) values ('1548a053-5ee3-4605-9e7b-4b83cb243b1b', 30, 1210);
-insert into alldatatypes (key, id, numberserial) values ('e84b074a-6366-4248-9f63-20d491ba3891', 31, 3680);
-insert into alldatatypes (key, id, numberbigserial) values ('ea1f9e87-e07c-4ec6-b7d9-b6d19c2038d6', 32, 12100);
-insert into alldatatypes (key, id, numberbigserial) values ('7e3abc6e-0264-48c7-b968-bcc0a4bdc3e4', 33, 36800);
-insert into alldatatypes (key, id, textvarchar) values ('5ff7f6e2-0280-4a1c-b659-ceb5522f6984', 34, 'varchar');
-insert into alldatatypes (key, id, textvarchar) values ('2778802a-524f-47f5-a1c0-4e685ae53cf3', 35, 'not a text varchar');
-insert into alldatatypes (key, id, textchar) values ('a419889a-314a-4b46-95c2-d860683a81c7', 36, 'char');
-insert into alldatatypes (key, id, textchar) values ('628f96ef-7bbd-4d85-903d-eb290a402261', 37, 'not a text char');
-insert into alldatatypes (key, id) values ('e7e49d48-010b-480d-9f90-cdcd802a3096', 38);
+INSERT INTO alldatatypes (key, id, text) values ('fd7e38e1-26c3-425e-9443-8a80722dfb16', 1, 'Value');
+INSERT INTO alldatatypes (key, id, text) values ('de3d49e0-70df-4cf1-ad1e-6e8645049977', 2, 'A value with spaces');
+INSERT INTO alldatatypes (key, id, number) values ('fc548cf1-67ca-4a19-be94-2e27c52b4826', 3, 16.11);
+INSERT INTO alldatatypes (key, id, number) values ('aa9bd4a4-1f3d-4de2-b574-e99258907ec8', 4, 11);
+INSERT INTO alldatatypes (key, id, publication) values ('c18388fb-69ec-49f0-8ef6-b4ae6c31cb51', 5, '2015-01-01T00:00:00+02:00');
+INSERT INTO alldatatypes (key, id, publication) values ('45cb050f-cb40-455e-8456-75bf438dfd7b', 6, '2015-03-04T22:00:00-03:00');
+INSERT INTO alldatatypes (key, id, texts) values ('5cd4aa7d-1bcf-472e-9684-0a2f2429a67d', 7, '{"Standard", "ROA", "interface"}');
+INSERT INTO alldatatypes (key, id, texts) values ('1bd7c289-4f84-4e1b-94a4-f9df3ade3cd1', 8, '{"Resource", "oriented", "architecture"}');
+INSERT INTO alldatatypes (key, id, numbers) values ('a8aa8ac4-0819-457e-9b23-c285bc62cdd1', 9, '{3, 5, 8, 13}');
+INSERT INTO alldatatypes (key, id, numbers) values ('c4aec3a2-3901-47d6-9e5e-a2e9e6fef17d', 10, '{2, 3, 5, 7, 11}');
+INSERT INTO alldatatypes (key, id, publications) values ('b8277193-13b8-4c9a-ba5e-78487fb5eb94', 11, '{"2015-01-01T00:00:00+02:00", "2015-04-01T00:00:00+02:00", "2015-07-01T00:00:00+02:00"}');
+INSERT INTO alldatatypes (key, id, publications) values ('693ae016-44ec-4eed-aa92-6a1c20a387c4', 12, '{"2013-01-01T00:00:00+02:00", "2013-04-01T00:00:00+02:00", "2013-07-01T00:00:00+02:00"}');
+INSERT INTO alldatatypes (key, id, text, text2, number) values ('10a54b9a-59b0-43f4-a799-0e83708aca26', 13, 'VSKO', 'this is for testing multiple', 450);
+INSERT INTO alldatatypes (key, id, text, text2, number) values ('310338e1-37b0-4b26-a43c-75a6ba8b4bd0', 14, 'dienst informatica', 'for multiple q queries', 230);
+INSERT INTO alldatatypes (key, id, text, text2, number) values ('5331b27e-36c9-4f51-a806-ae228367a79b', 15, 'combined unit', 'out of ideas', 1000);
+INSERT INTO alldatatypes (key, id, numberint) values ('a531fee7-8650-4dfd-9021-bb56f152d6ee', 16, 2456);
+INSERT INTO alldatatypes (key, id, numberint) values ('1920bff6-0ab1-4b6a-ad45-f3342118109b', 17, 1358);
+INSERT INTO alldatatypes (key, id, numberbigint) values ('88230278-74c5-4546-90f9-5f44c4e68838', 18, 314159);
+INSERT INTO alldatatypes (key, id, numberbigint) values ('5bfdf4bb-9e47-4e55-ab5a-d739866a095b', 19, 7500000000);
+INSERT INTO alldatatypes (key, id, numbersmallint) values ('295273b7-5890-4bce-bd10-af65125fa05e', 20, -4159);
+INSERT INTO alldatatypes (key, id, numbersmallint) values ('8ee0bbeb-7b60-4d0b-a16f-5a5c5910217d', 21, 7560);
+INSERT INTO alldatatypes (key, id, numberdecimal) values ('35747d98-737b-44c1-8f20-d69030f1eb62', 22, -3424.234);
+INSERT INTO alldatatypes (key, id, numberdecimal) values ('f5208d7e-2368-4868-8ec3-21cfefa3f3ce', 23, 456.222);
+INSERT INTO alldatatypes (key, id, numberreal) values ('ffb9ad42-2c8f-465c-a28a-ef8c42d8841b', 24, 1200);
+INSERT INTO alldatatypes (key, id, numberreal) values ('9628fe5c-792a-4812-8c00-742fb11aeca7', 25, 12000);
+INSERT INTO alldatatypes (key, id, numberdoubleprecision) values ('52e920a2-348e-4573-8420-1c5537e2b088', 26, -12.121212);
+INSERT INTO alldatatypes (key, id, numberdoubleprecision) values ('bbddbee1-05ce-4283-8472-4c0d19eafb5e', 27, 100.4545454);
+INSERT INTO alldatatypes (key, id, numbersmallserial) values ('60930ed4-32fd-4c97-9e93-40d6730a9561', 28, 121);
+INSERT INTO alldatatypes (key, id, numbersmallserial) values ('e2aad7ad-babb-4f88-8be9-b7f1f6550202', 29, 368);
+INSERT INTO alldatatypes (key, id, numberserial) values ('1548a053-5ee3-4605-9e7b-4b83cb243b1b', 30, 1210);
+INSERT INTO alldatatypes (key, id, numberserial) values ('e84b074a-6366-4248-9f63-20d491ba3891', 31, 3680);
+INSERT INTO alldatatypes (key, id, numberbigserial) values ('ea1f9e87-e07c-4ec6-b7d9-b6d19c2038d6', 32, 12100);
+INSERT INTO alldatatypes (key, id, numberbigserial) values ('7e3abc6e-0264-48c7-b968-bcc0a4bdc3e4', 33, 36800);
+INSERT INTO alldatatypes (key, id, textvarchar) values ('5ff7f6e2-0280-4a1c-b659-ceb5522f6984', 34, 'varchar');
+INSERT INTO alldatatypes (key, id, textvarchar) values ('2778802a-524f-47f5-a1c0-4e685ae53cf3', 35, 'not a text varchar');
+INSERT INTO alldatatypes (key, id, textchar) values ('a419889a-314a-4b46-95c2-d860683a81c7', 36, 'char');
+INSERT INTO alldatatypes (key, id, textchar) values ('628f96ef-7bbd-4d85-903d-eb290a402261', 37, 'not a text char');
+INSERT INTO alldatatypes (key, id) values ('e7e49d48-010b-480d-9f90-cdcd802a3096', 38);
 
 -- Data for packages
 INSERT INTO "packages" VALUES ('1edb2754-5684-4996-ae5b-ec33c903ee4d', 'Export');
@@ -145,3 +159,8 @@ INSERT INTO "countries" (key, "name", "position") VALUES ('bf', 'Burkina Faso', 
 INSERT INTO "countries2" (key, "name", "position") VALUES ('bd', 'Bangladesh', '{"latitude": 23.684994, "longitude": 90.356331}');
 INSERT INTO "countries2" (key, "name", "position") VALUES ('be', 'Belgium', '{"latitude": 50.503887, "longitude": 4.469936}');
 INSERT INTO "countries2" (key, "name", "position") VALUES ('bf', 'Burkina Faso', '{"latitude": 12.238333, "longitude": -1.561593}');
+
+-- END IF;
+
+-- END
+-- $testdata$;

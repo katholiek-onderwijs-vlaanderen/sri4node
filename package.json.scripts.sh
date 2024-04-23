@@ -99,7 +99,7 @@ test_on_docker() {
 
   local NODEANDPOSTGRESVERSIONS=$@
   if [ "$NODEANDPOSTGRESVERSIONS" = "" ]; then
-    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker [--continue] 16,11 16,12, 18,12 20,15)'
+    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker -- [--continue] 16,11-alpine 16,12-alpine 18,12-alpine 20,15-alpine)'
     return 1
   fi
 
@@ -132,7 +132,7 @@ test_on_docker() {
       # npm run test:cleanup
       printf "\n$MSG\n"
       local ALL_MESSAGES="$ALL_MESSAGES\n$MSG"
-      [ $EXITCODE -eq 0 ] || [ $CONTINUE = 'true' ] || return $EXITCODE
+      [ $EXITCODE -eq 0 ] || [ "$CONTINUE" = 'true' ] || return $EXITCODE
     done
     npm run test:cleanup
     printf "============\nTEST RESULTS\n============\n\n${ALL_MESSAGES}\n"

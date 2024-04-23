@@ -183,8 +183,16 @@ module.exports = function (httpClient: THttpClient) {
 
   describe("Paging", function () {
     it("should offset resources", async function () {
-      const response = await httpClient.get({ path: "/alldatatypes?offset=3", auth: "kevin" });
-      assert.equal(response.body.results[0].$$expanded.id, 4);
+      const offset = 3;
+      const response1 = await httpClient.get({ path: "/alldatatypes", auth: "kevin" });
+      const response2 = await httpClient.get({
+        path: `/alldatatypes?offset=${offset}`,
+        auth: "kevin",
+      });
+      assert.equal(
+        response2.body.results[0].$$expanded.id,
+        response1.body.results[offset].$$expanded.id,
+      );
     });
 
     it("should limit resources by default", async function () {

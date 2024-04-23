@@ -207,6 +207,24 @@ module.exports = function (sri4node: typeof Sri4Node) {
         beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
       },
       {
+        routePostfix: "/:key/db_slow",
+        httpMethods: ["GET", "POST"],
+        handler: async (tx, sriRequest, customMapping) => {
+          await tx.one("SELECT pg_sleep(3);");
+          return simpleOutput(tx, sriRequest, customMapping);
+        },
+        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+      },
+      {
+        routePostfix: "/:key/db_timeout",
+        httpMethods: ["GET", "POST"],
+        handler: async (tx, sriRequest, customMapping) => {
+          await tx.one("SELECT pg_sleep(10);");
+          return simpleOutput(tx, sriRequest, customMapping);
+        },
+        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+      },
+      {
         like: "/:key",
         routePostfix: "/simpleLike",
         httpMethods: ["GET"],

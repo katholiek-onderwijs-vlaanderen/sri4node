@@ -52,6 +52,23 @@ const pgpStats: TPgpStats = {
 };
 
 import * as sri4nodeTS from "../index";
+import path from "path";
+import { readFileSync } from "fs";
+
+/**
+ * Wraps the given code in a DO block, so it can be executed as a single statement.
+ *
+ * @param {string} code
+ * @returns string
+ */
+const sqlPlpgsql = (code) => `
+DO $___$
+BEGIN
+  ${code}
+END
+$___$
+LANGUAGE 'plpgsql';
+`;
 
 /**
  * Creates the TSriConfig object.
@@ -78,6 +95,7 @@ function config(
       ssl: false,
       schema: "sri4node",
       connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+      statement_timeout: 5000,
     },
     databaseLibraryInitOptions: {
       connect(client, databaseContext, useCount) {
@@ -116,6 +134,29 @@ function config(
         }
         if (!pgp?.pg) {
           throw new Error("startUp hook error: pgp parameter is not what we expected");
+        }
+
+        // read sql/*.sql and execute it to create all the tables and fill in all the test data !
+        /////////////////////////////////////////////////////////////////////////////////////////
+
+        // create the schema
+        await db.query(readFileSync(path.join(__dirname, "context/sql/schema.sql"), "utf8"));
+        // insert test data (if not inserted yet)
+        const dbInitialized = await db.one(
+          "select EXISTS (SELECT 1 FROM communities) as db_initialized",
+        );
+        if (!dbInitialized["db_initialized"]) {
+          // This hideous code is needed to execute each insert statement a a separate statement
+          // otherwise all the $$meta.created dates are the same, and our tests depend on the
+          // insert order ($$meta.created is used as the default sort key in sri4node)
+          const sqlLines = readFileSync(path.join(__dirname, "context/sql/testdata.sql"), "utf8")
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0 && !l.startsWith("--"));
+
+          for (const l of sqlLines) {
+            await db.query(l);
+          }
         }
 
         // add a useless trigger to the countries table

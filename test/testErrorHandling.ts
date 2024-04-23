@@ -2,20 +2,17 @@
 import assert from "assert";
 import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";
-import { util } from "chai";
 import { Server } from "http";
 import { TSriServerInstance } from "../sri4node";
-import { SinonSpy, spy } from "sinon";
-import sinon from "sinon";
 import * as context from "./context";
-import { resolve } from "path";
 import { createMethodCalledPromise } from "./utils";
 
 module.exports = function (
   httpClient: THttpClient,
-  testContext: {
+  _testContext: {
     server: null | Server;
     sriServerInstance: null | TSriServerInstance;
+    // did not work somehow, so we just imported the context module
     context: typeof context;
   },
 ) {
@@ -160,8 +157,41 @@ module.exports = function (
     // });
   });
 
+  async function testBrokenConnection(
+    url: string,
+    dbMethodToWaitFor: keyof typeof context.pgpStats,
+    waitTimeAfterConnect = 0,
+  ) {
+    try {
+      context.resetPgpStats();
+      const methodCalledPromise = createMethodCalledPromise(
+        context.pgpStats[dbMethodToWaitFor],
+        "push",
+      );
+      const responsePromise = httpClient.get({
+        path: url,
+        auth: "sabine",
+      });
+      await methodCalledPromise;
+      await new Promise((resolve) => setTimeout(resolve, waitTimeAfterConnect));
+      await httpClient.destroy();
+      await responsePromise;
+      assert.fail("Expected an error to be thrown");
+    } catch (e) {
+      // this is expected to throw
+      assert.equal(e.message, "htpclient.failure");
+    }
+    assert.equal(context.pgpStats[dbMethodToWaitFor].length, 1);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    assert.equal(
+      context.pgpStats.disconnect.length,
+      1,
+      `Expected 1 disconnect, got ${context.pgpStats.disconnect.length} for (${url}, ${dbMethodToWaitFor}, ${waitTimeAfterConnect})`,
+    );
+  }
+
   /**
-   * Iin this secton, we want to check what happens when a client brealks the connection,
+   * In this secton, we want to check what happens when a client breaks the connection,
    * or when the connection gets broken by something in between like a proxy server or
    * a load balancer.
    */
@@ -171,56 +201,34 @@ module.exports = function (
 
     describe("Client ends connection before response received", () => {
       describe("GET requests", () => {
-        it("should recover and return the db conneciton to the pool if connection broken after connection", async () => {
-          // now try to break the connection directly after the db connection has been set up
-          try {
-            context.resetPgpStats();
-            const connectCalledPromise = createMethodCalledPromise(
-              context.pgpStats.connect,
-              "push",
-            );
-            const responsePromise = httpClient.get({
-              path: `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
-              auth: "sabine",
-            });
-            await connectCalledPromise;
-            await httpClient.destroy();
-            await responsePromise;
-            assert.fail("Expected an error to be thrown");
-          } catch (e) {
-            // this is expected to throw
-            assert.equal(e.message, "htpclient.failure");
-          }
-          assert.equal(context.pgpStats.connect.length, 1);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          assert.equal(context.pgpStats.disconnect.length, 1);
+        it("should recover and return the db connection to the pool if connection broken after connection", async () => {
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
+            "connect",
+          );
         });
-        it("should recover and return the db conneciton to the pool if connection broken after transaction", async () => {
-          try {
-            context.resetPgpStats();
-            const taskCalledPromise = createMethodCalledPromise(context.pgpStats.task, "push");
-            const responsePromise = httpClient.get({
-              path: `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
-              auth: "sabine",
-            });
-            await taskCalledPromise;
-            await httpClient.destroy();
-            await responsePromise;
-            assert.fail("Expected an error to be thrown");
-          } catch (e) {
-            // this is expected to throw
-            assert.equal(e.message, "htpclient.failure");
-          }
-          // check if 1 new task has been created
-          assert.equal(context.pgpStats.task.length, 1);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          assert.equal(context.pgpStats.disconnect.length, 1);
+        // skipped for now, because sri4node is unable to cancel a running query, when the cient ends the connection
+        // this would avoid overloading the database with queries that are not needed anymore
+        it.skip("should recover and return the db connection to the pool if connection broken after connection during long query execution", async () => {
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/db_slow`,
+            "connect",
+            1000,
+          );
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/db_timeout`,
+            "connect",
+            1000,
+          );
+        });
+        it("should recover and return the db connection to the pool if connection broken after transaction", async () => {
+          await testBrokenConnection("/persons/de32ce31-af0c-4620-988e-1d0de282ee9d", "task");
         });
       });
-      it.skip("should recover and return the db conneciton to the pool after a put request", async () => {
+      describe.skip("should recover and return the db connection to the pool after a put request", () => {
         // todo
       });
-      it.skip("should recover and return the db conneciton to the pool after a delete request", async () => {
+      describe.skip("should recover and return the db connection to the pool after a delete request", () => {
         // todo
       });
     });
