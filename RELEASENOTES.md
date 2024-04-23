@@ -14,7 +14,9 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 ### Added
 
 - Separate type TSriInternalConfig, so we could make TSriConfig more strict and thus easier
-  to unerstand. This also better reflects the differences between the two types.
+  to understand. This also better reflects the differences between the two types.
+- Initial tests to check that sri4node does not get in trouble if a client breaks a connection
+  before the response has been sent.
 
 ### Changed
 
@@ -33,6 +35,9 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
   Watch out: where you used to check for !== undefined, you need to replace it with !== null.
 - Stateful functions (like debug and error) are not exported from the library directly anymore
   because they were only safe to use after configure had been called.
+- schema.sql an,d testdata.sql are moved from docker/postgres_initdb/sql to test/context/sql
+  and are being run during the startUp hook of the sri4node server instance, in order to make sure
+  nothing important is chacked by sri4node on the DB before this hook has run.
 
 ### Deprecated
 
