@@ -30,14 +30,14 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
   - global.sriinternalUtils
   - global.sri4node_internal_interface
   - global.overloadProtection
-- Everything that used to have type ParsedUrlQuery has type URLSearchParams now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do query.key you now have to do query.get('key')!
+- Everything that used to have type **ParsedUrlQuery** has type **URLSearchParams** now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do `query.key` you now have to do `query.get('key')`!
   For example, for afterRead handlers of type TAfterReadHook, sriRequest.query will now be a URLSearchParams object instead of a ParsedUrlQuery object.
-  Watch out: where you used to check for !== undefined, you need to replace it with !== null.
+  Watch out: where you used to check for `!== undefined`, you need to replace it with `!== null`.
 - Stateful functions (like debug and error) are not exported from the library directly anymore
   because they were only safe to use after configure had been called.
 - schema.sql an,d testdata.sql are moved from docker/postgres_initdb/sql to test/context/sql
   and are being run during the startUp hook of the sri4node server instance, in order to make sure
-  nothing important is chacked by sri4node on the DB before this hook has run.
+  nothing important is done by sri4node on the DB before this hook has run.
 
 ### Deprecated
 
