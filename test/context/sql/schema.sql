@@ -3,7 +3,7 @@ DO
 $schema$
 BEGIN
 
-  SET search_path TO sri4node;
+  -- SET search_path TO sri4node;
   -- CREATE SCHEMA IF NOT EXISTS sri4node;
 
   -- check if table communities exists

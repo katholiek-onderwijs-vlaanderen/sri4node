@@ -9,7 +9,7 @@
 -- $testdata$
 -- BEGIN
 
-SET search_path TO sri4node;
+-- SET search_path TO sri4node;
 
 -- -- only do this if the communities table is currently empty
 -- IF NOT EXISTS (SELECT 1 FROM communities) THEN
