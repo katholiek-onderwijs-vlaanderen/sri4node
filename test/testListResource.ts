@@ -203,9 +203,11 @@ module.exports = function (httpClient: THttpClient) {
       const response = await httpClient.get({ path: "/alldatatypes", auth: "kevin" });
       assert.equal(
         response.body.$$meta.next.endsWith(
-          encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
-            "," +
-            response.body.results[4].$$expanded.key,
+          encodeURIComponent(
+            encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
+              "," +
+              response.body.results[4].$$expanded.key,
+          ),
         ),
         true,
       );
@@ -218,9 +220,11 @@ module.exports = function (httpClient: THttpClient) {
       });
       assert.equal(
         response.body.$$meta.next.endsWith(
-          encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
-            "," +
-            response.body.results[4].$$expanded.key,
+          encodeURIComponent(
+            encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
+              "," +
+              response.body.results[4].$$expanded.key,
+          ),
         ),
         true,
       );
@@ -233,9 +237,11 @@ module.exports = function (httpClient: THttpClient) {
       });
       assert.equal(
         response.body.$$meta.next.endsWith(
-          encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
-            "," +
-            response.body.results[4].$$expanded.key,
+          encodeURIComponent(
+            encodeURIComponent(response.body.results[4].$$expanded.$$meta.created) +
+              "," +
+              response.body.results[4].$$expanded.key,
+          ),
         ),
         true,
       );

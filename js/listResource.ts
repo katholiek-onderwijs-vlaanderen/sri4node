@@ -174,7 +174,9 @@ const applyOrderAndPagingParameters = (
         errors: [
           {
             code: "invalid.orderby.parameter",
-            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(", ")}.`,
+            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(
+              ", ",
+            )}.`,
           },
         ],
       });
@@ -184,7 +186,7 @@ const applyOrderAndPagingParameters = (
   // add paging to where clause
 
   if (keyOffset) {
-    const keyValues = keyOffset.split(",");
+    const keyValues = keyOffset.split(",").map((o) => decodeURIComponent(o));
     if (keyValues.length !== orderKeys.length) {
       throw new SriError({
         status: 400,
@@ -213,7 +215,9 @@ const applyOrderAndPagingParameters = (
 
   // add order parameter
   query.sql(
-    ` order by ${orderKeys.map((k) => `"${k}" ${descending === "true" ? "desc" : "asc"}`).join(",")}`,
+    ` order by ${orderKeys
+      .map((k) => `"${k}" ${descending === "true" ? "desc" : "asc"}`)
+      .join(",")}`,
   );
 
   // add limit parameter
@@ -319,9 +323,12 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
 
   const addOrReplaceParameter = (url, parameter, value) => {
     if (url.indexOf(parameter) > 0) {
-      return url.replace(new RegExp(`${parameter}[^&]*`), `${parameter}=${value}`);
+      return url.replace(
+        new RegExp(`${parameter}[^&]*`),
+        `${parameter}=${encodeURIComponent(value)}`,
+      );
     }
-    return `${url + (url.indexOf("?") > 0 ? "&" : "?") + parameter}=${value}`;
+    return `${url + (url.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value)}`;
   };
 
   if (results.length === parseInt(queryLimit, 10) && results.length > 0) {
