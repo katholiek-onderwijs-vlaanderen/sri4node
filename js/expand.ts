@@ -23,12 +23,12 @@ import { prepareSQL } from "./queryObject";
 import { applyHooks } from "./hooks";
 import { IDatabase } from "pg-promise";
 
-const checkRecurse = (expandpath) => {
-  const parts = expandpath.split(".");
+const checkRecurse = (expandpath: string) => {
+  const parts: Array<string> = expandpath.split(".");
   if (parts.length > 1) {
-    return { expand: _.first(parts), recurse: true, recursepath: _.tail(parts).join(".") };
+    return { expand: parts[0], recurse: true, recursepath: _.tail(parts).join(".") };
   }
-  return { expand: expandpath, recurse: false };
+  return { expand: expandpath, recurse: false, recursepath: undefined };
 };
 
 /**
@@ -67,8 +67,8 @@ async function executeSingleExpansion(
       const keysToExpand: string[] = elements.reduce<string[]>((acc, element) => {
         if (element[expand]) {
           // ignore if undefined or null
-          const targetlink = element[expand].href;
-          const targetkey = _.last(targetlink.split("/"));
+          const targetlink = element[expand].href as string;
+          const targetkey = _.last(targetlink.split("/")) as string;
           // Don't add already included and items that are already expanded.
           if (!acc.includes(targetkey) && !element[expand].$$expanded) {
             acc.push(targetkey);
@@ -132,7 +132,7 @@ async function executeSingleExpansion(
           }
         });
 
-        if (recurse) {
+        if (recurse && recursepath) {
           debug("trace", `expand - recursing to next level of expansion : ${recursepath}`);
           await executeSingleExpansion(
             db,

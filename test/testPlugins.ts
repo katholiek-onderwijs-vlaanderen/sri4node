@@ -75,7 +75,14 @@ module.exports = function (
       sriConfig.plugins?.forEach((plugin) => {
         sinon.assert.calledOnce(plugin.install as sinon.SinonSpy);
         sinon.assert.notCalled(plugin.close as sinon.SinonSpy);
-        sinon.assert.calledWith(plugin.install as sinon.SinonSpy, sriConfig, sriServerInstance.db);
+        // this is not valid anymore, since it will be called with the internalConfig object now
+        // sinon.assert.calledWith(plugin.install as sinon.SinonSpy, sriConfig, sriServerInstance.db);
+
+        // check if plugin.istall's first argument contains the sriConfig object (some properties are added, and some properties are altered)
+        const firstArg = (plugin.install as sinon.SinonSpy).args[0][0];
+        sinon.assert.match(firstArg, sinon.match.has("resources"));
+        sinon.assert.match(firstArg, sinon.match.has("databaseConnectionParameters"));
+        sinon.assert.match(firstArg, sinon.match.has("plugins"));
       });
 
       // closing the server
@@ -129,11 +136,14 @@ module.exports = function (
         sriConfig.plugins?.forEach((plugin) => {
           sinon.assert.calledOnce(plugin.install as sinon.SinonSpy);
           sinon.assert.notCalled(plugin.close as sinon.SinonSpy);
-          sinon.assert.calledWith(
-            plugin.install as sinon.SinonSpy,
-            sriConfig,
-            sriServerInstance.db,
-          );
+          // this is not valid anymore, since it will be called with the internalConfig object now
+          // sinon.assert.calledWith(plugin.install as sinon.SinonSpy, sriConfig, sriServerInstance.db);
+
+          // check if plugin.istall's first argument contains the sriConfig object (some properties are added, and some properties are altered)
+          const firstArg = (plugin.install as sinon.SinonSpy).args[0][0];
+          sinon.assert.match(firstArg, sinon.match.has("resources"));
+          sinon.assert.match(firstArg, sinon.match.has("databaseConnectionParameters"));
+          sinon.assert.match(firstArg, sinon.match.has("plugins"));
           sinon.assert.callOrder(
             sriConfig.startUp?.[0] as sinon.SinonSpy,
             plugin.install as sinon.SinonSpy,

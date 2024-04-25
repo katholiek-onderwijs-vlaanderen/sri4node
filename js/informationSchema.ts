@@ -27,7 +27,11 @@ async function getInformationSchema(
   db: IDatabase<unknown>,
   sriConfig: TSriConfig,
 ): Promise<TInformationSchema> {
-  const tableNames = _.uniq(sriConfig.resources.map((mapping) => common.tableFromMapping(mapping)));
+  const tableNames = _.uniq(
+    sriConfig.resources
+      .map((mapping) => common.tableFromMapping(mapping))
+      .filter((u) => u !== undefined),
+  ) as Array<string>;
   const query = prepareSQL("information-schema");
   const { schema } = sriConfig.databaseConnectionParameters;
   let schemaParam = "public";

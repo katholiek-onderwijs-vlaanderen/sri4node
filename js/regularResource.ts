@@ -200,7 +200,8 @@ async function getRegularResource(
     sriRequest,
     mapping,
     key,
-    sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any",
+    sriRequest.query.get("$$meta.deleted") === "true" ||
+      sriRequest.query.get("$$meta.deleted") === "any",
   );
 
   if (result.code == "resource.gone") {
@@ -722,7 +723,7 @@ async function createOrUpdateRegularResource(
         errors: [{ code: "db.constraint.violation", msg: err.detail }],
       });
     } else {
-      if (!(err instanceof SriError || err?.__proto__?.constructor?.name)) {
+      if (!(err instanceof SriError || (err as any)?.__proto__?.constructor?.name)) {
         throw new SriError({ status: 500, errors: [{ code: "sql.error", msg: err.message, err }] });
       }
       throw err;
@@ -792,7 +793,7 @@ async function deleteRegularResource(
       sriRequest,
       mapping,
       key,
-      sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any",
+      ["true", "any"].includes(sriRequest.query.get("$$meta.deleted") ?? ""),
     );
 
     if (result.code != "found") {

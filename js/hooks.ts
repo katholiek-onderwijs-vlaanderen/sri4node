@@ -80,7 +80,7 @@ async function applyHooks<
         { concurrency: 1 },
       );
     } catch (err) {
-      if (err instanceof SriError || err?.__proto__?.constructor?.name === "SriError") {
+      if (err instanceof SriError || (err as any)?.__proto__?.constructor?.name === "SriError") {
         throw err;
       } else {
         console.log(

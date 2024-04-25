@@ -48,6 +48,7 @@ import { queryUtils } from "../sri4node";
 import Ajv from "ajv";
 import { prepareSQL } from "./queryObject";
 import pMap from "p-map";
+import pSettle from "p-settle";
 
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
@@ -1436,7 +1437,7 @@ async function getCountResult(tx, countquery, sriRequest) {
  * @returns the correponding database table name
  */
 function tableFromMapping(mapping: TResourceDefinition | TResourceDefinitionInternal) {
-  return mapping.table || _.last(mapping.type.split("/"));
+  return mapping.table || (_.last(mapping.type.split("/")) as string);
 }
 
 function isEqualSriObject(
@@ -1482,22 +1483,30 @@ function stringifyError(e) {
   return JSON.stringify(e);
 }
 
-function settleResultsToSriResults(results) {
+/**
+ * Transforms the results of a call to pSettle into an array of 'sri' results.
+ *
+ * @param results
+ * @returns
+ */
+function settleResultsToSriResults<T>(
+  results: Array<pSettle.PromiseResult<T>>,
+): Array<T | SriError> {
   return results.map((res) => {
     if (res.isFulfilled) {
       return res.value;
     }
     const err = res.reason;
-    if (err instanceof SriError || err?.__proto__?.constructor?.name === "SriError") {
-      return err;
+    if (err instanceof SriError || (err as any)?.__proto__?.constructor?.name === "SriError") {
+      return err as SriError;
     }
     error(
       "____________________________ E R R O R (settleResultsToSriResults)_________________________",
     );
     error(stringifyError(err));
-    if (err && err.stack) {
+    if (err && (err as Record<string, unknown>).stack) {
       error("STACK:");
-      error(err.stack);
+      error((err as Record<string, unknown>).stack);
     }
     error(
       "___________________________________________________________________________________________",
@@ -1711,7 +1720,7 @@ function generateSriRequest(
       path: expressRequest.path,
       originalUrl: expressRequest.originalUrl,
       query,
-      params: expressRequest.params,
+      params: expressRequest.params ?? {},
       httpMethod: expressRequest.method as THttpMethod,
 
       headers: expressRequest.headers,

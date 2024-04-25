@@ -28,7 +28,7 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
   - global.sriinternalUtils
   - global.sri4node_internal_interface
   - global.overloadProtection
-- Everything that used to have type ParsedUrlQuery has type URLSearchParams now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query)
+- Everything that used to have type ParsedUrlQuery has type URLSearchParams now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do query.key you now have to do query.get('key')!
 - Stateful functions (like debug and error) are not exported from the library directly anymore
   because they were only safe to use after configure had been called.
 

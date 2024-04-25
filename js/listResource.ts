@@ -56,9 +56,9 @@ async function applyRequestParameters(
 
   if (mapping.query) {
     await pMap(
-      Object.keys(urlparameters),
+      urlparameters.keys(),
       async (key) => {
-        const currentUrlParam = urlparameters[key];
+        const currentUrlParam = urlparameters.get(key);
         const keyAsString =
           typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
         if (!standardParameters.includes(key)) {
@@ -136,19 +136,19 @@ async function getSQLFromListResource(
   }
 
   if (doCount) {
-    if (parameters["$$meta.deleted"] === "true") {
+    if (parameters.get("$$meta.deleted") === "true") {
       sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
-    } else if (parameters["$$meta.deleted"] === "any") {
+    } else if (parameters.get("$$meta.deleted") === "any") {
       sql = `select count(*) from "${table}" where 1=1 `;
     } else {
       sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = false `;
     }
     query.sql(sql);
   } else {
-    if (parameters["$$meta.deleted"] === "true") {
+    if (parameters.get("$$meta.deleted") === "true") {
       sql = `select ${columns} from "`;
       sql += `${table}" where "${table}"."$$meta.deleted" = true `;
-    } else if (parameters["$$meta.deleted"] === "any") {
+    } else if (parameters.get("$$meta.deleted") === "any") {
       sql = `select ${columns} from "`;
       sql += `${table}" where 1=1 `;
     } else {
@@ -570,7 +570,7 @@ async function isPartOf(
       }
       return false;
     }
-    const { searchParams: paramsB } = new URL(urlB, "https://domain.com"); //url.parse(urlB, true);
+    const paramsB = new URL(urlB, "https://domain.com").searchParams; //url.parse(urlB, true);
     const queryB = prepareSQL();
     try {
       await getSQLFromListResource(mapping, paramsB, false, tx, queryB, informationSchema);

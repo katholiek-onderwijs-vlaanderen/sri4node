@@ -403,7 +403,7 @@ export type TResourceMetaType = Uppercase<string>;
  * So we decided to pass an object with extra useful functions (starting with internalSriRequest)
  * to every handler and hook that we have in the configuration.
  *
- * By adding it as the last patrameter, this should not break anything on existing projects,
+ * By adding it as the last parameter, this should not break anything on existing projects,
  * but at least we can start using this new way of doing things right away.
  *
  * If we find more useful functions later, we can also easily add them to this object in the future.
@@ -1104,7 +1104,7 @@ export type TSriInternalConfig = RequiredExtra<
    * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
    */
   batchHandlerMap: {
-    [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, "route"> & { route: Record<string, any> }>;
+    [K in THttpMethod]: Array<TBatchHandlerRecord>;
   };
 };
 

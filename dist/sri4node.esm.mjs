@@ -1263,7 +1263,7 @@ function getParentSriRequestFromRequestMap(sriRequestMap, recurse = false) {
   return getParentSriRequest(sriRequest, recurse);
 }
 function generateSriRequest(expressRequest = void 0, expressResponse = void 0, basicConfig = void 0, batchHandlerAndParams = void 0, parentSriRequest = void 0, batchElement = void 0, internalSriRequest = void 0) {
-  var _a;
+  var _a, _b;
   if (basicConfig === void 0 && internalSriRequest === void 0 && parentSriRequest === void 0) {
     throw new Error(
       "generateSriRequest: at least one of basicConfig, internalSriRequest or parentSriRequest should be defined"
@@ -1353,7 +1353,7 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
       path: expressRequest.path,
       originalUrl: expressRequest.originalUrl,
       query,
-      params: expressRequest.params,
+      params: (_a = expressRequest.params) != null ? _a : {},
       httpMethod: expressRequest.method,
       headers: expressRequest.headers,
       protocol: expressRequest.protocol,
@@ -1362,7 +1362,7 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
       isBatchRequest: basicConfig == null ? void 0 : basicConfig.isBatchRequest,
       readOnly: basicConfig == null ? void 0 : basicConfig.readOnly,
       // the batch code will set sriType for batch elements
-      sriType: !(basicConfig == null ? void 0 : basicConfig.isBatchRequest) ? (_a = basicConfig == null ? void 0 : basicConfig.mapping) == null ? void 0 : _a.type : void 0
+      sriType: !(basicConfig == null ? void 0 : basicConfig.isBatchRequest) ? (_b = basicConfig == null ? void 0 : basicConfig.mapping) == null ? void 0 : _b.type : void 0
     });
     if (basicConfig == null ? void 0 : basicConfig.isStreamingRequest) {
       if (!expressResponse) {
@@ -2057,7 +2057,9 @@ import _2 from "lodash";
 function getInformationSchema(db, sriConfig) {
   return __async(this, null, function* () {
     var _a;
-    const tableNames = _2.uniq(sriConfig.resources.map((mapping) => tableFromMapping(mapping)));
+    const tableNames = _2.uniq(
+      sriConfig.resources.map((mapping) => tableFromMapping(mapping)).filter((u) => u !== void 0)
+    );
     const query = prepareSQL("information-schema");
     const { schema } = sriConfig.databaseConnectionParameters;
     let schemaParam = "public";
@@ -2432,7 +2434,11 @@ ERROR: ${err} - ${JSON.stringify(err)}
         );
       });
       yield pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-      return [...jobMap.values()].map((_phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
+      return [...jobMap.values()].map((_phaseSyncer) => ({
+        isFulfilled: false,
+        isRejected: true,
+        reason: sriError
+      }));
     }
   });
 }
@@ -2448,9 +2454,9 @@ import pMap4 from "p-map";
 var checkRecurse = (expandpath) => {
   const parts = expandpath.split(".");
   if (parts.length > 1) {
-    return { expand: _3.first(parts), recurse: true, recursepath: _3.tail(parts).join(".") };
+    return { expand: parts[0], recurse: true, recursepath: _3.tail(parts).join(".") };
   }
-  return { expand: expandpath, recurse: false };
+  return { expand: expandpath, recurse: false, recursepath: void 0 };
 };
 function executeSingleExpansion(db, sriRequest, elements, mapping, resources, expandpath, sriInternalUtils) {
   return __async(this, null, function* () {
@@ -2527,7 +2533,7 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
               elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
             }
           });
-          if (recurse) {
+          if (recurse && recursepath) {
             debug("trace", `expand - recursing to next level of expansion : ${recursepath}`);
             yield executeSingleExpansion(
               db,
@@ -2601,10 +2607,10 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount, info
     ];
     if (mapping.query) {
       yield pMap5(
-        Object.keys(urlparameters),
+        urlparameters.keys(),
         (key) => __async(this, null, function* () {
           var _a, _b;
-          const currentUrlParam = urlparameters[key];
+          const currentUrlParam = urlparameters.get(key);
           const keyAsString = typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
           if (!standardParameters.includes(key)) {
             if (((_a = mapping.query) == null ? void 0 : _a[key]) || ((_b = mapping.query) == null ? void 0 : _b.defaultFilter)) {
@@ -2664,19 +2670,19 @@ function getSQLFromListResource(mapping, parameters, doCount, tx, query, informa
       columns = sqlColumnNames(mapping, ((_c = parameters.get("expand")) == null ? void 0 : _c.toLowerCase()) === "summary");
     }
     if (doCount) {
-      if (parameters["$$meta.deleted"] === "true") {
+      if (parameters.get("$$meta.deleted") === "true") {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
-      } else if (parameters["$$meta.deleted"] === "any") {
+      } else if (parameters.get("$$meta.deleted") === "any") {
         sql = `select count(*) from "${table}" where 1=1 `;
       } else {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = false `;
       }
       query.sql(sql);
     } else {
-      if (parameters["$$meta.deleted"] === "true") {
+      if (parameters.get("$$meta.deleted") === "true") {
         sql = `select ${columns} from "`;
         sql += `${table}" where "${table}"."$$meta.deleted" = true `;
-      } else if (parameters["$$meta.deleted"] === "any") {
+      } else if (parameters.get("$$meta.deleted") === "any") {
         sql = `select ${columns} from "`;
         sql += `${table}" where 1=1 `;
       } else {
@@ -2982,7 +2988,7 @@ function isPartOf(phaseSyncer, tx, sriRequest, mapping, _sriInternalUtils, infor
         }
         return false;
       }
-      const { searchParams: paramsB } = new URL(urlB, "https://domain.com");
+      const paramsB = new URL(urlB, "https://domain.com").searchParams;
       const queryB = prepareSQL();
       try {
         yield getSQLFromListResource(mapping, paramsB, false, tx, queryB, informationSchema);
@@ -3141,7 +3147,7 @@ function getRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUti
       sriRequest,
       mapping,
       key,
-      sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any"
+      sriRequest.query.get("$$meta.deleted") === "true" || sriRequest.query.get("$$meta.deleted") === "any"
     );
     if (result.code == "resource.gone") {
       throw new SriError({
@@ -3567,6 +3573,7 @@ function patchRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalU
 }
 function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils) {
   return __async(this, null, function* () {
+    var _a;
     try {
       yield phaseSyncer.phase();
       debug("trace", "sri4node DELETE invoked");
@@ -3577,7 +3584,7 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternal
         sriRequest,
         mapping,
         key,
-        sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any"
+        ["true", "any"].includes((_a = sriRequest.query.get("$$meta.deleted")) != null ? _a : "")
       );
       if (result.code != "found") {
         debug("trace", "No row affected - the resource is already gone");
@@ -4193,19 +4200,19 @@ function batchFactory(sriInternalConfig) {
     const queryParams = parsedUrl.searchParams;
     const path2 = (parsedUrl.pathname || "").replace(/\/$/, "");
     const batchHandlerMap = sriInternalConfig.batchHandlerMap;
-    const matches = batchHandlerMap[verb].map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match !== false);
-    if (matches.length > 1) {
-      console.log(
-        `WARNING: multiple handler functions match for batch request ${path2}. Only first will be used. Check configuration.`
-      );
-    } else if (matches.length === 0) {
+    const matches = batchHandlerMap[verb].map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match);
+    if (matches.length === 0) {
       throw new SriError({
         status: 404,
         errors: [{ code: "no.matching.route", msg: `No route found for ${verb} on ${path2}.` }]
       });
     }
-    const { handler } = _6.first(matches);
-    const routeParams = _6.first(matches).match;
+    if (matches.length > 1) {
+      console.log(
+        `WARNING: multiple handler functions match for batch request ${path2}. Only first will be used. Check configuration.`
+      );
+    }
+    const { handler, match: routeParams } = matches[0];
     return {
       handler,
       path: path2,
@@ -4257,7 +4264,7 @@ function batchFactory(sriInternalConfig) {
               ]
             });
           }
-          if (match.queryParams.dryRun === "true") {
+          if (match.queryParams.get("dryRun") === "true") {
             throw new SriError({
               status: 400,
               errors: [
@@ -4284,7 +4291,7 @@ function batchFactory(sriInternalConfig) {
     };
     handleBatchForMatchBatch(reqBody);
   }
-  const batchOperation = function batchOperation2(sriRequest, sriInternalUtils, informationSchema) {
+  const batchOperation = function batchOperation2(sriRequest, sriInternalUtils, _informationSchema) {
     return __async(this, null, function* () {
       const reqBody = sriRequest.body || [];
       const batchConcurrency = Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency);
@@ -4390,11 +4397,15 @@ function batchFactory(sriInternalConfig) {
                 }
               }));
               return results.map((res, idx) => {
-                const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-                res.href = innerSriRequest.originalUrl;
-                res.verb = innerSriRequest.httpMethod;
-                delete res.sriRequestID;
-                return res;
+                if (res instanceof SriError) {
+                  return res;
+                } else {
+                  const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+                  return __spreadProps(__spreadValues({}, res), {
+                    href: innerSriRequest.originalUrl,
+                    verb: innerSriRequest.httpMethod
+                  });
+                }
               });
             }
             return batch.map(
@@ -4430,7 +4441,7 @@ function batchFactory(sriInternalConfig) {
       }
     });
   };
-  const batchOperationStreaming = (sriRequest, sriInternalUtils, informationSchema) => __async(this, null, function* () {
+  const batchOperationStreaming = (sriRequest, sriInternalUtils, _informationSchema) => __async(this, null, function* () {
     let keepAliveTimer = null;
     const reqBody = sriRequest.body;
     const batchConcurrency = global.overloadProtection.startPipeline(
@@ -4546,10 +4557,11 @@ function batchFactory(sriInternalConfig) {
             }));
             return results.map((res, idx) => {
               const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              res.href = innerSriRequest.originalUrl;
-              res.verb = innerSriRequest.httpMethod;
-              delete res.sriRequestID;
-              stream2.push(res);
+              const resModified = res instanceof SriError ? res.sriRequestID = null : __spreadProps(__spreadValues({}, res), {
+                href: innerSriRequest.originalUrl,
+                verb: innerSriRequest.httpMethod
+              });
+              stream2.push(resModified);
               return res.status;
             });
           }
@@ -4598,11 +4610,10 @@ function batchFactory(sriInternalConfig) {
       sriRequest.outStream.write("{");
       sriRequest.outStream.write('"results":');
       if (!sriRequest.dbT)
-        throw new Error("sriRequest containsno db transaction to work on");
-      const batchResults = _6.flatten(
-        yield handleBatchStreaming(reqBody, sriRequest.dbT)
-      );
-      const status = batchResults.some((e) => e === 403) ? 403 : Math.max(200, ...batchResults);
+        throw new Error("sriRequest contains no db transaction to work on");
+      const batchResultsRaw = yield handleBatchStreaming(reqBody, sriRequest.dbT);
+      const batchResults = Array.isArray(batchResultsRaw) ? _6.flatten(batchResultsRaw) : [batchResultsRaw];
+      const status = batchResults.some((e) => e === 403) ? 403 : Math.max(200, ...batchResults.filter((r) => Number.isFinite(r)));
       stream2.push(null);
       yield streamDonePromise;
       sriRequest.outStream.write(`, "status": ${status}`);
@@ -4743,7 +4754,7 @@ function configure(app, sriConfig) {
         { concurrency: 1 }
       );
       const sri4node_loaded_plugins = /* @__PURE__ */ new Map();
-      const sri4node_install_plugin = (plugin) => __async(this, null, function* () {
+      const sri4nodeInstallPlugin = (plugin) => __async(this, null, function* () {
         console.log(`Installing plugin ${util.inspect(plugin)}`);
         if (plugin.uuid !== void 0 && sri4node_loaded_plugins.has(plugin.uuid)) {
           return;
@@ -4758,7 +4769,7 @@ function configure(app, sriConfig) {
         yield pMap8(
           sriInternalConfig.plugins,
           (plugin) => __async(this, null, function* () {
-            yield sri4node_install_plugin(plugin);
+            yield sri4nodeInstallPlugin(plugin);
           }),
           { concurrency: 1 }
         );
@@ -5695,7 +5706,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
             isBatch
           })
         ),
-        (e) => e.verb
+        ({ verb }) => verb
       );
       app.get("/", (_req, res) => res.redirect("/resources"));
       console.log(

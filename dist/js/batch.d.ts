@@ -1,10 +1,14 @@
+/// <reference types="node" />
 import { THttpMethod, TBatchHandlerRecord, TSriRequestHandlerForBatch, TSriInternalConfig } from "./typeDefinitions";
 declare function batchFactory(sriInternalConfig: TSriInternalConfig): {
     batchFactory: typeof batchFactory;
     matchHref: (href: string, verb: THttpMethod) => {
         path: string;
-        routeParams: any;
-        queryParams: any;
+        /**
+         * like express params (/mythings/:id)
+         */
+        routeParams: RegExpMatchArray | null;
+        queryParams: URLSearchParams;
         handler: TBatchHandlerRecord;
     };
     matchBatch: (req: any) => void;

@@ -12,6 +12,7 @@ import {
   TBeforePhaseHook,
   TSriInternalConfig,
   TSriRequest,
+  TSriResult,
 } from "./typeDefinitions";
 import { debug, error, getParentSriRequestFromRequestMap } from "./common";
 import { IDatabase, ITask } from "pg-promise";
@@ -116,7 +117,10 @@ class PhaseSyncer {
     this.phaseCntr += 1;
 
     const result: any = await pEvent(this.jobEmitter, ["sriError", "ready"]);
-    if (result instanceof SriError || result?.__proto__?.constructor?.name === "SriError") {
+    if (
+      result instanceof SriError ||
+      (result as any)?.__proto__?.constructor?.name === "SriError"
+    ) {
       throw result;
     }
   }
@@ -158,7 +162,7 @@ async function phaseSyncedSettle(
   }: { concurrency?: number; beforePhaseHooks?: Array<TBeforePhaseHook> } = {},
   sriInternalConfig: TSriInternalConfig,
   sriInternalUtils: TSriInternalUtils,
-) {
+): Promise<Array<pSettle.PromiseResult<TSriResult>>> {
   /**
    * channel used to communicate between the controller process (this function) and the PhaseSyncer instances.
    */
@@ -310,7 +314,7 @@ async function phaseSyncedSettle(
       try {
         await fun(id, args);
       } catch (err) {
-        if (err instanceof SriError || err?.__proto__?.constructor?.name === "SriError") {
+        if (err instanceof SriError || (err as any)?.__proto__?.constructor?.name === "SriError") {
           // If the SriError is generated in a beforePhaseHook (which is ran at 'global' level for all batch)
           // we receive the id of the phaseSyncer who executed 'phase()' first, this is random and probably
           // not the one which corresponds to the error.
@@ -436,7 +440,7 @@ async function phaseSyncedSettle(
     console.warn(err);
     console.warn(JSON.stringify(err));
     let sriError;
-    if (err instanceof SriError || err?.__proto__?.constructor?.name === "SriError") {
+    if (err instanceof SriError || (err as any)?.__proto__?.constructor?.name === "SriError") {
       sriError = err;
     } else {
       sriError = new SriError({
@@ -459,7 +463,11 @@ async function phaseSyncedSettle(
       );
     });
     await pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-    return [...jobMap.values()].map((_phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
+    return [...jobMap.values()].map((_phaseSyncer) => ({
+      isFulfilled: false,
+      isRejected: true,
+      reason: sriError,
+    }));
   }
 }
 

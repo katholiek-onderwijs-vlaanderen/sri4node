@@ -2,7 +2,7 @@
 import pSettle from "p-settle";
 import queue from "emitter-queue";
 import Emitter from "events";
-import { TSriRequestHandlerForPhaseSyncer, TResourceDefinitionInternal, TSriInternalUtils, TInformationSchema, TBeforePhaseHook, TSriInternalConfig, TSriRequest } from "./typeDefinitions";
+import { TSriRequestHandlerForPhaseSyncer, TResourceDefinitionInternal, TSriInternalUtils, TInformationSchema, TBeforePhaseHook, TSriInternalConfig, TSriRequest, TSriResult } from "./typeDefinitions";
 import { IDatabase, ITask } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 /**
@@ -73,9 +73,6 @@ declare function phaseSyncedSettle(jobList: Array<readonly [
 ]>, { concurrency, beforePhaseHooks, }: {
     concurrency?: number | undefined;
     beforePhaseHooks?: TBeforePhaseHook[] | undefined;
-} | undefined, sriInternalConfig: TSriInternalConfig, sriInternalUtils: TSriInternalUtils): Promise<pSettle.PromiseResult<any>[] | {
-    isFulfilled: boolean;
-    reason: any;
-}[]>;
+} | undefined, sriInternalConfig: TSriInternalConfig, sriInternalUtils: TSriInternalUtils): Promise<Array<pSettle.PromiseResult<TSriResult>>>;
 export { phaseSyncedSettle };
 export type { PhaseSyncer };

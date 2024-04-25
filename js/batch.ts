@@ -1,7 +1,6 @@
 import _ from "lodash";
 import pMap from "p-map";
 import pEachSeries from "p-each-series";
-import url from "url";
 import JSONStream from "JSONStream";
 import EventEmitter from "events";
 import pEvent from "p-event";
@@ -46,15 +45,19 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
   type TMatchedHref = {
     path: string;
-    routeParams: any;
-    queryParams: any;
+    /**
+     * like express params (/mythings/:id)
+     */
+    routeParams: RegExpMatchArray | null;
+    queryParams: URLSearchParams;
     handler: TBatchHandlerRecord;
   };
 
   /**
    * Tries to find the proper record in the global batchHandlerMap
    * and then returns the handler found + some extras
-   * like path, routeParams (example /resources/:id) and queryParams (?key=value)
+   * like path, and queryParams (?key=value)
+   * (it used to return routeParams (example /resources/:id), but i can't see how that would be done)
    *
    * @param {String} href
    * @param {THttpMethod} verb: GET,PUT,PATCH,DELETE,POST
@@ -76,21 +79,25 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
       sriInternalConfig.batchHandlerMap;
     const matches = batchHandlerMap[verb]
       .map((handler) => ({ handler, match: handler.route.match(path) }))
-      .filter(({ match }) => match !== false);
+      .filter(({ match }) => match);
 
-    if (matches.length > 1) {
-      console.log(
-        `WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`,
-      );
-    } else if (matches.length === 0) {
+    // no matches? throw Error
+    if (matches.length === 0) {
       throw new SriError({
         status: 404,
         errors: [{ code: "no.matching.route", msg: `No route found for ${verb} on ${path}.` }],
       });
     }
 
-    const { handler } = _.first(matches);
-    const routeParams = _.first(matches).match;
+    if (matches.length > 1) {
+      console.log(
+        `WARNING: multiple handler functions match for batch request ${path}. Only first will be used. Check configuration.`,
+      );
+    }
+
+    // const handler = matches[0].handler;
+    // const routeParams = matches[0].match;
+    const { handler, match: routeParams } = matches[0];
 
     return {
       handler,
@@ -160,7 +167,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
             });
           }
 
-          if (match.queryParams.dryRun === "true") {
+          if (match.queryParams.get("dryRun") === "true") {
             throw new SriError({
               status: 400,
               errors: [
@@ -191,7 +198,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
   const batchOperation: TSriRequestHandlerForBatch = async function batchOperation(
     sriRequest: TSriRequestExternal,
     sriInternalUtils: TSriInternalUtils,
-    informationSchema: TInformationSchema,
+    _informationSchema: TInformationSchema,
   ): Promise<TSriResult> {
     const reqBody: Array<TSriBatchElement> = (sriRequest.body as Array<TSriBatchElement>) || [];
     const batchConcurrency = Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency);
@@ -294,7 +301,8 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
             if (
               results.some(
-                (e) => e instanceof SriError || e?.__proto__?.constructor?.name === "SriError",
+                (e) =>
+                  e instanceof SriError || (e as any)?.__proto__?.constructor?.name === "SriError",
               ) &&
               sriRequest.readOnly === false
             ) {
@@ -307,18 +315,28 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
                 TSriRequestExternal,
                 TResourceDefinitionInternal,
               ] = batchJobs[idx][1];
-              if (!(res instanceof SriError || res?.__proto__?.constructor?.name === "SriError")) {
+              if (
+                !(
+                  res instanceof SriError ||
+                  (res as any)?.__proto__?.constructor?.name === "SriError"
+                )
+              ) {
                 await applyHooks("transform response", mapping.transformResponse || [], (f) =>
                   f(tx, innerSriRequest, res, sriInternalUtils),
                 );
               }
             });
             return results.map((res, idx) => {
-              const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              res.href = innerSriRequest.originalUrl;
-              res.verb = innerSriRequest.httpMethod;
-              delete res.sriRequestID;
-              return res;
+              if (res instanceof SriError) {
+                return res;
+              } else {
+                const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+                return {
+                  ...res,
+                  href: innerSriRequest.originalUrl,
+                  verb: innerSriRequest.httpMethod,
+                };
+              }
             });
           }
           // TODO: generate correct error json with refering element in it!
@@ -370,7 +388,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
   const batchOperationStreaming: TSriRequestHandlerForBatch = async (
     sriRequest: TSriRequestExternal,
     sriInternalUtils: TSriInternalUtils,
-    informationSchema: TInformationSchema,
+    _informationSchema: TInformationSchema,
   ): Promise<TSriResult> => {
     let keepAliveTimer: NodeJS.Timer | null = null;
     const reqBody = sriRequest.body;
@@ -380,10 +398,11 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
     try {
       let batchFailed = false;
 
+      type THandleBatchStreamingResponse = number | Array<SriError | THandleBatchStreamingResponse>;
       const handleBatchStreaming = async (
         batch: TSriBatchArray,
         tx: IDatabase<unknown> | ITask<unknown>,
-      ) => {
+      ): Promise<THandleBatchStreamingResponse> => {
         if (batch.every((element) => Array.isArray(element))) {
           debug(
             "batch",
@@ -489,7 +508,8 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
             if (
               results.some(
-                (e) => e instanceof SriError || e?.__proto__?.constructor?.name === "SriError",
+                (e) =>
+                  e instanceof SriError || (e as any)?.__proto__?.constructor?.name === "SriError",
               )
             ) {
               batchFailed = true;
@@ -497,7 +517,12 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
             await pEachSeries(results, async (res: any, idx) => {
               const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
-              if (!(res instanceof SriError || res?.__proto__?.constructor?.name === "SriError")) {
+              if (
+                !(
+                  res instanceof SriError ||
+                  (res as any)?.__proto__?.constructor?.name === "SriError"
+                )
+              ) {
                 await applyHooks("transform response", mapping.transformResponse || [], (f) =>
                   f(tx, innerSriRequest, res, sriInternalUtils),
                 );
@@ -505,11 +530,24 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
             });
             return results.map((res, idx) => {
               const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              res.href = innerSriRequest.originalUrl;
-              res.verb = innerSriRequest.httpMethod;
-              delete res.sriRequestID;
-              stream2.push(res);
+              const resModified =
+                res instanceof SriError
+                  ? (res.sriRequestID = null && res)
+                  : {
+                      ...res,
+                      href: innerSriRequest.originalUrl,
+                      verb: innerSriRequest.httpMethod,
+                    };
+              // ALSO PUSH IT ONTO THE STREAM (not the proper use of the map function)!!!
+              stream2.push(resModified);
               return res.status;
+
+              // const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+              // res.href = innerSriRequest.originalUrl;
+              // res.verb = innerSriRequest.httpMethod;
+              // delete res.sriRequestID;
+              // stream2.push(res);
+              // return res.status;
             });
           }
           //   const l = batch.map( e =>  new SriError({ status: 202, errors: [{ code: 'cancelled', msg: 'Request cancelled due to failure in accompanying request in batch.' }] })  );
@@ -563,15 +601,18 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
       sriRequest.outStream.write("{");
       sriRequest.outStream.write('"results":');
 
-      if (!sriRequest.dbT) throw new Error("sriRequest containsno db transaction to work on");
-      const batchResults = _.flatten(
-        await handleBatchStreaming(reqBody as TSriBatchArray, sriRequest.dbT),
-      );
+      if (!sriRequest.dbT) throw new Error("sriRequest contains no db transaction to work on");
+      const batchResultsRaw = await handleBatchStreaming(reqBody as TSriBatchArray, sriRequest.dbT);
+      const batchResults = Array.isArray(batchResultsRaw)
+        ? _.flatten(batchResultsRaw)
+        : [batchResultsRaw];
 
       // spec: The HTTP status code of the response must be the highest values of the responses of the operations inside
       // of the original batch, unless at least one 403 Forbidden response is present in the batch response, then the
       // server MUST respond with 403 Forbidden.
-      const status = batchResults.some((e) => e === 403) ? 403 : Math.max(200, ...batchResults);
+      const status = batchResults.some((e) => e === 403)
+        ? 403
+        : Math.max(200, ...(batchResults.filter((r) => Number.isFinite(r)) as Array<number>));
 
       // signal end to JSON stream
       stream2.push(null);

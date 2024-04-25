@@ -1,11 +1,12 @@
 /// <reference types="node" />
 import pgPromise, { IDatabase, IMain, ITask } from "pg-promise";
 import { Application, Request, Response } from "express";
-import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest } from "./typeDefinitions";
+import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, SriError, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest } from "./typeDefinitions";
 import stream from "stream";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
 import { IClient } from "pg-promise/typescript/pg-subset";
+import pSettle from "p-settle";
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
  *
@@ -347,10 +348,16 @@ declare function getCountResult(tx: any, countquery: any, sriRequest: any): Prom
  * @param mapping
  * @returns the correponding database table name
  */
-declare function tableFromMapping(mapping: TResourceDefinition | TResourceDefinitionInternal): any;
+declare function tableFromMapping(mapping: TResourceDefinition | TResourceDefinitionInternal): string;
 declare function isEqualSriObject(obj1: any, obj2: any, mapping: TResourceDefinitionInternal, informationSchema: TInformationSchema): any;
 declare function stringifyError(e: any): string;
-declare function settleResultsToSriResults(results: any): any;
+/**
+ * Transforms the results of a call to pSettle into an array of 'sri' results.
+ *
+ * @param results
+ * @returns
+ */
+declare function settleResultsToSriResults<T>(results: Array<pSettle.PromiseResult<T>>): Array<T | SriError>;
 declare function createReadableStream(objectMode?: boolean): stream.Readable;
 declare function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse?: boolean): any;
 /**

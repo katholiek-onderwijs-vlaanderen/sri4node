@@ -175,7 +175,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       // some DEFAULTS, that may be overridden by sriConfig
       batchConcurrency: 4,
       bodyParserLimit: "5mb",
-      // the actuall sriConfig
+      // the actual sriConfig
       ...(_.cloneDeep(sriConfig) as TSriConfig),
       // properties that have a more specific format in the internal config
       resources: sriConfig.resources.map(resourceDefToResourceDefInternal),
@@ -238,158 +238,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       batchHandlerMap: { GET: [], POST: [], PUT: [], PATCH: [], DELETE: [] },
     };
 
-    // sriInternalConfig.resources.forEach((resource) => {
-    //   // initialize undefined hooks in all resources with empty list
-    //   [
-    //     "beforeRead",
-    //     "afterRead",
-    //     "beforeUpdate",
-    //     "afterUpdate",
-    //     "beforeInsert",
-    //     "afterInsert",
-    //     "beforeDelete",
-    //     "afterDelete",
-    //     "customRoutes",
-    //     "transformResponse",
-    //   ].forEach((name) => objPropertyToArray(resource, name));
-    //   // for backwards compability set listResultDefaultIncludeCount default to true
-    //   if (resource.listResultDefaultIncludeCount === undefined) {
-    //     resource.listResultDefaultIncludeCount = true;
-    //   }
-    // });
-
-    // initialize undefined global hooks with empty list
-    // ["beforePhase", "transformRequest", "transformInternalRequest"].forEach((name) =>
-    //   objPropertyToArray(sriInternalConfig, name),
-    // );
-    // sriInternalConfig.beforePhase = [
-    //   ...(sriInternalConfig.beforePhase || []),
-    //   regularResource.beforePhaseQueryByKey,
-    // ];
-    // sriInternalConfig.beforePhase = [
-    //   ...(sriInternalConfig.beforePhase || []),
-    //   regularResource.beforePhaseInsertUpdateDelete,
-    // ];
-
-    // if (sriInternalConfig.bodyParserLimit === undefined) {
-    //   sriInternalConfig.bodyParserLimit = "5mb";
-    // }
-
-    // sriInternalConfig.resources.forEach((resourceDefinition) => {
-    //   if (!resourceDefinition.onlyCustom) {
-    //     // In case query is not defied -> use defaultFilter
-    //     if (resourceDefinition.query === undefined) {
-    //       resourceDefinition.query = { defaultFilter: queryUtils.defaultFilter };
-    //     }
-    //     // In case of 'referencing' fields -> add expected filterReferencedType query
-    //     // if not defined.
-    //     if (resourceDefinition.map) {
-    //       Object.keys(resourceDefinition.map).forEach((key) => {
-    //         if (
-    //           resourceDefinition.map?.[key]?.references !== undefined &&
-    //           resourceDefinition.query &&
-    //           resourceDefinition.query?.[key] === undefined
-    //         ) {
-    //           resourceDefinition.query[key] = queryUtils.filterReferencedType(
-    //             resourceDefinition.map[key].references,
-    //             key,
-    //           );
-    //         }
-    //       });
-    //     }
-
-    //     // TODO: what with custom stuff ?
-    //     //  e.g content-api with attachments / security/query
-    //     // TODO: implement a better way to determine key type!!
-    //     if (resourceDefinition.schema === undefined) {
-    //       throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
-    //     }
-    //     const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
-    //     if (keyPropertyDefinition === null) {
-    //       throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
-    //     }
-    //     if (keyPropertyDefinition.pattern === schemaUtils.guid("foo").pattern) {
-    //       resourceDefinition.singleResourceRegex = new RegExp(
-    //         `^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`,
-    //       );
-    //     } else if (keyPropertyDefinition.type === schemaUtils.numeric("foo").type) {
-    //       resourceDefinition.singleResourceRegex = new RegExp(
-    //         `^${resourceDefinition.type}/([0-9]+)$`,
-    //       );
-    //     } else if (keyPropertyDefinition.type === schemaUtils.string("foo").type) {
-    //       resourceDefinition.singleResourceRegex = new RegExp(
-    //         `^${resourceDefinition.type}/(\\w+)$`,
-    //       );
-    //     } else {
-    //       throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
-    //     }
-    //     resourceDefinition.listResourceRegex = new RegExp(
-    //       `^${resourceDefinition.type}(?:[?#]\\S*)?$`,
-    //     );
-
-    //     // TODO: add descent type!
-    //     try {
-    //       // Compile the JSON schema to see if there are errors + store it for later usage
-    //       debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
-    //       const ajv = new Ajv({
-    //         // 2023-10: do not enable strict yet as it might break existing api's
-    //         // (for example: an object with 'properties' & 'required', but missing type: 'object'
-    //         // would suddenly fail because it is strictly speaking invalid json-schema)
-    //         // strict: true,
-    //         logger: {
-    //           log: (output: string) => {
-    //             debug("general", output);
-    //           },
-    //           warn: (output: string) => {
-    //             debug("general", output);
-    //           },
-    //           error: console.error,
-    //         },
-    //       });
-    //       addFormats(ajv);
-    //                 // validateKey is used with express request params which are always strings,
-    //       // so the schema needs to be checked without complaining about the fact that
-    //       // it is a string, even when key is defined asa number for example
-    //       resourceDefinition.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
-    //       resourceDefinition.validateSchema = ajv.compile(resourceDefinition.schema);
-    //     } catch (err) {
-    //       console.error("===============================================================");
-    //       console.error(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
-    //       console.error("");
-    //       console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
-    //       console.error("");
-    //       console.error(`Error: ${err.message}`);
-    //       console.error("===============================================================");
-    //       process.exit(1);
-    //     }
-    //   }
-    // });
-
-    // sriInternalConfig.resources.forEach((mapping) => {
-    //   if (mapping.metaType === undefined) {
-    //     error(`WARNING: metaType missing for resource ${mapping.type}`);
-    //     mapping.metaType = "NOT SPECIFIED";
-    //   }
-    // });
-
-    // if (sriInternalConfig.batchConcurrency === undefined) {
-    //   sriInternalConfig.batchConcurrency = 4;
-    // }
-
-    // if (sriInternalConfig.logdebug !== undefined) {
-    //   sriInternalConfig.logdebug = createDebugLogConfigObject(sriInternalConfig.logdebug);
-    // }
-
-    // DO NOT USE the 'global' object !!!
-    // global.sri4node_configuration = sriConfig; // share configuration with other modules
-
-    // in future we'd want to support a separate read and write database by adding another
-    // connection paramaters object to the config, and if it is filled in that can be the
-    // separate read database
-    // const db = await pgConnect(sriConfig);
-    // const dbR = db;
-    // const dbW = db;
-
     // before registering routes in express, call startUp hook
     await applyHooks("start up", sriInternalConfig.startUp || [], (f) => f(db, pgp));
 
@@ -414,7 +262,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     const sri4node_loaded_plugins = new Map();
 
-    const sri4node_install_plugin = async (plugin: TPluginConfig) => {
+    const sri4nodeInstallPlugin = async (plugin: TPluginConfig) => {
       console.log(`Installing plugin ${util.inspect(plugin)}`);
       // load plugins with a uuid only once; backwards compatible with old system without uuid
       if (plugin.uuid !== undefined && sri4node_loaded_plugins.has(plugin.uuid)) {
@@ -433,7 +281,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       await pMap(
         sriInternalConfig.plugins,
         async (plugin) => {
-          await sri4node_install_plugin(plugin);
+          await sri4nodeInstallPlugin(plugin);
         },
         { concurrency: 1 },
       );
@@ -661,7 +509,10 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             sriInternalUtils,
           ),
         );
-        if (result instanceof SriError || result?.__proto__?.constructor?.name === "SriError") {
+        if (
+          result instanceof SriError ||
+          (result as any)?.__proto__?.constructor?.name === "SriError"
+        ) {
           throw result;
         }
 
@@ -722,13 +573,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     const sriInternalUtils: TSriInternalUtils = {
       internalSriRequest,
     };
-    // we don't like passing this around via the global object (we also lose the typing)
-    // but for now we'll stick with it because there are plenty of other cases where the global
-    // has been used
-    // so where we want to pass this object to a hook or handler function we'll need to use
-    //  global.sriInternalUtils as TSriInternalUtils
-    //// DO NOT USE global.sriInternalUtils in the code, but pass it as an argument to the function!
-    // global.sriInternalUtils = sriInternalUtils;
 
     const handleServerTiming = async (req, resp, sriRequest: TSriRequestExternal) => {
       const logEnabled = isLogChannelEnabled("server-timing", sriInternalConfig.logdebug);
@@ -1052,7 +896,10 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             while (resp.write("       ")) {
               // do nothing besides writing some more
             }
-          } else if (err instanceof SriError || err?.__proto__?.constructor?.name === "SriError") {
+          } else if (
+            err instanceof SriError ||
+            (err as any)?.__proto__?.constructor?.name === "SriError"
+          ) {
             if (err.status > 0) {
               const reqId = httpContext.get("reqId");
               if (reqId !== undefined) {
@@ -1593,8 +1440,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
           isBatch,
         }),
       ),
-      (e) => e.verb,
-    );
+      ({ verb }) => verb,
+    ) as unknown as TSriInternalConfig["batchHandlerMap"];
 
     app.get("/", (_req: Request, res: Response) => res.redirect("/resources"));
 
