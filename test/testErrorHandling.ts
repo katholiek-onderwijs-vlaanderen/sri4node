@@ -182,7 +182,12 @@ module.exports = function (
       assert.equal(e.message, "htpclient.failure");
     }
     assert.equal(context.pgpStats[dbMethodToWaitFor].length, 1);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    console.log("            [testBrokenConnection] ======== QUERIES ========");
+    console.log(
+      "            [testBrokenConnection]",
+      JSON.stringify(context.pgpStats.query.map(({ eventContext }) => eventContext.query)),
+    );
     assert.equal(
       context.pgpStats.disconnect.length,
       1,
@@ -206,6 +211,16 @@ module.exports = function (
             `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
             "connect",
           );
+          if (process.version.substring(1, 3) <= "16") {
+            console.log(
+              "\x1b[96m\x1b[1m",
+              "            Not assuming that the actual query was not executed, because Node < 16 does not seem to detect disconnections early",
+              "\x1b[0m",
+            );
+            assert.equal(context.pgpStats.query.length, 3);
+          } else {
+            assert.equal(context.pgpStats.query.length, 2);
+          }
         });
         // skipped for now, because sri4node is unable to cancel a running query, when the cient ends the connection
         // this would avoid overloading the database with queries that are not needed anymore

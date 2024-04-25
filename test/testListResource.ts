@@ -322,7 +322,7 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(count, _.uniq(hrefsFound).length);
     });
 
-    it("should work incombination with orderBy", async function () {
+    it("should work in combination with orderBy", async function () {
       const response = await httpClient.get({
         path: "/alldatatypes?orderBy=key&limit=10",
         auth: "kevin",
@@ -332,7 +332,7 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(_.isEqual(keys, _.sortBy(keys)), true);
     });
 
-    it("should work incombination with orderBy and descending", async function () {
+    it("should work in combination with orderBy and descending", async function () {
       const response = await httpClient.get({
         path: "/alldatatypes?orderBy=id&descending=true&limit=40",
         auth: "kevin",
