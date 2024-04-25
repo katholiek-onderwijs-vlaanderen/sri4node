@@ -91,15 +91,15 @@ before(async () => {
   console.log(`>>>>>>>> sri4node '${moduleType}' module has been loaded successfully <<<<<<<<`);
 });
 
-describe("Sri4node PURE UNIT TESTS", () => {
+describe("Sri4node PURE UNIT TESTS (running on Node ${process.version})", () => {
   runTestIfNeeded("./common/test_hrefToNormalizedUrl.ts");
 });
 
-describe("Sri4node VALIDATION AT STARTUP TESTS", function () {
+describe("Sri4node VALIDATION AT STARTUP TESTS (running on Node ${process.version})", function () {
   runTestIfNeeded("./testValidationAtStartup.ts", [sri4nodeHolder, port, logdebug, dummyLogger]);
 });
 
-describe("Sri4node SERVER TESTS", function () {
+describe(`Sri4node SERVER TESTS (running on Node ${process.version})`, function () {
   this.timeout(0);
   // let server:any = null;
   // let sriServerInstance:TSriServerInstance | null = null;

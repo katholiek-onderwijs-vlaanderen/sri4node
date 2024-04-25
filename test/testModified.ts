@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interfacedoGet(
-import assert from "assert";
+import { assert } from "chai";
 import _ from "lodash";
 import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";

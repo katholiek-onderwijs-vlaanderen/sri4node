@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import fs from "fs";
 import { Client } from "undici";
 

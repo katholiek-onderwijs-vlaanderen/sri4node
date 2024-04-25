@@ -10,7 +10,7 @@ import * as util from "util";
 
 // import Ajv from "ajv";
 // import addFormats from "ajv-formats";
-import pgPromise from "pg-promise";
+import pgPromise, { IDatabase, ITask } from "pg-promise";
 
 // External dependencies.
 import compression from "compression";
@@ -100,6 +100,117 @@ import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
 import { batchFactory } from "./js/batch";
+import { IClient } from "pg-promise/typescript/pg-subset";
+
+async function handleExpressWrapperError(
+  resp: Response,
+  err,
+  sriInternalConfig: TSriInternalConfig,
+  sriInternalUtils: TSriInternalUtils,
+  t?: IDatabase<unknown, IClient> | ITask<unknown>,
+  endTask?,
+  rejectTx?,
+  sriRequest?: TSriRequestExternal,
+  readOnly?: boolean,
+) {
+  if (sriRequest) {
+    await applyHooks(
+      "errorHandler",
+      sriInternalConfig.errorHandler || [],
+      (f) => f(sriRequest, err, sriInternalUtils),
+      sriRequest,
+    );
+  }
+
+  // TODO: what with streaming errors
+  if (t !== undefined) {
+    // t will be null in case of error during startTask/startTransaction
+    if (readOnly === true) {
+      debug(
+        "db",
+        `++ Exception caught. Closing database task. ++\n${
+          isSriError(err) ? JSON.stringify(err.body, null, 2) : err
+        }`,
+        sriInternalConfig.logdebug,
+      );
+      await endTask();
+    } else {
+      debug(
+        "db",
+        `++ Exception caught. Rolling back database transaction. ++\n${
+          isSriError(err) ? JSON.stringify(err.body, null, 2) : err
+        }`,
+        sriInternalConfig.logdebug,
+      );
+      await rejectTx();
+    }
+  }
+
+  if (resp.headersSent) {
+    error(
+      "____________________________ E R R O R (expressWrapper)____________________________________",
+    );
+    error(err);
+    error(JSON.stringify(err, null, 2));
+    error("STACK:");
+    error(err.stack);
+    error(
+      "___________________________________________________________________________________________",
+    );
+    error("NEED TO DESTROY STREAMING REQ");
+    resp.on("drain", async () => {
+      await resp.destroy();
+      error("[drain event] Stream is destroyed.");
+    });
+    resp.on("finish", async () => {
+      await resp.destroy();
+      error("[finish event] Stream is destroyed.");
+    });
+    resp.write(
+      "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n",
+    );
+    resp.write(err.toString());
+    resp.write(JSON.stringify(err, null, 2));
+    resp.write(
+      "\n___________________________________________________________________________________________\n",
+    );
+
+    // keep sending data until the buffer is full, which will trigger a drain event,
+    // at which point the stream will be destroyed instead of closing it gracefully
+    // (because we want tosignal to the user that something went wrong, even if a
+    // 200 OK header has already been sent)
+    while (resp.write("       ")) {
+      // do nothing besides writing some more
+    }
+  } else if (isSriError(err)) {
+    if (err.status > 0) {
+      const reqId = httpContext.get("reqId") as string;
+      if (reqId !== undefined) {
+        err.body.vskoReqId = reqId;
+        err.headers["vsko-req-id"] = reqId;
+      }
+      resp.set(err.headers).status(err.status).send(err.body);
+    }
+  } else {
+    error(
+      "____________________________ E R R O R (expressWrapper)____________________________________",
+    );
+    error(err);
+    error("STACK:");
+    error(err.stack ?? "No stack available");
+    error(
+      "___________________________________________________________________________________________",
+    );
+    resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+  }
+  if (sriInternalConfig.logdebug && sriInternalConfig.logdebug.statuses !== undefined) {
+    setImmediate(() => {
+      // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
+      console.log("GOING TO CALL handleRequestDebugLog");
+      handleRequestDebugLog(err.status ? err.status : 500, sriInternalConfig.logdebug.statuses);
+    });
+  }
+}
 
 /**
  * Force https in production
@@ -666,8 +777,13 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             hrtimeToMilliseconds(hrElapsedStartTransaction),
           );
 
-          req.on("close", (_err) => {
+          req.on("close", (err) => {
             sriRequest.reqCancelled = true;
+            // try {
+            //   handleExpressWrapperError(resp, err, sriConfig, sriInternalUtils, t, endTask, rejectTx, sriRequest, readOnly);
+            // } finally {
+            //   overloadProtection.endPipeline();
+            // }
           });
 
           if (t === undefined) {
@@ -795,100 +911,17 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             }
           }
         } catch (err) {
-          await applyHooks(
-            "errorHandler",
-            sriConfig.errorHandler || [],
-            (f) => f(sriRequest, err, sriInternalUtils),
+          await handleExpressWrapperError(
+            resp,
+            err,
+            sriConfig,
+            sriInternalUtils,
+            t,
+            endTask,
+            rejectTx,
             sriRequest,
+            readOnly,
           );
-
-          // TODO: what with streaming errors
-          if (t !== undefined) {
-            // t will be null in case of error during startTask/startTransaction
-            if (readOnly === true) {
-              debug(
-                "db",
-                `++ Exception caught. Closing database task. ++\n${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
-                sriInternalConfig.logdebug,
-              );
-              await endTask();
-            } else {
-              debug(
-                "db",
-                `++ Exception caught. Rolling back database transaction. ++\n${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
-                sriInternalConfig.logdebug,
-              );
-              await rejectTx();
-            }
-          }
-
-          if (resp.headersSent) {
-            error(
-              "____________________________ E R R O R (expressWrapper)____________________________________",
-            );
-            error(err);
-            error(JSON.stringify(err, null, 2));
-            error("STACK:");
-            error(err.stack);
-            error(
-              "___________________________________________________________________________________________",
-            );
-            error("NEED TO DESTROY STREAMING REQ");
-            resp.on("drain", async () => {
-              await resp.destroy();
-              error("[drain event] Stream is destroyed.");
-            });
-            resp.on("finish", async () => {
-              await resp.destroy();
-              error("[finish event] Stream is destroyed.");
-            });
-            resp.write(
-              "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n",
-            );
-            resp.write(err.toString());
-            resp.write(JSON.stringify(err, null, 2));
-            resp.write(
-              "\n___________________________________________________________________________________________\n",
-            );
-
-            // keep sending data until the buffer is full, which will trigger a drain event,
-            // at which point the stream will be destroyed instead of closing it gracefully
-            // (because we want tosignal to the user that something went wrong, even if a
-            // 200 OK header has already been sent)
-            while (resp.write("       ")) {
-              // do nothing besides writing some more
-            }
-          } else if (isSriError(err)) {
-            if (err.status > 0) {
-              const reqId = httpContext.get("reqId") as string;
-              if (reqId !== undefined) {
-                err.body.vskoReqId = reqId;
-                err.headers["vsko-req-id"] = reqId;
-              }
-              resp.set(err.headers).status(err.status).send(err.body);
-            }
-          } else {
-            error(
-              "____________________________ E R R O R (expressWrapper)____________________________________",
-            );
-            error(err);
-            error("STACK:");
-            error(err.stack);
-            error(
-              "___________________________________________________________________________________________",
-            );
-            resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-          }
-          if (sriConfig.logdebug && sriConfig.logdebug.statuses !== undefined) {
-            setImmediate(() => {
-              // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
-              console.log("GOING TO CALL handleRequestDebugLog");
-              handleRequestDebugLog(
-                err.status ? err.status : 500,
-                sriInternalConfig.logdebug.statuses,
-              );
-            });
-          }
         } finally {
           overloadProtection.endPipeline();
         }

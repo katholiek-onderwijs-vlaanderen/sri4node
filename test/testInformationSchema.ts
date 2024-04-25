@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import { debug } from "../js/common";
 import { getInformationSchema } from "../js/informationSchema";
 

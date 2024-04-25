@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import { stdout } from "test-console";
 import { THttpClient } from "./httpClient";
 

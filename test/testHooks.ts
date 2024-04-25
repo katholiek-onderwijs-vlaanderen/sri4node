@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
+import { assert } from "chai";
 import * as uuid from "uuid";
 import sinon from "sinon";
 import sleep from "await-sleep";

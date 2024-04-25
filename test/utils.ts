@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import * as sri4node from "../sri4node";
 import pgPromise from "pg-promise";
 import sinon from "sinon";
