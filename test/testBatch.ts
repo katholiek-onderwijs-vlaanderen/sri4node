@@ -52,7 +52,7 @@ module.exports = function (httpClient: THttpClient) {
   function generateRandomCommunity(key): any {
     return {
       key,
-      name: `LETS ${key}`,
+      name: `LETS, ${key}`,
       street: "Leuvensesteenweg",
       streetnumber: "34",
       zipcode: "1040",
@@ -1339,8 +1339,8 @@ module.exports = function (httpClient: THttpClient) {
       const batch = [
         {
           href: "/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb",
-          // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
-          //   ==> forbidden for Sabine from 'LETS Regio Dendermonde'
+          // 'Steven Plas', community 'LETS, Aalst-Oudenaarde' -> only persons from same community can be read
+          //   ==> forbidden for Sabine from 'LETS, Regio Dendermonde'
           verb: "GET",
         },
         {
@@ -1381,8 +1381,8 @@ module.exports = function (httpClient: THttpClient) {
         [
           {
             href: "/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb",
-            // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
-            //   ==> forbidden for Sabine from 'LETS Regio Dendermonde'
+            // 'Steven Plas', community 'LETS, Aalst-Oudenaarde' -> only persons from same community can be read
+            //   ==> forbidden for Sabine from 'LETS, Regio Dendermonde'
             verb: "GET",
           },
         ],

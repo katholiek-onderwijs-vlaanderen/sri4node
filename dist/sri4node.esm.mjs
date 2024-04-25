@@ -2930,7 +2930,9 @@ var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, ma
         errors: [
           {
             code: "invalid.orderby.parameter",
-            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(", ")}.`
+            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(
+              ", "
+            )}.`
           }
         ]
       });
@@ -3040,7 +3042,10 @@ var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, order
   }
   const addOrReplaceParameter = (url5, parameter, value2) => {
     if (url5.indexOf(parameter) > 0) {
-      return url5.replace(new RegExp(`${parameter}[^&]*`), `${parameter}=${encodeURIComponent(value2)}`);
+      return url5.replace(
+        new RegExp(`${parameter}[^&]*`),
+        `${parameter}=${encodeURIComponent(value2)}`
+      );
     }
     return `${url5 + (url5.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value2)}`;
   };

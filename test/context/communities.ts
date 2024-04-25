@@ -102,7 +102,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
       type: "object",
       properties: {
         key: $s.guid("Key of this group."),
-        name: $s.string("Name of this group. Normally named 'LETS [locale]'."),
+        name: $s.string("Name of this group. Normally named 'LETS, [locale]'."),
         street: $s.string("Street of the organisational seat address."),
         streetnumber: $s.string("Street number of the organisational seat address."),
         streetbus: $s.string("Postal box of the organisational seat address."),

@@ -6,45 +6,45 @@ import utils from "./utils";
 module.exports = function (httpClient: THttpClient) {
   describe("GET public regular resource", function () {
     describe("without authentication", function () {
-      it("should return LETS Regio Dendermonde", async function () {
+      it("should return LETS, Regio Dendermonde", async function () {
         const response = await httpClient.get({
           path: "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
         });
         assert.equal(response.status, 200);
-        assert.equal(response.body.name, "LETS Regio Dendermonde");
+        assert.equal(response.body.name, "LETS, Regio Dendermonde");
       });
     });
 
     describe("with authentication", function () {
-      it("should return LETS Hamme", async function () {
+      it("should return LETS, Hamme", async function () {
         const response = await httpClient.get({
           path: "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",
           auth: "sabine",
         });
         assert.equal(response.status, 200);
-        assert.equal(response.body.name, "LETS Hamme");
+        assert.equal(response.body.name, "LETS, Hamme");
       });
     });
 
     describe("with invalid authentication - non-existing user", function () {
-      it("should return LETS Hamme", async function () {
+      it("should return LETS, Hamme", async function () {
         const response = await httpClient.get({
           path: "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",
           auth: "unknown",
         });
         assert.equal(response.status, 200);
-        assert.equal(response.body.name, "LETS Hamme");
+        assert.equal(response.body.name, "LETS, Hamme");
       });
     });
 
     describe("with invalid authentication - existing user, wrong password", function () {
-      it("should return LETS Hamme", async function () {
+      it("should return LETS, Hamme", async function () {
         const response = await httpClient.get({
           path: "/communities/1edb2754-8481-4996-ae5b-ec33c903ee4d",
           headers: { authorization: utils.makeBasicAuthHeader("sabine@email.be", "INVALID") },
         });
         assert.equal(response.status, 200);
-        assert.equal(response.body.name, "LETS Hamme");
+        assert.equal(response.body.name, "LETS, Hamme");
       });
     });
   });

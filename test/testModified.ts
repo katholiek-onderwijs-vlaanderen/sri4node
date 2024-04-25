@@ -259,7 +259,7 @@ module.exports = function (httpClient: THttpClient) {
     //     function generateRandomCommunity(key) {
     //       return {
     //         key: key,
-    //         name: 'LETS ' + key,
+    //         name: 'LETS, ' + key,
     //         street: 'Leuvensesteenweg',
     //         streetnumber: '34',
     //         zipcode: '1040',
