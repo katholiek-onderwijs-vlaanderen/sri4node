@@ -1,22 +1,58 @@
 import pMap from "p-map";
 import { errorAsCode, debug, stringifyError, setServerTimingHdr } from "./common";
-import { SriError, TSriRequest } from "./typeDefinitions";
+import {
+  SriError,
+  TAfterDeleteHook,
+  TAfterInsertHook,
+  TAfterReadHook,
+  TAfterRequestHook,
+  TAfterUpdateHook,
+  TBeforeDeleteHook,
+  TBeforeInsertHook,
+  TBeforePhaseHook,
+  TBeforeReadHook,
+  TBeforeUpdateHook,
+  TErrorHandlerHook,
+  TSriRequestInternal,
+  TSriRequestExternal,
+  TStartupHook,
+  TTransformInternalRequestHook,
+  TTransformRequestHook,
+  TTransformResponseHook,
+} from "./typeDefinitions";
 
-async function applyHooks(
+async function applyHooks<
+  T extends
+    | TStartupHook
+    | TBeforePhaseHook
+    | TBeforeReadHook
+    | TBeforeInsertHook
+    | TBeforeUpdateHook
+    | TBeforeDeleteHook
+    | TAfterReadHook
+    | TAfterInsertHook
+    | TAfterUpdateHook
+    | TAfterDeleteHook
+    | TTransformRequestHook
+    | TTransformInternalRequestHook
+    | TAfterRequestHook
+    | TTransformResponseHook
+    | TErrorHandlerHook,
+>(
   type: string,
-  functions: Array<(...any) => any> | undefined,
+  functions: Array<T> | undefined,
   // Array<(expressRequest:Request, sriReq:TSriRequest, dbT:unknown) => void>
   // | (sriRequest:TSriRequest) => void,
   // applyFun: (fun:(dbT:any, sriReq:TSriRequest, result:any) => any) => any,
-  applyFun: (fun: (...any) => any) => any,
-  sriRequest?: TSriRequest,
+  applyFun: (func: T) => unknown,
+  sriRequest?: TSriRequestExternal | TSriRequestInternal,
 ) {
   if (functions && functions.length > 0) {
     try {
       debug("hooks", `applyHooks-${type}: going to apply ${functions.length} functions`);
       await pMap(
         functions,
-        async (fun: any) => {
+        async (fun: T) => {
           const hrstart = process.hrtime();
           const funName =
             fun.name !== ""

@@ -174,16 +174,17 @@ module.exports = function (sri4node: typeof Sri4Node) {
       {
         routePostfix: "/customroute_via_internal_interface",
         httpMethods: ["GET"],
-        handler: async (tx, sriRequest, _customMapping) => {
+        handler: async (tx, sriRequest, _customMapping, sriInternalUtils) => {
           const getRequest = {
             href: "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",
-            verb: "GET",
+            verb: "GET" as Sri4Node.THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
             body: "",
           };
 
-          return global.sri4node_internal_interface(getRequest);
+          // return global.sri4node_internal_interface(getRequest);
+          return sriInternalUtils.internalSriRequest(getRequest);
         },
       },
     ],

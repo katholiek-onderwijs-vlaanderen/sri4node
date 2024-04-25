@@ -13,11 +13,30 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 
+- Separate type TSriInternalConfig, so we could make TSriConfig more strict and thus easier
+  to unerstand. This also better reflects the differences between the two types.
+
 ### Changed
+
+- We do not rewrite sriConfig anymore in the configure function, but we create a new object
+  with type TSriInternalConfig.
+- Removed the use of properties on the global Object to share state between functions.
+  This would make it hard to use muliple sri4node instances in the same process. While you might
+  not expect this to be used often, it can come in handy for writing tests using multiple
+  sri4node api's in parallel.
+  - global.sri4node_configuration
+  - global.sriinternalUtils
+  - global.sri4node_internal_interface
+  - global.overloadProtection
+- Everything that used to have type ParsedUrlQuery has type URLSearchParams now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query)
+- Stateful functions (like debug and error) are not exported from the library directly anymore
+  because they were only safe to use after configure had been called.
 
 ### Deprecated
 
 ### Removed
+
+- js/utilLib.ts file, put everything in js/common.ts
 
 ### Fixed
 

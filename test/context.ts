@@ -14,21 +14,23 @@ import {
   TSriConfig,
   SriError,
   TSriRequest,
-  TLogDebug,
   TSriServerInstance,
+  TLogDebugExternal,
 } from "../js/typeDefinitions";
-import utils from "./utils";
+import * as utils from "./utils";
 import { Server } from "http";
 import { IDatabase, IMain } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
+import _ from "lodash";
 
 let configCache: TSriConfig;
+let configCacheClone: TSriConfig;
 
 import * as sri4nodeTS from "../index";
 
 function config(
   sri4node: typeof sri4nodeTS,
-  logdebug: TLogDebug,
+  logdebug: TLogDebugExternal,
   dummyLogger: Console,
   resourceFiles: Array<string>,
 ) {
@@ -132,13 +134,14 @@ function config(
   };
 
   configCache = config;
+  configCacheClone = _.cloneDeep(config);
   return config;
 }
 
 async function serve(
   sri4node,
   port,
-  logdebug: TLogDebug,
+  logdebug: TLogDebugExternal,
   dummyLogger,
   resourceFiles,
 ): Promise<{ server: Server; sriServerInstance: TSriServerInstance }> {
@@ -167,4 +170,18 @@ function getConfiguration() {
   return configCache;
 }
 
-export { config, serve, getConfiguration };
+/**
+ * When calling config, we make a clone, so we can test after calling serve
+ * if the config object is not altered by sri4node.configure()
+ *
+ * @returns a deep clone of the original configuration object
+ */
+function getConfigurationClone() {
+  if (!configCacheClone) {
+    throw new Error("please first configure the context");
+  }
+
+  return configCacheClone;
+}
+
+export { config, serve, getConfiguration, getConfigurationClone };

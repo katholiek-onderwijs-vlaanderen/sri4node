@@ -2,8 +2,8 @@
 import pSettle from "p-settle";
 import queue from "emitter-queue";
 import Emitter from "events";
-import { TSriRequestHandlerForPhaseSyncer, TSriRequest, TResourceDefinition, TSriInternalUtils } from "./typeDefinitions";
-import { IDatabase } from "pg-promise";
+import { TSriRequestHandlerForPhaseSyncer, TResourceDefinitionInternal, TSriInternalUtils, TInformationSchema, TBeforePhaseHook, TSriInternalConfig, TSriRequest } from "./typeDefinitions";
+import { IDatabase, ITask } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 /**
  * "Phase syncing" is a way to control synchronization between multiple requests handlers (multiple items
@@ -38,7 +38,11 @@ declare class PhaseSyncer {
      * promise of the jobWrapperFun which runs the sri request handler
      */
     jobPromise: Promise<any>;
-    constructor(fun: TSriRequestHandlerForPhaseSyncer, args: readonly [IDatabase<unknown>, TSriRequest, TResourceDefinition | null, TSriInternalUtils], ctrlEmitter: Emitter);
+    constructor(fun: TSriRequestHandlerForPhaseSyncer, args: readonly [
+        tx: IDatabase<unknown> | ITask<unknown>,
+        sriRequest: TSriRequest,
+        resourceDefinition: TResourceDefinitionInternal | null
+    ], sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema, resources: TResourceDefinitionInternal[], ctrlEmitter: Emitter);
     /**
      * This function needs to be called by the sri request handler at the end of each phase
      * (i.e. at each synchronisation point).
@@ -62,15 +66,14 @@ declare class PhaseSyncer {
 declare function phaseSyncedSettle(jobList: Array<readonly [
     TSriRequestHandlerForPhaseSyncer,
     readonly [
-        IDatabase<unknown, IClient>,
+        IDatabase<unknown, IClient> | ITask<unknown>,
         TSriRequest,
-        TResourceDefinition | null,
-        TSriInternalUtils
+        TResourceDefinitionInternal | null
     ]
-]>, { concurrency, beforePhaseHooks }?: {
-    concurrency?: number;
-    beforePhaseHooks?: any[];
-}): Promise<pSettle.PromiseResult<any>[] | {
+]>, { concurrency, beforePhaseHooks, }: {
+    concurrency?: number | undefined;
+    beforePhaseHooks?: TBeforePhaseHook[] | undefined;
+} | undefined, sriInternalConfig: TSriInternalConfig, sriInternalUtils: TSriInternalUtils): Promise<pSettle.PromiseResult<any>[] | {
     isFulfilled: boolean;
     reason: any;
 }[]>;

@@ -6,12 +6,15 @@ import Emitter from "events";
 import {
   SriError,
   TSriRequestHandlerForPhaseSyncer,
-  TSriRequest,
-  TResourceDefinition,
+  TResourceDefinitionInternal,
   TSriInternalUtils,
+  TInformationSchema,
+  TBeforePhaseHook,
+  TSriInternalConfig,
+  TSriRequest,
 } from "./typeDefinitions";
 import { debug, error, getParentSriRequestFromRequestMap } from "./common";
-import { IDatabase } from "pg-promise";
+import { IDatabase, ITask } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 import { applyHooks } from "./hooks";
 
@@ -65,7 +68,14 @@ class PhaseSyncer {
 
   constructor(
     fun: TSriRequestHandlerForPhaseSyncer,
-    args: readonly [IDatabase<unknown>, TSriRequest, TResourceDefinition | null, TSriInternalUtils],
+    args: readonly [
+      tx: IDatabase<unknown> | ITask<unknown>,
+      sriRequest: TSriRequest,
+      resourceDefinition: TResourceDefinitionInternal | null,
+    ],
+    sriInternalUtils: TSriInternalUtils,
+    informationSchema: TInformationSchema,
+    resources: TResourceDefinitionInternal[],
     ctrlEmitter: Emitter,
   ) {
     this.ctrlEmitter = ctrlEmitter;
@@ -80,7 +90,7 @@ class PhaseSyncer {
      */
     const jobWrapperFun = async () => {
       try {
-        const res = await fun(this, ...args);
+        const res = await fun(this, ...args, sriInternalUtils, informationSchema, resources);
         this.ctrlEmitter.queue("jobDone", this.id);
         this.sriRequest.ended = true;
         return res;
@@ -136,14 +146,18 @@ async function phaseSyncedSettle(
     readonly [
       TSriRequestHandlerForPhaseSyncer,
       readonly [
-        IDatabase<unknown, IClient>,
+        IDatabase<unknown, IClient> | ITask<unknown>,
         TSriRequest,
-        TResourceDefinition | null,
-        TSriInternalUtils,
+        TResourceDefinitionInternal | null,
       ],
     ]
   >,
-  { concurrency, beforePhaseHooks }: { concurrency?: number; beforePhaseHooks?: any[] } = {},
+  {
+    concurrency,
+    beforePhaseHooks,
+  }: { concurrency?: number; beforePhaseHooks?: Array<TBeforePhaseHook> } = {},
+  sriInternalConfig: TSriInternalConfig,
+  sriInternalUtils: TSriInternalUtils,
 ) {
   /**
    * channel used to communicate between the controller process (this function) and the PhaseSyncer instances.
@@ -155,7 +169,17 @@ async function phaseSyncedSettle(
    */
   const jobMap: Map<string, PhaseSyncer> = new Map(
     jobList
-      .map(([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter))
+      .map(
+        ([fun, args]) =>
+          new PhaseSyncer(
+            fun,
+            [...args],
+            sriInternalUtils,
+            sriInternalConfig.informationSchema,
+            sriInternalConfig.resources,
+            ctrlEmitter,
+          ),
+      )
       .map((phaseSyncer: PhaseSyncer) => [phaseSyncer.id, phaseSyncer]),
   );
 
@@ -226,10 +250,19 @@ async function phaseSyncedSettle(
       if (jobsToWake.length > 0) {
         // Only handle beforePhaseHooks when there are jobs to wake - otherwise the phaseSyncer
         // will be terminated
-        await applyHooks(
+        await applyHooks<TBeforePhaseHook>(
           "ps",
           beforePhaseHooks || [],
-          (f) => f(sriRequestMap, jobMap, pendingJobs),
+          (f: TBeforePhaseHook) =>
+            f(
+              sriRequestMap,
+              jobMap,
+              pendingJobs,
+              sriInternalUtils,
+              sriInternalConfig.resources,
+              sriInternalConfig.informationSchema,
+              sriInternalConfig.pgColumns,
+            ),
           getParentSriRequestFromRequestMap(sriRequestMap),
         );
       }

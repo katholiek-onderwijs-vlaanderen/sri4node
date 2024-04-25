@@ -9,9 +9,17 @@ import { TSriServerInstance } from "../js/typeDefinitions";
  * This way we can check if that table contains the expected records.
  */
 module.exports = function (
-  testContext: { sriServerInstance: null | TSriServerInstance },
+  testContext: { sriServerInstance: null | TSriServerInstance; context: any },
   httpClient,
 ) {
+  it("sri4node.configure must not modify the config object", () => {
+    // make sure running sri4node.configure() has NOT altered the config object!
+    assert.deepEqual(
+      testContext.context.getConfiguration(),
+      testContext.context.getConfigurationClone(),
+    );
+  });
+
   describe("sriConfig.databaseConnectionParameters.connectionInitSql", function () {
     it("connectionInitSql should be executed", async function () {
       // make sure at least one conncetion is made by doing an api call

@@ -1,14 +1,8 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
-import * as uuid from "uuid";
 import { spy } from "sinon";
 import * as sinon from "sinon";
-import sleep from "await-sleep";
-import fs from "fs";
-
-import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
-import { TSriConfig } from "../sri4node";
+import { TSriConfig, TSriInternalConfig } from "../sri4node";
 import * as sri4nodeTS from "../index"; // index is needed, otherwise it will use what is indicated in package.json/main !!!
 import express from "express";
 
@@ -17,7 +11,7 @@ import { IDatabase } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 
 /**
- * User this function to add a spy if none is present hyet, and if one is present, to reset
+ * User this function to add a spy if none is present yet, and if one is present, to reset
  * @param obj
  * @param method
  * @returns
@@ -36,7 +30,7 @@ function addOrResetSpy(obj: any, method: string): sinon.SinonSpy {
  * with the correct parameters and at the right time.
  */
 module.exports = function (
-  httpClient: THttpClient,
+  _httpClient: THttpClient,
   dummyLogger: Console,
   _testContext: { sriServerInstance: null | sri4nodeTS.TSriServerInstance },
 ) {
@@ -50,13 +44,21 @@ module.exports = function (
     plugins: [
       {
         uuid: "plugin 1",
-        install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
-        close: () => {},
+        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+          /* empty */
+        },
+        close: () => {
+          /* empty */
+        },
       },
       {
         // no uuid !
-        install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
-        close: () => {},
+        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+          /* empty */
+        },
+        close: () => {
+          /* empty */
+        },
       },
     ],
   };
@@ -110,7 +112,14 @@ module.exports = function (
       // - if 1 'close()' call throws an exception, the other plugins will still be closed as well
 
       it("install & close get called in the right order with the correct parameters", async () => {
-        const sriConfig: TSriConfig = { ...sriBaseConfig, startUp: [spy(() => {})] };
+        const sriConfig: TSriConfig = {
+          ...sriBaseConfig,
+          startUp: [
+            spy(() => {
+              /* empty */
+            }),
+          ],
+        };
         sriConfig.plugins?.forEach((plugin) => {
           addOrResetSpy(plugin, "install");
           addOrResetSpy(plugin, "close");
@@ -152,11 +161,19 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: sriBaseConfig.plugins?.[0].uuid,
-              install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
-              close: () => {},
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+                /* empty */
+              },
+              close: () => {
+                /* empty */
+              },
             },
           ],
-          startUp: [spy(() => {})],
+          startUp: [
+            spy(() => {
+              /* empty */
+            }),
+          ],
         };
 
         sriConfig.plugins?.forEach((plugin) => {
@@ -191,10 +208,16 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: "plugin 3",
-              install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+                /* empty */
+              },
             },
           ],
-          startUp: [spy(() => {})],
+          startUp: [
+            spy(() => {
+              /* empty */
+            }),
+          ],
         };
 
         sriConfig.plugins?.forEach((plugin) => {
@@ -226,18 +249,28 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: "plugin 3",
-              install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+                /* empty */
+              },
               close: () => {
                 throw new Error("close failed");
               },
             },
             {
               uuid: "plugin 4",
-              install: (_sriConfig: TSriConfig, _db: IDatabase<unknown, IClient>) => {},
-              close: () => {},
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+                /* empty */
+              },
+              close: () => {
+                /* empty */
+              },
             },
           ],
-          startUp: [spy(() => {})],
+          startUp: [
+            spy(() => {
+              /* empty */
+            }),
+          ],
         };
 
         sriConfig.plugins?.forEach((plugin) => {

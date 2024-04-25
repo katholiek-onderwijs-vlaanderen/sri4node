@@ -1,6 +1,6 @@
 import * as undici from "undici";
 import { THttpMethod } from "../js/typeDefinitions";
-import utils from "./utils";
+import * as utils from "./utils";
 import FormData from "form-data";
 
 export type THttpHeaders = {

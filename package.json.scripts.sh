@@ -136,7 +136,7 @@ test_inside_docker() {
     fi
   INSIDE_DOCKER='true' ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
   R=$?
-  echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test ./testBatch.ts\n********\n'
+  echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test test/testBatch.ts   (or test/testB* would also work)\n********\n'
   return $R
 }
 

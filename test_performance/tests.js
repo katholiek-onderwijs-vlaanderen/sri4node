@@ -1,11 +1,8 @@
-const assert = require("assert");
-const fs = require("fs");
+import assert from "assert";
+import fs from "fs";
+import { Client } from "undici";
 
-const { Client } = require("undici");
 const client = new Client(`http://localhost:4000`);
-
-const utils = require("../test/utils")(null);
-const makeBasicAuthHeader = utils.makeBasicAuthHeader;
 
 describe("Sri4node testing", function () {
   "use strict";

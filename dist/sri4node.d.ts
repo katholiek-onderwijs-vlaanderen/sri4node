@@ -1,35 +1,35 @@
 import { Application } from "express";
-import { error, pgConnect, pgExec, tableFromMapping, transformRowToObject, transformObjectToRow, typeToMapping, urlToTypeAndKey, parseResource, debugAnyChannelAllowed } from "./js/common";
-import { prepareSQL } from "./js/queryObject";
-import { TSriConfig, TSriServerInstance } from "./js/typeDefinitions";
+import { error, debugAnyChannelAllowed } from "./js/common";
+import { TSriConfig, TSriServerInstance, TSriInternalConfig } from "./js/typeDefinitions";
 import * as queryUtils from "./js/queryUtils";
 import * as schemaUtils from "./js/schemaUtils";
 import * as mapUtils from "./js/mapUtils";
-import * as listResource from "./js/listResource";
-import * as utilLib from "./js/utilLib";
 /**
  * Exposes a bunch of utility functions.
  */
-declare const utils: {
-    executeSQL: typeof pgExec;
-    prepareSQL: typeof prepareSQL;
-    convertListResourceURLToSQL: typeof listResource.getSQLFromListResource;
-    addReferencingResources: typeof utilLib.addReferencingResources;
-    pgConnect: typeof pgConnect;
-    transformRowToObject: typeof transformRowToObject;
-    transformObjectToRow: typeof transformObjectToRow;
-    typeToMapping: typeof typeToMapping;
-    tableFromMapping: typeof tableFromMapping;
-    urlToTypeAndKey: typeof urlToTypeAndKey;
-    parseResource: typeof parseResource;
-};
+declare const utils: TSriInternalConfig["utils"];
 /**
  * The main function that configures an sri4node api on top of an existing express app,
  * and based on an sriConfig object
  * @param app express application
- * @param sriConfig the config object
+ * @param sriInternalConfig the config object
  */
 declare function configure(app: Application, sriConfig: TSriConfig): Promise<TSriServerInstance>;
-export { configure, debugAnyChannelAllowed as debug, // debugAnyChannelAllowed(ch, msg) => debug(null, ch, msg)
+export { configure, 
+/**
+ * @deprecated
+ * This function depends on the configuration object, which is not available before
+ * configure() has been called. Hence it should be removed here, and put in the
+ * sri4nodeServerInstance object that is returned by configure() or passed
+ * as part of every sriRequest, so it can be called whenever needed.
+ */
+debugAnyChannelAllowed as debug, 
+/** @deprecated
+ * Similar to debug, this function should be removed from here and put in the
+ * sri4nodeServerInstance object that is returned by configure() or passed
+ * as part of every sriRequest, so it can be called whenever needed.
+ * It uses express-http-context in order to get the request id, which also feels like
+ * magic that should be avoided.
+ */
 error, queryUtils, mapUtils, schemaUtils, utils, };
 export * from "./js/typeDefinitions";

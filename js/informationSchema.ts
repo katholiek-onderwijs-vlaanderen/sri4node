@@ -23,7 +23,7 @@ import { IDatabase } from "pg-promise";
  * Assumes that sriConfig.databaseConnectionParameters.schema is set to a single string !!!
  *
  */
-async function informationSchema(
+async function getInformationSchema(
   db: IDatabase<unknown>,
   sriConfig: TSriConfig,
 ): Promise<TInformationSchema> {
@@ -78,4 +78,4 @@ async function informationSchema(
   );
 }
 
-export { informationSchema };
+export { getInformationSchema };

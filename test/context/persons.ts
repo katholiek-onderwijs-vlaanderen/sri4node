@@ -378,7 +378,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
         routePostfix: "/test_before_streaming_handler",
         httpMethods: ["POST"],
         readOnly: false,
-        beforeStreamingHandler: async (_tx, _sriRequest, _customMapping, _internalUtils) => {
+        beforeStreamingHandler: async (_tx, _sriRequest, _customMapping, _sriInternalUtils) => {
           return {
             status: 204,
             headers: [["MyTestHeader", "MyTestValue"]],

@@ -1,16 +1,11 @@
 /// <reference types="node" />
-import Express from "express";
-import { IInitOptions } from "pg-promise";
-import pgPromise from "pg-promise";
+import pgPromise, { IDatabase, IMain, ITask } from "pg-promise";
 import { Application, Request, Response } from "express";
-import { Readable } from "stream";
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
+import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest } from "./typeDefinitions";
+import stream from "stream";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
 import { IClient } from "pg-promise/typescript/pg-subset";
-/**
- * Base class for every error that is being thrown throughout the lifetime of an sri request
- */
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
  *
@@ -18,8 +13,26 @@ import { IClient } from "pg-promise/typescript/pg-subset";
  * @returns the input translated to milliseconds
  */
 declare function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number;
-declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
 /**
+ *
+ * @param channel name of the channel
+ * @param logdebug optional. If not set, we will always return true.
+ * @returns true if the channel is enabled in the logdebug config, or if logdebug is not set
+ */
+declare const isLogChannelEnabled: (channel: TDebugChannel | string, logdebug?: TLogDebugInternal) => boolean;
+/**
+ * @todo
+ * Change this so that each httpContext will have its own logBuffer, so we can just
+ * call httpContext.get("logBuffer") or something, and output that to the console at the end
+ * of the request.
+ * Another weird thing: the README says that logdebug.statuses means that we will only log
+ * for the given statuses, but if I look at the current implementation, it feels like we will only
+ * BUFFER the logs for the given statuses, and only output them at the end of the request.
+ * In all otehr cases the logs will be output to the console rightaway.
+ * The implementation of handleRequestDebugLog is also weird, because it will only output the logs
+ * if the status is in the logdebug.statuses set, and do nothing at all if statuses is undefined.
+ * Maybe we broke the implementation somewhere in the past, or maybe the README is wrong.
+ *
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
  * sri4node configuration (logdebug.channels), output (second parameter) is logged.
@@ -27,36 +40,51 @@ declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
  * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
  * information).
  *
- * This function is available for sri4node plugins and applications using sri4, which
+ * This function is available for sri4node plugins and applications using sri4node, which
  * are allowed to use logchannels of their own.
  *
  * @param channel one of the predefined log channels
  * @param output string or string generating function to log
+ * @param logdebugConfig optional. If not set, we will always log the output.
  */
 declare const debugAnyChannelAllowed: TDebugLogFunction;
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
  * sri4node configuration (logdebug.channels), output (second parameter) is logged.
- * Otherwise output is discared.
+ * Otherwise output is discarded.
  * (see https://github.com/katholiek-onderwijs-vlaanderen/sri4node#logging for more
  * information).
  *
  * This function is for internal (sri4node) usage where logchannels are restricted
  * to pre-defined debug channels. Restricting channels avoids errors and will make
  * it possible for vscode to do auto-completion.
+ *
+ * If logdebugConfig is not passed in as an argument, the output will always be logged,
+ * unless we are in an express request context, in which case the output will be buffered,
+ * and we will try to get the logdebug settings from the express context.
+ *
+ * @see debugAnyChannelAllowed for info on exacvtly how this works from within or outside
+ *  of an express request context
  * @param channel one of the predefined log channels
  * @param output string or string generating function to log
+ * @param logdebugConfig optional. If not set, we will always log the output.
  */
-declare const debug: (channel: TDebugChannel, output: (() => string) | string) => void;
+declare const debug: (channel: TDebugChannel, output: (() => string) | string, logdebugConfig?: TSriInternalConfig["logdebug"]) => void;
+/**
+ * Logs errors to the console, but tries to prefix with reqId if it can be found with httpContext
+ * in some express 'session' info linked to the current 'thread'.
+ *
+ * @param args
+ */
 declare const error: TErrorLogFunction;
 /**
  * Will modify the parameter array into a sorted param array.
  *
- * @param {*} parseTree
+ * @param parseTree
  * @returns the in-place sorted parseTree
  */
-declare function sortUrlQueryParamParseTree(parseTree: any[]): any[];
+declare function sortUrlQueryParamParseTree(parseTree: Array<any>): any[];
 /**
  * This factory function will return a function that can parse an href
  * into an object containing the parseTree, and a normalizedUrl.
@@ -136,11 +164,44 @@ declare function hrefToParsedObjectFactory(sriConfig?: TSriConfig, flat?: boolea
  * @returns the parent sri request if it exists (otherwise the same request is returned!)
  */
 declare function getParentSriRequest(sriRequest: TSriRequest, recurse?: boolean): any;
-declare function installEMT(app: Application): typeof emt;
+/**
+ * Make sure the express app uses the express-middleware-timer.
+ *
+ * @param app
+ * @returns
+ */
+declare function installExpressMiddlewareTimer(app: Application): typeof emt;
+/**
+ * Will add the duration of 'property' to the serverTiming object of the parentSriRequest
+ * (so parentSriRequest WILL BE MODIFIED IN PLACE!)
+ * @param sriRequest
+ * @param property
+ * @param value
+ */
 declare function setServerTimingHdr(sriRequest: TSriRequest, property: any, value: any): void;
-declare function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRequest): void;
-declare function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug;
-declare function handleRequestDebugLog(status: number): void;
+declare function expressMiddlewareTimerReportToServerTiming(req: Request, res: Response, sriRequest: TSriRequestExternal): void;
+/**
+ * Turns the config object passed to sri4node into an object that can be used internally.
+ *
+ * @param logdebug
+ * @returns
+ */
+declare function createDebugLogConfigObject(logdebug?: TLogDebugExternal | boolean): TLogDebugInternal;
+/**
+ * @todo
+ * change this, so that each httpContext will have its own logBuffer, so we can just
+ * call httpContext.get("logBuffer") or something, and output that to the console.
+ * That would avoid having the single 'global' logBuffer.
+ *
+ * It will print eveything that has been accumulated in the logBuffer for the current request
+ * to the console if it has the right status.
+ * After this, the logBuffer of this request will be emptied.
+ *
+ * @param status a number that indicates it should be printed if that number can be found in the
+ *                logdebug.statuses set
+ * @param logdebug configuration object that contains the logdebug settings
+ */
+declare function handleRequestDebugLog(status: number, statuses: TLogDebugInternal["statuses"]): void;
 declare function urlToTypeAndKey(urlToParse: string): {
     type: any;
     key: any;
@@ -181,38 +242,47 @@ declare function parseResource(u: string): {
     query: null;
     comment: string | null;
 } | null;
+/**
+ * return any string as code for REST API error object
+ *
+ * @param s
+ * @returns
+ */
 declare function errorAsCode(s: string): string;
 /**
  * Converts the configuration object for sri4node into an array per resource type
  */
-declare function typeToConfig(config: TResourceDefinition[]): {};
+declare function typeToConfig<T extends TResourceDefinition | TResourceDefinitionInternal>(config: Array<T>): T;
 /**
  * @param type the string used as 'type' in the sriConfig resources
+ * @param resources the array of resource definitions from the sriConfig
  * @returns the resource definition record from the active sriConfig
  */
-declare function typeToMapping(type: string): TResourceDefinition;
-declare function sqlColumnNames(mapping: any, summary?: boolean): string;
+declare function typeToMapping(type: string, resources: Array<TResourceDefinition> | Array<TResourceDefinitionInternal>): TResourceDefinitionInternal;
+declare function sqlColumnNames(mapping: TResourceDefinitionInternal, summary?: boolean): string;
 /**
  * @param row the database row
  * @param resourceMapping the applicable resource definition from the sriConfig object
  * @returns the json object as returned by the api
  */
-declare function transformRowToObject(row: any, resourceMapping: TResourceDefinition): any;
+declare function transformRowToObject(row: any, resourceMapping: TResourceDefinitionInternal): any;
 /**
  * Function which verifies wether for all properties specified in the sri4node configuration
  * there exists a column in the database.
- * An improvement might be to also check if the types
+ * An improvement might be to also check if the types match.
+ *
  * @param sriConfig sri4node configuration object
+ * @param informationSchema the information schema of the database
  * @returns nothing, throw an error in case something is wrong
  */
-declare function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema): void;
+declare function checkSriConfigWithDbInformationSchema(sriConfig: TSriConfig, informationSchema: TInformationSchema): void;
 /**
  * @param obj the api object
  * @param resourceMapping the applicable resource definition from the sriConfig object
  * @param isNewResource boolean indicating that the resource doesn't exist yet
  * @returns a row to be saved on the database
  */
-declare function transformObjectToRow(obj: Record<string, any>, resourceMapping: TResourceDefinition, isNewResource: boolean): {};
+declare function transformObjectToRow(obj: Record<string, any>, resourceMapping: TResourceDefinition | TResourceDefinitionInternal, isNewResource: boolean, informationSchema: TInformationSchema): Record<string, unknown>;
 /**
  * Here we initalize the instance of the pgPromise LIBRARY.
  *
@@ -221,12 +291,13 @@ declare function transformObjectToRow(obj: Record<string, any>, resourceMapping:
  *
  * @param pgpInitOptions
  * @param extraOptions
+ * @returns the pgPromise instance
  */
-declare function pgInit(pgpInitOptions: IInitOptions<{}, IClient> | undefined, extraOptions: {
+declare function pgInit(pgpInitOptions: pgPromise.IInitOptions<{}, IClient> | undefined, extraOptions: {
     schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined;
     connectionInitSql?: string;
     monitor: boolean;
-}): Promise<void>;
+}): pgPromise.IMain;
 /**
  * The mechanism to know how to connect to the DB used to be messy,
  * with one config property called defaultdatabaseurl,
@@ -245,27 +316,28 @@ declare function pgInit(pgpInitOptions: IInitOptions<{}, IClient> | undefined, e
  * What about schema? Shouldn't that simply be running 'set search_path=...'
  * on any new connection before handing it over to someone to use it?
  *
+ * @param pgp pgPromise instance (use pgInit(...) to generate one based on TSriConfig)
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-declare function pgConnect(sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, IClient>>;
+declare function pgConnect(pgp: pgPromise.IMain, sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, IClient>>;
 /**
  * @type {{ name: string, text: string }} details
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
 declare function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined): pgPromise.PreparedStatement;
-declare function pgExec(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<any>;
-declare function pgResult(db: pgPromise.IDatabase<unknown, IClient>, query: any, sriRequest?: TSriRequest): Promise<pgPromise.IResultExt<unknown>>;
-declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mode?: {
+declare function pgExec(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<any>;
+declare function pgResult(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<pgPromise.IResultExt<unknown>>;
+declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, mode?: {
     begin(cap?: boolean | undefined): string;
 }): Promise<{
-    tx: pgPromise.ITask<any>;
+    tx: pgPromise.ITask<unknown>;
     resolveTx: () => Promise<void>;
     rejectTx: () => Promise<void>;
 }>;
-declare function startTask(db: pgPromise.IDatabase<unknown, IClient>): Promise<{
-    t: unknown;
-    endTask: () => Promise<void>;
+declare function startTask(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>): Promise<{
+    t: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>;
+    endTask: () => void;
 }>;
 declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string): Promise<void>;
 declare function getCountResult(tx: any, countquery: any, sriRequest: any): Promise<number>;
@@ -275,13 +347,12 @@ declare function getCountResult(tx: any, countquery: any, sriRequest: any): Prom
  * @param mapping
  * @returns the correponding database table name
  */
-declare function tableFromMapping(mapping: TResourceDefinition): any;
-declare function isEqualSriObject(obj1: any, obj2: any, mapping: any): any;
+declare function tableFromMapping(mapping: TResourceDefinition | TResourceDefinitionInternal): any;
+declare function isEqualSriObject(obj1: any, obj2: any, mapping: TResourceDefinitionInternal, informationSchema: TInformationSchema): any;
 declare function stringifyError(e: any): string;
 declare function settleResultsToSriResults(results: any): any;
-declare function createReadableStream(objectMode?: boolean): Readable;
+declare function createReadableStream(objectMode?: boolean): stream.Readable;
 declare function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse?: boolean): any;
-declare function getPgp(): pgPromise.IMain<{}, IClient>;
 /**
  * This function will generate a new SriRequest object, based on some parameters.
  * Since the SriRequest is some kind of 'abstraction' over the express request,
@@ -306,20 +377,21 @@ declare function getPgp(): pgPromise.IMain<{}, IClient>;
  * @param {object} batchHandlerAndParams: an object as returned by batch/matchHref of the form
  *                 { path, routeParams, queryParams,
  *                   handler: [path, verb, func, config, mapping, streaming, readOnly, isBatch] }
- * @param {TSriRequest} parentSriRequest: needed when inside a batch or when called as
+ * @param {TSriRequestExternal} parentSriRequest: needed when inside a batch or when called as
  *                     sri4node_internal_interface
  * @param {BatchElement} batchElement: needed when creating a 'virtual' SriRequest that represents
  *                       1 request from inside a batch
  *
- * @returns {TSriRequest}
+ * @returns {TSriRequestExternal}
  */
-declare function generateSriRequest(expressRequest?: Express.Request | undefined, expressResponse?: Express.Response | any | undefined, basicConfig?: {
+declare function generateSriRequest(expressRequest?: Request | undefined, expressResponse?: Response | any | undefined, basicConfig?: {
     isBatchRequest: boolean;
     isStreamingRequest: boolean;
     readOnly: boolean;
-    mapping?: TResourceDefinition;
-    dbT: any;
-} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequest | undefined, batchElement?: any, internalSriRequest?: Omit<TInternalSriRequest, "protocol" | "serverTiming"> | undefined): TSriRequest;
+    mapping?: TResourceDefinitionInternal;
+    dbT: IDatabase<unknown, IClient> | ITask<unknown>;
+    pgp: IMain;
+} | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequestExternal | undefined, batchElement?: any, internalSriRequest?: Omit<TSriRequestInternal, "protocol" | "serverTiming"> | undefined): TSriRequestExternal;
 /**
  * This is a recursive function that can find a property definition in a json schema definition.
  * This will also work when you have oneOf or anyOf sections in your schema definition.
@@ -330,4 +402,70 @@ declare function generateSriRequest(expressRequest?: Express.Request | undefined
  *  if the property is not found
  */
 declare function findPropertyInJsonSchema(schema: JSONSchema4, propertyName: string): any;
-export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installEMT, setServerTimingHdr, emtReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, getPgp, generateSriRequest, checkSriConfigWithDb, findPropertyInJsonSchema, };
+/**
+ * Prepare pg-promise columnsets for a set of column names, for multi insert/update & delete,
+ * based on the informationSchema
+ *
+ * @param columnNames
+ * @param type
+ * @param table
+ * @param informationSchema
+ * @param pgp
+ * @returns a pgPromise.IColumnConfig object
+ */
+declare const generatePgColumnSet: (columnNames: Array<string>, type: string, table: string, informationSchema: TInformationSchema, pgp: pgPromise.IMain) => pgPromise.ColumnSet<Record<string, string>>;
+/**
+ * Given the resource definition and the db information schema, check
+ * if the database contains all the required fields (like key, $$meta.created etc.).
+ *
+ * @param mapping
+ * @param informationSchema
+ * @throws Error if a required field is missing
+ */
+declare function checkRequiredFields(mapping: TResourceDefinitionInternal, informationSchema: TInformationSchema): void;
+/**
+ * Translates a resource definition to a resource definition that is used internally.
+ * This one is more strict, as more properties are required, which makes it easier later on to work
+ * with.
+ *
+ * Next to doing a few checks, it will also compile the json schema, which can also throw errors
+ * if the schema is invalid.
+ *
+ * @param resourceDefinition the resource definition as provided by the user
+ * @throws Error in some cases if the resource definition is obviously not valid, but does not check everything
+ *
+ */
+declare function resourceDefToResourceDefInternal(resourceDefinition: TResourceDefinition): TResourceDefinitionInternal;
+declare function addReferencingResources(type: string, column: any, targetkey: string | number, excludeOnExpand: string | string[]): TAfterReadHook;
+/**
+ * Will always return an array, given a certain argument.
+ * null and undefined will be converted to an empty array.
+ * If the argument is already an array, it will be returned as is.
+ * Anything else will be wrapped inside an array.
+ *
+ * @example
+ * ```javascript
+ * toArray(undefined); // will return []
+ * toArray(null); // will return []
+ * toArray('simple string'); // will return ['simple string']
+ * toArray(['already an array']); // will return ['already an array']
+ * ```
+ * @param thing
+ */
+declare const toArray: (thing: any) => any[];
+/**
+ * @deprecated
+ *
+ * Makes the property <name> of object <resource> an array.
+ * This function will alter the resource object so it is advised NOT to use it!
+ *
+ * @example
+ * ```javascript
+ * objPropertyToArray({}, foo); // will ALTER RESOURCE into { foo: [] }
+ * objPropertyToArray({ foo: null }, foo); // will produce { foo: [] }
+ * objPropertyToArray({ foo: 'bar' }, foo); // will produce { foo: ['bar'] }
+ * ```
+ * @param resource
+ * @param name
+ */
+export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installExpressMiddlewareTimer, setServerTimingHdr, expressMiddlewareTimerReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, generateSriRequest, checkSriConfigWithDbInformationSchema, findPropertyInJsonSchema, generatePgColumnSet, checkRequiredFields, addReferencingResources, toArray, resourceDefToResourceDefInternal, };

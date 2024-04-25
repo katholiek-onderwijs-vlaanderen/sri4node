@@ -1,10 +1,9 @@
 /* External query utilities. use in the 'query' section of your sri4node configuration */
 import { tableFromMapping } from "./common";
-import { SriError, TPreparedSql, TResourceDefinition } from "./typeDefinitions";
+import { SriError, TPreparedSql, TResourceDefinitionInternal } from "./typeDefinitions";
 import { defaultFilter } from "./defaultFilter";
 import { IDatabase } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
-import { ParsedUrlQuery } from "querystring";
 
 /**
  *
@@ -19,8 +18,8 @@ function filterHrefs(
   _parameter: string,
   _tx: IDatabase<unknown, IClient>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   const table = tableFromMapping(mapping);
 
@@ -87,8 +86,8 @@ function modifiedSince(
   _parameter: string,
   _tx: IDatabase<unknown, IClient>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   const table = tableFromMapping(mapping);
 

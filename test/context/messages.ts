@@ -98,8 +98,8 @@ module.exports = function (sri4node: typeof Sri4Node) {
       communities: $q.filterReferencedType("/communities", "community"),
       postedSince: messagesPostedSince, // For compatability, to be removed.
       modifiedsince: messagesPostedSince,
-      cteOneGuid: cteOneGuid,
-      cteOneGuid2: cteOneGuid2,
+      cteOneGuid,
+      cteOneGuid2,
       defaultFilter: $q.defaultFilter,
     },
     afterRead: [addExtraKeysAfterRead],

@@ -10,9 +10,18 @@ import {
   tableFromMapping,
   pgExec,
 } from "./common";
-import { SriError, TResourceDefinition, TSriRequest } from "./typeDefinitions";
+import {
+  SriError,
+  TAfterReadHook,
+  TInformationSchema,
+  TPgColumns,
+  TResourceDefinitionInternal,
+  TSriInternalUtils,
+  TSriRequestExternal,
+} from "./typeDefinitions";
 import { prepareSQL } from "./queryObject";
 import { applyHooks } from "./hooks";
+import { IDatabase } from "pg-promise";
 
 const checkRecurse = (expandpath) => {
   const parts = expandpath.split(".");
@@ -36,11 +45,12 @@ const checkRecurse = (expandpath) => {
  */
 async function executeSingleExpansion(
   db,
-  sriRequest: TSriRequest,
+  sriRequest: TSriRequestExternal,
   elements: Array<Record<string, any>>,
-  mapping: TResourceDefinition,
-  resources: Array<TResourceDefinition>,
+  mapping: TResourceDefinitionInternal,
+  resources: Array<TResourceDefinitionInternal>,
   expandpath: string,
+  sriInternalUtils: TSriInternalUtils,
 ) {
   // console.log(expandpath)
   if (elements && elements.length > 0) {
@@ -100,7 +110,7 @@ async function executeSingleExpansion(
         );
 
         debug("trace", "expand - executing afterRead functions on expanded resources");
-        await applyHooks("after read", targetMapping.afterRead, (f) =>
+        await applyHooks<TAfterReadHook>("after read", targetMapping.afterRead, (f) =>
           f(
             db,
             sriRequest,
@@ -109,6 +119,8 @@ async function executeSingleExpansion(
               incoming: null,
               stored: e,
             })),
+            sriInternalUtils,
+            resources,
           ),
         );
 
@@ -129,6 +141,7 @@ async function executeSingleExpansion(
             targetMapping,
             resources,
             recursepath,
+            sriInternalUtils,
           );
         } else {
           debug("trace", "expand - executeSingleExpansion resolving");
@@ -179,10 +192,15 @@ function parseExpand(expand) {
  - person,community is OK
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
-async function executeExpansion(db, sriRequest, elements, mapping) {
-  const { expand } = sriRequest.query;
-
-  const { resources } = global.sri4node_configuration;
+async function executeExpansion(
+  db: IDatabase<unknown>,
+  sriRequest: TSriRequestExternal,
+  elements,
+  mapping: TResourceDefinitionInternal,
+  resources: Array<TResourceDefinitionInternal>,
+  sriInternalUtils: TSriInternalUtils,
+) {
+  const expand = sriRequest.query.get("expand");
 
   debug("trace", "expand - executeExpansion()");
   if (expand) {
@@ -190,7 +208,15 @@ async function executeExpansion(db, sriRequest, elements, mapping) {
     if (paths && paths.length > 0) {
       const expandedElements = elements.map((element) => element.$$expanded || element);
       await pMap(paths, (path: string) =>
-        executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path),
+        executeSingleExpansion(
+          db,
+          sriRequest,
+          expandedElements,
+          mapping,
+          resources,
+          path,
+          sriInternalUtils,
+        ),
       );
       debug("trace", "expand - expansion done");
     }
