@@ -443,7 +443,7 @@ declare function checkRequiredFields(mapping: TResourceDefinitionInternal, infor
  *
  */
 declare function resourceDefToResourceDefInternal(resourceDefinition: TResourceDefinition): TResourceDefinitionInternal;
-declare function addReferencingResources(type: string, column: any, targetkey: string | number, excludeOnExpand: string | string[]): TAfterReadHook;
+declare function addReferencingResources(type: string, column: string, targetkey: string | number, excludeOnExpand: string | string[]): TAfterReadHook;
 /**
  * Will always return an array, given a certain argument.
  * null and undefined will be converted to an empty array.

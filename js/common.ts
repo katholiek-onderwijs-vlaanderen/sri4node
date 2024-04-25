@@ -2102,7 +2102,7 @@ async function sriConfigToSriInternalConfig(_sriConfig: TSriConfig): Promise<TSr
 // TODO: refactor in v2.1 together with the whole expand story
 function addReferencingResources(
   type: string,
-  column: any,
+  column: string,
   targetkey: string | number,
   excludeOnExpand: string | string[],
 ): TAfterReadHook {
@@ -2151,15 +2151,17 @@ function addReferencingResources(
       });
 
       query
-        .sql(`select *, "${column}" as fkey from ${tablename} where "${column}" in (`)
-        .array(elementKeys)
-        .sql(') and "$$meta.deleted" = false');
+        .sql(`select *, "${column}" as fkey from ${tablename} where `)
+        .valueIn(column, elementKeys, "uuid")
+        .sql(' and "$$meta.deleted" = false');
       const rows = await pgExec(tx, query);
       await pMap(rows, async (row: Record<string, any>) => {
         const element = elementKeysToElement[row.fkey];
-        const target: any = { href: `${type}/${row.key}` };
+        const target = {
+          href: `${type}/${row.key}`,
+          $$expanded: await transformRowToObject(row, mapping),
+        };
 
-        target.$$expanded = await transformRowToObject(row, mapping);
         element[targetkey].push(target);
       });
     }

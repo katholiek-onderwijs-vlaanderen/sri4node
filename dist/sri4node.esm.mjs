@@ -1605,12 +1605,14 @@ function addReferencingResources(type, column, targetkey, excludeOnExpand) {
           elementKeysToElement[elementKey] = element;
           element[targetkey] = [];
         });
-        query.sql(`select *, "${column}" as fkey from ${tablename} where "${column}" in (`).array(elementKeys).sql(') and "$$meta.deleted" = false');
+        query.sql(`select *, "${column}" as fkey from ${tablename} where `).valueIn(column, elementKeys, "uuid").sql(' and "$$meta.deleted" = false');
         const rows = yield pgExec(tx, query);
         yield pMap(rows, (row) => __async(this, null, function* () {
           const element = elementKeysToElement[row.fkey];
-          const target = { href: `${type}/${row.key}` };
-          target.$$expanded = yield transformRowToObject(row, mapping);
+          const target = {
+            href: `${type}/${row.key}`,
+            $$expanded: yield transformRowToObject(row, mapping)
+          };
           element[targetkey].push(target);
         }));
       }

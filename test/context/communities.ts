@@ -11,7 +11,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
     throw new sri4node.SriError({ status: 404, errors: [{ code: "invalid.query.parameter" }] });
   }
 
-  function disallowOneCommunity(forbiddenKey) {
+  function disallowOneCommunity(forbiddenKey): Sri4Node.TAfterReadHook {
     return async function (_tx, sriRequest, elements) {
       if (sriRequest.httpMethod === "GET") {
         await pMap(
@@ -19,7 +19,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
           async (e: any) => {
             if (
               sriRequest.path === `/communities/${forbiddenKey}` ||
-              (sriRequest.query.expand !== undefined &&
+              (sriRequest.query.get("expand") !== undefined &&
                 e.permalink === `/communities/${forbiddenKey}`)
             ) {
               sri4node.debug(
