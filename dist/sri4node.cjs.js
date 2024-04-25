@@ -1527,7 +1527,7 @@ function resourceDefToResourceDefInternal(resourceDefinition) {
   const additionalProperties = {
     singleResourceRegex: new RegExp(""),
     listResourceRegex: new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`),
-    query: (_a = resourceDefinition.query) != null ? _a : { defaultFilter: queryUtils_exports.defaultFilter },
+    query: (_a = import_lodash.default.cloneDeep(resourceDefinition.query)) != null ? _a : { defaultFilter: queryUtils_exports.defaultFilter },
     validateKey: new import_ajv.default().compile({ type: "string" }),
     // can be overwritten below
     validateSchema: new import_ajv.default().compile({ type: "string" })

@@ -1957,7 +1957,7 @@ function resourceDefToResourceDefInternal(
   > = {
     singleResourceRegex: new RegExp(""),
     listResourceRegex: new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`),
-    query: resourceDefinition.query ?? { defaultFilter: queryUtils.defaultFilter },
+    query: _.cloneDeep(resourceDefinition.query) ?? { defaultFilter: queryUtils.defaultFilter },
     validateKey: new Ajv().compile({ type: "string" }), // can be overwritten below
     validateSchema: new Ajv().compile({ type: "string" }), // can be overwritten below
   };
