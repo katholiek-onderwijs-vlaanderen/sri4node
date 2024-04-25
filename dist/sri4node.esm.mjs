@@ -515,14 +515,14 @@ function prepareSQL(name) {
           columnNames.push(key);
         }
       }
-      let sqlColumnNames2 = "";
+      let sqlColumnNames3 = "";
       for (j = 0; j < columnNames.length; j++) {
-        sqlColumnNames2 += `"${columnNames[j]}"`;
+        sqlColumnNames3 += `"${columnNames[j]}"`;
         if (j < columnNames.length - 1) {
-          sqlColumnNames2 += ",";
+          sqlColumnNames3 += ",";
         }
       }
-      this.text += sqlColumnNames2;
+      this.text += sqlColumnNames3;
       return this;
     },
     values(o) {
@@ -1630,6 +1630,36 @@ var toArray = (thing) => {
 function isSriError(x) {
   var _a, _b;
   return x instanceof SriError || ((_b = (_a = x == null ? void 0 : x.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
+}
+function generatePgColumns(sriConfig, currentInformationSchema, pgp) {
+  return Object.fromEntries(
+    sriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
+      const { type } = resource2;
+      const table = tableFromMapping(typeToMapping(type, sriConfig.resources));
+      const columns = JSON.parse(
+        `[${sqlColumnNames(typeToMapping(type, sriConfig.resources))}]`
+      ).filter((cname) => !cname.startsWith("$$meta."));
+      const dummyUpdateRow = transformObjectToRow({}, resource2, false, currentInformationSchema);
+      const ret = {
+        insert: new pgp.helpers.ColumnSet(columns, { table }),
+        update: generatePgColumnSet(
+          [.../* @__PURE__ */ new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
+          type,
+          table,
+          currentInformationSchema,
+          pgp
+        ),
+        delete: generatePgColumnSet(
+          ["key", "$$meta.modified", "$$meta.deleted"],
+          type,
+          table,
+          currentInformationSchema,
+          pgp
+        )
+      };
+      return [table, ret];
+    })
+  );
 }
 
 // js/queryUtils.ts
@@ -3710,7 +3740,7 @@ function overloadProtectionFactory(config) {
         );
         return nrServed;
       }
-      return null;
+      return 0;
     },
     endPipeline: (nr = 1) => {
       if (config !== void 0) {
@@ -4310,11 +4340,11 @@ function batchFactory(sriInternalConfig) {
     };
     handleBatchForMatchBatch(reqBody);
   }
-  const batchOperation = function batchOperation2(sriRequest, sriInternalUtils, _informationSchema) {
+  const batchOperation = function batchOperation2(sriRequest, sriInternalUtils, _informationSchema, overloadProtection) {
     return __async(this, null, function* () {
       const reqBody = sriRequest.body || [];
       const batchConcurrency = Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency);
-      global.overloadProtection.startPipeline(batchConcurrency);
+      overloadProtection.startPipeline(batchConcurrency);
       try {
         let batchFailed = false;
         const handleBatchInBatchOperation = (batch, tx) => __async(this, null, function* () {
@@ -4444,14 +4474,14 @@ function batchFactory(sriInternalConfig) {
         const status = batchResults.some((e) => e.status === 403) ? 403 : Math.max(200, ...batchResults.map((e) => e.status));
         return { status, body: batchResults };
       } finally {
-        global.overloadProtection.endPipeline(batchConcurrency);
+        overloadProtection.endPipeline(batchConcurrency);
       }
     });
   };
-  const batchOperationStreaming = (sriRequest, sriInternalUtils, _informationSchema) => __async(this, null, function* () {
+  const batchOperationStreaming = (sriRequest, sriInternalUtils, _informationSchema, overloadProtection) => __async(this, null, function* () {
     let keepAliveTimer = null;
     const reqBody = sriRequest.body;
-    const batchConcurrency = global.overloadProtection.startPipeline(
+    const batchConcurrency = overloadProtection.startPipeline(
       Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency)
     );
     try {
@@ -4536,7 +4566,7 @@ function batchFactory(sriInternalConfig) {
               yield phaseSyncedSettle(
                 batchJobs,
                 {
-                  concurrency: batchConcurrency,
+                  concurrency: batchConcurrency != null ? batchConcurrency : void 0,
                   beforePhaseHooks: sriInternalConfig.beforePhase
                 },
                 sriInternalConfig,
@@ -4626,13 +4656,102 @@ function batchFactory(sriInternalConfig) {
       if (keepAliveTimer !== null) {
         clearInterval(keepAliveTimer);
       }
-      global.overloadProtection.endPipeline(batchConcurrency);
+      overloadProtection.endPipeline(batchConcurrency);
     }
   });
   return { batchFactory, matchHref, matchBatch, batchOperation, batchOperationStreaming };
 }
 
 // sri4node.ts
+function handleExpressWrapperError(resp, err, sriInternalConfig, sriInternalUtils, t, endTask, rejectTx, sriRequest, readOnly) {
+  return __async(this, null, function* () {
+    var _a;
+    if (sriRequest) {
+      yield applyHooks(
+        "errorHandler",
+        sriInternalConfig.errorHandler || [],
+        (f) => f(sriRequest, err, sriInternalUtils),
+        sriRequest
+      );
+    }
+    if (t !== void 0) {
+      if (readOnly === true) {
+        debug(
+          "db",
+          `++ Exception caught. Closing database task. ++
+${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
+          sriInternalConfig.logdebug
+        );
+        yield endTask();
+      } else {
+        debug(
+          "db",
+          `++ Exception caught. Rolling back database transaction. ++
+${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
+          sriInternalConfig.logdebug
+        );
+        yield rejectTx();
+      }
+    }
+    if (resp.headersSent) {
+      error(
+        "____________________________ E R R O R (expressWrapper)____________________________________"
+      );
+      error(err);
+      error(JSON.stringify(err, null, 2));
+      error("STACK:");
+      error(err.stack);
+      error(
+        "___________________________________________________________________________________________"
+      );
+      error("NEED TO DESTROY STREAMING REQ");
+      resp.on("drain", () => __async(this, null, function* () {
+        yield resp.destroy();
+        error("[drain event] Stream is destroyed.");
+      }));
+      resp.on("finish", () => __async(this, null, function* () {
+        yield resp.destroy();
+        error("[finish event] Stream is destroyed.");
+      }));
+      resp.write(
+        "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n"
+      );
+      resp.write(err.toString());
+      resp.write(JSON.stringify(err, null, 2));
+      resp.write(
+        "\n___________________________________________________________________________________________\n"
+      );
+      while (resp.write("       ")) {
+      }
+    } else if (isSriError(err)) {
+      if (err.status > 0) {
+        const reqId = httpContext3.get("reqId");
+        if (reqId !== void 0) {
+          err.body.vskoReqId = reqId;
+          err.headers["vsko-req-id"] = reqId;
+        }
+        resp.set(err.headers).status(err.status).send(err.body);
+      }
+    } else {
+      error(
+        "____________________________ E R R O R (expressWrapper)____________________________________"
+      );
+      error(err);
+      error("STACK:");
+      error((_a = err.stack) != null ? _a : "No stack available");
+      error(
+        "___________________________________________________________________________________________"
+      );
+      resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+    }
+    if (sriInternalConfig.logdebug && sriInternalConfig.logdebug.statuses !== void 0) {
+      setImmediate(() => {
+        console.log("GOING TO CALL handleRequestDebugLog");
+        handleRequestDebugLog(err.status ? err.status : 500, sriInternalConfig.logdebug.statuses);
+      });
+    }
+  });
+}
 function forceSecureSockets(req, res, next) {
   const isHttps = req.headers["x-forwarded-proto"] === "https";
   if (!isHttps && req.get("Host").indexOf("localhost") < 0 && req.get("Host").indexOf("127.0.0.1") < 0) {
@@ -4676,6 +4795,7 @@ function configure(app, sriConfig) {
       };
       const pgp = pgInit(sriConfig.databaseLibraryInitOptions, extraOptions);
       const db = yield pgConnect(pgp, sriConfig);
+      yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp));
       const currentInformationSchema = yield getInformationSchema(db, sriConfig);
       checkSriConfigWithDbInformationSchema(sriConfig, currentInformationSchema);
       const sriInternalConfig = __spreadProps(__spreadValues({
@@ -4703,43 +4823,10 @@ function configure(app, sriConfig) {
         dbR: db,
         dbW: db,
         informationSchema: currentInformationSchema,
-        pgColumns: Object.fromEntries(
-          sriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
-            const { type } = resource2;
-            const table = tableFromMapping(typeToMapping(type, sriConfig.resources));
-            const columns = JSON.parse(
-              `[${sqlColumnNames(typeToMapping(type, sriConfig.resources))}]`
-            ).filter((cname) => !cname.startsWith("$$meta."));
-            const dummyUpdateRow = transformObjectToRow(
-              {},
-              resource2,
-              false,
-              currentInformationSchema
-            );
-            const ret = {
-              insert: new pgp.helpers.ColumnSet(columns, { table }),
-              update: generatePgColumnSet(
-                [.../* @__PURE__ */ new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
-                type,
-                table,
-                currentInformationSchema,
-                pgp
-              ),
-              delete: generatePgColumnSet(
-                ["key", "$$meta.modified", "$$meta.deleted"],
-                type,
-                table,
-                currentInformationSchema,
-                pgp
-              )
-            };
-            return [table, ret];
-          })
-        ),
+        pgColumns: generatePgColumns(sriConfig, currentInformationSchema, pgp),
         // will be filled in later (after some async operations to the DB)
         batchHandlerMap: { GET: [], POST: [], PUT: [], PATCH: [], DELETE: [] }
       });
-      yield applyHooks("start up", sriInternalConfig.startUp || [], (f) => f(db, pgp));
       yield pMap8(
         sriInternalConfig.resources,
         (mapping) => __async(this, null, function* () {
@@ -4777,10 +4864,10 @@ function configure(app, sriConfig) {
           { concurrency: 1 }
         );
       }
-      global.overloadProtection = overloadProtectionFactory(sriInternalConfig.overloadProtection);
+      const overloadProtection = overloadProtectionFactory(sriInternalConfig.overloadProtection);
       app.use((_req, res, next) => __async(this, null, function* () {
         var _a, _b;
-        if (global.overloadProtection.canAccept()) {
+        if (overloadProtection.canAccept()) {
           next();
         } else {
           debug("overloadProtection", "DROPPED REQ", sriInternalConfig.logdebug);
@@ -4928,7 +5015,8 @@ function configure(app, sriConfig) {
           result = yield func(
             sriRequest,
             sriInternalUtils,
-            sriInternalConfig.informationSchema
+            sriInternalConfig.informationSchema,
+            overloadProtection
           );
         } else {
           const job = [func, [dbT, sriRequest, mapping]];
@@ -5046,7 +5134,7 @@ function configure(app, sriConfig) {
             } else {
               readOnly = readOnly0;
             }
-            global.overloadProtection.startPipeline();
+            overloadProtection.startPipeline();
             const reqId = httpContext3.get("reqId");
             if (reqId !== void 0) {
               resp.set("vsko-req-id", reqId);
@@ -5073,7 +5161,7 @@ function configure(app, sriConfig) {
               "db-starttask",
               hrtimeToMilliseconds(hrElapsedStartTransaction)
             );
-            req.on("close", (_err) => {
+            req.on("close", (err) => {
               sriRequest.reqCancelled = true;
             });
             if (t === void 0) {
@@ -5183,91 +5271,19 @@ function configure(app, sriConfig) {
               }
             }
           } catch (err) {
-            yield applyHooks(
-              "errorHandler",
-              sriConfig2.errorHandler || [],
-              (f) => f(sriRequest, err, sriInternalUtils),
-              sriRequest
+            yield handleExpressWrapperError(
+              resp,
+              err,
+              sriConfig2,
+              sriInternalUtils,
+              t,
+              endTask,
+              rejectTx,
+              sriRequest,
+              readOnly
             );
-            if (t !== void 0) {
-              if (readOnly === true) {
-                debug(
-                  "db",
-                  "++ Exception caught. Closing database task. ++",
-                  sriInternalConfig.logdebug
-                );
-                yield endTask();
-              } else {
-                debug(
-                  "db",
-                  "++ Exception caught. Rolling back database transaction. ++",
-                  sriInternalConfig.logdebug
-                );
-                yield rejectTx();
-              }
-            }
-            if (resp.headersSent) {
-              error(
-                "____________________________ E R R O R (expressWrapper)____________________________________"
-              );
-              error(err);
-              error(JSON.stringify(err, null, 2));
-              error("STACK:");
-              error(err.stack);
-              error(
-                "___________________________________________________________________________________________"
-              );
-              error("NEED TO DESTROY STREAMING REQ");
-              resp.on("drain", () => __async(this, null, function* () {
-                yield resp.destroy();
-                error("[drain event] Stream is destroyed.");
-              }));
-              resp.on("finish", () => __async(this, null, function* () {
-                yield resp.destroy();
-                error("[finish event] Stream is destroyed.");
-              }));
-              resp.write(
-                "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n"
-              );
-              resp.write(err.toString());
-              resp.write(JSON.stringify(err, null, 2));
-              resp.write(
-                "\n___________________________________________________________________________________________\n"
-              );
-              while (resp.write("       ")) {
-              }
-            } else if (isSriError(err)) {
-              if (err.status > 0) {
-                const reqId = httpContext3.get("reqId");
-                if (reqId !== void 0) {
-                  err.body.vskoReqId = reqId;
-                  err.headers["vsko-req-id"] = reqId;
-                }
-                resp.set(err.headers).status(err.status).send(err.body);
-              }
-            } else {
-              error(
-                "____________________________ E R R O R (expressWrapper)____________________________________"
-              );
-              error(err);
-              error("STACK:");
-              error(err.stack);
-              error(
-                "___________________________________________________________________________________________"
-              );
-              resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-            }
-            if (sriConfig2.logdebug && sriConfig2.logdebug.statuses !== void 0) {
-              setImmediate(() => {
-                console.log("GOING TO CALL handleRequestDebugLog");
-                handleRequestDebugLog(
-                  err.status ? err.status : 500,
-                  sriInternalConfig.logdebug.statuses
-                );
-              });
-            }
           } finally {
-            global.overloadProtection.endPipeline();
+            overloadProtection.endPipeline();
           }
         });
       };

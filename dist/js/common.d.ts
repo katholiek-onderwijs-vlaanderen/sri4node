@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import pgPromise, { IDatabase, IMain, ITask } from "pg-promise";
 import { Application, Request, Response } from "express";
-import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, SriError, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest } from "./typeDefinitions";
+import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, SriError, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest, TPgColumns } from "./typeDefinitions";
 import stream from "stream";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
@@ -466,4 +466,15 @@ declare const toArray: (thing: any) => any[];
  * @returns
  */
 declare function isSriError(x: any): x is SriError;
-export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installExpressMiddlewareTimer, setServerTimingHdr, expressMiddlewareTimerReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, generateSriRequest, checkSriConfigWithDbInformationSchema, findPropertyInJsonSchema, generatePgColumnSet, checkRequiredFields, addReferencingResources, toArray, resourceDefToResourceDefInternal, isSriError, };
+/**
+ * Helper function to generate the pgColumns property of the sriInternalConfig object.
+ * These are basically pg-promise ColumnSet objects that are used later for
+ * insert, update and delete operations on the database.
+ *
+ * @param sriConfig
+ * @param currentInformationSchema
+ * @param pgp
+ * @returns
+ */
+declare function generatePgColumns(sriConfig: TSriConfig, currentInformationSchema: TInformationSchema, pgp: IMain): TPgColumns;
+export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installExpressMiddlewareTimer, setServerTimingHdr, expressMiddlewareTimerReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, generateSriRequest, checkSriConfigWithDbInformationSchema, findPropertyInJsonSchema, generatePgColumnSet, checkRequiredFields, addReferencingResources, toArray, resourceDefToResourceDefInternal, isSriError, generatePgColumns, };

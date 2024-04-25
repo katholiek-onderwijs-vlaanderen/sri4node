@@ -157,10 +157,21 @@ module.exports = function (
     // });
   });
 
+  /**
+   * Utiltiy function to test what happens when a client connection gets broken during a request
+   *
+   * @param url the url to call
+   * @param dbMethodToWaitFor the db hook that will trigger the connection to break.
+   *        For example the connection could be broken right after a db connection has been acquired
+   *        from the pool, but you could also wait for the query method to be called in order to
+   *        test what happens if the connection gets broken during a long running query.
+   * @param waitTimeAfterMethodCalled extra time to wait after the dbMethodToWaitFor method has
+   *        been called, before destroying the connection.
+   */
   async function testBrokenConnection(
     url: string,
     dbMethodToWaitFor: keyof typeof context.pgpStats,
-    waitTimeAfterConnect = 0,
+    waitTimeAfterMethodCalled = 0,
   ) {
     try {
       context.resetPgpStats();
@@ -173,7 +184,7 @@ module.exports = function (
         auth: "sabine",
       });
       await methodCalledPromise;
-      await new Promise((resolve) => setTimeout(resolve, waitTimeAfterConnect));
+      await new Promise((resolve) => setTimeout(resolve, waitTimeAfterMethodCalled));
       await httpClient.destroy();
       await responsePromise;
       assert.fail("Expected an error to be thrown");
@@ -191,7 +202,7 @@ module.exports = function (
     assert.equal(
       context.pgpStats.disconnect.length,
       1,
-      `Expected 1 disconnect, got ${context.pgpStats.disconnect.length} for (${url}, ${dbMethodToWaitFor}, ${waitTimeAfterConnect})`,
+      `Expected 1 disconnect, got ${context.pgpStats.disconnect.length} for (${url}, ${dbMethodToWaitFor}, ${waitTimeAfterMethodCalled})`,
     );
   }
 

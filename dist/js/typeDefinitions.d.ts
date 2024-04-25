@@ -456,7 +456,7 @@ export type TResourceDefinitionInternal = RequiredExtra<TResourceDefinition, "be
     validateSchema: ValidateFunction;
 };
 export type TSriRequestHandlerForPhaseSyncer = (phaseSyncer: PhaseSyncer, tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinitionInternal | null, sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema, resources: Array<TResourceDefinitionInternal>) => Promise<TSriResult>;
-export type TSriRequestHandlerForBatch = (sriRequest: TSriRequest, sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema) => Promise<TSriResult>;
+export type TSriRequestHandlerForBatch = (sriRequest: TSriRequest, sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema, overloadProtection: TOverloadProtection) => Promise<TSriResult>;
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
 export type TBatchHandlerRecord = {
     route: string;
@@ -497,6 +497,15 @@ export type TSriResult = {
 export type TOverloadProtectionConfig = {
     maxPipelines: number;
     retryAfter?: number;
+};
+/**
+ * A stateful object that exposes methods to help protect against overload
+ */
+export type TOverloadProtection = {
+    canAccept: () => boolean;
+    startPipeline: (nr?: number) => number;
+    endPipeline: (nr?: number) => void;
+    addExtraDrops: (nr: number) => void;
 };
 export type TJobMap = Map<string, PhaseSyncer>;
 /**
