@@ -19,7 +19,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
           async (e: any) => {
             if (
               sriRequest.path === `/communities/${forbiddenKey}` ||
-              (sriRequest.query.get("expand") !== undefined &&
+              (sriRequest.query.get("expand") !== null &&
                 e.permalink === `/communities/${forbiddenKey}`)
             ) {
               sri4node.debug(

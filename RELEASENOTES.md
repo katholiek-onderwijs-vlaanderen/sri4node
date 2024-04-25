@@ -30,7 +30,7 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
   - global.overloadProtection
 - Everything that used to have type ParsedUrlQuery has type URLSearchParams now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do query.key you now have to do query.get('key')!
   For example, for afterRead handlers of type TAfterReadHook, sriRequest.query will now be a URLSearchParams object instead of a ParsedUrlQuery object.
-
+  Watch out: where you used to check for !== undefined, you need to replace it with !== null.
 - Stateful functions (like debug and error) are not exported from the library directly anymore
   because they were only safe to use after configure had been called.
 
