@@ -15,6 +15,8 @@ import {
   settleResultsToSriResults,
   generateSriRequest,
   createReadableStream,
+  resourceDefToResourceDefInternal,
+  isSriError,
 } from "./common";
 import {
   THttpMethod,
@@ -31,6 +33,28 @@ import {
   TInformationSchema,
   TResourceDefinitionInternal,
 } from "./typeDefinitions";
+
+/**
+ * We'll add some extra properties to the result object coming from the
+ * 'inner' sriRequest (the fake request inside the batch)
+ * @param res
+ * @param innerSriRequest
+ * @returns
+ */
+function patchBatchResult(res, innerSriRequest: TSriRequestExternal) {
+  if (isSriError(res)) {
+    res.sriRequestID = null;
+    res.href = innerSriRequest.originalUrl;
+    res.verb = innerSriRequest.httpMethod;
+    return res;
+  } else {
+    return {
+      ...res,
+      href: innerSriRequest.originalUrl,
+      verb: innerSriRequest.httpMethod,
+    };
+  }
+}
 
 function batchFactory(sriInternalConfig: TSriInternalConfig) {
   const maxSubListLen = (a) =>
@@ -299,13 +323,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
               ),
             );
 
-            if (
-              results.some(
-                (e) =>
-                  e instanceof SriError || (e as any)?.__proto__?.constructor?.name === "SriError",
-              ) &&
-              sriRequest.readOnly === false
-            ) {
+            if (results.some(isSriError) && sriRequest.readOnly === false) {
               batchFailed = true;
             }
 
@@ -315,28 +333,16 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
                 TSriRequestExternal,
                 TResourceDefinitionInternal,
               ] = batchJobs[idx][1];
-              if (
-                !(
-                  res instanceof SriError ||
-                  (res as any)?.__proto__?.constructor?.name === "SriError"
-                )
-              ) {
+              if (!isSriError(res)) {
                 await applyHooks("transform response", mapping.transformResponse || [], (f) =>
                   f(tx, innerSriRequest, res, sriInternalUtils),
                 );
               }
             });
             return results.map((res, idx) => {
-              if (res instanceof SriError) {
-                return res;
-              } else {
-                const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-                return {
-                  ...res,
-                  href: innerSriRequest.originalUrl,
-                  verb: innerSriRequest.httpMethod,
-                };
-              }
+              const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+              const resModified = patchBatchResult(res, innerSriRequest);
+              return resModified;
             });
           }
           // TODO: generate correct error json with refering element in it!
@@ -517,12 +523,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
             await pEachSeries(results, async (res: any, idx) => {
               const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
-              if (
-                !(
-                  res instanceof SriError ||
-                  (res as any)?.__proto__?.constructor?.name === "SriError"
-                )
-              ) {
+              if (!isSriError(res)) {
                 await applyHooks("transform response", mapping.transformResponse || [], (f) =>
                   f(tx, innerSriRequest, res, sriInternalUtils),
                 );
@@ -530,14 +531,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
             });
             return results.map((res, idx) => {
               const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              const resModified =
-                res instanceof SriError
-                  ? (res.sriRequestID = null && res)
-                  : {
-                      ...res,
-                      href: innerSriRequest.originalUrl,
-                      verb: innerSriRequest.httpMethod,
-                    };
+              const resModified = patchBatchResult(res, innerSriRequest);
               // ALSO PUSH IT ONTO THE STREAM (not the proper use of the map function)!!!
               stream2.push(resModified);
               return res.status;

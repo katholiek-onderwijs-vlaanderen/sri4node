@@ -135,11 +135,20 @@ export type TErrorLogFunction = (...unknown) => void;
 export class SriError {
   status: number;
 
-  body: { errors: unknown[]; status: number; document: { [key: string]: unknown } };
+  body: {
+    errors: unknown[];
+    status: number;
+    document: { [key: string]: unknown };
+    vskoReqId?: string;
+  };
 
   headers: { [key: string]: string };
 
   sriRequestID: string | null;
+
+  verb?: THttpMethod;
+
+  href?: string;
 
   /**
    * Contructs an sri error based on the given initialisation object

@@ -461,18 +461,9 @@ declare function addReferencingResources(type: string, column: any, targetkey: s
  */
 declare const toArray: (thing: any) => any[];
 /**
- * @deprecated
- *
- * Makes the property <name> of object <resource> an array.
- * This function will alter the resource object so it is advised NOT to use it!
- *
- * @example
- * ```javascript
- * objPropertyToArray({}, foo); // will ALTER RESOURCE into { foo: [] }
- * objPropertyToArray({ foo: null }, foo); // will produce { foo: [] }
- * objPropertyToArray({ foo: 'bar' }, foo); // will produce { foo: ['bar'] }
- * ```
- * @param resource
- * @param name
+ * Helper function to type check if something is an SriError
+ * @param x
+ * @returns
  */
-export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installExpressMiddlewareTimer, setServerTimingHdr, expressMiddlewareTimerReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, generateSriRequest, checkSriConfigWithDbInformationSchema, findPropertyInJsonSchema, generatePgColumnSet, checkRequiredFields, addReferencingResources, toArray, resourceDefToResourceDefInternal, };
+declare function isSriError(x: any): x is SriError;
+export { hrtimeToMilliseconds, isLogChannelEnabled, debugAnyChannelAllowed, debug, error, sortUrlQueryParamParseTree, hrefToParsedObjectFactory, getParentSriRequest, installExpressMiddlewareTimer, setServerTimingHdr, expressMiddlewareTimerReportToServerTiming, createDebugLogConfigObject, handleRequestDebugLog, urlToTypeAndKey, isUuid, parseResource, errorAsCode, typeToConfig, typeToMapping, sqlColumnNames, transformObjectToRow, transformRowToObject, pgInit, pgConnect, pgExec, pgResult, createPreparedStatement, startTransaction, startTask, installVersionIncTriggerOnTable, getCountResult, tableFromMapping, isEqualSriObject, stringifyError, settleResultsToSriResults, createReadableStream, getParentSriRequestFromRequestMap, generateSriRequest, checkSriConfigWithDbInformationSchema, findPropertyInJsonSchema, generatePgColumnSet, checkRequiredFields, addReferencingResources, toArray, resourceDefToResourceDefInternal, isSriError, };

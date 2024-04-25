@@ -85,11 +85,14 @@ export declare class SriError {
         document: {
             [key: string]: unknown;
         };
+        vskoReqId?: string;
     };
     headers: {
         [key: string]: string;
     };
     sriRequestID: string | null;
+    verb?: THttpMethod;
+    href?: string;
     /**
      * Contructs an sri error based on the given initialisation object
      *

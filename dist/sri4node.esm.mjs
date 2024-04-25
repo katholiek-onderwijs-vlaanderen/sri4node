@@ -1625,6 +1625,10 @@ var toArray = (thing) => {
   }
   return thing;
 };
+function isSriError(x) {
+  var _a, _b;
+  return x instanceof SriError || ((_b = (_a = x == null ? void 0 : x.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
+}
 
 // js/queryUtils.ts
 var queryUtils_exports = {};
@@ -4177,6 +4181,19 @@ import JSONStream from "JSONStream";
 import EventEmitter2 from "events";
 import pEvent3 from "p-event";
 import httpContext2 from "express-http-context";
+function patchBatchResult(res, innerSriRequest) {
+  if (isSriError(res)) {
+    res.sriRequestID = null;
+    res.href = innerSriRequest.originalUrl;
+    res.verb = innerSriRequest.httpMethod;
+    return res;
+  } else {
+    return __spreadProps(__spreadValues({}, res), {
+      href: innerSriRequest.originalUrl,
+      verb: innerSriRequest.httpMethod
+    });
+  }
+}
 function batchFactory(sriInternalConfig) {
   const maxSubListLen = (a) => (
     // this code works as long as a batch array contain either all objects or all (sub)arrays
@@ -4377,18 +4394,12 @@ function batchFactory(sriInternalConfig) {
                   sriInternalUtils
                 )
               );
-              if (results.some(
-                (e) => {
-                  var _a, _b;
-                  return e instanceof SriError || ((_b = (_a = e == null ? void 0 : e.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
-                }
-              ) && sriRequest.readOnly === false) {
+              if (results.some(isSriError) && sriRequest.readOnly === false) {
                 batchFailed = true;
               }
               yield pEachSeries(results, (res, idx) => __async(this, null, function* () {
-                var _a, _b;
                 const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
-                if (!(res instanceof SriError || ((_b = (_a = res == null ? void 0 : res.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError")) {
+                if (!isSriError(res)) {
                   yield applyHooks(
                     "transform response",
                     mapping.transformResponse || [],
@@ -4397,15 +4408,9 @@ function batchFactory(sriInternalConfig) {
                 }
               }));
               return results.map((res, idx) => {
-                if (res instanceof SriError) {
-                  return res;
-                } else {
-                  const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-                  return __spreadProps(__spreadValues({}, res), {
-                    href: innerSriRequest.originalUrl,
-                    verb: innerSriRequest.httpMethod
-                  });
-                }
+                const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+                const resModified = patchBatchResult(res, innerSriRequest);
+                return resModified;
               });
             }
             return batch.map(
@@ -4545,9 +4550,8 @@ function batchFactory(sriInternalConfig) {
               batchFailed = true;
             }
             yield pEachSeries(results, (res, idx) => __async(this, null, function* () {
-              var _a, _b;
               const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
-              if (!(res instanceof SriError || ((_b = (_a = res == null ? void 0 : res.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError")) {
+              if (!isSriError(res)) {
                 yield applyHooks(
                   "transform response",
                   mapping.transformResponse || [],
@@ -4557,10 +4561,7 @@ function batchFactory(sriInternalConfig) {
             }));
             return results.map((res, idx) => {
               const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              const resModified = res instanceof SriError ? res.sriRequestID = null : __spreadProps(__spreadValues({}, res), {
-                href: innerSriRequest.originalUrl,
-                verb: innerSriRequest.httpMethod
-              });
+              const resModified = patchBatchResult(res, innerSriRequest);
               stream2.push(resModified);
               return res.status;
             });
@@ -4919,7 +4920,6 @@ function configure(app, sriConfig) {
       });
       const batch = batchFactory(sriInternalConfig);
       const handleRequest = (sriRequest, func, mapping) => __async(this, null, function* () {
-        var _a, _b;
         const { dbT } = sriRequest;
         let result;
         if (sriRequest.isBatchRequest) {
@@ -4940,7 +4940,7 @@ function configure(app, sriConfig) {
               sriInternalUtils
             )
           );
-          if (result instanceof SriError || ((_b = (_a = result == null ? void 0 : result.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
+          if (isSriError(result)) {
             throw result;
           }
           if (sriRequest.streamStarted === void 0 || !sriRequest.streamStarted()) {
@@ -5008,7 +5008,7 @@ function configure(app, sriConfig) {
       });
       const expressWrapper = (dbR, dbW, func, sriConfig2, mapping, isStreamingRequest, isBatchRequest, readOnly0) => function(req, resp, _next) {
         return __async(this, null, function* () {
-          var _a, _b, _c, _d;
+          var _a, _b;
           let t;
           let endTask;
           let resolveTx;
@@ -5234,7 +5234,7 @@ function configure(app, sriConfig) {
               );
               while (resp.write("       ")) {
               }
-            } else if (err instanceof SriError || ((_d = (_c = err == null ? void 0 : err.__proto__) == null ? void 0 : _c.constructor) == null ? void 0 : _d.name) === "SriError") {
+            } else if (isSriError(err)) {
               if (err.status > 0) {
                 const reqId = httpContext3.get("reqId");
                 if (reqId !== void 0) {
@@ -5488,7 +5488,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase(),
                   func: (_phaseSyncer, tx, sriRequest, _mapping1) => __async(this, null, function* () {
-                    var _a2, _b;
                     if (sriRequest.isBatchPart) {
                       throw new SriError({
                         status: 400,
@@ -5537,7 +5536,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                           }
                         }
                       } catch (err) {
-                        if (err instanceof SriError || ((_b = (_a2 = err == null ? void 0 : err.__proto__) == null ? void 0 : _a2.constructor) == null ? void 0 : _b.name) === "SriError") {
+                        if (isSriError(err)) {
                           throw err;
                         } else {
                           throw new SriError({ status: 500, errors: [`${util.format(err)}`] });

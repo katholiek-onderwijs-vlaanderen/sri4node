@@ -58,6 +58,7 @@ import {
   isLogChannelEnabled,
   typeToConfig,
   settleResultsToSriResults,
+  isSriError,
 } from "./js/common";
 // import * as batch from "./js/batch";
 import { prepareSQL } from "./js/queryObject";
@@ -509,10 +510,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             sriInternalUtils,
           ),
         );
-        if (
-          result instanceof SriError ||
-          (result as any)?.__proto__?.constructor?.name === "SriError"
-        ) {
+        if (isSriError(result)) {
           throw result;
         }
 
@@ -896,12 +894,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             while (resp.write("       ")) {
               // do nothing besides writing some more
             }
-          } else if (
-            err instanceof SriError ||
-            (err as any)?.__proto__?.constructor?.name === "SriError"
-          ) {
+          } else if (isSriError(err)) {
             if (err.status > 0) {
-              const reqId = httpContext.get("reqId");
+              const reqId = httpContext.get("reqId") as string;
               if (reqId !== undefined) {
                 err.body.vskoReqId = reqId;
                 err.headers["vsko-req-id"] = reqId;
@@ -1231,10 +1226,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                         }
                       }
                     } catch (err) {
-                      if (
-                        err instanceof SriError ||
-                        err?.__proto__?.constructor?.name === "SriError"
-                      ) {
+                      if (isSriError(err)) {
                         throw err;
                       } else {
                         throw new SriError({ status: 500, errors: [`${util.format(err)}`] });

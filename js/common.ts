@@ -2190,7 +2190,7 @@ const toArray = (thing) => {
   return thing;
 };
 
-/**
+/*
  * @deprecated
  *
  * Makes the property <name> of object <resource> an array.
@@ -2208,6 +2208,15 @@ const toArray = (thing) => {
 // const objPropertyToArray = (resource, name) => {
 //   resource[name] = toArray(resource[name]);
 // };
+
+/**
+ * Helper function to type check if something is an SriError
+ * @param x
+ * @returns
+ */
+function isSriError(x): x is SriError {
+  return x instanceof SriError || x?.__proto__?.constructor?.name === "SriError";
+}
 
 export {
   hrtimeToMilliseconds,
@@ -2255,4 +2264,5 @@ export {
   addReferencingResources,
   toArray,
   resourceDefToResourceDefInternal,
+  isSriError,
 };
