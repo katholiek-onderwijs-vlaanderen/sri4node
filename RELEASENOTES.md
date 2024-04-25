@@ -23,6 +23,13 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.35 (25-04-2024)
+
+### Fixed
+
+- The next link of a list resource would not be url-encoded correctly if the key contained a comma.
+  This is fixed now, and a test case has been added to prevent regressions.
+
 ## version 2.3.34 (28-03-2024)
 
 ### Added

@@ -439,8 +439,8 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             },
             {
               href: "/persons/82565813-943e-4d1a-ac58-8b4cbc865bdb",
-              // 'Steven Plas', community 'LETS Aalst-Oudenaarde' -> only persons from same community can be read
-              //   ==> forbidden for Kevin from 'LETS Regio Zele'
+              // 'Steven Plas', community 'LETS, Aalst-Oudenaarde' -> only persons from same community can be read
+              //   ==> forbidden for Kevin from 'LETS, Regio Zele'
               verb: "GET",
             },
           ];
@@ -1012,7 +1012,9 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
               auth: "kevin",
             });
             if (!response.body.$$messagecount || response.body.$$messagecount < 5) {
-              assert.fail("Should have at least 5 messages for community LETS Regio Dendermonde");
+              assert.fail(
+                "Should have at least 5 messages for community 'LETS, Regio Dendermonde'",
+              );
             }
           });
         });

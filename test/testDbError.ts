@@ -70,7 +70,7 @@ module.exports = function (
         path: "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
       });
       assert.equal(response2.status, 200);
-      assert.equal(response2.body.name, "LETS Regio Dendermonde");
+      assert.equal(response2.body.name, "LETS, Regio Dendermonde");
     });
     it("db connection reset during transaction", async () => {
       const responsePromise = httpClient.post({
@@ -105,7 +105,7 @@ module.exports = function (
         path: "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
       });
       assert.equal(response2.status, 200);
-      assert.equal(response2.body.name, "LETS Regio Dendermonde");
+      assert.equal(response2.body.name, "LETS, Regio Dendermonde");
     });
   });
 };

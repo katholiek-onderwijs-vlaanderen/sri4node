@@ -2930,14 +2930,16 @@ var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, ma
         errors: [
           {
             code: "invalid.orderby.parameter",
-            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(", ")}.`
+            message: `Can not order by [${orderBy}]. Unknown properties: ${invalidOrderByKeys.join(
+              ", "
+            )}.`
           }
         ]
       });
     }
   }
   if (keyOffset) {
-    const keyValues = keyOffset.split(",");
+    const keyValues = keyOffset.split(",").map((o) => decodeURIComponent(o));
     if (keyValues.length !== orderKeys.length) {
       throw new SriError({
         status: 400,
@@ -3040,9 +3042,12 @@ var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, order
   }
   const addOrReplaceParameter = (url5, parameter, value2) => {
     if (url5.indexOf(parameter) > 0) {
-      return url5.replace(new RegExp(`${parameter}[^&]*`), `${parameter}=${value2}`);
+      return url5.replace(
+        new RegExp(`${parameter}[^&]*`),
+        `${parameter}=${encodeURIComponent(value2)}`
+      );
     }
-    return `${url5 + (url5.indexOf("?") > 0 ? "&" : "?") + parameter}=${value2}`;
+    return `${url5 + (url5.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value2)}`;
   };
   if (results.length === parseInt(queryLimit, 10) && results.length > 0) {
     const lastElement = queryParams.expand && queryParams.expand.toLowerCase() === "none" ? rows[queryLimit - 1] : results[queryLimit - 1].$$expanded;

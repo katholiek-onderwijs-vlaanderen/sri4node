@@ -36,7 +36,7 @@ module.exports = function (httpClient: THttpClient) {
   function generateRandomCommunity(key): any {
     return {
       key,
-      name: `LETS ${key}`,
+      name: `LETS, ${key}`,
       street: "Leuvensesteenweg",
       streetnumber: "34",
       zipcode: "1040",
