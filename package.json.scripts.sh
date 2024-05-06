@@ -15,12 +15,12 @@
 
 # prepare -> will set the git core.hooksPath to ./git-hooks
 prepare() {
-  ( 
-    case "$(pwd)" in 
-      *"/node_modules"*) echo 'Not setting git core.hooksPath (installed as a dependency)';; 
-      *) git config core.hooksPath ./git-hooks && echo git core.hooksPath has been set to: $(git config core.hooksPath);;
-    esac 
-  )
+  if [ -d .git ]; then
+    git config core.hooksPath ./git-hooks \
+      && echo "git core.hooksPath has been set to: $(git config core.hooksPath)";
+  else
+    echo "Not setting git core.hooksPath (installed as a dependency)";
+  fi
 
   # check if the files as defined in package.json, main and module exist
   # read the package.json file, and extract the main and module fields
