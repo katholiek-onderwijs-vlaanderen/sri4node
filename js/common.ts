@@ -70,18 +70,6 @@ const isLogChannelEnabled = (
 };
 
 /**
- * @todo
- * Change this so that each httpContext will have its own logBuffer, so we can just
- * call httpContext.get("logBuffer") or something, and output that to the console at the end
- * of the request.
- * Another weird thing: the README says that logdebug.statuses means that we will only log
- * for the given statuses, but if I look at the current implementation, it feels like we will only
- * BUFFER the logs for the given statuses, and only output them at the end of the request.
- * In all otehr cases the logs will be output to the console rightaway.
- * The implementation of handleRequestDebugLog is also weird, because it will only output the logs
- * if the status is in the logdebug.statuses set, and do nothing at all if statuses is undefined.
- * Maybe we broke the implementation somewhere in the past, or maybe the README is wrong.
- *
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
  * sri4node configuration (logdebug.channels), output (second parameter) is logged.
@@ -718,8 +706,11 @@ function createDebugLogConfigObject(logdebug?: TLogDebugExternal | boolean): TLo
 
 /**
  * It will print eveything that has been accumulated in the logBuffer for the current request
- * to the console if it has the right status.
+ * to the console if this request has the right status.
  * After this, the logBuffer of this request will be emptied.
+ * This method is only useful when statuses has been defined in the logdebug config, because
+ * only then will debugAnyChannelAllowed(...) buffer the messages instead of outputting
+ * them rightaway.
  *
  * @param status a number that indicates it should be printed if that number can be found in the
  *                logdebug.statuses set
