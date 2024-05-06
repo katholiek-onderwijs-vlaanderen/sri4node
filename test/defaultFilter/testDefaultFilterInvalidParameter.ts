@@ -5,7 +5,6 @@ import _ from "lodash";
 import { THttpClient } from "../httpClient";
 
 import * as sri4node from "../../index";
-// import * as alldatatypesFactory from '../context/alldatatypes';
 const alldatatypesFactory = require("../context/alldatatypes"); // importing a function not possible
 const alldatatypes = alldatatypesFactory(sri4node);
 

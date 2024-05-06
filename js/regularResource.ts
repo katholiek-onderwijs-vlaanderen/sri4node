@@ -27,14 +27,12 @@ import {
   getParentSriRequestFromRequestMap,
   tableFromMapping,
   typeToMapping,
-  // getPgp,
   findPropertyInJsonSchema,
 } from "./common";
 import { prepareSQL } from "./queryObject";
 import { applyHooks } from "./hooks";
 
 import * as expand from "./expand";
-// import { expand } from './expand';
 import { PhaseSyncer } from "./phaseSyncedSettle";
 import { IDatabase } from "pg-promise";
 
@@ -534,7 +532,7 @@ const beforePhaseInsertUpdateDelete: TBeforePhaseHook =
     };
     throwIfDbTUndefined(sriRequest);
 
-    const pgp = sriRequest.pgp; // getPgp();
+    const pgp = sriRequest.pgp;
 
     delete sriRequest.multiInsertFailed;
     delete sriRequest.multiUpdateFailed;

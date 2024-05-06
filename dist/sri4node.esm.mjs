@@ -515,14 +515,14 @@ function prepareSQL(name) {
           columnNames.push(key);
         }
       }
-      let sqlColumnNames3 = "";
+      let sqlColumnNames2 = "";
       for (j = 0; j < columnNames.length; j++) {
-        sqlColumnNames3 += `"${columnNames[j]}"`;
+        sqlColumnNames2 += `"${columnNames[j]}"`;
         if (j < columnNames.length - 1) {
-          sqlColumnNames3 += ",";
+          sqlColumnNames2 += ",";
         }
       }
-      this.text += sqlColumnNames3;
+      this.text += sqlColumnNames2;
       return this;
     },
     values(o) {
@@ -4772,7 +4772,6 @@ var utils = {
   addReferencingResources,
   // removed pgInit and pgResult, but kept pgConnect for now (in case someone wants to use the
   // db, dbW and/or dbR properties)
-  // pgInit,
   pgConnect,
   // still here for backwards compatibility, in most cases we assume that using an
   // internalSriRequest would be sufficient
@@ -5161,7 +5160,7 @@ function configure(app, sriConfig) {
               "db-starttask",
               hrtimeToMilliseconds(hrElapsedStartTransaction)
             );
-            req.on("close", (err) => {
+            req.on("close", (_err) => {
               sriRequest.reqCancelled = true;
             });
             if (t === void 0) {

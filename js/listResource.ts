@@ -25,9 +25,8 @@ import { prepareSQL } from "./queryObject";
 import { applyHooks } from "./hooks";
 import { executeExpansion } from "./expand";
 import * as queryUtils from "./queryUtils";
-import { IDatabase } from "pg-promise";
+import { IDatabase, ITask } from "pg-promise";
 import { PhaseSyncer } from "./phaseSyncedSettle";
-import { IClient } from "pg-promise/typescript/pg-subset";
 
 // Constants
 const DEFAULT_LIMIT = 30;
@@ -38,7 +37,7 @@ async function applyRequestParameters(
   mapping: TResourceDefinitionInternal,
   query: TPreparedSql,
   urlparameters: URLSearchParams,
-  tx: IDatabase<unknown>,
+  tx: IDatabase<unknown> | ITask<unknown>,
   doCount: boolean,
   informationSchema: TInformationSchema,
 ) {
@@ -110,7 +109,7 @@ async function getSQLFromListResource(
   mapping: TResourceDefinitionInternal,
   parameters: url.URLSearchParams,
   doCount: boolean,
-  tx: IDatabase<unknown>,
+  tx: IDatabase<unknown> | ITask<unknown>,
   query: TPreparedSql,
   informationSchema: TInformationSchema,
 ) {
@@ -383,7 +382,7 @@ const handleListQueryResult = (
 
 async function getListResource(
   phaseSyncer: PhaseSyncer,
-  tx: IDatabase<unknown, IClient>,
+  tx: ITask<unknown>,
   sriRequest: TSriRequestExternal,
   mapping: TResourceDefinitionInternal,
   sriInternalUtils: TSriInternalUtils,
@@ -528,7 +527,7 @@ const matchUrl = (url, mapping) => {
 
 async function isPartOf(
   phaseSyncer: PhaseSyncer,
-  tx: IDatabase<unknown, IClient>,
+  tx: IDatabase<unknown>,
   sriRequest: TSriRequestExternal,
   mapping: TResourceDefinitionInternal,
   _sriInternalUtils: TSriInternalUtils,

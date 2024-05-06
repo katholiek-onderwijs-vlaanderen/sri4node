@@ -1,11 +1,10 @@
 /// <reference types="node" />
-import pgPromise, { IDatabase, IMain, ITask } from "pg-promise";
+import pgPromise, { IMain, ITask } from "pg-promise";
 import { Application, Request, Response } from "express";
 import { TResourceDefinition, TSriConfig, TSriRequestExternal, TDebugChannel, TSriRequestInternal, TDebugLogFunction, TErrorLogFunction, SriError, TLogDebugExternal, TInformationSchema, TSriInternalConfig, TLogDebugInternal, TResourceDefinitionInternal, TAfterReadHook, TSriRequest, TPgColumns } from "./typeDefinitions";
 import stream from "stream";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
-import { IClient } from "pg-promise/typescript/pg-subset";
 import pSettle from "p-settle";
 /**
  * process.hrtime() method can be used to measure execution time, but returns an array
@@ -189,11 +188,6 @@ declare function expressMiddlewareTimerReportToServerTiming(req: Request, res: R
  */
 declare function createDebugLogConfigObject(logdebug?: TLogDebugExternal | boolean): TLogDebugInternal;
 /**
- * @todo
- * change this, so that each httpContext will have its own logBuffer, so we can just
- * call httpContext.get("logBuffer") or something, and output that to the console.
- * That would avoid having the single 'global' logBuffer.
- *
  * It will print eveything that has been accumulated in the logBuffer for the current request
  * to the console if it has the right status.
  * After this, the logBuffer of this request will be emptied.
@@ -294,7 +288,7 @@ declare function transformObjectToRow(obj: Record<string, any>, resourceMapping:
  * @param extraOptions
  * @returns the pgPromise instance
  */
-declare function pgInit(pgpInitOptions: pgPromise.IInitOptions<{}, IClient> | undefined, extraOptions: {
+declare function pgInit(pgpInitOptions: pgPromise.IInitOptions<{}, import("pg-promise/typescript/pg-subset").IClient> | undefined, extraOptions: {
     schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined;
     connectionInitSql?: string;
     monitor: boolean;
@@ -321,26 +315,26 @@ declare function pgInit(pgpInitOptions: pgPromise.IInitOptions<{}, IClient> | un
  * @param sriConfig sriConfig object
  * @returns {pgPromise.IDatabase} the database connection
  */
-declare function pgConnect(pgp: pgPromise.IMain, sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, IClient>>;
+declare function pgConnect(pgp: pgPromise.IMain, sri4nodeConfig: TSriConfig): Promise<pgPromise.IDatabase<{}, import("pg-promise/typescript/pg-subset").IClient>>;
 /**
  * @type {{ name: string, text: string }} details
  * @returns a prepared statement that can be used with tx.any() or similar functions
  */
 declare function createPreparedStatement(details: pgPromise.IPreparedStatement | undefined): pgPromise.PreparedStatement;
-declare function pgExec(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<any>;
-declare function pgResult(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<pgPromise.IResultExt<unknown>>;
-declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>, mode?: {
+declare function pgExec(db: pgPromise.IDatabase<unknown> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<any>;
+declare function pgResult(db: pgPromise.IDatabase<unknown> | ITask<unknown>, query: any, sriRequest?: TSriRequestExternal): Promise<pgPromise.IResultExt<unknown>>;
+declare function startTransaction(db: pgPromise.IDatabase<unknown> | ITask<unknown>, mode?: {
     begin(cap?: boolean | undefined): string;
 }): Promise<{
     tx: pgPromise.ITask<unknown>;
     resolveTx: () => Promise<void>;
     rejectTx: () => Promise<void>;
 }>;
-declare function startTask(db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>): Promise<{
-    t: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>;
+declare function startTask(db: pgPromise.IDatabase<unknown> | ITask<unknown>): Promise<{
+    t: pgPromise.IDatabase<unknown> | ITask<unknown>;
     endTask: () => void;
 }>;
-declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string): Promise<void>;
+declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown>, tableName: string, schemaName?: string): Promise<void>;
 declare function getCountResult(tx: any, countquery: any, sriRequest: any): Promise<number>;
 /**
  * Given a single resource definition from sriConfig.resources
@@ -396,7 +390,7 @@ declare function generateSriRequest(expressRequest?: Request | undefined, expres
     isStreamingRequest: boolean;
     readOnly: boolean;
     mapping?: TResourceDefinitionInternal;
-    dbT: IDatabase<unknown, IClient> | ITask<unknown>;
+    dbT: ITask<unknown>;
     pgp: IMain;
 } | undefined, batchHandlerAndParams?: any, parentSriRequest?: TSriRequestExternal | undefined, batchElement?: any, internalSriRequest?: Omit<TSriRequestInternal, "protocol" | "serverTiming"> | undefined): TSriRequestExternal;
 /**

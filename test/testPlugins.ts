@@ -8,7 +8,6 @@ import express from "express";
 
 import * as context from "./context";
 import { IDatabase } from "pg-promise";
-import { IClient } from "pg-promise/typescript/pg-subset";
 import { addOrResetSpy } from "./utils";
 
 /**
@@ -31,7 +30,7 @@ module.exports = function (
     plugins: [
       {
         uuid: "plugin 1",
-        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
           /* empty */
         },
         close: () => {
@@ -40,7 +39,7 @@ module.exports = function (
       },
       {
         // no uuid !
-        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+        install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
           /* empty */
         },
         close: () => {
@@ -158,7 +157,7 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: sriBaseConfig.plugins?.[0].uuid,
-              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
                 /* empty */
               },
               close: () => {
@@ -205,7 +204,7 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: "plugin 3",
-              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
                 /* empty */
               },
             },
@@ -246,7 +245,7 @@ module.exports = function (
             ...(sriBaseConfig.plugins ?? []),
             {
               uuid: "plugin 3",
-              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
                 /* empty */
               },
               close: () => {
@@ -255,7 +254,7 @@ module.exports = function (
             },
             {
               uuid: "plugin 4",
-              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown, IClient>) => {
+              install: (_sriConfig: TSriInternalConfig, _db: IDatabase<unknown>) => {
                 /* empty */
               },
               close: () => {

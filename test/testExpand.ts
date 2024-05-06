@@ -109,7 +109,6 @@ module.exports = function (httpClient: THttpClient) {
           path: "/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community",
           auth: "kevin",
         });
-        console.log(JSON.stringify(response, null, 2));
         assert.equal(response.status, 403);
       });
     });

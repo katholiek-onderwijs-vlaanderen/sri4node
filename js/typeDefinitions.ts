@@ -9,7 +9,7 @@ import { Operation } from "fast-json-patch";
 import { IncomingHttpHeaders } from "http2";
 import { JSONSchema4 } from "json-schema";
 import pgPromise, { ITask } from "pg-promise";
-import { IClient, IConnectionParameters } from "pg-promise/typescript/pg-subset";
+import { IConnectionParameters } from "pg-promise/typescript/pg-subset";
 import stream from "stream";
 import { PhaseSyncer } from "./phaseSyncedSettle";
 
@@ -74,7 +74,7 @@ export type TPluginConfig = {
    */
   install: (
     sriConfig: TSriInternalConfig,
-    db: pgPromise.IDatabase<unknown, IClient>,
+    db: pgPromise.IDatabase<unknown>,
   ) => void | Promise<void>;
   // Record<string, unknown>;
 
@@ -86,10 +86,7 @@ export type TPluginConfig = {
    * @param db
    * @returns
    */
-  close?: (
-    sriConfig: TSriInternalConfig,
-    db: pgPromise.IDatabase<unknown, IClient>,
-  ) => void | Promise<void>;
+  close?: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown>) => void | Promise<void>;
 };
 
 // for example /llinkid/activityplanning, so should only start with a slash
@@ -272,7 +269,7 @@ export type TSriServerInstance = {
   /**
    * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
    */
-  db: pgPromise.IDatabase<unknown, IClient>;
+  db: pgPromise.IDatabase<unknown>;
   app: Express.Application;
 
   // maybe later
@@ -314,7 +311,7 @@ export type TSriRequestExternal = {
 
   headers: { [key: string]: string } | IncomingHttpHeaders;
   body?: TSriRequestBody;
-  dbT: pgPromise.IDatabase<unknown> | ITask<unknown>; // db transaction
+  dbT: ITask<unknown>; // db transaction
   pgp: pgPromise.IMain;
   inStream: stream.Readable;
   outStream: stream.Writable;
@@ -365,7 +362,7 @@ export type TSriRequestExternal = {
 
 /**
  * This is the internal sri request object that is used for internal requests.
- * These are request that do not go thourh express, but that will reuse
+ * These are requests that do not go through express, but that will reuse
  * an existing database transaction, and are being run while handling another request.
  *
  * You could imagine that you could use it for a validation rule for instance.
@@ -377,7 +374,7 @@ export type TSriRequestInternal = TSriRequestExternal & {
   protocol: "_internal_";
   href: string;
   verb: THttpMethod;
-  dbT: pgPromise.IDatabase<unknown> | ITask<unknown>; // transaction or task object of pg promise
+  dbT: ITask<unknown>; // transaction or task object of pg promise
   pgp: pgPromise.IMain;
   parentSriRequest: TSriRequestExternal;
   headers?: { [key: string]: string } | IncomingHttpHeaders;
@@ -444,7 +441,7 @@ export type TSriQueryFun = {
     value: string,
     select: TPreparedSql,
     key: string,
-    database: pgPromise.IDatabase<unknown, IClient>,
+    database: pgPromise.IDatabase<unknown> | ITask<unknown>,
     doCount: boolean,
     mapping: TResourceDefinitionInternal,
     urlParameters: URLSearchParams,
@@ -496,26 +493,26 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties &
 export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** this will define where the customRoute listens relative to the resource base */
   beforeHandler?: (
-    tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    tx: pgPromise.ITask<unknown>,
     sriRequest: TSriRequestExternal,
     customMapping: TResourceDefinitionInternal,
     sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
   handler: (
-    tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    tx: pgPromise.ITask<unknown>,
     sriRequest: TSriRequestExternal,
     customMapping: TResourceDefinitionInternal,
     sriInternalUtils: TSriInternalUtils,
   ) => Promise<TSriResult>;
   /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
   transformResponse?: (
-    dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    dbT: pgPromise.ITask<unknown>,
     sriRequest: TSriRequestExternal,
     sriResult: TSriResult,
     sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
   afterHandler?: (
-    tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    tx: pgPromise.ITask<unknown>,
     sriRequest: TSriRequestExternal,
     customMapping: TResourceDefinitionInternal,
     result: TSriResult,
@@ -688,7 +685,7 @@ export type TTransformRequestHook = (
 
 export type TStartupHook = (
   dbT: pgPromise.IDatabase<unknown>,
-  pgp: pgPromise.IMain<unknown, IClient>,
+  pgp: pgPromise.IMain<unknown>,
 ) => void;
 
 export type TResourceDefinition = {
@@ -794,6 +791,26 @@ export type TResourceDefinition = {
   // all supported query parameters, with a function that will modify the preparedSQL so far
   // to make sure only the relevant results are returned
   query?: TSriQueryFun;
+
+  // // POSSIBLE_FUTURE_QUERY
+  // "customQueryParams": {
+  //   // THIS SHOULD ALWAYS WORK defaultFilter,
+  //   _rootWithContextContains: {
+  //     name: '_rootWithContextContains', // necessary if the key already contains that name, or do we make customQueryParams an array of object?
+  //     // propertyName: undefined or property if this filter filters on a specific property
+  //     // operatorName: '_INCLUDED_IN_ROOT'
+  //     'aliases': [ 'rootWithConextContains' ],
+  //     default: '*', // the filter value that is equivalent to not specifying the filter, if applicable
+  //     expectedValueType: 'string[]', // kind of 'borrowed' from typescript
+  //     // option 1: the handler to produce the SQL is per custom filter
+  //     handler: function(normalizedName, value) return { where: ..., joins: ..., cte: ... }
+  //     // BUT what to do with customFilters that produce other query when multiple filters are combined
+  //   },
+  //   // option 2: the handler to produce the SQL gets all the custom filters as input
+  //   // (which allows for optimizing combinations of fillters, and also allows implementing a default for a custom filter)
+  //   handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
+  // },
+
   // uses the same jeys as in 'query', to make sure the custom filters are documented as well
   queryDocs?: Record<string, string>;
 
@@ -1039,28 +1056,6 @@ export type TSriConfig = {
   forceSecureSockets?: boolean;
 };
 
-//#region Option 1 to create a TSriInternalConfig based on TSriConfig
-
-// /**
-//  * This would make all properties optional, except for the ones listed in the second
-//  * Pick parameter (using a union type)
-//  */
-// type TSriInternalConfig1 = Partial<TSriConfig> & Pick<TSriConfig, 'databaseConnectionParameters'>;
-
-//#endregion Option 1 to create a TSriInternalConfig based on TSriConfig
-
-//#region Option 2 to create a TSriInternalConfig based on TSriConfig
-
-// /**
-//  * These additional properties would be required in TSriInternalConfig
-//  * (next to the ones that were already required in TSriConfig)
-//  */
-// type TSriInternalConfigAdditionalRequiredProperties = '' | ''; // list the properties you want to make required
-// /** This would make all properties optional, except for the ones in TSriInternalConfigRequiredProperties */
-// type TSriInternalConfig2 = Required<Pick<TSriConfig, TSriInternalConfigAdditionalRequiredProperties>> & Omit<TSriConfig, keyof Required<Pick<TSriConfig, TSriInternalConfigAdditionalRequiredProperties>>>;
-
-//#endregion Option 2 to create a TSriInternalConfig based on TSriConfig
-
 export type TPgColumns = {
   [resourcePath: string]: {
     insert: pgPromise.ColumnSet<unknown>;
@@ -1152,362 +1147,3 @@ export type ParseTree = {
 
 // can be improved and made a lot more strict (cfr. @types/json-schema), but for now...
 export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: unknown } };
-
-// const sriConfig = {
-//   "plugins": [
-//     {
-//       "uuid": "7569812c-a992-11ea-841b-1f780ac2b6cc"
-//     },
-//     {}
-//   ],
-//   "enableGlobalBatch": true,
-//   "globalBatchRoutePrefix": "/llinkid/activityplanning",
-//   "logdebug": "general",
-//   "description": "This API is to provide custom curricula",
-//   "bodyParserLimit": "50mb",
-//   "dbConnectionInitSql": "set random_page_cost = 1.1;",
-//   "resources": [
-//     {
-//       "type": "/llinkid/activityplanning/activityplans/activities",
-//       "metaType": "ACTIVITY",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "activities on a plan",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           },
-//           "parent": {
-//             "type": "object",
-//             "description": "a permalink to the parent. either another activity or the plan",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "title": {
-//             "type": "string",
-//             "description": "name of the activity"
-//           },
-//           "description": {
-//             "type": "string",
-//             "description": "short description of the entire activity (over all weeks/the entire period of the activity)."
-//           },
-//           "period": {
-//             "type": "object",
-//             "description": "the time-range that the activities is spanning.",
-//             "properties": {
-//               "startDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be published."
-//               },
-//               "endDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be unpublished."
-//               }
-//             },
-//             "required": [
-//               "startDate",
-//               "endDate"
-//             ]
-//           },
-//           "goals": {
-//             "type": "array",
-//             "description": "An array of permalinks to goals (either in the base curriculum, or one of the custom curricula).",
-//             "items": {
-//               "type": "object",
-//               "description": "a permalink to the goal",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           }
-//         },
-//         "required": [
-//           "key",
-//           "parent",
-//           "period"
-//         ]
-//       },
-//       "beforeUpdate": [
-//         null,
-//         null
-//       ],
-//       "beforeInsert": [
-//         null,
-//         null
-//       ],
-//       "afterRead": [
-//         null,
-//         null
-//       ],
-//       "query": {
-//         defaultFilter: function(x,y,z) {}
-//       },
-//       // POSSIBLE_FUTURE_QUERY
-//       "customQueryParams": {
-//         // THIS SHOULD ALWAYS WORK defaultFilter,
-//         _rootWithContextContains: {
-//           name: '_rootWithContextContains', // necessary if the key already contains that name, or do we make customQueryParams an array of object?
-//           // propertyName: undefined or property if this filter filters on a specific property
-//           // operatorName: '_INCLUDED_IN_ROOT'
-//           'aliases': [ 'rootWithConextContains' ],
-//           default: '*', // the filter value that is equivalent to not specifying the filter, if applicable
-//           expectedValueType: 'string[]', // kind of 'borrowed' from typescript
-//           // option 1: the handler to produce the SQL is per custom filter
-//           handler: function(normalizedName, value) return { where: ..., joins: ..., cte: ... }
-//           // BUT what to do with customFilters that produce other query when multiple filters are combined
-//         },
-//         // option 2: the handlet to produce the SQL gets all the custom filters as input
-//         // (which allows for optimizing combinations of fillters, and also allows implementing a default for a custom filter)
-//         handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
-//       },
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {},
-//         "parentPlan": {},
-//         "parentActivity": {},
-//         "title": {},
-//         "description": {},
-//         "period": {},
-//         "goals": {}
-//       },
-//       "customRoutes": [
-//         {
-//           "routePostfix": "/attachments",
-//           "httpMethods": [
-//             "POST"
-//           ],
-//           "readOnly": false,
-//           "busBoy": true
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:filename([^/]*.[A-Za-z0-9]{1,})",
-//           "httpMethods": [
-//             "GET"
-//           ],
-//           "readOnly": true,
-//           "binaryStream": true
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:attachmentKey",
-//           "readOnly": false,
-//           "httpMethods": [
-//             "DELETE"
-//           ]
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:attachmentKey",
-//           "httpMethods": [
-//             "GET"
-//           ],
-//           "readOnly": true
-//         }
-//       ]
-//     },
-//     {
-//       "type": "/llinkid/activityplanning/activityplans",
-//       "metaType": "ACTIVITY_PLAN",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "List of activity plans",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           },
-//           "title": {
-//             "type": "string",
-//             "description": "The additional name of this curriculum"
-//           },
-//           "creators": {
-//             "type": "array",
-//             "description": "List of creators for this activityplan",
-//             "minItems": 1,
-//             "items": {
-//               "type": "object",
-//               "description": "A permalink to the authoring [organisational unit | responsibility] of this plan",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "context": {
-//             "type": "object",
-//             "description": "mandatory reference to the schoolentity that this activityplan is valid for",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "issued": {
-//             "type": "object",
-//             "description": "the time-range that the activityplan is valid.",
-//             "properties": {
-//               "startDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be published."
-//               },
-//               "endDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be unpublished."
-//               }
-//             },
-//             "required": [
-//               "startDate",
-//               "endDate"
-//             ]
-//           },
-//           "curricula": {
-//             "type": "array",
-//             "description": "List of curricula for this activityplan",
-//             "minItems": 1,
-//             "items": {
-//               "type": "object",
-//               "description": "permalink to customcurricula or customcurriculagroup",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "activityplangroup": {
-//             "type": "object",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/llinkid/activityplanning/activityplangroups/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-//                 "description": "permalink to the activityplan group"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "class": {
-//             "type": "object",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/sam/organisationalunits/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-//                 "description": "permalink to a class (OU in samenscholing of type CLASS)"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "observers": {
-//             "type": "array",
-//             "description": "List of people/OUs who can view this activityplan",
-//             "items": {
-//               "type": "object",
-//               "description": "A permalink to the authoring [organisational unit | responsibility] of this plan",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "softDeleted": {
-//             "type": "string",
-//             "format": "date-time",
-//             "description": "a timestamp defining if/when the plan is soft-deleted"
-//           }
-//         },
-//         "required": [
-//           "key",
-//           "curricula",
-//           "creators",
-//           "issued",
-//           "class",
-//           "activityplangroup"
-//         ]
-//       },
-//       "query": {},
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {},
-//         "title": {},
-//         "context": {},
-//         "creators": {},
-//         "issued": {},
-//         "curricula": {},
-//         "activityplangroup": {
-//           "references": "/llinkid/activityplanning/activityplangroups"
-//         },
-//         "class": {},
-//         "observers": {},
-//         "softDeleted": {}
-//       }
-//     },
-//     {
-//       "type": "/llinkid/activityplanning/activityplangroups",
-//       "metaType": "ACTIVITY_PLAN_GROUP",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "List of activity plan groups",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key of this activityplangroup",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           }
-//         },
-//         "required": [
-//           "key"
-//         ]
-//       },
-//       "query": {},
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {}
-//       }
-//     }
-//   ]
-// };

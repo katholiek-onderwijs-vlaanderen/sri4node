@@ -1,4 +1,4 @@
-import { IDatabase } from "pg-promise";
+import { IDatabase, ITask } from "pg-promise";
 import { tableFromMapping } from "./common";
 import {
   SriError,
@@ -6,7 +6,6 @@ import {
   TPreparedSql,
   TResourceDefinitionInternal,
 } from "./typeDefinitions";
-import { IClient } from "pg-promise/typescript/pg-subset";
 
 type TParsedParam = {
   key: string;
@@ -326,7 +325,6 @@ function filterJson(
 
     const not = filter.postfix === "Not";
     const sensitive = filter.prefix === "CaseSensitive";
-    // const tablename = tableFromMapping(mapping);
 
     if (
       (filter.operator === "Greater" && not && sensitive) ||
@@ -560,7 +558,7 @@ function defaultFilter(
   valueEnc: string,
   query: TPreparedSql,
   parameter: string,
-  _tx: IDatabase<unknown, IClient>,
+  _tx: ITask<unknown> | IDatabase<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinitionInternal,
   _urlParameters: URLSearchParams,

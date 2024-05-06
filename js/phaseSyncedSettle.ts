@@ -16,7 +16,6 @@ import {
 } from "./typeDefinitions";
 import { debug, error, getParentSriRequestFromRequestMap } from "./common";
 import { IDatabase, ITask } from "pg-promise";
-import { IClient } from "pg-promise/typescript/pg-subset";
 import { applyHooks } from "./hooks";
 
 import { v4 as uuidv4 } from "uuid";
@@ -150,7 +149,7 @@ async function phaseSyncedSettle(
     readonly [
       TSriRequestHandlerForPhaseSyncer,
       readonly [
-        IDatabase<unknown, IClient> | ITask<unknown>,
+        IDatabase<unknown> | ITask<unknown>,
         TSriRequest,
         TResourceDefinitionInternal | null,
       ],

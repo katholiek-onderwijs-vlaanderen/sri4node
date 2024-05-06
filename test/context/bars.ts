@@ -133,7 +133,7 @@ module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
             };
           }
           const intRequest = {
-            href: sriRequest.query.get("href") ?? "",
+            href: sriRequest.query.get("href") as string,
             verb: sriRequest.query.get("method") as THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,

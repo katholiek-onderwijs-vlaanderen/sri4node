@@ -7,9 +7,6 @@
 import { Application, Request, Response } from "express";
 import _ from "lodash";
 import * as util from "util";
-
-// import Ajv from "ajv";
-// import addFormats from "ajv-formats";
 import pgPromise, { IDatabase, ITask } from "pg-promise";
 
 // External dependencies.
@@ -25,7 +22,6 @@ import shortid from "shortid";
 
 import {
   generateSriRequest,
-  sqlColumnNames,
   debug,
   error,
   pgInit,
@@ -37,7 +33,6 @@ import {
   createDebugLogConfigObject,
   transformObjectToRow,
   pgExec,
-  generatePgColumnSet,
   checkRequiredFields,
   installExpressMiddlewareTimer,
   resourceDefToResourceDefInternal,
@@ -61,7 +56,6 @@ import {
   isSriError,
   generatePgColumns,
 } from "./js/common";
-// import * as batch from "./js/batch";
 import { prepareSQL } from "./js/queryObject";
 import {
   TSriConfig,
@@ -100,14 +94,13 @@ import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
 import { batchFactory } from "./js/batch";
-import { IClient } from "pg-promise/typescript/pg-subset";
 
 async function handleExpressWrapperError(
   resp: Response,
   err,
   sriInternalConfig: TSriInternalConfig,
   sriInternalUtils: TSriInternalUtils,
-  t?: IDatabase<unknown, IClient> | ITask<unknown>,
+  t?: IDatabase<unknown> | ITask<unknown>,
   endTask?,
   rejectTx?,
   sriRequest?: TSriRequestExternal,
@@ -245,7 +238,6 @@ const utils: TSriInternalConfig["utils"] = {
 
   // removed pgInit and pgResult, but kept pgConnect for now (in case someone wants to use the
   // db, dbW and/or dbR properties)
-  // pgInit,
   pgConnect,
 
   // still here for backwards compatibility, in most cases we assume that using an
@@ -705,7 +697,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       readOnly0: boolean,
     ) =>
       async function (req: Request, resp: Response, _next) {
-        let t; //: IDatabase<unknown, pg.IClient> | ITask<unknown> | undefined = undefined;
+        let t; //: IDatabase<unknown> | ITask<unknown> | undefined = undefined;
         let endTask;
         let resolveTx;
         let rejectTx;
@@ -777,7 +769,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             hrtimeToMilliseconds(hrElapsedStartTransaction),
           );
 
-          req.on("close", (err) => {
+          req.on("close", (_err) => {
             sriRequest.reqCancelled = true;
             // try {
             //   handleExpressWrapperError(resp, err, sriConfig, sriInternalUtils, t, endTask, rejectTx, sriRequest, readOnly);
@@ -927,7 +919,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
         }
       };
 
-    // temporarilty allow a global /batch via config option for samenscholing
+    // temporarily allow a global /batch via config option for samenscholing
     if (sriInternalConfig.enableGlobalBatch) {
       const globalBatchPath = `${
         sriInternalConfig.globalBatchRoutePrefix !== undefined
@@ -1169,7 +1161,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                 verb: method.toUpperCase() as THttpMethod,
                 func: async (
                   _phaseSyncer,
-                  tx: pgPromise.IDatabase<unknown>,
+                  tx: pgPromise.ITask<unknown>,
                   sriRequest: TSriRequestExternal,
                   _mapping1,
                 ) => {

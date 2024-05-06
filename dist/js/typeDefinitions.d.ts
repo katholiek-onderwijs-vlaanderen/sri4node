@@ -7,7 +7,7 @@ import { Operation } from "fast-json-patch";
 import { IncomingHttpHeaders } from "http2";
 import { JSONSchema4 } from "json-schema";
 import pgPromise, { ITask } from "pg-promise";
-import { IClient, IConnectionParameters } from "pg-promise/typescript/pg-subset";
+import { IConnectionParameters } from "pg-promise/typescript/pg-subset";
 import stream from "stream";
 import { PhaseSyncer } from "./phaseSyncedSettle";
 import { ValidateFunction } from "ajv";
@@ -50,7 +50,7 @@ export type TPluginConfig = {
      * can do some database operations on startup.
      *
      */
-    install: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown, IClient>) => void | Promise<void>;
+    install: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown>) => void | Promise<void>;
     /**
      * This is called when the api is being closed. It can be used to clean up resources.
      * (like onnotification subscriptions to the database for example)
@@ -59,7 +59,7 @@ export type TPluginConfig = {
      * @param db
      * @returns
      */
-    close?: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown, IClient>) => void | Promise<void>;
+    close?: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown>) => void | Promise<void>;
 };
 export type TUriPath = string;
 export type THttpMethod = "GET" | "PUT" | "DELETE" | "PATCH" | "POST";
@@ -182,7 +182,7 @@ export type TSriServerInstance = {
     /**
      * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
      */
-    db: pgPromise.IDatabase<unknown, IClient>;
+    db: pgPromise.IDatabase<unknown>;
     app: Express.Application;
     /**
      * Closes the database pool.
@@ -210,7 +210,7 @@ export type TSriRequestExternal = {
         [key: string]: string;
     } | IncomingHttpHeaders;
     body?: TSriRequestBody;
-    dbT: pgPromise.IDatabase<unknown> | ITask<unknown>;
+    dbT: ITask<unknown>;
     pgp: pgPromise.IMain;
     inStream: stream.Readable;
     outStream: stream.Writable;
@@ -249,7 +249,7 @@ export type TSriRequestExternal = {
 };
 /**
  * This is the internal sri request object that is used for internal requests.
- * These are request that do not go thourh express, but that will reuse
+ * These are request that do not go through express, but that will reuse
  * an existing database transaction, and are being run while handling another request.
  *
  * You could imagine that you could use it for a validation rule for instance.
@@ -261,7 +261,7 @@ export type TSriRequestInternal = TSriRequestExternal & {
     protocol: "_internal_";
     href: string;
     verb: THttpMethod;
-    dbT: pgPromise.IDatabase<unknown> | ITask<unknown>;
+    dbT: ITask<unknown>;
     pgp: pgPromise.IMain;
     parentSriRequest: TSriRequestExternal;
     headers?: {
@@ -307,7 +307,7 @@ export type TSriInternalUtils = {
     internalSriRequest: (internalReq: Omit<TSriRequestInternal, "id" | "protocol" | "serverTiming" | "pgp" | "query" | "logDebug" | "logError" | "SriError" | "path" | "params" | "headers" | "inStream" | "outStream" | "userData">) => Promise<TSriResult>;
 };
 export type TSriQueryFun = {
-    [key: string]: (value: string, select: TPreparedSql, key: string, database: pgPromise.IDatabase<unknown, IClient>, doCount: boolean, mapping: TResourceDefinitionInternal, urlParameters: URLSearchParams, informationSchema: TInformationSchema) => void;
+    [key: string]: (value: string, select: TPreparedSql, key: string, database: pgPromise.IDatabase<unknown> | ITask<unknown>, doCount: boolean, mapping: TResourceDefinitionInternal, urlParameters: URLSearchParams, informationSchema: TInformationSchema) => void;
 };
 /** properties that always apply in ALL customRoute scenario's */
 export type TCustomRouteGeneralProperties = {
@@ -342,11 +342,11 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties & ({
 /** NON streaming input & NON streaming output */
 export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
     /** this will define where the customRoute listens relative to the resource base */
-    beforeHandler?: (tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils) => Promise<void>;
-    handler: (tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils) => Promise<TSriResult>;
+    beforeHandler?: (tx: pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils) => Promise<void>;
+    handler: (tx: pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils) => Promise<TSriResult>;
     /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
-    transformResponse?: (dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, sriResult: TSriResult, sriInternalUtils: TSriInternalUtils) => Promise<void>;
-    afterHandler?: (tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, result: TSriResult, sriInternalUtils: TSriInternalUtils) => Promise<void>;
+    transformResponse?: (dbT: pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, sriResult: TSriResult, sriInternalUtils: TSriInternalUtils) => Promise<void>;
+    afterHandler?: (tx: pgPromise.ITask<unknown>, sriRequest: TSriRequestExternal, customMapping: TResourceDefinitionInternal, result: TSriResult, sriInternalUtils: TSriInternalUtils) => Promise<void>;
 };
 /** streaming input & streaming output */
 export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
@@ -411,7 +411,7 @@ export type TTransformInternalRequestHook = (dbT: pgPromise.IDatabase<unknown> |
 export type TErrorHandlerHook = (sriRequest: TSriRequestExternal, error: Error, sriInternalUtils: TSriInternalUtils) => void;
 export type TAfterRequestHook = (sriRequest: TSriRequestExternal) => void;
 export type TTransformRequestHook = (expressRequest: Request, sriRequest: TSriRequestExternal, dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>, sriInternalUtils: TSriInternalUtils) => void;
-export type TStartupHook = (dbT: pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<unknown, IClient>) => void;
+export type TStartupHook = (dbT: pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<unknown>) => void;
 export type TResourceDefinition = {
     type: TUriPath;
     metaType: TResourceMetaType;

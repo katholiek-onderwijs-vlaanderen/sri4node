@@ -5,10 +5,6 @@ import monitor from "pg-monitor";
 import { Application, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import ajvAddFormats from "ajv-formats";
-
-// import { DEFAULT_MAX_VERSION } from 'tls';
-// import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
-
 import _ from "lodash";
 
 import * as flatUrlParser from "./url_parsing/flat_url_parser";
@@ -44,7 +40,6 @@ import peggy from "peggy";
 import httpContext from "express-http-context";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
-import { IClient } from "pg-promise/typescript/pg-subset";
 import { queryUtils } from "../sri4node";
 import Ajv from "ajv";
 import { prepareSQL } from "./queryObject";
@@ -201,7 +196,7 @@ function generateQueryStringParser(
 }
 
 /**
- * Turns a pggy parser syntax error into a more readable error message
+ * Turns a peggy parser syntax error into a more readable error message
  *
  * @param {pegSyntaxError} e
  * @param {String} input
@@ -468,9 +463,6 @@ function hrefToParsedObjectFactory(
               hrefToParsedObjectFactoryThis.flattenedJsonSchemaByPathMap[r.type],
             );
             try {
-              // console.log(`${r.type} GRAMMAR`);
-              // console.log(`=================`);
-              // console.log(grammar);
               switch (parseQueryStringPartByPart) {
                 case "NORMAL":
                   return [r.type, generateQueryStringParser(grammar)];
@@ -725,11 +717,6 @@ function createDebugLogConfigObject(logdebug?: TLogDebugExternal | boolean): TLo
 }
 
 /**
- * @todo
- * change this, so that each httpContext will have its own logBuffer, so we can just
- * call httpContext.get("logBuffer") or something, and output that to the console.
- * That would avoid having the single 'global' logBuffer.
- *
  * It will print eveything that has been accumulated in the logBuffer for the current request
  * to the console if it has the right status.
  * After this, the logBuffer of this request will be emptied.
@@ -1169,7 +1156,7 @@ function createPreparedStatement(details: pgPromise.IPreparedStatement | undefin
 //
 // It returns a Q promise to allow chaining, error handling, etc.. in Q-style.
 async function pgExec(
-  db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>,
+  db: pgPromise.IDatabase<unknown> | ITask<unknown>,
   query,
   sriRequest?: TSriRequestExternal,
 ) {
@@ -1188,7 +1175,7 @@ async function pgExec(
 }
 
 async function pgResult(
-  db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>,
+  db: pgPromise.IDatabase<unknown> | ITask<unknown>,
   query,
   sriRequest?: TSriRequestExternal,
 ) {
@@ -1207,7 +1194,7 @@ async function pgResult(
 }
 
 async function startTransaction(
-  db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>,
+  db: pgPromise.IDatabase<unknown> | ITask<unknown>,
   mode = new pgPromise.txMode.TransactionMode(),
 ): Promise<{
   tx: pgPromise.ITask<unknown>;
@@ -1305,8 +1292,8 @@ async function startTransaction(
 }
 
 async function startTask(
-  db: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>,
-): Promise<{ t: pgPromise.IDatabase<unknown, IClient> | ITask<unknown>; endTask: () => void }> {
+  db: pgPromise.IDatabase<unknown> | ITask<unknown>,
+): Promise<{ t: pgPromise.IDatabase<unknown> | ITask<unknown>; endTask: () => void }> {
   debug("db", "++ Starting database task.");
 
   const emitter = new EventEmitter();
@@ -1327,7 +1314,7 @@ async function startTask(
   };
 
   try {
-    const t: IDatabase<unknown, IClient> | ITask<unknown> = await new Promise((resolve, reject) => {
+    const t: IDatabase<unknown> | ITask<unknown> = await new Promise((resolve, reject) => {
       emitter.on("tEvent", (t) => {
         resolve(t);
       });
@@ -1364,7 +1351,7 @@ async function startTask(
 }
 
 async function installVersionIncTriggerOnTable(
-  db: pgPromise.IDatabase<unknown, IClient>,
+  db: pgPromise.IDatabase<unknown>,
   tableName: string,
   schemaName?: string,
 ) {
@@ -1580,7 +1567,7 @@ function generateSriRequest(
         isStreamingRequest: boolean;
         readOnly: boolean;
         mapping?: TResourceDefinitionInternal;
-        dbT: IDatabase<unknown, IClient> | ITask<unknown>;
+        dbT: ITask<unknown>;
         pgp: IMain;
       }
     | undefined = undefined,
@@ -1620,10 +1607,7 @@ function generateSriRequest(
     httpMethod: undefined,
     headers: {},
     body: undefined,
-    dbT:
-      basicConfig?.dbT ||
-      internalSriRequest?.dbT ||
-      (parentSriRequest?.dbT as IDatabase<unknown, IClient> | ITask<unknown>),
+    dbT: basicConfig?.dbT || internalSriRequest?.dbT || (parentSriRequest?.dbT as ITask<unknown>),
     pgp: basicConfig?.pgp || internalSriRequest?.pgp || (parentSriRequest?.pgp as IMain),
     inStream: new stream.Readable(),
     outStream: new stream.Writable(),
@@ -2192,25 +2176,6 @@ const toArray = (thing) => {
   }
   return thing;
 };
-
-/*
- * @deprecated
- *
- * Makes the property <name> of object <resource> an array.
- * This function will alter the resource object so it is advised NOT to use it!
- *
- * @example
- * ```javascript
- * objPropertyToArray({}, foo); // will ALTER RESOURCE into { foo: [] }
- * objPropertyToArray({ foo: null }, foo); // will produce { foo: [] }
- * objPropertyToArray({ foo: 'bar' }, foo); // will produce { foo: ['bar'] }
- * ```
- * @param resource
- * @param name
- */
-// const objPropertyToArray = (resource, name) => {
-//   resource[name] = toArray(resource[name]);
-// };
 
 /**
  * Helper function to type check if something is an SriError

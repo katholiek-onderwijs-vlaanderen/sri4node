@@ -19,7 +19,7 @@ import {
 } from "./typeDefinitions";
 import { prepareSQL } from "./queryObject";
 import { applyHooks } from "./hooks";
-import { IDatabase } from "pg-promise";
+import { IDatabase, ITask } from "pg-promise";
 
 const checkRecurse = (expandpath: string) => {
   const parts: Array<string> = expandpath.split(".");
@@ -191,7 +191,7 @@ function parseExpand(expand) {
  - person.address,community is NOT OK - it has 1 expansion of 2 levels. This is not supported.
  */
 async function executeExpansion(
-  db: IDatabase<unknown>,
+  db: ITask<unknown> | IDatabase<unknown>,
   sriRequest: TSriRequestExternal,
   elements,
   mapping: TResourceDefinitionInternal,

@@ -99,27 +99,21 @@ function config(
     },
     databaseLibraryInitOptions: {
       connect(client, databaseContext, useCount) {
-        // console.log("\x1b[32m", "                                        connect called", "\x1b[0m");
         pgpStats.connect.push({ client, databaseContext, useCount });
       },
       disconnect(client, databaseContext) {
-        // console.log("\x1b[32m", "                                        disconnect called", "\x1b[0m");
         pgpStats.disconnect.push({ client, databaseContext });
       },
       error(error, eventContext) {
-        // console.log("\x1b[32m", "                                        error called", "\x1b[0m");
         pgpStats.error.push({ error, eventContext });
       },
       query(eventContext) {
-        // console.log("\x1b[32m", "                                        query called", "\x1b[0m");
         pgpStats.query.push({ eventContext });
       },
       task(eventContext) {
-        // console.log("\x1b[32m", "                                        task called", "\x1b[0m");
         pgpStats.task.push({ eventContext });
       },
       transact(eventContext) {
-        // console.log("\x1b[32m", "                                        transact called", "\x1b[0m");
         pgpStats.transact.push({ eventContext });
       },
     },
@@ -127,7 +121,7 @@ function config(
     resources: resourceFiles.map((file) => require(file)(sri4node)),
 
     startUp: [
-      async (db: IDatabase<unknown, IClient>, pgp: IMain) => {
+      async (db: IDatabase<unknown>, pgp: IMain) => {
         // crash if either db or pgp is undefined
         if (!db?.connect) {
           throw new Error("startUp hook error: db parameter is not what we expected");
@@ -286,7 +280,7 @@ function getConfigurationClone() {
 }
 
 /**
- * Makes ure all the arrays in the pgpStats object are emptied again.
+ * Make sure all the arrays in the pgpStats object are emptied again.
  *
  * (Just setting the array length to 0, replacing each pgpStats[k] with an empty array seems
  * to break the pg-promise hooks (=> no events recorded anymore).

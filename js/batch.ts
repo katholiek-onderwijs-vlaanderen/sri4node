@@ -5,7 +5,7 @@ import JSONStream from "JSONStream";
 import EventEmitter from "events";
 import pEvent from "p-event";
 import httpContext from "express-http-context";
-import { IDatabase, ITask } from "pg-promise";
+import { ITask } from "pg-promise";
 
 import { applyHooks } from "./hooks";
 import { phaseSyncedSettle } from "./phaseSyncedSettle";
@@ -263,11 +263,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
             const batchJobs: Array<
               [
                 TSriRequestHandlerForPhaseSyncer,
-                [
-                  IDatabase<unknown> | ITask<unknown>,
-                  TSriRequestExternal,
-                  TResourceDefinitionInternal,
-                ],
+                [ITask<unknown>, TSriRequestExternal, TResourceDefinitionInternal],
               ]
             > = await pMap(
               batch,
@@ -330,7 +326,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
 
             await pEachSeries(results, async (res: any, idx) => {
               const [_tx, innerSriRequest, mapping]: [
-                IDatabase<unknown> | ITask<unknown>,
+                ITask<unknown>,
                 TSriRequestExternal,
                 TResourceDefinitionInternal,
               ] = batchJobs[idx][1];
@@ -409,7 +405,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
       type THandleBatchStreamingResponse = number | Array<SriError | THandleBatchStreamingResponse>;
       const handleBatchStreaming = async (
         batch: TSriBatchArray,
-        tx: IDatabase<unknown> | ITask<unknown>,
+        tx: ITask<unknown>,
       ): Promise<THandleBatchStreamingResponse> => {
         if (batch.every((element) => Array.isArray(element))) {
           debug(
@@ -435,11 +431,7 @@ function batchFactory(sriInternalConfig: TSriInternalConfig) {
             const batchJobs: Array<
               readonly [
                 TSriRequestHandlerForPhaseSyncer,
-                readonly [
-                  IDatabase<unknown> | ITask<unknown>,
-                  TSriRequestExternal,
-                  TResourceDefinitionInternal,
-                ],
+                readonly [ITask<unknown>, TSriRequestExternal, TResourceDefinitionInternal],
               ]
             > = await pMap(
               batch,

@@ -2,8 +2,7 @@
 import { tableFromMapping } from "./common";
 import { SriError, TPreparedSql, TResourceDefinitionInternal } from "./typeDefinitions";
 import { defaultFilter } from "./defaultFilter";
-import { IDatabase } from "pg-promise";
-import { IClient } from "pg-promise/typescript/pg-subset";
+import { IDatabase, ITask } from "pg-promise";
 
 /**
  *
@@ -16,7 +15,7 @@ function filterHrefs(
   href: string,
   query: TPreparedSql,
   _parameter: string,
-  _tx: IDatabase<unknown, IClient>,
+  _tx: IDatabase<unknown> | ITask<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinitionInternal,
   _urlParameters: URLSearchParams,
@@ -84,7 +83,7 @@ function modifiedSince(
   value: string,
   query: TPreparedSql,
   _parameter: string,
-  _tx: IDatabase<unknown, IClient>,
+  _tx: IDatabase<unknown> | ITask<unknown>,
   _doCount: boolean,
   mapping: TResourceDefinitionInternal,
   _urlParameters: URLSearchParams,

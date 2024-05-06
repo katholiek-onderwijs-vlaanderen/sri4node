@@ -4,7 +4,6 @@ import queue from "emitter-queue";
 import Emitter from "events";
 import { TSriRequestHandlerForPhaseSyncer, TResourceDefinitionInternal, TSriInternalUtils, TInformationSchema, TBeforePhaseHook, TSriInternalConfig, TSriRequest, TSriResult } from "./typeDefinitions";
 import { IDatabase, ITask } from "pg-promise";
-import { IClient } from "pg-promise/typescript/pg-subset";
 /**
  * "Phase syncing" is a way to control synchronization between multiple requests handlers (multiple items
  * of batch request). Jobs (sri request handlers) are divided into 'phases' (steps, subtasks) and jobs are
@@ -66,7 +65,7 @@ declare class PhaseSyncer {
 declare function phaseSyncedSettle(jobList: Array<readonly [
     TSriRequestHandlerForPhaseSyncer,
     readonly [
-        IDatabase<unknown, IClient> | ITask<unknown>,
+        IDatabase<unknown> | ITask<unknown>,
         TSriRequest,
         TResourceDefinitionInternal | null
     ]
