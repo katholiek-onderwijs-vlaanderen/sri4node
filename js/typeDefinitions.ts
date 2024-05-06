@@ -415,6 +415,8 @@ export type TResourceMetaType = Uppercase<string>;
  * If we find more useful functions later, we can also easily add them to this object in the future.
  */
 export type TSriInternalUtils = {
+  debug: TDebugLogFunction;
+  error: TErrorLogFunction;
   internalSriRequest: (
     internalReq: Omit<
       TSriRequestInternal,
@@ -1088,15 +1090,7 @@ export type TSriInternalConfig = RequiredExtra<
     addReferencingResources: typeof addReferencingResources;
     pgConnect: typeof pgConnect;
 
-    /**
-     * still here for backwards compatibility, in most cases we assume that using an
-     * internalSriRequest would be sufficient
-     */
     transformRowToObject: typeof transformRowToObject;
-    /**
-     * still here for backwards compatibility, in most cases we assume that using an
-     * internalSriRerquest would be sufficient
-     */
     transformObjectToRow: typeof transformObjectToRow;
 
     typeToMapping: typeof typeToMapping;

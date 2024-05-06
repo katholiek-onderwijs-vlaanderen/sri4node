@@ -249,7 +249,7 @@ export type TSriRequestExternal = {
 };
 /**
  * This is the internal sri request object that is used for internal requests.
- * These are request that do not go through express, but that will reuse
+ * These are requests that do not go through express, but that will reuse
  * an existing database transaction, and are being run while handling another request.
  *
  * You could imagine that you could use it for a validation rule for instance.
@@ -304,6 +304,8 @@ export type TResourceMetaType = Uppercase<string>;
  * If we find more useful functions later, we can also easily add them to this object in the future.
  */
 export type TSriInternalUtils = {
+    debug: TDebugLogFunction;
+    error: TErrorLogFunction;
     internalSriRequest: (internalReq: Omit<TSriRequestInternal, "id" | "protocol" | "serverTiming" | "pgp" | "query" | "logDebug" | "logError" | "SriError" | "path" | "params" | "headers" | "inStream" | "outStream" | "userData">) => Promise<TSriResult>;
 };
 export type TSriQueryFun = {
@@ -615,15 +617,7 @@ export type TSriInternalConfig = RequiredExtra<Omit<TSriConfig, "logdebug" | "re
         convertListResourceURLToSQL: typeof getSQLFromListResource;
         addReferencingResources: typeof addReferencingResources;
         pgConnect: typeof pgConnect;
-        /**
-         * still here for backwards compatibility, in most cases we assume that using an
-         * internalSriRequest would be sufficient
-         */
         transformRowToObject: typeof transformRowToObject;
-        /**
-         * still here for backwards compatibility, in most cases we assume that using an
-         * internalSriRerquest would be sufficient
-         */
         transformObjectToRow: typeof transformObjectToRow;
         typeToMapping: typeof typeToMapping;
         tableFromMapping: typeof tableFromMapping;

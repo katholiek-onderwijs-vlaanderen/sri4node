@@ -4783,6 +4783,17 @@ var utils = {
   parseResource
   // should be deprecated in favour of a decent url parsing mechanism
 };
+var exportedUtils = {
+  executeSQL: pgExec,
+  prepareSQL,
+  convertListResourceURLToSQL: getSQLFromListResource,
+  addReferencingResources,
+  pgConnect,
+  typeToMapping,
+  tableFromMapping,
+  urlToTypeAndKey,
+  parseResource
+};
 function configure(app, sriConfig) {
   return __async(this, null, function* () {
     app.disable("x-powered-by");
@@ -5064,6 +5075,8 @@ function configure(app, sriConfig) {
         return JSON.parse(JSON.stringify(result));
       });
       const sriInternalUtils = {
+        debug,
+        error,
         internalSriRequest
       };
       const handleServerTiming = (req, resp, sriRequest) => __async(this, null, function* () {
@@ -5741,14 +5754,12 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
 export {
   SriError,
   configure,
-  debugAnyChannelAllowed as debug,
-  error,
   isLikeCustomRouteDefinition,
   isNonStreamingCustomRouteDefinition,
   isStreamingCustomRouteDefinition,
   mapUtils_exports as mapUtils,
   queryUtils_exports as queryUtils,
   schemaUtils_exports as schemaUtils,
-  utils
+  exportedUtils as utils
 };
 //# sourceMappingURL=sri4node.esm.mjs.map

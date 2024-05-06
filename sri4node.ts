@@ -43,7 +43,6 @@ import {
   urlToTypeAndKey,
   parseResource,
   installVersionIncTriggerOnTable,
-  debugAnyChannelAllowed,
   createReadableStream,
   stringifyError,
   setServerTimingHdr,
@@ -249,6 +248,21 @@ const utils: TSriInternalConfig["utils"] = {
   tableFromMapping,
   urlToTypeAndKey,
   parseResource, // should be deprecated in favour of a decent url parsing mechanism
+};
+
+const exportedUtils: Omit<
+  TSriInternalConfig["utils"],
+  "transformObjectToRow" | "transformRowToObject"
+> = {
+  executeSQL: pgExec,
+  prepareSQL,
+  convertListResourceURLToSQL: listResource.getSQLFromListResource,
+  addReferencingResources,
+  pgConnect,
+  typeToMapping,
+  tableFromMapping,
+  urlToTypeAndKey,
+  parseResource,
 };
 
 /**
@@ -636,6 +650,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     // so we can add it to every sriRequest via expressRequest.app.get('sriInternalRequest')
     const sriInternalUtils: TSriInternalUtils = {
+      debug,
+      error,
       internalSriRequest,
     };
 
@@ -1441,28 +1457,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
 /* express.js application, configuration for roa4node */
 // export = // for typescript
-export {
-  configure,
-  /**
-   * @deprecated
-   * This function depends on the configuration object, which is not available before
-   * configure() has been called. Hence it should be removed here, and put in the
-   * sri4nodeServerInstance object that is returned by configure() or passed
-   * as part of every sriRequest, so it can be called whenever needed.
-   */
-  debugAnyChannelAllowed as debug,
-  /** @deprecated
-   * Similar to debug, this function should be removed from here and put in the
-   * sri4nodeServerInstance object that is returned by configure() or passed
-   * as part of every sriRequest, so it can be called whenever needed.
-   * It uses express-http-context in order to get the request id, which also feels like
-   * magic that should be avoided.
-   */
-  error,
-  queryUtils,
-  mapUtils,
-  schemaUtils,
-  utils,
-};
+export { configure, queryUtils, mapUtils, schemaUtils, exportedUtils as utils };
 
 export * from "./js/typeDefinitions";

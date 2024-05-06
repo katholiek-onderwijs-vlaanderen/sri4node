@@ -21,25 +21,37 @@ module.exports = function (sri4node: typeof Sri4Node) {
   const $q = sri4node.queryUtils;
   const $u = sri4node.utils;
 
-  const checkMe = async function (_tx, sriRequest, _elements) {
+  const checkMe: Sri4Node.TAfterReadHook &
+    Sri4Node.TAfterInsertHook &
+    Sri4Node.TAfterUpdateHook &
+    Sri4Node.TAfterDeleteHook = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject === undefined) {
       throw new sriRequest.SriError({ status: 401, errors: [{ code: "unauthorized" }] });
     }
   };
 
-  const failOnBadUser = async function (_tx, sriRequest, _elements) {
+  const failOnBadUser: Sri4Node.TAfterReadHook &
+    Sri4Node.TAfterInsertHook &
+    Sri4Node.TAfterUpdateHook &
+    Sri4Node.TAfterDeleteHook = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject.email === "daniella@email.be") {
       throw new Error("BAD User");
     }
   };
 
-  const forbidUser = async function (_tx, sriRequest, _elements) {
+  const forbidUser: Sri4Node.TAfterReadHook &
+    Sri4Node.TAfterInsertHook &
+    Sri4Node.TAfterUpdateHook &
+    Sri4Node.TAfterDeleteHook = async function (_tx, sriRequest, _elements) {
     if (sriRequest.userObject.email === "ingrid@email.be") {
       throw new sriRequest.SriError({ status: 403, errors: [{ code: "forbidden" }] });
     }
   };
 
-  const checkElements = async function (_tx, _sriRequest, elements) {
+  const checkElements: Sri4Node.TAfterReadHook &
+    Sri4Node.TAfterInsertHook &
+    Sri4Node.TAfterUpdateHook &
+    Sri4Node.TAfterDeleteHook = async function (_tx, _sriRequest, elements) {
     if (!Array.isArray(elements)) {
       throw new Error("`elements` is not an array");
     }
@@ -53,7 +65,12 @@ module.exports = function (sri4node: typeof Sri4Node) {
     }
   };
 
-  const restrictReadPersons = async function (tx, sriRequest, elements) {
+  const restrictReadPersons: Sri4Node.TAfterReadHook = async function (
+    tx,
+    sriRequest,
+    elements,
+    { debug, error },
+  ) {
     // A secure function must take into account that a GET operation
     // can be either a GET for a regular resource, or a GET for a
     // list resource.
@@ -63,18 +80,18 @@ module.exports = function (sri4node: typeof Sri4Node) {
         const url = e.permalink;
         if (url === "/persons") {
           // Should allways restrict to /me community.
-          if (sriRequest.query.communities) {
-            if (sriRequest.query.communities === sriRequest.userObject.community.href) {
-              sri4node.debug("mocha", "** restrictReadPersons resolves.");
+          if (sriRequest.query.get("communities")) {
+            if (sriRequest.query.get("communities") === sriRequest.userObject.community.href) {
+              debug("mocha", "** restrictReadPersons resolves.");
             } else {
-              sri4node.debug(
+              debug(
                 "mocha",
                 "** restrictReadPersons rejecting - can only request persons from your own community.",
               );
               throw new sriRequest.SriError({ status: 403, errors: [{ code: "forbidden" }] });
             }
           } else {
-            sri4node.debug(
+            debug(
               "mocha",
               "** restrictReadPersons rejecting - must specify ?communities=... for GET on list resources",
             );
@@ -83,7 +100,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
         } else {
           const key = url.split("/")[2];
           const myCommunityKey = sriRequest.userObject.community.href.split("/")[2];
-          sri4node.debug("mocha", `community key = ${myCommunityKey}`);
+          debug("mocha", `community key = ${myCommunityKey}`);
 
           const query = sri4node.utils.prepareSQL("check-person-is-in-my-community");
           query
@@ -93,10 +110,10 @@ module.exports = function (sri4node: typeof Sri4Node) {
             .param(myCommunityKey);
           const [row] = await sri4node.utils.executeSQL(tx, query);
           if (parseInt(row.count, 10) === 1) {
-            sri4node.debug("mocha", "** restrictReadPersons resolves.");
+            debug("mocha", "** restrictReadPersons resolves.");
           } else {
-            sri4node.debug("mocha", `row.count = ${row.count}`);
-            sri4node.debug(
+            debug("mocha", `row.count = ${row.count}`);
+            debug(
               "mocha",
               `** security method restrictedReadPersons denies access. ${key} ${myCommunityKey}`,
             );
@@ -108,23 +125,26 @@ module.exports = function (sri4node: typeof Sri4Node) {
     );
   };
 
-  function disallowOnePerson(forbiddenKey) {
-    return async function (_tx, sriRequest, _elements) {
+  const disallowOnePerson = (forbiddenKey: string): Sri4Node.TAfterReadHook => {
+    return async function (_tx, sriRequest, _elements, { debug, error }) {
       const { key } = sriRequest.params;
       if (key === forbiddenKey) {
-        sri4node.debug(
-          "mocha",
-          `security method disallowedOnePerson for ${forbiddenKey} denies access`,
-        );
+        debug("mocha", `security method disallowedOnePerson for ${forbiddenKey} denies access`);
         throw new sriRequest.SriError({ status: 403, errors: [{ code: "forbidden" }] });
       }
     };
-  }
+  };
+
+  const disallowOnePersonCustom = (forbiddenKey: string) => {
+    const f = disallowOnePerson(forbiddenKey);
+    return async (tx, sriRequest, resources, sriInternalUtils) =>
+      f(tx, sriRequest, [], sriInternalUtils, resources);
+  };
 
   function returnSriTypeForOnePerson() {
-    return async function (_tx, sriRequest, _elements) {
+    return async function (_tx, sriRequest, _elements, { debug, error }) {
       if (sriRequest.userObject.email === "sam@email.be") {
-        sri4node.debug("mocha", "security method returnSriTypeForOnePerson returns sriType.");
+        debug("mocha", "security method returnSriTypeForOnePerson returns sriType.");
         throw new sriRequest.SriError({
           status: 200,
           errors: [{ foo: "bar", sriType: sriRequest.sriType, type: "TEST" }],
@@ -195,7 +215,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
         routePostfix: "/:key/simple",
         httpMethods: ["GET"],
         handler: simpleOutput,
-        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+        beforeHandler: disallowOnePersonCustom("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
       },
       {
         routePostfix: "/:key/simple_slow",
@@ -204,7 +224,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
           await sleep(3000);
           return simpleOutput(tx, sriRequest, customMapping);
         },
-        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+        beforeHandler: disallowOnePersonCustom("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
       },
       {
         routePostfix: "/:key/db_slow",
@@ -213,7 +233,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
           await tx.one("SELECT pg_sleep(3);");
           return simpleOutput(tx, sriRequest, customMapping);
         },
-        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+        beforeHandler: disallowOnePersonCustom("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
       },
       {
         routePostfix: "/:key/db_timeout",
@@ -222,7 +242,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
           await tx.one("SELECT pg_sleep(10);");
           return simpleOutput(tx, sriRequest, customMapping);
         },
-        beforeHandler: disallowOnePerson("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
+        beforeHandler: disallowOnePersonCustom("da6dcc12-c46f-4626-a965-1a00536131b2"), // Ingrid Ohno
       },
       {
         like: "/:key",

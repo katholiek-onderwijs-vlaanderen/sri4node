@@ -20,6 +20,10 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 
+- Stateful functions (like debug and error) are not exported from the library directly anymore
+  because they were only safe to use after configure had been called.
+  In order to allow hooks to use these functions, they are now passed to the hooks via the
+  sriInternalUtils argument.
 - We do not rewrite sriConfig anymore in the configure function, but we create a new object
   with type TSriInternalConfig.
 - Removed the use of properties on the global Object to share state between functions.
@@ -33,9 +37,7 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 - Everything that used to have type **ParsedUrlQuery** has type **URLSearchParams** now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do `query.key` you now have to do `query.get('key')`!
   For example, for afterRead handlers of type TAfterReadHook, sriRequest.query will now be a URLSearchParams object instead of a ParsedUrlQuery object.
   Watch out: where you used to check for `!== undefined`, you need to replace it with `!== null`.
-- Stateful functions (like debug and error) are not exported from the library directly anymore
-  because they were only safe to use after configure had been called.
-- schema.sql an,d testdata.sql are moved from docker/postgres_initdb/sql to test/context/sql
+- schema.sql and testdata.sql are moved from docker/postgres_initdb/sql to test/context/sql
   and are being run during the startUp hook of the sri4node server instance, in order to make sure
   nothing important is done by sri4node on the DB before this hook has run.
 
@@ -43,6 +45,9 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Removed
 
+- It was still possible to override transformRowToObject and transformObjectToRow in the sriConfig
+  object, but that will not work anymore.
+- Removed the use of properties on the global Object to share state between functions.
 - js/utilLib.ts file, put everything in js/common.ts
 
 ### Fixed

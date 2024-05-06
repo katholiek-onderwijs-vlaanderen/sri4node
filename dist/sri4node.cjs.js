@@ -86,15 +86,13 @@ var sri4node_exports = {};
 __export(sri4node_exports, {
   SriError: () => SriError,
   configure: () => configure,
-  debug: () => debugAnyChannelAllowed,
-  error: () => error,
   isLikeCustomRouteDefinition: () => isLikeCustomRouteDefinition,
   isNonStreamingCustomRouteDefinition: () => isNonStreamingCustomRouteDefinition,
   isStreamingCustomRouteDefinition: () => isStreamingCustomRouteDefinition,
   mapUtils: () => mapUtils_exports,
   queryUtils: () => queryUtils_exports,
   schemaUtils: () => schemaUtils_exports,
-  utils: () => utils
+  utils: () => exportedUtils
 });
 module.exports = __toCommonJS(sri4node_exports);
 
@@ -4821,6 +4819,17 @@ var utils = {
   parseResource
   // should be deprecated in favour of a decent url parsing mechanism
 };
+var exportedUtils = {
+  executeSQL: pgExec,
+  prepareSQL,
+  convertListResourceURLToSQL: getSQLFromListResource,
+  addReferencingResources,
+  pgConnect,
+  typeToMapping,
+  tableFromMapping,
+  urlToTypeAndKey,
+  parseResource
+};
 function configure(app, sriConfig) {
   return __async(this, null, function* () {
     app.disable("x-powered-by");
@@ -5102,6 +5111,8 @@ function configure(app, sriConfig) {
         return JSON.parse(JSON.stringify(result));
       });
       const sriInternalUtils = {
+        debug,
+        error,
         internalSriRequest
       };
       const handleServerTiming = (req, resp, sriRequest) => __async(this, null, function* () {
@@ -5780,8 +5791,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
 0 && (module.exports = {
   SriError,
   configure,
-  debug,
-  error,
   isLikeCustomRouteDefinition,
   isNonStreamingCustomRouteDefinition,
   isStreamingCustomRouteDefinition,

@@ -12,7 +12,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
   }
 
   function disallowOneCommunity(forbiddenKey): Sri4Node.TAfterReadHook {
-    return async function (_tx, sriRequest, elements) {
+    return async function (_tx, sriRequest, elements, { debug, error }, _resourceDefinition) {
       if (sriRequest.httpMethod === "GET") {
         await pMap(
           elements,
@@ -22,7 +22,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
               (sriRequest.query.get("expand") !== null &&
                 e.permalink === `/communities/${forbiddenKey}`)
             ) {
-              sri4node.debug(
+              debug(
                 "mocha",
                 `security method disallowedOneCommunity for ${forbiddenKey} denies access`,
               );
@@ -64,9 +64,15 @@ module.exports = function (sri4node: typeof Sri4Node) {
     }
   }
 
-  async function addMessageCountToCommunities(tx, _sriRequest, elements) {
-    sri4node.debug("mocha", "addMessageCountToCommunities");
-    sri4node.debug("mocha", elements);
+  const addMessageCountToCommunities: Sri4Node.TAfterReadHook = async (
+    tx,
+    _sriRequest,
+    elements,
+    { debug, error },
+    _resourceDefinition,
+  ) => {
+    debug("mocha", "addMessageCountToCommunities");
+    debug("mocha", JSON.stringify(elements, null, 2));
 
     if (elements.length > 0) {
       // Lets do this efficiently. Remember that we receive an array of elements.
@@ -91,7 +97,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
         (row) => (keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10)),
       );
     }
-  }
+  };
 
   const r: TResourceDefinition = {
     type: "/communities",
