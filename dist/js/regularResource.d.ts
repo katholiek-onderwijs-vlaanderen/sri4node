@@ -1,19 +1,19 @@
-import { TSriRequest, TBeforePhase, TResourceDefinition } from "./typeDefinitions";
+import { TSriRequestExternal, TBeforePhaseHook, TInformationSchema, TSriInternalUtils, TResourceDefinitionInternal } from "./typeDefinitions";
 import { PhaseSyncer } from "./phaseSyncedSettle";
 import { IDatabase } from "pg-promise";
-declare const beforePhaseQueryByKey: TBeforePhase;
-declare function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
+declare const beforePhaseQueryByKey: TBeforePhaseHook;
+declare function getRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequestExternal, mapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils, _informationSchema: TInformationSchema, resources: Array<TResourceDefinitionInternal>): Promise<{
     status: number;
     body: any;
 }>;
-declare function beforePhaseInsertUpdateDelete(sriRequestMap: any, _jobMap: any, _pendingJobs: any): Promise<void>;
-declare function createOrUpdateRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
+declare const beforePhaseInsertUpdateDelete: TBeforePhaseHook;
+declare function createOrUpdateRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequestExternal, mapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema): Promise<{
     status: number;
 }>;
-declare function patchRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
+declare function patchRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequestExternal, mapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils, informationSchema: TInformationSchema): Promise<{
     status: number;
 }>;
-declare function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequest, mapping: TResourceDefinition): Promise<{
+declare function deleteRegularResource(phaseSyncer: PhaseSyncer, tx: IDatabase<unknown>, sriRequest: TSriRequestExternal, mapping: TResourceDefinitionInternal, sriInternalUtils: TSriInternalUtils): Promise<{
     status: number;
 }>;
 export { getRegularResource, createOrUpdateRegularResource, patchRegularResource, deleteRegularResource, beforePhaseQueryByKey, beforePhaseInsertUpdateDelete, };

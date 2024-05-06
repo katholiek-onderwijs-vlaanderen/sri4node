@@ -1,5 +1,4 @@
 import { TResourceDefinition } from "../../sri4node";
-// import utils from '../utils';
 import * as Sri4Node from "../../index";
 
 module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {

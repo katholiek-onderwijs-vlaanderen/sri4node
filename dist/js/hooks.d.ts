@@ -1,3 +1,3 @@
-import { TSriRequest } from "./typeDefinitions";
-declare function applyHooks(type: string, functions: Array<(...any: any[]) => any> | undefined, applyFun: (fun: (...any: any[]) => any) => any, sriRequest?: TSriRequest): Promise<void>;
+import { TAfterDeleteHook, TAfterInsertHook, TAfterReadHook, TAfterRequestHook, TAfterUpdateHook, TBeforeDeleteHook, TBeforeInsertHook, TBeforePhaseHook, TBeforeReadHook, TBeforeUpdateHook, TErrorHandlerHook, TSriRequestInternal, TSriRequestExternal, TStartupHook, TTransformInternalRequestHook, TTransformRequestHook, TTransformResponseHook } from "./typeDefinitions";
+declare function applyHooks<T extends TStartupHook | TBeforePhaseHook | TBeforeReadHook | TBeforeInsertHook | TBeforeUpdateHook | TBeforeDeleteHook | TAfterReadHook | TAfterInsertHook | TAfterUpdateHook | TAfterDeleteHook | TTransformRequestHook | TTransformInternalRequestHook | TAfterRequestHook | TTransformResponseHook | TErrorHandlerHook>(type: string, functions: Array<T> | undefined, applyFun: (func: T) => unknown, sriRequest?: TSriRequestExternal | TSriRequestInternal): Promise<void>;
 export { applyHooks };

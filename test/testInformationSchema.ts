@@ -1,6 +1,6 @@
-import assert from "assert";
+import { assert } from "chai";
 import { debug } from "../js/common";
-import { informationSchema } from "../js/informationSchema";
+import { getInformationSchema } from "../js/informationSchema";
 
 import * as context from "./context";
 import { TSriServerInstance } from "../sri4node";
@@ -9,7 +9,7 @@ module.exports = function (testContext: { sriServerInstance: null | TSriServerIn
   describe("Information Schema", () => {
     it("should correctly show text columns", async () => {
       const configuration = context.getConfiguration();
-      const is = await informationSchema(
+      const is = await getInformationSchema(
         (testContext.sriServerInstance as TSriServerInstance).db,
         configuration,
       );

@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import { THttpClient } from "./httpClient";
 
 module.exports = (httpClient: THttpClient) => {

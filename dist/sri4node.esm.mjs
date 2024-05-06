@@ -63,8 +63,6 @@ var __async = (__this, __arguments, generator) => {
 // sri4node.ts
 import _7 from "lodash";
 import * as util from "util";
-import Ajv2 from "ajv";
-import addFormats2 from "ajv-formats";
 import compression from "compression";
 import bodyParser from "body-parser";
 import Route from "route-parser";
@@ -76,10 +74,11 @@ import httpContext3 from "express-http-context";
 import shortid from "shortid";
 
 // js/common.ts
+import { URL as URL2 } from "url";
 import pgPromise from "pg-promise";
 import monitor from "pg-monitor";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream";
+import ajvAddFormats from "ajv-formats";
 import _ from "lodash";
 
 // js/schemaUtils.ts
@@ -322,7 +321,6 @@ function isStreamingCustomRouteDefinition(cr) {
 import peggy from "peggy";
 
 // js/common.ts
-import url2 from "url";
 import EventEmitter from "events";
 import pEvent from "p-event";
 import path from "path";
@@ -422,1594 +420,7 @@ function init(reporter) {
 }
 
 // js/common.ts
-var pgp;
-var logBuffer = {};
-function hrtimeToMilliseconds([seconds, nanoseconds]) {
-  return seconds * 1e3 + nanoseconds / 1e6;
-}
-var isLogChannelEnabled = (channel) => {
-  return global.sri4node_configuration === void 0 || global.sri4node_configuration.logdebug && (global.sri4node_configuration.logdebug.channels === "all" || global.sri4node_configuration.logdebug.channels.has(channel));
-};
-var debugAnyChannelAllowed = (channel, output) => {
-  if (isLogChannelEnabled(channel)) {
-    const reqId = httpContext.get("reqId");
-    const msg = `${(/* @__PURE__ */ new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
-    if (reqId !== void 0) {
-      if (global.sri4node_configuration.logdebug.statuses !== void 0) {
-        if (!logBuffer[reqId]) {
-          logBuffer[reqId] = [msg];
-        } else {
-          logBuffer[reqId].push(msg);
-        }
-      } else {
-        console.log(msg);
-      }
-    } else {
-      console.log(msg);
-    }
-  }
-};
-var debug = (channel, output) => {
-  debugAnyChannelAllowed(channel, output);
-};
-var error = function(...args) {
-  const reqId = httpContext.get("reqId");
-  if (reqId) {
-    console.error(`[reqId:${reqId}]`, ...args);
-  } else {
-    console.error(...args);
-  }
-};
-function getParentSriRequest(sriRequest, recurse = false) {
-  return sriRequest.parentSriRequest ? recurse ? getParentSriRequest(sriRequest.parentSriRequest) : sriRequest.parentSriRequest : sriRequest;
-}
-function installEMT(app) {
-  app.use(
-    init((_req, _res) => {
-    })
-  );
-  return express_middleware_timer_exports;
-}
-function setServerTimingHdr(sriRequest, property, value2) {
-  const parentSriRequest = getParentSriRequest(sriRequest);
-  if (parentSriRequest.serverTiming === void 0) {
-    parentSriRequest.serverTiming = {};
-  }
-  if (parentSriRequest.serverTiming[property] === void 0) {
-    parentSriRequest.serverTiming[property] = value2;
-  } else {
-    parentSriRequest.serverTiming[property] += value2;
-  }
-}
-function emtReportToServerTiming(req, res, sriRequest) {
-  try {
-    const report2 = calculate(req, res);
-    Object.keys(report2.timers).forEach((timer) => {
-      const duration = report2.timers[timer].took;
-      if (duration > 0 && timer !== "express-wrapper") {
-        setServerTimingHdr(sriRequest, timer, duration);
-      }
-    });
-  } catch (err) {
-    error("[emtReportToServerTiming] it does not work anymore but why???", err);
-    throw err;
-  }
-}
-function createDebugLogConfigObject(logdebug) {
-  if (logdebug === true) {
-    console.warn(
-      `
-
-
-------------------------------------------------------------------------------------------------------------------
-The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value 'true'.
-Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the
-sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, 
-but please specify the preferred channels for which logging is requested.
-------------------------------------------------------------------------------------------------------------------
-
-
-`
-    );
-    return {
-      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"])
-    };
-  }
-  if (logdebug === false) {
-    return { channels: /* @__PURE__ */ new Set() };
-  }
-  const tempLogDebug = {
-    channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels)
-  };
-  if (logdebug.statuses) {
-    tempLogDebug.statuses = new Set(logdebug.statuses);
-  }
-  return tempLogDebug;
-}
-function handleRequestDebugLog(status) {
-  const reqId = httpContext.get("reqId");
-  if (global.sri4node_configuration.logdebug.statuses.has(status)) {
-    logBuffer[reqId].forEach((e) => console.log(e));
-  }
-  delete logBuffer[reqId];
-}
-function urlToTypeAndKey(urlToParse) {
-  var _a;
-  if (typeof urlToParse !== "string") {
-    throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
-  }
-  const parsedUrl = url2.parse(urlToParse);
-  const pathName = (_a = parsedUrl.pathname) == null ? void 0 : _a.replace(/\/$/, "");
-  const parts = pathName == null ? void 0 : pathName.split("/");
-  const type = _.initial(parts).join("/");
-  const key = _.last(parts);
-  return { type, key };
-}
-function isUuid(uuid) {
-  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
-}
-function parseResource(u) {
-  if (!u) {
-    return null;
-  }
-  const [u1, comment] = u.includes("#") ? u.split("#/") : [u, null];
-  if (u1.includes("?")) {
-    const splittedUrl = u1.split("?");
-    return {
-      base: splittedUrl[0],
-      id: null,
-      query: splittedUrl[1],
-      comment
-    };
-  }
-  const pp = path.parse(u1);
-  if (isUuid(pp.name)) {
-    return {
-      base: pp.dir,
-      id: pp.name,
-      query: null,
-      comment
-    };
-  }
-  return {
-    base: `${pp.dir !== "/" ? pp.dir : ""}/${pp.name}`,
-    id: null,
-    query: null,
-    comment
-  };
-}
-function errorAsCode(s) {
-  let ret = s;
-  ret = ret.replace(/".*"/, "");
-  ret = ret.toLowerCase().trim();
-  ret = ret.replace(/[^a-z0-9 ]/gim, "");
-  ret = ret.replace(/ /gim, ".");
-  return ret;
-}
-function typeToConfig(config) {
-  return config.reduce((acc, c) => {
-    acc[c.type] = c;
-    return acc;
-  }, {});
-}
-function typeToMapping(type) {
-  return typeToConfig(global.sri4node_configuration.resources)[type];
-}
-function sqlColumnNames(mapping, summary = false) {
-  const columnNames = summary ? Object.keys(mapping.map).filter(
-    (c) => !(mapping.map[c].excludeOn !== void 0 && mapping.map[c].excludeOn.toLowerCase() === "summary")
-  ) : Object.keys(mapping.map);
-  return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
-}
-function transformRowToObject(row, resourceMapping) {
-  const map = resourceMapping.map || {};
-  const element = {};
-  element.$$meta = {};
-  Object.keys(map).forEach((key) => {
-    var _a, _b;
-    if (map[key].references) {
-      const referencedType = map[key].references;
-      if (row[key] !== null) {
-        element[key] = {
-          href: `${referencedType}/${row[key]}`
-        };
-      } else {
-        element[key] = null;
-      }
-    } else if (key.startsWith("$$meta.")) {
-      element.$$meta[key.split("$$meta.")[1]] = row[key];
-    } else {
-      element[key] = row[key];
-    }
-    (_b = (_a = map[key]) == null ? void 0 : _a.columnToField) == null ? void 0 : _b.forEach((f) => f(key, element));
-  });
-  Object.assign(
-    element.$$meta,
-    _.pickBy({
-      // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
-      deleted: row["$$meta.deleted"],
-      created: row["$$meta.created"],
-      modified: row["$$meta.modified"]
-    })
-  );
-  element.$$meta.permalink = `${resourceMapping.type}/${row.key}`;
-  element.$$meta.version = row["$$meta.version"];
-  return element;
-}
-function checkSriConfigWithDb(sriConfig, informationSchema2) {
-  sriConfig.resources.forEach((resourceMapping) => {
-    const map = resourceMapping.map || {};
-    Object.keys(map).forEach((key) => {
-      if (informationSchema2[resourceMapping.type][key] === void 0) {
-        const dbFields = Object.keys(informationSchema2[resourceMapping.type]).sort();
-        const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
-        if (caseInsensitiveIndex >= 0) {
-          console.error(
-            `
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}'instead.`
-          );
-        } else {
-          console.error(
-            `
-[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`
-          );
-        }
-        throw new Error("mismatch.between.sri.config.and.database");
-      }
-    });
-  });
-}
-function transformObjectToRow(obj, resourceMapping, isNewResource) {
-  const map = resourceMapping.map || {};
-  const row = {};
-  Object.keys(map).forEach((key) => {
-    if (map[key].references && obj[key] !== void 0) {
-      const permalink2 = obj[key].href;
-      if (!permalink2) {
-        throw new SriError({
-          status: 409,
-          errors: [
-            {
-              code: "no.href.inside.reference",
-              msg: `No href found inside reference ${key}`
-            }
-          ]
-        });
-      }
-      const expectedType = map[key].references;
-      const { type: refType, key: refKey } = urlToTypeAndKey(permalink2);
-      if (refType === expectedType) {
-        row[key] = refKey;
-      } else {
-        const msg = `Faulty reference detected [${permalink2}], detected [${refType}] expected [${expectedType}].`;
-        console.log(msg);
-        throw new SriError({
-          status: 409,
-          errors: [{ code: "faulty.reference", msg }]
-        });
-      }
-    } else if (obj[key] !== void 0) {
-      row[key] = obj[key];
-    } else {
-      row[key] = null;
-    }
-    if (map[key].fieldToColumn) {
-      map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
-    }
-    const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
-    if (fieldTypeDb === "jsonb") {
-      row[key] = JSON.stringify(row[key]);
-    }
-  });
-  return row;
-}
-function pgInit() {
-  return __async(this, arguments, function* (pgpInitOptions = {}, extraOptions) {
-    const pgpInitOptionsUpdated = __spreadProps(__spreadValues({
-      schema: extraOptions.schema
-    }, pgpInitOptions), {
-      connect: extraOptions.connectionInitSql === void 0 ? pgpInitOptions.connect : (client, dc, useCount) => {
-        if (useCount === 0) {
-          client.query(extraOptions.connectionInitSql);
-        }
-        if (pgpInitOptions.connect) {
-          pgpInitOptions.connect(client, dc, useCount);
-        }
-      }
-    });
-    pgp = pgPromise(pgpInitOptionsUpdated);
-    if (extraOptions.monitor) {
-      monitor.attach(pgpInitOptionsUpdated);
-    }
-    if (pgp) {
-      pgp.pg.types.setTypeParser(1114, (s) => /* @__PURE__ */ new Date(`${s}Z`));
-      pgp.pg.types.setTypeParser(1184, (s) => {
-        const match = s.match(/\.\d\d\d(\d{0,3})\+/);
-        let microseconds = "";
-        if (match !== null) {
-          microseconds = match[1];
-        }
-        const isoWithoutMicroseconds = new Date(s).toISOString();
-        const isoWithMicroseconds = `${isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1) + microseconds}Z`;
-        return isoWithMicroseconds;
-      });
-      pgp.pg.types.setTypeParser(20, BigInt);
-      pgp.pg.types.setTypeParser(1700, (val) => parseFloat(val));
-      BigInt.prototype.toJSON = function() {
-        return this.toString();
-      };
-    } else {
-      throw "pgPromise not initialized!";
-    }
-  });
-}
-function pgConnect(sri4nodeConfig) {
-  return __async(this, null, function* () {
-    if (sri4nodeConfig.defaultdatabaseurl !== void 0) {
-      console.warn(
-        "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
-      );
-    }
-    if (sri4nodeConfig.maxConnections) {
-      console.warn(
-        "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
-      );
-    }
-    if (sri4nodeConfig.dbConnectionInitSql) {
-      console.warn(
-        "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
-      );
-    }
-    if (process.env.PGP_MONITOR) {
-      console.warn(
-        "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
-      );
-    }
-    if (!pgp) {
-      const extraOptions = {
-        schema: sri4nodeConfig.databaseConnectionParameters.schema,
-        monitor: sri4nodeConfig.enablePgMonitor === true,
-        connectionInitSql: sri4nodeConfig.databaseConnectionParameters.connectionInitSql
-      };
-      pgInit(sri4nodeConfig.databaseLibraryInitOptions, extraOptions);
-    }
-    const cn = __spreadValues({
-      // first some defaults, but override them with whatever is in the config
-      max: 16,
-      connectionTimeoutMillis: 2e3,
-      // 2 seconds
-      idleTimeoutMillis: 144e5
-    }, sri4nodeConfig.databaseConnectionParameters);
-    console.log(`Using database connection object : [${JSON.stringify(cn)}]`);
-    return pgp(cn);
-  });
-}
-function pgExec(db, query, sriRequest) {
-  return __async(this, null, function* () {
-    const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
-    const hrstart = process.hrtime();
-    const result = yield db.query(sql, values);
-    const hrElapsed = process.hrtime(hrstart);
-    if (sriRequest) {
-      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
-    }
-    return result;
-  });
-}
-function pgResult(db, query, sriRequest) {
-  return __async(this, null, function* () {
-    const { sql, values } = query.toParameterizedSql();
-    debug("sql", () => pgp == null ? void 0 : pgp.as.format(sql, values));
-    const hrstart = process.hrtime();
-    const result = yield db.result(sql, values);
-    const hrElapsed = process.hrtime(hrstart);
-    if (sriRequest) {
-      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
-    }
-    return result;
-  });
-}
-function startTransaction(_0) {
-  return __async(this, arguments, function* (db, mode = new pgp.txMode.TransactionMode()) {
-    debug("db", "++ Starting database transaction.");
-    const eventEmitter = new EventEmitter();
-    const txWrapper = (emitter) => __async(this, null, function* () {
-      try {
-        yield db.tx({ mode }, (tx) => __async(this, null, function* () {
-          emitter.emit("txEvent", tx);
-          const how = yield pEvent(emitter, "terminate");
-          if (how === "reject") {
-            throw "txRejected";
-          }
-        }));
-        emitter.emit("txDone");
-      } catch (err) {
-        if (err === "txRejected" || err.message === "Client has encountered a connection error and is not queryable" && err.query === "rollback") {
-          emitter.emit("txDone");
-        } else {
-          emitter.emit("txDone", err);
-        }
-      }
-    });
-    try {
-      const tx = yield new Promise((resolve, reject) => {
-        let resolved = false;
-        eventEmitter.on("txEvent", (tx2) => {
-          resolve(tx2);
-          resolved = true;
-        });
-        eventEmitter.on("txDone", (err) => {
-          if (!resolved) {
-            console.log("GOT ERROR:");
-            console.log(err);
-            console.log(JSON.stringify(err));
-            reject(err);
-          }
-        });
-        txWrapper(eventEmitter);
-      });
-      debug("db", "Got db tx object.");
-      yield tx.none("SET CONSTRAINTS ALL DEFERRED;");
-      const terminateTx = (how) => () => __async(this, null, function* () {
-        if (how !== "reject") {
-          yield tx.none("SET CONSTRAINTS ALL IMMEDIATE;");
-        }
-        eventEmitter.emit("terminate", how);
-        const res = yield pEvent(eventEmitter, "txDone");
-        if (res !== void 0) {
-          throw res;
-        }
-      });
-      return {
-        tx,
-        resolveTx: terminateTx("resolve"),
-        rejectTx: terminateTx("reject")
-      };
-    } catch (err) {
-      error("CAUGHT ERROR: ");
-      error(JSON.stringify(err), err);
-      throw new SriError({
-        status: 503,
-        errors: [
-          {
-            code: "too.busy",
-            msg: "The request could not be processed as the database is too busy right now. Try again later."
-          }
-        ]
-      });
-    }
-  });
-}
-function startTask(db) {
-  return __async(this, null, function* () {
-    debug("db", "++ Starting database task.");
-    const emitter = new EventEmitter();
-    const taskWrapper = (emitter2) => __async(this, null, function* () {
-      try {
-        yield db.task((t) => __async(this, null, function* () {
-          emitter2.emit("tEvent", t);
-          yield pEvent(emitter2, "terminate");
-        }));
-        emitter2.emit("tDone");
-      } catch (err) {
-        emitter2.emit("tDone", err);
-      }
-    });
-    try {
-      const t = yield new Promise((resolve, reject) => {
-        emitter.on("tEvent", (t2) => {
-          resolve(t2);
-        });
-        emitter.on("tDone", (err) => {
-          reject(err);
-        });
-        taskWrapper(emitter);
-      });
-      debug("db", "Got db t object.");
-      const endTask = () => __async(this, null, function* () {
-        emitter.emit("terminate");
-        const res = yield pEvent(emitter, "tDone");
-        debug("db", "db task done.");
-        if (res !== void 0) {
-          throw res;
-        }
-      });
-      return { t, endTask };
-    } catch (err) {
-      error("CAUGHT ERROR: ");
-      error(JSON.stringify(err));
-      throw new SriError({
-        status: 503,
-        errors: [
-          {
-            code: "too.busy",
-            msg: "The request could not be processed as the database is too busy right now. Try again later."
-          }
-        ]
-      });
-    }
-  });
-}
-function installVersionIncTriggerOnTable(db, tableName, schemaName) {
-  return __async(this, null, function* () {
-    const tgNameToBeDropped = `vsko_resource_version_trigger_${schemaName !== void 0 ? schemaName : ""}_${tableName}`;
-    const tgname = `vsko_resource_version_trigger_${tableName}`;
-    const schemaNameOrPublic = schemaName !== void 0 ? schemaName : "public";
-    const plpgsql = `
-    DO $___$
-    BEGIN
-      -- 1. add column '$$meta.version' if not yet present
-      IF NOT EXISTS (
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = '${tableName}'
-          AND column_name = '$$meta.version'
-          AND table_schema = '${schemaNameOrPublic}'
-          -- ${schemaName !== void 0 ? `AND table_schema = '${schemaName}'` : ""}
-      ) THEN
-        ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
-      END IF;
-
-      -- 2. create func vsko_resource_version_inc_function if not yet present
-      IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
-                      WHERE proname = 'vsko_resource_version_inc_function'
-                        AND nspname = '${schemaNameOrPublic}'
-                    ) THEN
-        CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS TRIGGER AS '
-        BEGIN
-          NEW."$$meta.version" := OLD."$$meta.version" + 1;
-          RETURN NEW;
-        END' LANGUAGE 'plpgsql';
-      END IF;
-
-      -- 3. drop old triggers if they exist
-      DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
-
-      -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
-      IF NOT EXISTS (
-          SELECT 1 FROM information_schema.triggers
-          WHERE trigger_name = '${tgname}'
-	          AND trigger_schema = '${schemaNameOrPublic}'
-            AND event_object_table = '${tableName}'
-          -- OBSOLETE (does not check for schema and tablenam): SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
-        ) THEN
-          CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
-          FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
-      END IF;
-    END
-    $___$
-    LANGUAGE 'plpgsql';
-  `;
-    yield db.query(plpgsql);
-  });
-}
-function getCountResult(tx, countquery, sriRequest) {
-  return __async(this, null, function* () {
-    const [{ count }] = yield pgExec(tx, countquery, sriRequest);
-    return parseInt(count, 10);
-  });
-}
-function tableFromMapping(mapping) {
-  return mapping.table || _.last(mapping.type.split("/"));
-}
-function isEqualSriObject(obj1, obj2, mapping) {
-  const relevantProperties = Object.keys(mapping.map);
-  function customizer(val, key, _obj) {
-    var _a;
-    if (((_a = findPropertyInJsonSchema(mapping.schema, key)) == null ? void 0 : _a.format) === "date-time") {
-      return new Date(val).getTime();
-    }
-    if (global.sri4node_configuration.informationSchema[mapping.type][key] && global.sri4node_configuration.informationSchema[mapping.type][key].type === "bigint") {
-      return BigInt(val);
-    }
-  }
-  const o1 = _.cloneDeepWith(
-    _.pickBy(
-      obj1,
-      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
-    ),
-    customizer
-  );
-  const o2 = _.cloneDeepWith(
-    _.pickBy(
-      obj2,
-      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
-    ),
-    customizer
-  );
-  return _.isEqualWith(o1, o2);
-}
-function stringifyError(e) {
-  if (e instanceof Error) {
-    return e.toString();
-  }
-  return JSON.stringify(e);
-}
-function settleResultsToSriResults(results) {
-  return results.map((res) => {
-    var _a, _b;
-    if (res.isFulfilled) {
-      return res.value;
-    }
-    const err = res.reason;
-    if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
-      return err;
-    }
-    error(
-      "____________________________ E R R O R (settleResultsToSriResults)_________________________"
-    );
-    error(stringifyError(err));
-    if (err && err.stack) {
-      error("STACK:");
-      error(err.stack);
-    }
-    error(
-      "___________________________________________________________________________________________"
-    );
-    return new SriError({
-      status: 500,
-      errors: [
-        {
-          code: "internal.server.error",
-          msg: `Internal Server Error. [${stringifyError(err)}}]`
-        }
-      ]
-    });
-  });
-}
-function createReadableStream(objectMode = true) {
-  const s = new Readable({ objectMode });
-  s._read = function() {
-  };
-  return s;
-}
-function getParentSriRequestFromRequestMap(sriRequestMap, recurse = false) {
-  const sriRequest = Array.from(sriRequestMap.values())[0];
-  return getParentSriRequest(sriRequest, recurse);
-}
-function getPgp() {
-  return pgp;
-}
-function generateSriRequest(expressRequest = void 0, expressResponse = void 0, basicConfig = void 0, batchHandlerAndParams = void 0, parentSriRequest = void 0, batchElement = void 0, internalSriRequest = void 0) {
-  var _a;
-  const baseSriRequest = {
-    id: uuidv4(),
-    logDebug: debug,
-    // (ch, message) => debug(requestId, ch, message)
-    logError: error,
-    SriError,
-    // context: {},
-    parentSriRequest: parentSriRequest || (internalSriRequest == null ? void 0 : internalSriRequest.parentSriRequest),
-    path: "",
-    query: {},
-    params: {},
-    sriType: void 0,
-    isBatchRequest: void 0,
-    readOnly: void 0,
-    originalUrl: void 0,
-    httpMethod: void 0,
-    headers: {},
-    body: void 0,
-    dbT: (basicConfig == null ? void 0 : basicConfig.dbT) || (internalSriRequest == null ? void 0 : internalSriRequest.dbT) || (parentSriRequest == null ? void 0 : parentSriRequest.dbT),
-    inStream: new stream.Readable(),
-    outStream: new stream.Writable(),
-    setHeader: void 0,
-    setStatus: void 0,
-    streamStarted: void 0,
-    protocol: void 0,
-    isBatchPart: void 0,
-    /**
-     * serverTiming is an object used to accumulate timing data which is passed to the client in the response
-     * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
-     */
-    serverTiming: {},
-    /**
-     * userData is an object which can be used by applications using sri4node to store information associated with
-     * a request. It is initialized as an empty object.
-     */
-    userData: {}
-  };
-  if (internalSriRequest && !batchElement) {
-    return __spreadProps(__spreadValues({}, baseSriRequest), {
-      // parentSriRequest: parentSriRequest,
-      originalUrl: internalSriRequest.href,
-      path: batchHandlerAndParams.path,
-      query: batchHandlerAndParams.queryParams,
-      params: batchHandlerAndParams.routeParams,
-      sriType: batchHandlerAndParams.handler.mapping.type,
-      isBatchRequest: batchHandlerAndParams.handler.isBatch,
-      readOnly: batchHandlerAndParams.handler.readOnly,
-      httpMethod: internalSriRequest.verb,
-      headers: internalSriRequest.headers ? internalSriRequest.headers : {},
-      body: internalSriRequest.body,
-      dbT: internalSriRequest.dbT,
-      inStream: internalSriRequest.inStream,
-      outStream: internalSriRequest.outStream,
-      setHeader: internalSriRequest.setHeader,
-      setStatus: internalSriRequest.setStatus,
-      streamStarted: internalSriRequest.streamStarted,
-      protocol: "_internal_",
-      isBatchPart: false,
-      parentSriRequest: internalSriRequest.parentSriRequest
-    });
-  }
-  if (parentSriRequest && batchElement) {
-    return __spreadProps(__spreadValues(__spreadValues({}, parentSriRequest), baseSriRequest), {
-      dbT: parentSriRequest.dbT,
-      originalUrl: batchElement.href,
-      path: batchHandlerAndParams.path,
-      query: batchHandlerAndParams.queryParams,
-      params: batchHandlerAndParams.routeParams,
-      httpMethod: batchElement.verb,
-      body: batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body),
-      sriType: batchHandlerAndParams.handler.mapping.type,
-      isBatchPart: true
-    });
-  }
-  if (expressRequest) {
-    const generatedSriRequest = __spreadProps(__spreadValues({}, baseSriRequest), {
-      path: expressRequest.path,
-      originalUrl: expressRequest.originalUrl,
-      query: expressRequest.query,
-      params: expressRequest.params,
-      httpMethod: expressRequest.method,
-      headers: expressRequest.headers,
-      protocol: expressRequest.protocol,
-      body: expressRequest.body,
-      isBatchPart: false,
-      isBatchRequest: basicConfig == null ? void 0 : basicConfig.isBatchRequest,
-      readOnly: basicConfig == null ? void 0 : basicConfig.readOnly,
-      // the batch code will set sriType for batch elements
-      sriType: !(basicConfig == null ? void 0 : basicConfig.isBatchRequest) ? (_a = basicConfig == null ? void 0 : basicConfig.mapping) == null ? void 0 : _a.type : void 0
-    });
-    if (basicConfig == null ? void 0 : basicConfig.isStreamingRequest) {
-      if (!expressResponse) {
-        throw Error(
-          "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
-        );
-      }
-      const inStream = new stream.PassThrough({
-        allowHalfOpen: false,
-        emitClose: true
-      });
-      const outStream = new stream.PassThrough({
-        allowHalfOpen: false,
-        emitClose: true
-      });
-      generatedSriRequest.inStream = expressRequest.pipe(inStream);
-      generatedSriRequest.outStream = outStream.pipe(expressResponse);
-      generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
-      generatedSriRequest.setStatus = (s) => expressResponse.status(s);
-      generatedSriRequest.streamStarted = () => expressResponse.headersSent;
-    }
-    return generatedSriRequest;
-  }
-  if (parentSriRequest && !batchElement) {
-    return __spreadProps(__spreadValues({}, baseSriRequest), {
-      originalUrl: parentSriRequest.href,
-      path: batchHandlerAndParams.path,
-      query: batchHandlerAndParams.queryParams,
-      params: batchHandlerAndParams.routeParams,
-      sriType: batchHandlerAndParams.handler.mapping.type,
-      isBatchRequest: batchHandlerAndParams.handler.isBatch,
-      readOnly: batchHandlerAndParams.handler.readOnly,
-      httpMethod: parentSriRequest.verb,
-      headers: parentSriRequest.headers ? parentSriRequest.headers : {},
-      body: parentSriRequest.body,
-      dbT: parentSriRequest.dbT,
-      inStream: parentSriRequest.inStream,
-      outStream: parentSriRequest.outStream,
-      setHeader: parentSriRequest.setHeader,
-      setStatus: parentSriRequest.setStatus,
-      streamStarted: parentSriRequest.streamStarted,
-      protocol: "_internal_",
-      isBatchPart: false,
-      parentSriRequest: parentSriRequest.parentSriRequest
-      // ??? || parentSriRequest,
-    });
-  }
-  if (parentSriRequest && batchElement) {
-    return __spreadProps(__spreadValues(__spreadValues({}, parentSriRequest), baseSriRequest), {
-      originalUrl: batchElement.href,
-      path: batchHandlerAndParams.path,
-      query: batchHandlerAndParams.queryParams,
-      params: batchHandlerAndParams.routeParams,
-      httpMethod: batchElement.verb,
-      body: batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body),
-      sriType: batchHandlerAndParams.handler.mapping.type,
-      isBatchPart: true
-    });
-  }
-  throw Error(
-    "[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters"
-  );
-}
-function findPropertyInJsonSchema(schema, propertyName) {
-  var _a;
-  if ((_a = schema == null ? void 0 : schema.properties) == null ? void 0 : _a[propertyName]) {
-    return schema.properties[propertyName];
-  }
-  const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
-  if (subSchemas) {
-    for (const subSchema of subSchemas) {
-      const found = findPropertyInJsonSchema(subSchema, propertyName);
-      if (found) {
-        return found;
-      }
-    }
-  }
-  return null;
-}
-
-// js/batch.ts
-import _2 from "lodash";
-import pMap3 from "p-map";
-import pEachSeries from "p-each-series";
-import url3 from "url";
-import JSONStream from "JSONStream";
-import EventEmitter2 from "events";
-import pEvent3 from "p-event";
-import httpContext2 from "express-http-context";
-
-// js/hooks.ts
-import pMap from "p-map";
-function applyHooks(type, functions, applyFun, sriRequest) {
-  return __async(this, null, function* () {
-    var _a, _b;
-    if (functions && functions.length > 0) {
-      try {
-        debug("hooks", `applyHooks-${type}: going to apply ${functions.length} functions`);
-        yield pMap(
-          functions,
-          (fun) => __async(this, null, function* () {
-            const hrstart = process.hrtime();
-            const funName = fun.name !== "" ? fun.name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`) : "anonymous-fun";
-            const stHookName = `${type.replace(/ - /g, "-").replace(/ /g, "-")}-${funName}`;
-            try {
-              yield applyFun(fun);
-              const hrend = process.hrtime(hrstart);
-              const duration = hrend[0] * 1e3 + hrend[1] / 1e6;
-              debug("hooks", `applyHooks-${type}: all functions resolved (took ${duration}ms).`);
-              if (sriRequest) {
-                setServerTimingHdr(sriRequest, stHookName, duration);
-              }
-            } catch (err) {
-              const hrend = process.hrtime(hrstart);
-              const duration = hrend[0] * 1e3 + hrend[1] / 1e6;
-              debug("hooks", `applyHooks-${type}: function ${fun.name} failed (took ${duration}ms).`);
-              if (sriRequest) {
-                setServerTimingHdr(sriRequest, stHookName, duration);
-              }
-              throw err;
-            }
-          }),
-          { concurrency: 1 }
-        );
-      } catch (err) {
-        if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
-          throw err;
-        } else {
-          console.log(
-            "_______________________ H O O K S - E R R O R _____________________________________________"
-          );
-          console.log(err);
-          console.log(err.stack);
-          console.log(Object.prototype.toString.call(err));
-          console.log(
-            "___________________________________________________________________________________________"
-          );
-          throw new SriError({
-            status: 500,
-            errors: [{ code: errorAsCode(`${type} failed`), msg: stringifyError(err) }]
-          });
-        }
-      }
-    } else {
-      debug("hooks", `applyHooks-${type}: no ${type} functions registered.`);
-    }
-  });
-}
-
-// js/phaseSyncedSettle.ts
-import pSettle from "p-settle";
-import pEvent2 from "p-event";
-import pMap2 from "p-map";
-import queue from "emitter-queue";
-import Emitter from "events";
-import { v4 as uuidv42 } from "uuid";
-var debug_log = (id, msg) => {
-  debug("phaseSyncer", `PS -${id}- ${msg}`);
-};
-var _sriRequest;
-var PhaseSyncer = class {
-  constructor(fun, args, ctrlEmitter) {
-    /**
-     * SriRequest associated with the PhaseSyncer instance
-     */
-    __privateAdd(this, _sriRequest, void 0);
-    this.ctrlEmitter = ctrlEmitter;
-    this.id = uuidv42();
-    this.phaseCntr = 0;
-    this.jobEmitter = queue(new Emitter());
-    __privateSet(this, _sriRequest, args[1]);
-    const jobWrapperFun = () => __async(this, null, function* () {
-      try {
-        const res = yield fun(this, ...args);
-        this.ctrlEmitter.queue("jobDone", this.id);
-        this.sriRequest.ended = true;
-        return res;
-      } catch (err) {
-        this.ctrlEmitter.queue("jobFailed", this.id);
-        this.sriRequest.ended = true;
-        throw err;
-      }
-    });
-    this.jobPromise = jobWrapperFun();
-    debug_log(this.id, "PhaseSyncer constructed.");
-  }
-  /**
-   * This function needs to be called by the sri request handler at the end of each phase
-   * (i.e. at each synchronisation point).
-   */
-  phase() {
-    return __async(this, null, function* () {
-      var _a, _b;
-      debug_log(this.id, `STEP ${this.phaseCntr}`);
-      if (this.phaseCntr > 0) {
-        this.ctrlEmitter.queue("stepDone", this.id, this.phaseCntr);
-      }
-      this.phaseCntr += 1;
-      const result = yield pEvent2(this.jobEmitter, ["sriError", "ready"]);
-      if (result instanceof SriError || ((_b = (_a = result == null ? void 0 : result.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
-        throw result;
-      }
-    });
-  }
-  get sriRequest() {
-    return __privateGet(this, _sriRequest);
-  }
-};
-_sriRequest = new WeakMap();
-var splitListAt = (list, index2) => [list.slice(0, index2), list.slice(index2)];
-function phaseSyncedSettle(_0) {
-  return __async(this, arguments, function* (jobList, { concurrency, beforePhaseHooks } = {}) {
-    var _a, _b;
-    const ctrlEmitter = queue(new Emitter());
-    const jobMap = new Map(
-      jobList.map(([fun, args]) => new PhaseSyncer(fun, args, ctrlEmitter)).map((phaseSyncer) => [phaseSyncer.id, phaseSyncer])
-    );
-    const pendingJobs = new Set(jobMap.keys());
-    const sriRequestMap = new Map(
-      [...jobMap.entries()].map(([id, phaseSyncer]) => [
-        id,
-        phaseSyncer.sriRequest
-      ])
-    );
-    const sriRequestIDToPhaseSyncerMap = new Map(
-      [...jobMap.entries()].map(([_id, phaseSyncer]) => [
-        phaseSyncer.sriRequest.id,
-        phaseSyncer
-      ])
-    );
-    let queuedJobs;
-    let phasePendingJobs;
-    let failureHasBeenBroadcasted = false;
-    try {
-      const startNewPhase = () => __async(this, null, function* () {
-        const pendingJobList = [...pendingJobs.values()];
-        const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency || 1);
-        queuedJobs = new Set(jobsToQueue);
-        phasePendingJobs = new Set(pendingJobs);
-        if (jobsToWake.length > 0) {
-          yield applyHooks(
-            "ps",
-            beforePhaseHooks || [],
-            (f) => f(sriRequestMap, jobMap, pendingJobs),
-            getParentSriRequestFromRequestMap(sriRequestMap)
-          );
-        }
-        jobsToWake.forEach((id) => {
-          const job = jobMap.get(id);
-          if (job) {
-            job.jobEmitter.queue("ready");
-          } else {
-            error("PhaseSyncer: job not found in jobMap");
-            throw new Error("PhaseSyncer: job not found in jobMap");
-          }
-        });
-      });
-      const startQueuedJob = () => {
-        if (phasePendingJobs.size - queuedJobs.size > (concurrency || 1)) {
-          error(
-            "ERROR: PhaseSyncer: unexpected startQueuedJob() call while max number of concurrent jobs is still running ! -> NOT starting queued job"
-          );
-        } else {
-          if (queuedJobs.size > 0) {
-            const id = queuedJobs.values().next().value;
-            const job = jobMap.get(id);
-            if (job) {
-              job.jobEmitter.queue("ready");
-            } else {
-              error("PhaseSyncer: job not found in jobMap");
-              throw new Error("PhaseSyncer: job not found in jobMap");
-            }
-            queuedJobs.delete(id);
-          }
-        }
-      };
-      const errorHandlingWrapper = (fun) => (id, args) => __async(this, null, function* () {
-        var _a2, _b2, _c, _d;
-        try {
-          yield fun(id, args);
-        } catch (err) {
-          if (err instanceof SriError || ((_b2 = (_a2 = err == null ? void 0 : err.__proto__) == null ? void 0 : _a2.constructor) == null ? void 0 : _b2.name) === "SriError") {
-            if (err.sriRequestID && sriRequestIDToPhaseSyncerMap.get(err.sriRequestID)) {
-              (_c = sriRequestIDToPhaseSyncerMap.get(err.sriRequestID)) == null ? void 0 : _c.jobEmitter.queue("sriError", err);
-              return;
-            }
-            if (jobMap.get(id)) {
-              (_d = jobMap.get(id)) == null ? void 0 : _d.jobEmitter.queue("sriError", err);
-              return;
-            }
-          }
-          console.error(`
-ERROR: ${err} - ${JSON.stringify(err)}
-`);
-        }
-      });
-      ctrlEmitter.on(
-        "stepDone",
-        errorHandlingWrapper((id, stepnr) => __async(this, null, function* () {
-          debug_log(id, `*step ${stepnr}* done.`);
-          phasePendingJobs.delete(id);
-          if (getParentSriRequestFromRequestMap(sriRequestMap).reqCancelled) {
-            throw new SriError({
-              status: 0,
-              errors: [{ code: "cancelled", msg: "Request cancelled by client." }]
-            });
-          }
-          if (phasePendingJobs.size === 0) {
-            debug_log(id, " Starting new phase.");
-            yield startNewPhase();
-          } else {
-            debug_log(id, " Starting queued job.");
-            startQueuedJob();
-          }
-        }))
-      );
-      ctrlEmitter.on(
-        "jobDone",
-        errorHandlingWrapper((id) => __async(this, null, function* () {
-          debug_log(id, "*JOB* done.");
-          pendingJobs.delete(id);
-          queuedJobs.delete(id);
-          phasePendingJobs.delete(id);
-          if (phasePendingJobs.size === 0) {
-            yield startNewPhase();
-          } else {
-            startQueuedJob();
-          }
-        }))
-      );
-      ctrlEmitter.on(
-        "jobFailed",
-        errorHandlingWrapper((id) => __async(this, null, function* () {
-          debug_log(id, "*JOB* failed.");
-          pendingJobs.delete(id);
-          queuedJobs.delete(id);
-          phasePendingJobs.delete(id);
-          if (getParentSriRequestFromRequestMap(sriRequestMap).readOnly === true) {
-            if (phasePendingJobs.size === 0) {
-              yield startNewPhase();
-            } else {
-              startQueuedJob();
-            }
-          } else if (!failureHasBeenBroadcasted) {
-            const parent = getParentSriRequestFromRequestMap(sriRequestMap);
-            failureHasBeenBroadcasted = true;
-            yield pMap2(pendingJobs, (id2) => __async(this, null, function* () {
-              var _a2, _b2, _c;
-              const job = jobMap.get(id2);
-              if (job === void 0) {
-                throw new Error("[jobFailed] Job is undefined, which is unexpected...");
-              } else if (job.sriRequest === void 0 || !(parent.multiInsertFailed && ((_a2 = parent.putRowsToInsertIDs) == null ? void 0 : _a2.includes(job == null ? void 0 : job.sriRequest.id))) && !(parent.multiUpdateFailed && ((_b2 = parent.putRowsToUpdateIDs) == null ? void 0 : _b2.includes(job == null ? void 0 : job.sriRequest.id))) && !(parent.multiDeleteFailed && ((_c = parent.rowsToDeleteIDs) == null ? void 0 : _c.includes(job == null ? void 0 : job.sriRequest.id)))) {
-                job == null ? void 0 : job.jobEmitter.queue(
-                  "sriError",
-                  new SriError({
-                    status: 202,
-                    errors: [
-                      {
-                        code: "cancelled",
-                        msg: "Request cancelled due to failure in accompanying request in batch."
-                      }
-                    ]
-                  })
-                );
-              }
-            }));
-          }
-          if (phasePendingJobs.size === 0) {
-            yield startNewPhase();
-          } else {
-            yield startQueuedJob();
-          }
-        }))
-      );
-      yield startNewPhase();
-      return pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-    } catch (err) {
-      console.warn("WARN: error in phase syncer");
-      console.warn(err);
-      console.warn(JSON.stringify(err));
-      let sriError;
-      if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
-        sriError = err;
-      } else {
-        sriError = new SriError({
-          status: 500,
-          errors: [{ code: "phase.synced.settle.failed", err: err.toString() }]
-        });
-      }
-      pendingJobs.forEach((id) => {
-        var _a2;
-        (_a2 = jobMap.get(id)) == null ? void 0 : _a2.jobEmitter.queue(
-          "sriError",
-          new SriError({
-            status: 202,
-            errors: [
-              {
-                code: "cancelled",
-                msg: "Request cancelled due to failure in accompanying request in batch."
-              }
-            ]
-          })
-        );
-      });
-      yield pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
-      return [...jobMap.values()].map((_phaseSyncer) => ({ isFulfilled: false, reason: sriError }));
-    }
-  });
-}
-
-// js/batch.ts
-var maxSubListLen = (a) => (
-  // this code works as long as a batch array contain either all objects or all (sub)arrays
-  // (which is required by batchOpertation, otherwise a 'batch.invalid.type.mix' error is sent)
-  a.reduce((max, e, _idx, arr) => {
-    if (Array.isArray(e)) {
-      return Math.max(maxSubListLen(e), max);
-    }
-    return Math.max(arr.length, max);
-  }, 0)
-);
-function matchHref(href, verb) {
-  if (!verb) {
-    console.log(`No VERB stated for ${href}.`);
-    throw new SriError({
-      status: 400,
-      errors: [{ code: "no.verb", msg: `No VERB stated for ${href}.` }]
-    });
-  }
-  const parsedUrl = url3.parse(href, true);
-  const queryParams = parsedUrl.query;
-  const path2 = (parsedUrl.pathname || "").replace(/\/$/, "");
-  const batchHandlerMap = global.sri4node_configuration.batchHandlerMap;
-  const matches = batchHandlerMap[verb].map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match !== false);
-  if (matches.length > 1) {
-    console.log(
-      `WARNING: multiple handler functions match for batch request ${path2}. Only first will be used. Check configuration.`
-    );
-  } else if (matches.length === 0) {
-    throw new SriError({
-      status: 404,
-      errors: [{ code: "no.matching.route", msg: `No route found for ${verb} on ${path2}.` }]
-    });
-  }
-  const { handler } = _2.first(matches);
-  const routeParams = _2.first(matches).match;
-  return {
-    handler,
-    path: path2,
-    routeParams,
-    queryParams
-  };
-}
-function matchBatch(req) {
-  const reqBody = req.body;
-  const batchBase = req.path.split("/batch")[0];
-  if (!Array.isArray(reqBody)) {
-    throw new SriError({
-      status: 400,
-      errors: [
-        {
-          code: "batch.body.invalid",
-          msg: "Batch body should be JSON array.",
-          body: reqBody
-        }
-      ]
-    });
-  }
-  const handleBatchForMatchBatch = (batch) => {
-    if (batch.every((element) => Array.isArray(element))) {
-      batch.forEach(handleBatchForMatchBatch);
-    } else if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
-      batch.forEach((element) => {
-        var _a;
-        const match = matchHref(element.href, element.verb);
-        if (match.handler.isBatch === true) {
-          throw new SriError({
-            status: 400,
-            errors: [
-              {
-                code: "batch.not.allowed.in.batch",
-                msg: "Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON."
-              }
-            ]
-          });
-        }
-        if (!((_a = match.path) == null ? void 0 : _a.startsWith(batchBase))) {
-          throw new SriError({
-            status: 400,
-            errors: [
-              {
-                code: "href.across.boundary",
-                msg: "Only requests within (sub) path of /batch request are allowed."
-              }
-            ]
-          });
-        }
-        if (match.queryParams.dryRun === "true") {
-          throw new SriError({
-            status: 400,
-            errors: [
-              {
-                code: "dry.run.not.allowed.in.batch",
-                msg: "The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request."
-              }
-            ]
-          });
-        }
-        element.match = match;
-      });
-    } else {
-      throw new SriError({
-        status: 400,
-        errors: [
-          {
-            code: "batch.invalid.type.mix",
-            msg: "A batch array should contain either all objects or all (sub)arrays."
-          }
-        ]
-      });
-    }
-  };
-  handleBatchForMatchBatch(reqBody);
-}
-var batchOperation = function batchOperation2(sriRequest, internalUtils) {
-  return __async(this, null, function* () {
-    const reqBody = sriRequest.body || [];
-    const batchConcurrency = Math.min(
-      maxSubListLen(reqBody),
-      global.sri4node_configuration.batchConcurrency
-    );
-    global.overloadProtection.startPipeline(batchConcurrency);
-    try {
-      let batchFailed = false;
-      const handleBatchInBatchOperation = (batch, tx) => __async(this, null, function* () {
-        if (batch.every((element) => Array.isArray(element))) {
-          debug(
-            "batch",
-            "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-          );
-          debug("batch", "| Handling batch list");
-          debug(
-            "batch",
-            "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-          );
-          return pMap3(
-            batch,
-            (element) => __async(this, null, function* () {
-              const { tx: tx1, resolveTx, rejectTx } = yield startTransaction(tx);
-              const result = yield handleBatchInBatchOperation(element, tx1);
-              if (result.every((e) => e.status < 300)) {
-                yield resolveTx();
-              } else {
-                yield rejectTx();
-              }
-              return result;
-            }),
-            { concurrency: 1 }
-          );
-        }
-        if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
-          if (!batchFailed) {
-            const batchJobs = yield pMap3(
-              batch,
-              (batchElement) => __async(this, null, function* () {
-                var _a;
-                if (!batchElement.verb) {
-                  throw new SriError({
-                    status: 400,
-                    errors: [{ code: "verb.missing", msg: "VERB is not specified." }]
-                  });
-                }
-                debug(
-                  "batch",
-                  "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-                );
-                debug(
-                  "batch",
-                  `| Executing /batch section ${batchElement.verb} - ${batchElement.href} `
-                );
-                debug(
-                  "batch",
-                  "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-                );
-                const { match } = batchElement;
-                const innerSriRequest = generateSriRequest(
-                  void 0,
-                  void 0,
-                  void 0,
-                  match,
-                  sriRequest,
-                  batchElement
-                );
-                if (!((_a = match == null ? void 0 : match.handler) == null ? void 0 : _a.func))
-                  throw new Error("match.handler.func is undefined");
-                return [
-                  match.handler.func,
-                  [tx, innerSriRequest, match.handler.mapping, internalUtils]
-                ];
-              }),
-              { concurrency: 1 }
-            );
-            const results = settleResultsToSriResults(
-              yield phaseSyncedSettle(batchJobs, {
-                concurrency: batchConcurrency,
-                beforePhaseHooks: global.sri4node_configuration.beforePhase
-              })
-            );
-            if (results.some(
-              (e) => {
-                var _a, _b;
-                return e instanceof SriError || ((_b = (_a = e == null ? void 0 : e.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
-              }
-            ) && sriRequest.readOnly === false) {
-              batchFailed = true;
-            }
-            yield pEachSeries(results, (res, idx) => __async(this, null, function* () {
-              var _a, _b;
-              const [_tx, innerSriRequest, mapping, internalUtils2] = batchJobs[idx][1];
-              if (!(res instanceof SriError || ((_b = (_a = res == null ? void 0 : res.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError")) {
-                yield applyHooks(
-                  "transform response",
-                  mapping.transformResponse || [],
-                  (f) => f(tx, innerSriRequest, res, internalUtils2)
-                );
-              }
-            }));
-            return results.map((res, idx) => {
-              const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-              res.href = innerSriRequest.originalUrl;
-              res.verb = innerSriRequest.httpMethod;
-              delete res.sriRequestID;
-              return res;
-            });
-          }
-          return batch.map(
-            (_e) => new SriError({
-              status: 202,
-              errors: [
-                {
-                  code: "cancelled",
-                  msg: "Request cancelled due to failure in accompanying request in batch."
-                }
-              ]
-            })
-          );
-        }
-        batchFailed = true;
-        throw new SriError({
-          status: 400,
-          errors: [
-            {
-              code: "batch.invalid.type.mix",
-              msg: "A batch array should contain either all objects or all (sub)arrays."
-            }
-          ]
-        });
-      });
-      const batchResults = _2.flatten(
-        yield handleBatchInBatchOperation(reqBody, sriRequest.dbT)
-      );
-      const status = batchResults.some((e) => e.status === 403) ? 403 : Math.max(200, ...batchResults.map((e) => e.status));
-      return { status, body: batchResults };
-    } finally {
-      global.overloadProtection.endPipeline(batchConcurrency);
-    }
-  });
-};
-var batchOperationStreaming = (sriRequest, internalUtils) => __async(void 0, null, function* () {
-  let keepAliveTimer = null;
-  const reqBody = sriRequest.body;
-  const batchConcurrency = global.overloadProtection.startPipeline(
-    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency)
-  );
-  try {
-    let batchFailed = false;
-    const handleBatchStreaming = (batch, tx) => __async(void 0, null, function* () {
-      if (batch.every((element) => Array.isArray(element))) {
-        debug(
-          "batch",
-          "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-        );
-        debug("batch", "| Handling batch list");
-        debug(
-          "batch",
-          "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-        );
-        return pMap3(
-          batch,
-          (element) => __async(void 0, null, function* () {
-            const result = yield handleBatchStreaming(element, tx);
-            return result;
-          }),
-          { concurrency: 1 }
-        );
-      }
-      if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
-        if (!batchFailed) {
-          const batchJobs = yield pMap3(
-            batch,
-            (batchElement) => __async(void 0, null, function* () {
-              var _a;
-              if (!batchElement.verb) {
-                throw new SriError({
-                  status: 400,
-                  errors: [{ code: "verb.missing", msg: "VERB is not specified." }]
-                });
-              }
-              debug(
-                "batch",
-                "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-              );
-              debug(
-                "batch",
-                `| Executing /batch section ${batchElement.verb} - ${batchElement.href} `
-              );
-              debug(
-                "batch",
-                "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-              );
-              const { match } = batchElement;
-              if (match) {
-                const innerSriRequest = __spreadProps(__spreadValues({}, sriRequest), {
-                  parentSriRequest: sriRequest,
-                  path: match.path || "",
-                  originalUrl: batchElement.href,
-                  query: match.queryParams,
-                  params: match.routeParams,
-                  httpMethod: batchElement.verb,
-                  body: batchElement.body,
-                  // element.body === undefined || _.isObject(element.body)
-                  //   ? element.body
-                  //   : JSON.parse(element.body),
-                  sriType: match.handler.mapping.type,
-                  isBatchPart: true
-                  // context,
-                });
-                if (!((_a = match == null ? void 0 : match.handler) == null ? void 0 : _a.func))
-                  throw new Error("match.handler.func is undefined");
-                return [
-                  match.handler.func,
-                  [tx, innerSriRequest, match.handler.mapping, internalUtils]
-                ];
-              } else {
-                throw new SriError({
-                  status: 500,
-                  errors: [{ code: "batch.missing.match", msg: "" }]
-                });
-              }
-            }),
-            { concurrency: 1 }
-          );
-          const results = settleResultsToSriResults(
-            yield phaseSyncedSettle(batchJobs, {
-              concurrency: batchConcurrency,
-              beforePhaseHooks: global.sri4node_configuration.beforePhase
-            })
-          );
-          if (results.some(
-            (e) => {
-              var _a, _b;
-              return e instanceof SriError || ((_b = (_a = e == null ? void 0 : e.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
-            }
-          )) {
-            batchFailed = true;
-          }
-          yield pEachSeries(results, (res, idx) => __async(void 0, null, function* () {
-            var _a, _b;
-            const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
-            if (!(res instanceof SriError || ((_b = (_a = res == null ? void 0 : res.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError")) {
-              yield applyHooks(
-                "transform response",
-                mapping.transformResponse || [],
-                (f) => f(tx, innerSriRequest, res)
-              );
-            }
-          }));
-          return results.map((res, idx) => {
-            const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
-            res.href = innerSriRequest.originalUrl;
-            res.verb = innerSriRequest.httpMethod;
-            delete res.sriRequestID;
-            stream2.push(res);
-            return res.status;
-          });
-        }
-        batch.forEach(
-          (_e) => stream2.push({
-            status: 202,
-            errors: [
-              {
-                code: "cancelled",
-                msg: "Request cancelled due to failure in accompanying request in batch."
-              }
-            ]
-          })
-        );
-        return 202;
-      }
-      batchFailed = true;
-      throw new SriError({
-        status: 400,
-        errors: [
-          {
-            code: "batch.invalid.type.mix",
-            msg: "A batch array should contain either all objects or all (sub)arrays."
-          }
-        ]
-      });
-    });
-    if (sriRequest.setHeader) {
-      const reqId = httpContext2.get("reqId");
-      if (reqId !== void 0) {
-        sriRequest.setHeader("vsko-req-id", reqId);
-      }
-      if (sriRequest.headers["request-server-timing"]) {
-        sriRequest.setHeader("Trailer", "Server-Timing");
-      }
-      sriRequest.setHeader("Content-Type", "application/json; charset=utf-8");
-    }
-    const stream2 = createReadableStream(true);
-    stream2.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, { end: false });
-    keepAliveTimer = setInterval(() => {
-      sriRequest.outStream.write("");
-    }, 15e3);
-    const streamEndEmitter = new EventEmitter2();
-    const streamDonePromise = pEvent3(streamEndEmitter, "done");
-    stream2.on("end", () => streamEndEmitter.emit("done"));
-    sriRequest.outStream.write("{");
-    sriRequest.outStream.write('"results":');
-    if (!sriRequest.dbT)
-      throw new Error("sriRequest containsno db transaction to work on");
-    const batchResults = _2.flatten(
-      yield handleBatchStreaming(reqBody, sriRequest.dbT)
-    );
-    const status = batchResults.some((e) => e === 403) ? 403 : Math.max(200, ...batchResults);
-    stream2.push(null);
-    yield streamDonePromise;
-    sriRequest.outStream.write(`, "status": ${status}`);
-    sriRequest.outStream.write("}\n");
-    return { status };
-  } finally {
-    if (keepAliveTimer !== null) {
-      clearInterval(keepAliveTimer);
-    }
-    global.overloadProtection.endPipeline(batchConcurrency);
-  }
-});
+import Ajv from "ajv";
 
 // js/queryObject.ts
 var parameterPattern = "$?$?";
@@ -2204,6 +615,1053 @@ function prepareSQL(name) {
   };
 }
 
+// js/common.ts
+import pMap from "p-map";
+function hrtimeToMilliseconds([seconds, nanoseconds]) {
+  return seconds * 1e3 + nanoseconds / 1e6;
+}
+var isLogChannelEnabled = (channel, logdebug = { channels: "all" }) => {
+  var _a;
+  return logdebug.channels === "all" || ((_a = logdebug.channels) == null ? void 0 : _a.has(channel)) || false;
+};
+var debugAnyChannelAllowed = (channel, output, logdebugConfig) => {
+  if (isLogChannelEnabled(channel, logdebugConfig)) {
+    const reqId = httpContext.get("reqId");
+    const msg = `${(/* @__PURE__ */ new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
+    if (reqId !== void 0) {
+      const logdebugConfigFromContext = httpContext.get("logdebug");
+      if (isLogChannelEnabled(channel, logdebugConfigFromContext)) {
+        const logBufferFromHttpContext = httpContext.get("logBuffer");
+        const logBuffer = logBufferFromHttpContext || [];
+        if (!logBufferFromHttpContext) {
+          httpContext.set("logBuffer", logBuffer);
+        }
+        if ((logdebugConfigFromContext == null ? void 0 : logdebugConfigFromContext.statuses) !== void 0) {
+          logBuffer.push(msg);
+        } else {
+          console.log(msg);
+        }
+      }
+    } else {
+      console.log(msg);
+    }
+  }
+};
+var debug = (channel, output, logdebugConfig) => {
+  debugAnyChannelAllowed(channel, output, logdebugConfig);
+};
+var error = function(...args) {
+  const reqId = httpContext.get("reqId");
+  if (reqId) {
+    console.error(`[reqId:${reqId}]`, ...args);
+  } else {
+    console.error(...args);
+  }
+};
+function getParentSriRequest(sriRequest, recurse = false) {
+  return sriRequest.parentSriRequest ? recurse ? getParentSriRequest(sriRequest.parentSriRequest) : sriRequest.parentSriRequest : sriRequest;
+}
+function installExpressMiddlewareTimer(app) {
+  app.use(
+    init((_req, _res) => {
+    })
+  );
+  return express_middleware_timer_exports;
+}
+function setServerTimingHdr(sriRequest, property, value2) {
+  const parentSriRequest = getParentSriRequest(sriRequest);
+  if (parentSriRequest.serverTiming === void 0) {
+    parentSriRequest.serverTiming = {};
+  }
+  if (parentSriRequest.serverTiming[property] === void 0) {
+    parentSriRequest.serverTiming[property] = value2;
+  } else {
+    parentSriRequest.serverTiming[property] += value2;
+  }
+}
+function expressMiddlewareTimerReportToServerTiming(req, res, sriRequest) {
+  try {
+    const report2 = calculate(req, res);
+    Object.keys(report2.timers).forEach((timer) => {
+      const duration = report2.timers[timer].took;
+      if (duration > 0 && timer !== "express-wrapper") {
+        setServerTimingHdr(sriRequest, timer, duration);
+      }
+    });
+  } catch (err) {
+    error("[expressMiddlewareTimerReportToServerTiming] it does not work anymore but why???", err);
+    throw err;
+  }
+}
+function createDebugLogConfigObject(logdebug) {
+  if (logdebug === true) {
+    console.warn(
+      `
+
+
+------------------------------------------------------------------------------------------------------------------
+The logdebug parameter has changed format. Before, debug logging was enabled by specifying the boolean value 'true'.
+Now you need to provide a string with all the logchannels for which you want to receive debug logging (see the
+sri4node documentation for more details ). For now "general,trace,requests,server-timing" is set as sensible default, 
+but please specify the preferred channels for which logging is requested.
+------------------------------------------------------------------------------------------------------------------
+
+
+`
+    );
+    return {
+      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"])
+    };
+  }
+  if (logdebug === false || logdebug === void 0 || logdebug === null) {
+    return { channels: /* @__PURE__ */ new Set() };
+  }
+  const tempLogDebug = {
+    channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels)
+  };
+  if (logdebug.statuses) {
+    tempLogDebug.statuses = new Set(logdebug.statuses);
+  }
+  return tempLogDebug;
+}
+function handleRequestDebugLog(status, statuses) {
+  const logBuffer = httpContext.get("logBuffer");
+  if (statuses == null ? void 0 : statuses.has(status)) {
+    logBuffer.forEach((e) => console.log(e));
+  }
+  httpContext.set("logBuffer", []);
+}
+function urlToTypeAndKey(urlToParse) {
+  var _a;
+  if (typeof urlToParse !== "string") {
+    throw new Error(`urlToTypeAndKey requires a string argument instead of ${urlToParse}`);
+  }
+  const parsedUrl = new URL2(urlToParse, "https://domain.com");
+  const pathName = (_a = parsedUrl.pathname) == null ? void 0 : _a.replace(/\/$/, "");
+  const parts = pathName == null ? void 0 : pathName.split("/");
+  const type = _.initial(parts).join("/");
+  const key = _.last(parts);
+  return { type, key };
+}
+function isUuid(uuid) {
+  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) != null;
+}
+function parseResource(u) {
+  if (!u) {
+    return null;
+  }
+  const [u1, comment] = u.includes("#") ? u.split("#/") : [u, null];
+  if (u1.includes("?")) {
+    const splittedUrl = u1.split("?");
+    return {
+      base: splittedUrl[0],
+      id: null,
+      query: splittedUrl[1],
+      comment
+    };
+  }
+  const pp = path.parse(u1);
+  if (isUuid(pp.name)) {
+    return {
+      base: pp.dir,
+      id: pp.name,
+      query: null,
+      comment
+    };
+  }
+  return {
+    base: `${pp.dir !== "/" ? pp.dir : ""}/${pp.name}`,
+    id: null,
+    query: null,
+    comment
+  };
+}
+function errorAsCode(s) {
+  let ret = s;
+  ret = ret.replace(/".*"/, "");
+  ret = ret.toLowerCase().trim();
+  ret = ret.replace(/[^a-z0-9 ]/gim, "");
+  ret = ret.replace(/ /gim, ".");
+  return ret;
+}
+function typeToConfig(config) {
+  return config.reduce((acc, c) => {
+    acc[c.type] = c;
+    return acc;
+  }, {});
+}
+function typeToMapping(type, resources) {
+  return typeToConfig(resources)[type];
+}
+function sqlColumnNames(mapping, summary = false) {
+  var _a, _b;
+  const columnNames = summary ? Object.keys((_a = mapping.map) != null ? _a : {}).filter(
+    (c) => {
+      var _a2, _b2;
+      return !(((_b2 = (_a2 = mapping.map) == null ? void 0 : _a2[c].excludeOn) == null ? void 0 : _b2.toLowerCase()) === "summary");
+    }
+  ) : Object.keys((_b = mapping.map) != null ? _b : {});
+  return `${(columnNames.includes("key") ? "" : '"key",') + columnNames.map((c) => `"${c}"`).join(",")}, "$$meta.deleted", "$$meta.created", "$$meta.modified", "$$meta.version"`;
+}
+function transformRowToObject(row, resourceMapping) {
+  const map = resourceMapping.map || {};
+  const element = {};
+  element.$$meta = {};
+  Object.keys(map).forEach((key) => {
+    var _a, _b;
+    if (map[key].references) {
+      const referencedType = map[key].references;
+      if (row[key] !== null) {
+        element[key] = {
+          href: `${referencedType}/${row[key]}`
+        };
+      } else {
+        element[key] = null;
+      }
+    } else if (key.startsWith("$$meta.")) {
+      element.$$meta[key.split("$$meta.")[1]] = row[key];
+    } else {
+      element[key] = row[key];
+    }
+    (_b = (_a = map[key]) == null ? void 0 : _a.columnToField) == null ? void 0 : _b.forEach((f) => f(key, element));
+  });
+  Object.assign(
+    element.$$meta,
+    _.pickBy({
+      // keep only properties with defined non-null value (requires lodash - behaves different as underscores _.pick())
+      deleted: row["$$meta.deleted"],
+      created: row["$$meta.created"],
+      modified: row["$$meta.modified"]
+    })
+  );
+  element.$$meta.permalink = `${resourceMapping.type}/${row.key}`;
+  element.$$meta.version = row["$$meta.version"];
+  return element;
+}
+function checkSriConfigWithDbInformationSchema(sriConfig, informationSchema) {
+  sriConfig.resources.forEach((resourceMapping) => {
+    const map = resourceMapping.map || {};
+    Object.keys(map).forEach((key) => {
+      if (informationSchema[resourceMapping.type][key] === void 0) {
+        const dbFields = Object.keys(informationSchema[resourceMapping.type]).sort();
+        const caseInsensitiveIndex = dbFields.map((c) => c.toLowerCase()).indexOf(key.toLowerCase());
+        if (caseInsensitiveIndex >= 0) {
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. It is probably a case mismatch because we did find a column named '${dbFields[caseInsensitiveIndex]}' instead.`
+          );
+        } else {
+          console.error(
+            `
+[CONFIGURATION PROBLEM] No database column found for property '${key}' as specified in sriConfig of resource '${resourceMapping.type}'. All available column names are ${dbFields.join(", ")}`
+          );
+        }
+        throw new Error("mismatch.between.sri.config.and.database");
+      }
+    });
+  });
+}
+function transformObjectToRow(obj, resourceMapping, isNewResource, informationSchema) {
+  const map = resourceMapping.map || {};
+  const row = {};
+  Object.keys(map).forEach((key) => {
+    if (map[key].references && obj[key] !== void 0) {
+      const permalink2 = obj[key].href;
+      if (!permalink2) {
+        throw new SriError({
+          status: 409,
+          errors: [
+            {
+              code: "no.href.inside.reference",
+              msg: `No href found inside reference ${key}`
+            }
+          ]
+        });
+      }
+      const expectedType = map[key].references;
+      const { type: refType, key: refKey } = urlToTypeAndKey(permalink2);
+      if (refType === expectedType) {
+        row[key] = refKey;
+      } else {
+        const msg = `Faulty reference detected [${permalink2}], detected [${refType}] expected [${expectedType}].`;
+        console.log(msg);
+        throw new SriError({
+          status: 409,
+          errors: [{ code: "faulty.reference", msg }]
+        });
+      }
+    } else if (obj[key] !== void 0) {
+      row[key] = obj[key];
+    } else {
+      row[key] = null;
+    }
+    if (map[key].fieldToColumn) {
+      map[key].fieldToColumn.forEach((f) => f(key, row, isNewResource));
+    }
+    const fieldTypeDb = informationSchema[resourceMapping.type][key].type;
+    if (fieldTypeDb === "jsonb") {
+      row[key] = JSON.stringify(row[key]);
+    }
+  });
+  return row;
+}
+function pgInit(pgpInitOptions = {}, extraOptions) {
+  const pgpInitOptionsUpdated = __spreadProps(__spreadValues({
+    schema: extraOptions.schema
+  }, pgpInitOptions), {
+    connect: extraOptions.connectionInitSql === void 0 ? pgpInitOptions.connect : (client, dc, useCount) => {
+      if (useCount === 0) {
+        client.query(extraOptions.connectionInitSql);
+      }
+      if (pgpInitOptions.connect) {
+        pgpInitOptions.connect(client, dc, useCount);
+      }
+    }
+  });
+  const pgp = pgPromise(pgpInitOptionsUpdated);
+  if (extraOptions.monitor) {
+    monitor.attach(pgpInitOptionsUpdated);
+  }
+  if (pgp) {
+    pgp.pg.types.setTypeParser(1114, (s) => /* @__PURE__ */ new Date(`${s}Z`));
+    pgp.pg.types.setTypeParser(1184, (s) => {
+      const match = s.match(/\.\d\d\d(\d{0,3})\+/);
+      let microseconds = "";
+      if (match !== null) {
+        microseconds = match[1];
+      }
+      const isoWithoutMicroseconds = new Date(s).toISOString();
+      const isoWithMicroseconds = `${isoWithoutMicroseconds.substring(0, isoWithoutMicroseconds.length - 1) + microseconds}Z`;
+      return isoWithMicroseconds;
+    });
+    pgp.pg.types.setTypeParser(20, BigInt);
+    pgp.pg.types.setTypeParser(1700, (val) => parseFloat(val));
+    BigInt.prototype.toJSON = function() {
+      return this.toString();
+    };
+  } else {
+    throw "pgPromise not initialized!";
+  }
+  return pgp;
+}
+function pgConnect(pgp, sri4nodeConfig) {
+  return __async(this, null, function* () {
+    if (sri4nodeConfig.defaultdatabaseurl !== void 0) {
+      console.warn(
+        "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
+      );
+    }
+    if (sri4nodeConfig.maxConnections) {
+      console.warn(
+        "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
+      );
+    }
+    if (sri4nodeConfig.dbConnectionInitSql) {
+      console.warn(
+        "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
+      );
+    }
+    if (process.env.PGP_MONITOR) {
+      console.warn(
+        "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
+      );
+    }
+    const cn = __spreadValues({
+      // first some defaults, but override them with whatever is in the config
+      max: 16,
+      connectionTimeoutMillis: 2e3,
+      // 2 seconds
+      idleTimeoutMillis: 144e5
+    }, sri4nodeConfig.databaseConnectionParameters);
+    console.log(`Using database connection object : [${JSON.stringify(cn)}]`);
+    return pgp(cn);
+  });
+}
+function pgExec(db, query, sriRequest) {
+  return __async(this, null, function* () {
+    const { sql, values } = query.toParameterizedSql();
+    debug("sql", () => pgPromise.as.format(sql, values));
+    const hrstart = process.hrtime();
+    const result = yield db.query(sql, values);
+    const hrElapsed = process.hrtime(hrstart);
+    if (sriRequest) {
+      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+    }
+    return result;
+  });
+}
+function pgResult(db, query, sriRequest) {
+  return __async(this, null, function* () {
+    const { sql, values } = query.toParameterizedSql();
+    debug("sql", () => pgPromise.as.format(sql, values));
+    const hrstart = process.hrtime();
+    const result = yield db.result(sql, values);
+    const hrElapsed = process.hrtime(hrstart);
+    if (sriRequest) {
+      setServerTimingHdr(sriRequest, "db", hrtimeToMilliseconds(hrElapsed));
+    }
+    return result;
+  });
+}
+function startTransaction(_0) {
+  return __async(this, arguments, function* (db, mode = new pgPromise.txMode.TransactionMode()) {
+    debug("db", "++ Starting database transaction.");
+    const eventEmitter = new EventEmitter();
+    const txWrapper = (emitter) => __async(this, null, function* () {
+      try {
+        yield db.tx({ mode }, (tx) => __async(this, null, function* () {
+          emitter.emit("txEvent", tx);
+          const how = yield pEvent(emitter, "terminate");
+          if (how === "reject") {
+            throw "txRejected";
+          }
+        }));
+        emitter.emit("txDone");
+      } catch (err) {
+        if (err === "txRejected" || err.message === "Client has encountered a connection error and is not queryable" && err.query === "rollback") {
+          emitter.emit("txDone");
+        } else {
+          emitter.emit("txDone", err);
+        }
+      }
+    });
+    try {
+      const tx = yield new Promise((resolve, reject) => {
+        let resolved = false;
+        eventEmitter.on("txEvent", (tx2) => {
+          resolve(tx2);
+          resolved = true;
+        });
+        eventEmitter.on("txDone", (err) => {
+          if (!resolved) {
+            console.log("GOT ERROR:");
+            console.log(err);
+            console.log(JSON.stringify(err));
+            reject(err);
+          }
+        });
+        txWrapper(eventEmitter);
+      });
+      debug("db", "Got db tx object.");
+      yield tx.none("SET CONSTRAINTS ALL DEFERRED;");
+      const terminateTx = (how) => () => __async(this, null, function* () {
+        if (how !== "reject") {
+          yield tx.none("SET CONSTRAINTS ALL IMMEDIATE;");
+        }
+        eventEmitter.emit("terminate", how);
+        const res = yield pEvent(eventEmitter, "txDone");
+        if (res !== void 0) {
+          throw res;
+        }
+      });
+      return {
+        tx,
+        resolveTx: terminateTx("resolve"),
+        rejectTx: terminateTx("reject")
+      };
+    } catch (err) {
+      error("CAUGHT ERROR: ");
+      error(JSON.stringify(err), err);
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
+    }
+  });
+}
+function startTask(db) {
+  return __async(this, null, function* () {
+    debug("db", "++ Starting database task.");
+    const emitter = new EventEmitter();
+    const taskWrapper = (emitter2) => __async(this, null, function* () {
+      try {
+        yield db.task((t) => __async(this, null, function* () {
+          emitter2.emit("tEvent", t);
+          yield pEvent(emitter2, "terminate");
+        }));
+        emitter2.emit("tDone");
+      } catch (err) {
+        emitter2.emit("tDone", err);
+      }
+    });
+    try {
+      const t = yield new Promise((resolve, reject) => {
+        emitter.on("tEvent", (t2) => {
+          resolve(t2);
+        });
+        emitter.on("tDone", (err) => {
+          reject(err);
+        });
+        taskWrapper(emitter);
+      });
+      debug("db", "Got db t object.");
+      const endTask = () => __async(this, null, function* () {
+        emitter.emit("terminate");
+        const res = yield pEvent(emitter, "tDone");
+        debug("db", "db task done.");
+        if (res !== void 0) {
+          throw res;
+        }
+      });
+      return { t, endTask };
+    } catch (err) {
+      error("CAUGHT ERROR: ");
+      error(JSON.stringify(err));
+      throw new SriError({
+        status: 503,
+        errors: [
+          {
+            code: "too.busy",
+            msg: "The request could not be processed as the database is too busy right now. Try again later."
+          }
+        ]
+      });
+    }
+  });
+}
+function installVersionIncTriggerOnTable(db, tableName, schemaName) {
+  return __async(this, null, function* () {
+    const tgNameToBeDropped = `vsko_resource_version_trigger_${schemaName !== void 0 ? schemaName : ""}_${tableName}`;
+    const tgname = `vsko_resource_version_trigger_${tableName}`;
+    const schemaNameOrPublic = schemaName !== void 0 ? schemaName : "public";
+    const plpgsql = `
+  DO $___$
+  BEGIN
+    -- 1. add column '$$meta.version' if not yet present
+    IF NOT EXISTS (
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = '${tableName}'
+        AND column_name = '$$meta.version'
+        AND table_schema = '${schemaNameOrPublic}'
+        -- ${schemaName !== void 0 ? `AND table_schema = '${schemaName}'` : ""}
+    ) THEN
+      ALTER TABLE "${schemaNameOrPublic}"."${tableName}" ADD "$$meta.version" integer DEFAULT 0;
+    END IF;
+
+    -- 2. create func vsko_resource_version_inc_function if not yet present
+    IF NOT EXISTS (SELECT proname from pg_proc p INNER JOIN pg_namespace ns ON (p.pronamespace = ns.oid)
+                    WHERE proname = 'vsko_resource_version_inc_function'
+                      AND nspname = '${schemaNameOrPublic}'
+                  ) THEN
+      CREATE FUNCTION "${schemaNameOrPublic}".vsko_resource_version_inc_function() RETURNS TRIGGER AS '
+      BEGIN
+        NEW."$$meta.version" := OLD."$$meta.version" + 1;
+        RETURN NEW;
+      END' LANGUAGE 'plpgsql';
+    END IF;
+
+    -- 3. drop old triggers if they exist
+    DROP TRIGGER IF EXISTS "${tgNameToBeDropped}" on "${schemaNameOrPublic}"."${tableName}";
+
+    -- 4. create trigger 'vsko_resource_version_trigger_${tableName}' if not yet present
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers
+        WHERE trigger_name = '${tgname}'
+          AND trigger_schema = '${schemaNameOrPublic}'
+          AND event_object_table = '${tableName}'
+        -- OBSOLETE (does not check for schema and tablenam): SELECT 1 FROM pg_trigger WHERE tgname = '${tgname}'
+      ) THEN
+        CREATE TRIGGER ${tgname} BEFORE UPDATE ON "${schemaNameOrPublic}"."${tableName}"
+        FOR EACH ROW EXECUTE PROCEDURE "${schemaNameOrPublic}".vsko_resource_version_inc_function();
+    END IF;
+  END
+  $___$
+  LANGUAGE 'plpgsql';
+`;
+    yield db.query(plpgsql);
+  });
+}
+function getCountResult(tx, countquery, sriRequest) {
+  return __async(this, null, function* () {
+    const [{ count }] = yield pgExec(tx, countquery, sriRequest);
+    return parseInt(count, 10);
+  });
+}
+function tableFromMapping(mapping) {
+  return mapping.table || _.last(mapping.type.split("/"));
+}
+function isEqualSriObject(obj1, obj2, mapping, informationSchema) {
+  var _a;
+  const relevantProperties = Object.keys((_a = mapping.map) != null ? _a : {});
+  function customizer(val, key, _obj) {
+    var _a2, _b;
+    if (((_a2 = findPropertyInJsonSchema(mapping.schema, key)) == null ? void 0 : _a2.format) === "date-time") {
+      return new Date(val).getTime();
+    }
+    if (((_b = informationSchema[mapping.type][key]) == null ? void 0 : _b.type) === "bigint") {
+      return BigInt(val);
+    }
+  }
+  const o1 = _.cloneDeepWith(
+    _.pickBy(
+      obj1,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
+  const o2 = _.cloneDeepWith(
+    _.pickBy(
+      obj2,
+      (val, key) => val !== null && val != void 0 && relevantProperties.includes(key)
+    ),
+    customizer
+  );
+  return _.isEqualWith(o1, o2);
+}
+function stringifyError(e) {
+  if (e instanceof Error) {
+    return e.toString();
+  }
+  return JSON.stringify(e);
+}
+function settleResultsToSriResults(results) {
+  return results.map((res) => {
+    var _a, _b;
+    if (res.isFulfilled) {
+      return res.value;
+    }
+    const err = res.reason;
+    if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
+      return err;
+    }
+    error(
+      "____________________________ E R R O R (settleResultsToSriResults)_________________________"
+    );
+    error(stringifyError(err));
+    if (err && err.stack) {
+      error("STACK:");
+      error(err.stack);
+    }
+    error(
+      "___________________________________________________________________________________________"
+    );
+    return new SriError({
+      status: 500,
+      errors: [
+        {
+          code: "internal.server.error",
+          msg: `Internal Server Error. [${stringifyError(err)}}]`
+        }
+      ]
+    });
+  });
+}
+function createReadableStream(objectMode = true) {
+  const s = new stream.Readable({ objectMode });
+  s._read = function() {
+  };
+  return s;
+}
+function getParentSriRequestFromRequestMap(sriRequestMap, recurse = false) {
+  const sriRequest = Array.from(sriRequestMap.values())[0];
+  return getParentSriRequest(sriRequest, recurse);
+}
+function generateSriRequest(expressRequest = void 0, expressResponse = void 0, basicConfig = void 0, batchHandlerAndParams = void 0, parentSriRequest = void 0, batchElement = void 0, internalSriRequest = void 0) {
+  var _a, _b;
+  if (basicConfig === void 0 && internalSriRequest === void 0 && parentSriRequest === void 0) {
+    throw new Error(
+      "generateSriRequest: at least one of basicConfig, internalSriRequest or parentSriRequest should be defined"
+    );
+  }
+  const baseSriRequest = {
+    id: uuidv4(),
+    logDebug: debug,
+    // (ch, message) => debug(requestId, ch, message)
+    logError: error,
+    SriError,
+    // context: {},
+    parentSriRequest: parentSriRequest || (internalSriRequest == null ? void 0 : internalSriRequest.parentSriRequest),
+    path: "",
+    query: new URLSearchParams(),
+    params: {},
+    sriType: void 0,
+    isBatchRequest: void 0,
+    readOnly: void 0,
+    originalUrl: void 0,
+    httpMethod: void 0,
+    headers: {},
+    body: void 0,
+    dbT: (basicConfig == null ? void 0 : basicConfig.dbT) || (internalSriRequest == null ? void 0 : internalSriRequest.dbT) || (parentSriRequest == null ? void 0 : parentSriRequest.dbT),
+    pgp: (basicConfig == null ? void 0 : basicConfig.pgp) || (internalSriRequest == null ? void 0 : internalSriRequest.pgp) || (parentSriRequest == null ? void 0 : parentSriRequest.pgp),
+    inStream: new stream.Readable(),
+    outStream: new stream.Writable(),
+    setHeader: void 0,
+    setStatus: void 0,
+    streamStarted: void 0,
+    protocol: void 0,
+    isBatchPart: void 0,
+    /**
+     * serverTiming is an object used to accumulate timing data which is passed to the client in the response
+     * as Server-Timing header (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Server-Timing).
+     */
+    serverTiming: {},
+    /**
+     * userData is an object which can be used by applications using sri4node to store information associated with
+     * a request. It is initialized as an empty object.
+     */
+    userData: {}
+  };
+  if (internalSriRequest && !batchElement) {
+    return __spreadProps(__spreadValues({}, baseSriRequest), {
+      // parentSriRequest: parentSriRequest,
+      originalUrl: internalSriRequest.href,
+      path: batchHandlerAndParams.path,
+      query: batchHandlerAndParams.queryParams,
+      params: batchHandlerAndParams.routeParams,
+      sriType: batchHandlerAndParams.handler.mapping.type,
+      isBatchRequest: batchHandlerAndParams.handler.isBatch,
+      readOnly: batchHandlerAndParams.handler.readOnly,
+      httpMethod: internalSriRequest.verb,
+      headers: internalSriRequest.headers ? internalSriRequest.headers : {},
+      body: internalSriRequest.body,
+      dbT: internalSriRequest.dbT,
+      inStream: internalSriRequest.inStream,
+      outStream: internalSriRequest.outStream,
+      setHeader: internalSriRequest.setHeader,
+      setStatus: internalSriRequest.setStatus,
+      streamStarted: internalSriRequest.streamStarted,
+      protocol: "_internal_",
+      isBatchPart: false,
+      parentSriRequest: internalSriRequest.parentSriRequest
+    });
+  }
+  if (parentSriRequest && batchElement) {
+    return __spreadProps(__spreadValues(__spreadValues({}, parentSriRequest), baseSriRequest), {
+      dbT: parentSriRequest.dbT,
+      originalUrl: batchElement.href,
+      path: batchHandlerAndParams.path,
+      query: batchHandlerAndParams.queryParams,
+      params: batchHandlerAndParams.routeParams,
+      httpMethod: batchElement.verb,
+      body: batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body),
+      sriType: batchHandlerAndParams.handler.mapping.type,
+      isBatchPart: true
+    });
+  }
+  if (expressRequest) {
+    const query = new URLSearchParams();
+    Object.entries(expressRequest.query).forEach(([k, v]) => {
+      query.append(k, v);
+    });
+    const generatedSriRequest = __spreadProps(__spreadValues({}, baseSriRequest), {
+      path: expressRequest.path,
+      originalUrl: expressRequest.originalUrl,
+      query,
+      params: (_a = expressRequest.params) != null ? _a : {},
+      httpMethod: expressRequest.method,
+      headers: expressRequest.headers,
+      protocol: expressRequest.protocol,
+      body: expressRequest.body,
+      isBatchPart: false,
+      isBatchRequest: basicConfig == null ? void 0 : basicConfig.isBatchRequest,
+      readOnly: basicConfig == null ? void 0 : basicConfig.readOnly,
+      // the batch code will set sriType for batch elements
+      sriType: !(basicConfig == null ? void 0 : basicConfig.isBatchRequest) ? (_b = basicConfig == null ? void 0 : basicConfig.mapping) == null ? void 0 : _b.type : void 0
+    });
+    if (basicConfig == null ? void 0 : basicConfig.isStreamingRequest) {
+      if (!expressResponse) {
+        throw Error(
+          "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
+        );
+      }
+      const inStream = new stream.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
+      const outStream = new stream.PassThrough({
+        allowHalfOpen: false,
+        emitClose: true
+      });
+      generatedSriRequest.inStream = expressRequest.pipe(inStream);
+      generatedSriRequest.outStream = outStream.pipe(expressResponse);
+      generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
+      generatedSriRequest.setStatus = (s) => expressResponse.status(s);
+      generatedSriRequest.streamStarted = () => expressResponse.headersSent;
+    }
+    return generatedSriRequest;
+  }
+  if (parentSriRequest && !batchElement) {
+    return __spreadProps(__spreadValues({}, baseSriRequest), {
+      originalUrl: parentSriRequest.href,
+      path: batchHandlerAndParams.path,
+      query: batchHandlerAndParams.queryParams,
+      params: batchHandlerAndParams.routeParams,
+      sriType: batchHandlerAndParams.handler.mapping.type,
+      isBatchRequest: batchHandlerAndParams.handler.isBatch,
+      readOnly: batchHandlerAndParams.handler.readOnly,
+      httpMethod: parentSriRequest.verb,
+      headers: parentSriRequest.headers ? parentSriRequest.headers : {},
+      body: parentSriRequest.body,
+      dbT: parentSriRequest.dbT,
+      inStream: parentSriRequest.inStream,
+      outStream: parentSriRequest.outStream,
+      setHeader: parentSriRequest.setHeader,
+      setStatus: parentSriRequest.setStatus,
+      streamStarted: parentSriRequest.streamStarted,
+      protocol: "_internal_",
+      isBatchPart: false,
+      parentSriRequest: parentSriRequest.parentSriRequest
+      // ??? || parentSriRequest,
+    });
+  }
+  if (parentSriRequest && batchElement) {
+    return __spreadProps(__spreadValues(__spreadValues({}, parentSriRequest), baseSriRequest), {
+      originalUrl: batchElement.href,
+      path: batchHandlerAndParams.path,
+      query: batchHandlerAndParams.queryParams,
+      params: batchHandlerAndParams.routeParams,
+      httpMethod: batchElement.verb,
+      body: batchElement.body == null ? null : _.isObject(batchElement.body) ? batchElement.body : JSON.parse(batchElement.body),
+      sriType: batchHandlerAndParams.handler.mapping.type,
+      isBatchPart: true
+    });
+  }
+  throw Error(
+    "[generateSriRequest] Unable to generate an SriRequest based on the given combination of parameters"
+  );
+}
+function findPropertyInJsonSchema(schema, propertyName) {
+  var _a;
+  if ((_a = schema == null ? void 0 : schema.properties) == null ? void 0 : _a[propertyName]) {
+    return schema.properties[propertyName];
+  }
+  const subSchemas = schema.anyOf || schema.allOf || schema.oneOf;
+  if (subSchemas) {
+    for (const subSchema of subSchemas) {
+      const found = findPropertyInJsonSchema(subSchema, propertyName);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
+}
+var generatePgColumnSet = (columnNames, type, table, informationSchema, pgp) => {
+  const columns = columnNames.map((cname) => {
+    const cConf = {
+      name: cname
+    };
+    if (cname.includes(".")) {
+      cConf.prop = `_${cname.replace(/\./g, "_")}`;
+      cConf.init = (c) => c.source[cname];
+    }
+    const cType = informationSchema == null ? void 0 : informationSchema[type][cname].type;
+    const cElementType = informationSchema == null ? void 0 : informationSchema[type][cname].element_type;
+    if (cType !== "text") {
+      if (cType === "ARRAY") {
+        cConf.cast = `${cElementType}[]`;
+      } else {
+        cConf.cast = cType;
+      }
+    }
+    if (cname === "key") {
+      cConf.cnd = true;
+    }
+    return new pgp.helpers.Column(cConf);
+  });
+  return new pgp.helpers.ColumnSet(columns, { table });
+};
+function checkRequiredFields(mapping, informationSchema) {
+  const table = tableFromMapping(mapping);
+  if (!informationSchema[mapping.type]) {
+    throw new Error(`Table '${table}' seems to be missing in the database.`);
+  }
+  const mandatoryFields = ["key", "$$meta.created", "$$meta.modified", "$$meta.deleted"];
+  mandatoryFields.forEach((field) => {
+    if (!(field in informationSchema[mapping.type])) {
+      throw new Error(`Mapping '${mapping.type}' lacks mandatory field '${field}'`);
+    }
+  });
+}
+function resourceDefToResourceDefInternal(resourceDefinition) {
+  var _a, _b, _c;
+  if (resourceDefinition.schema === void 0)
+    throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
+  if (resourceDefinition.metaType === void 0) {
+    error(`WARNING: metaType missing for resource ${resourceDefinition.type}`);
+  }
+  const additionalProperties = {
+    singleResourceRegex: new RegExp(""),
+    listResourceRegex: new RegExp(`^${resourceDefinition.type}(?:[?#]\\S*)?$`),
+    query: (_a = _.cloneDeep(resourceDefinition.query)) != null ? _a : { defaultFilter: queryUtils_exports.defaultFilter },
+    validateKey: new Ajv().compile({ type: "string" }),
+    // can be overwritten below
+    validateSchema: new Ajv().compile({ type: "string" })
+    // can be overwritten below
+  };
+  if (!resourceDefinition.onlyCustom) {
+    if (resourceDefinition.map) {
+      Object.keys(resourceDefinition.map).forEach((key) => {
+        var _a2, _b2, _c2;
+        if (((_b2 = (_a2 = resourceDefinition.map) == null ? void 0 : _a2[key]) == null ? void 0 : _b2.references) !== void 0 && resourceDefinition.query && ((_c2 = resourceDefinition.query) == null ? void 0 : _c2[key]) === void 0) {
+          additionalProperties.query[key] = queryUtils_exports.filterReferencedType(
+            resourceDefinition.map[key].references,
+            key
+          );
+        }
+      });
+    }
+    const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
+    if (keyPropertyDefinition === null) {
+      throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
+    }
+    if (keyPropertyDefinition.pattern === guid("foo").pattern) {
+      additionalProperties.singleResourceRegex = new RegExp(
+        `^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`
+      );
+    } else if (keyPropertyDefinition.type === numeric("foo").type) {
+      additionalProperties.singleResourceRegex = new RegExp(
+        `^${resourceDefinition.type}/([0-9]+)$`
+      );
+    } else if (keyPropertyDefinition.type === string("foo").type) {
+      additionalProperties.singleResourceRegex = new RegExp(`^${resourceDefinition.type}/(\\w+)$`);
+    } else {
+      throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
+    }
+    try {
+      debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
+      const ajvWithCoerceTypes = new Ajv({
+        strict: true,
+        coerceTypes: true
+      });
+      ajvAddFormats(ajvWithCoerceTypes);
+      const ajv = new Ajv({
+        // 2023-10: do not enable strict yet as it might break existing api's
+        // (for example: an object with 'properties' & 'required', but missing type: 'object'
+        // would suddenly fail because it is strictly speaking invalid json-schema)
+        // strict: true,
+        logger: {
+          log: (output) => {
+            debug("general", output);
+          },
+          warn: (output) => {
+            debug("general", output);
+          },
+          error: console.error
+        }
+      });
+      ajvAddFormats(ajv);
+      additionalProperties.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
+      additionalProperties.validateSchema = ajv.compile(resourceDefinition.schema);
+    } catch (err) {
+      console.error("===============================================================");
+      console.error(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
+      console.error("");
+      console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
+      console.error("");
+      console.error(`Error: ${err.message}`);
+      console.error("===============================================================");
+      process.exit(1);
+    }
+  }
+  return __spreadValues(__spreadProps(__spreadValues({}, resourceDefinition), {
+    metaType: (_b = resourceDefinition.metaType) != null ? _b : "NOT SPECIFIED",
+    beforeRead: toArray(resourceDefinition.beforeRead),
+    afterRead: toArray(resourceDefinition.afterRead),
+    beforeUpdate: toArray(resourceDefinition.beforeUpdate),
+    afterUpdate: toArray(resourceDefinition.afterUpdate),
+    beforeInsert: toArray(resourceDefinition.beforeInsert),
+    afterInsert: toArray(resourceDefinition.afterInsert),
+    beforeDelete: toArray(resourceDefinition.beforeDelete),
+    afterDelete: toArray(resourceDefinition.afterDelete),
+    customRoutes: toArray(resourceDefinition.customRoutes),
+    transformResponse: toArray(resourceDefinition.transformResponse),
+    listResultDefaultIncludeCount: (_c = resourceDefinition.listResultDefaultIncludeCount) != null ? _c : true
+  }), additionalProperties);
+}
+function addReferencingResources(type, column, targetkey, excludeOnExpand) {
+  return function(tx, sriRequest, elements, _sriInternalUtils, resources) {
+    return __async(this, null, function* () {
+      var _a, _b;
+      const typeToMapping2 = typeToConfig(resources);
+      const mapping = typeToMapping2[type];
+      if (Array.isArray(sriRequest.query.get("expand"))) {
+        throw new SriError({
+          status: 500,
+          errors: [
+            {
+              code: "multiple.expand.query.parameters.not.allowed",
+              msg: 'Only one "expand" query parameter value can be specified.'
+            }
+          ]
+        });
+      }
+      const expand = (_b = (_a = sriRequest.query.get("expand")) == null ? void 0 : _a.toLowerCase()) != null ? _b : "full";
+      if (elements && elements.length && elements.length > 0 && expand !== "none" && (Array.isArray(excludeOnExpand) && !excludeOnExpand.includes(expand) || !Array.isArray(excludeOnExpand))) {
+        const tablename = type.split("/")[type.split("/").length - 1];
+        const query = prepareSQL();
+        const elementKeys = [];
+        const elementKeysToElement = {};
+        elements.forEach(({ stored: element }) => {
+          const { permalink: permalink2 } = element.$$meta;
+          const elementKey = permalink2.split("/")[2];
+          elementKeys.push(elementKey);
+          elementKeysToElement[elementKey] = element;
+          element[targetkey] = [];
+        });
+        query.sql(`select *, "${column}" as fkey from ${tablename} where `).valueIn(column, elementKeys, "uuid").sql(' and "$$meta.deleted" = false');
+        const rows = yield pgExec(tx, query);
+        yield pMap(rows, (row) => __async(this, null, function* () {
+          const element = elementKeysToElement[row.fkey];
+          const target = {
+            href: `${type}/${row.key}`,
+            $$expanded: yield transformRowToObject(row, mapping)
+          };
+          element[targetkey].push(target);
+        }));
+      }
+    });
+  };
+}
+var toArray = (thing) => {
+  if (thing === void 0 || thing === null) {
+    return [];
+  } else if (!Array.isArray(thing)) {
+    return [thing];
+  }
+  return thing;
+};
+function isSriError(x) {
+  var _a, _b;
+  return x instanceof SriError || ((_b = (_a = x == null ? void 0 : x.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
+}
+function generatePgColumns(sriConfig, currentInformationSchema, pgp) {
+  return Object.fromEntries(
+    sriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
+      const { type } = resource2;
+      const table = tableFromMapping(typeToMapping(type, sriConfig.resources));
+      const columns = JSON.parse(
+        `[${sqlColumnNames(typeToMapping(type, sriConfig.resources))}]`
+      ).filter((cname) => !cname.startsWith("$$meta."));
+      const dummyUpdateRow = transformObjectToRow({}, resource2, false, currentInformationSchema);
+      const ret = {
+        insert: new pgp.helpers.ColumnSet(columns, { table }),
+        update: generatePgColumnSet(
+          [.../* @__PURE__ */ new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
+          type,
+          table,
+          currentInformationSchema,
+          pgp
+        ),
+        delete: generatePgColumnSet(
+          ["key", "$$meta.modified", "$$meta.deleted"],
+          type,
+          table,
+          currentInformationSchema,
+          pgp
+        )
+      };
+      return [table, ret];
+    })
+  );
+}
+
 // js/queryUtils.ts
 var queryUtils_exports = {};
 __export(queryUtils_exports, {
@@ -2240,7 +1698,7 @@ function analyseParameter(parameter) {
     path: path2
   };
 }
-function filterString(select, filter, value2, mapping, baseType, _field) {
+function filterString(select, filter, value2, mapping, _baseType, _field) {
   let values;
   const not = filter.postfix === "Not";
   const sensitive = filter.prefix === "CaseSensitive";
@@ -2374,7 +1832,7 @@ function filterBoolean(select, filter, value2, _mapping, _baseType, _field) {
     select.sql(`"${filter.key}" = `).param(value2);
   }
 }
-function filterJson(select, filter, value2, mapping, _baseType, _field) {
+function filterJson(select, filter, value2, _mapping, _baseType, _field) {
   const { path: path2 } = filter;
   if (path2 == null) {
     throw new SriError({
@@ -2399,7 +1857,6 @@ function filterJson(select, filter, value2, mapping, _baseType, _field) {
     jsonKey = `(${jsonKey})`;
     const not = filter.postfix === "Not";
     const sensitive = filter.prefix === "CaseSensitive";
-    const tablename = tableFromMapping(mapping);
     if (filter.operator === "Greater" && not && sensitive || filter.operator === "Less" && !not && sensitive) {
       select.sql(` AND ${jsonKey}::text < `).param(value2);
     } else if (filter.operator === "Greater" && !not && sensitive || filter.operator === "Less" && not && sensitive) {
@@ -2455,13 +1912,13 @@ function filterJson(select, filter, value2, mapping, _baseType, _field) {
     }
   }
 }
-function getTextFieldsFromTable(informationSchema2) {
+function getTextFieldsFromTable(informationSchema) {
   const textFields = [];
   let field;
   let type;
-  for (field in informationSchema2) {
-    if (Object.prototype.hasOwnProperty.call(informationSchema2, field)) {
-      type = informationSchema2[field].type;
+  for (field in informationSchema) {
+    if (Object.prototype.hasOwnProperty.call(informationSchema, field)) {
+      type = informationSchema[field].type;
       if (type === "text" || type === "varchar" || type === "character varying" || type === "char" || type === "character" || type === "uuid") {
         textFields.push(field);
       }
@@ -2509,13 +1966,12 @@ function getFieldBaseType(fieldType) {
   }
   return null;
 }
-function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlParameters) {
+function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlParameters, informationSchema) {
   var _a, _b;
   const value2 = decodeURIComponent(valueEnc);
   const filter = analyseParameter(parameter);
-  const { informationSchema: informationSchema2 } = global.sri4node_configuration;
   const idx = mapping.type;
-  const field = (_a = informationSchema2 == null ? void 0 : informationSchema2[idx][filter.key]) != null ? _a : null;
+  const field = (_a = informationSchema == null ? void 0 : informationSchema[idx][filter.key]) != null ? _a : null;
   if (field) {
     const baseType = getFieldBaseType(field.type);
     let filterFn;
@@ -2534,7 +1990,7 @@ function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlP
       filterFn(query, filter, value2, mapping, baseType, field);
     }
   } else if (filter.key === "q") {
-    filterGeneral(query, value2, getTextFieldsFromTable(informationSchema2 == null ? void 0 : informationSchema2[idx]));
+    filterGeneral(query, value2, getTextFieldsFromTable(informationSchema == null ? void 0 : informationSchema[idx]));
   } else {
     throw new SriError({
       status: 404,
@@ -2542,7 +1998,7 @@ function defaultFilter(valueEnc, query, parameter, _tx, _doCount, mapping, _urlP
         {
           code: "invalid.query.parameter",
           parameter,
-          possibleParameters: Object.keys((_b = informationSchema2 == null ? void 0 : informationSchema2[idx]) != null ? _b : {})
+          possibleParameters: Object.keys((_b = informationSchema == null ? void 0 : informationSchema[idx]) != null ? _b : {})
         }
       ]
     });
@@ -2633,11 +2089,13 @@ function base64enc(key, e) {
 }
 
 // js/informationSchema.ts
-import _3 from "lodash";
-function informationSchema(db, sriConfig) {
+import _2 from "lodash";
+function getInformationSchema(db, sriConfig) {
   return __async(this, null, function* () {
     var _a;
-    const tableNames = _3.uniq(sriConfig.resources.map((mapping) => tableFromMapping(mapping)));
+    const tableNames = _2.uniq(
+      sriConfig.resources.map((mapping) => tableFromMapping(mapping)).filter((u) => u !== void 0)
+    );
     const query = prepareSQL("information-schema");
     const { schema } = sriConfig.databaseConnectionParameters;
     let schemaParam = "public";
@@ -2658,7 +2116,7 @@ function informationSchema(db, sriConfig) {
                       = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
           WHERE table_schema = `
     ).param(schemaParam).sql(` AND`).valueIn("c.table_name", tableNames);
-    const rowsByTable = _3.groupBy(yield pgExec(db, query), (r) => r.table_name);
+    const rowsByTable = _2.groupBy(yield pgExec(db, query), (r) => r.table_name);
     return Object.fromEntries(
       sriConfig.resources.filter((mapping) => !mapping.onlyCustom).map((mapping) => {
         return [
@@ -2675,23 +2133,368 @@ function informationSchema(db, sriConfig) {
   });
 }
 
+// js/phaseSyncedSettle.ts
+import pSettle from "p-settle";
+import pEvent2 from "p-event";
+import pMap3 from "p-map";
+import queue from "emitter-queue";
+import Emitter from "events";
+
+// js/hooks.ts
+import pMap2 from "p-map";
+function applyHooks(type, functions, applyFun, sriRequest) {
+  return __async(this, null, function* () {
+    var _a, _b;
+    if (functions && functions.length > 0) {
+      try {
+        debug("hooks", `applyHooks-${type}: going to apply ${functions.length} functions`);
+        yield pMap2(
+          functions,
+          (fun) => __async(this, null, function* () {
+            const hrstart = process.hrtime();
+            const funName = fun.name !== "" ? fun.name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`) : "anonymous-fun";
+            const stHookName = `${type.replace(/ - /g, "-").replace(/ /g, "-")}-${funName}`;
+            try {
+              yield applyFun(fun);
+              const hrend = process.hrtime(hrstart);
+              const duration = hrend[0] * 1e3 + hrend[1] / 1e6;
+              debug("hooks", `applyHooks-${type}: all functions resolved (took ${duration}ms).`);
+              if (sriRequest) {
+                setServerTimingHdr(sriRequest, stHookName, duration);
+              }
+            } catch (err) {
+              const hrend = process.hrtime(hrstart);
+              const duration = hrend[0] * 1e3 + hrend[1] / 1e6;
+              debug("hooks", `applyHooks-${type}: function ${fun.name} failed (took ${duration}ms).`);
+              if (sriRequest) {
+                setServerTimingHdr(sriRequest, stHookName, duration);
+              }
+              throw err;
+            }
+          }),
+          { concurrency: 1 }
+        );
+      } catch (err) {
+        if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
+          throw err;
+        } else {
+          console.log(
+            "_______________________ H O O K S - E R R O R _____________________________________________"
+          );
+          console.log(err);
+          console.log(err.stack);
+          console.log(Object.prototype.toString.call(err));
+          console.log(
+            "___________________________________________________________________________________________"
+          );
+          throw new SriError({
+            status: 500,
+            errors: [{ code: errorAsCode(`${type} failed`), msg: stringifyError(err) }]
+          });
+        }
+      }
+    } else {
+      debug("hooks", `applyHooks-${type}: no ${type} functions registered.`);
+    }
+  });
+}
+
+// js/phaseSyncedSettle.ts
+import { v4 as uuidv42 } from "uuid";
+var debug_log = (id, msg) => {
+  debug("phaseSyncer", `PS -${id}- ${msg}`);
+};
+var _sriRequest;
+var PhaseSyncer = class {
+  constructor(fun, args, sriInternalUtils, informationSchema, resources, ctrlEmitter) {
+    /**
+     * SriRequest associated with the PhaseSyncer instance
+     */
+    __privateAdd(this, _sriRequest, void 0);
+    this.ctrlEmitter = ctrlEmitter;
+    this.id = uuidv42();
+    this.phaseCntr = 0;
+    this.jobEmitter = queue(new Emitter());
+    __privateSet(this, _sriRequest, args[1]);
+    const jobWrapperFun = () => __async(this, null, function* () {
+      try {
+        const res = yield fun(this, ...args, sriInternalUtils, informationSchema, resources);
+        this.ctrlEmitter.queue("jobDone", this.id);
+        this.sriRequest.ended = true;
+        return res;
+      } catch (err) {
+        this.ctrlEmitter.queue("jobFailed", this.id);
+        this.sriRequest.ended = true;
+        throw err;
+      }
+    });
+    this.jobPromise = jobWrapperFun();
+    debug_log(this.id, "PhaseSyncer constructed.");
+  }
+  /**
+   * This function needs to be called by the sri request handler at the end of each phase
+   * (i.e. at each synchronisation point).
+   */
+  phase() {
+    return __async(this, null, function* () {
+      var _a, _b;
+      debug_log(this.id, `STEP ${this.phaseCntr}`);
+      if (this.phaseCntr > 0) {
+        this.ctrlEmitter.queue("stepDone", this.id, this.phaseCntr);
+      }
+      this.phaseCntr += 1;
+      const result = yield pEvent2(this.jobEmitter, ["sriError", "ready"]);
+      if (result instanceof SriError || ((_b = (_a = result == null ? void 0 : result.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
+        throw result;
+      }
+    });
+  }
+  get sriRequest() {
+    return __privateGet(this, _sriRequest);
+  }
+};
+_sriRequest = new WeakMap();
+var splitListAt = (list, index2) => [list.slice(0, index2), list.slice(index2)];
+function phaseSyncedSettle(_0) {
+  return __async(this, arguments, function* (jobList, {
+    concurrency,
+    beforePhaseHooks
+  } = {}, sriInternalConfig, sriInternalUtils) {
+    var _a, _b;
+    const ctrlEmitter = queue(new Emitter());
+    const jobMap = new Map(
+      jobList.map(
+        ([fun, args]) => new PhaseSyncer(
+          fun,
+          [...args],
+          sriInternalUtils,
+          sriInternalConfig.informationSchema,
+          sriInternalConfig.resources,
+          ctrlEmitter
+        )
+      ).map((phaseSyncer) => [phaseSyncer.id, phaseSyncer])
+    );
+    const pendingJobs = new Set(jobMap.keys());
+    const sriRequestMap = new Map(
+      [...jobMap.entries()].map(([id, phaseSyncer]) => [
+        id,
+        phaseSyncer.sriRequest
+      ])
+    );
+    const sriRequestIDToPhaseSyncerMap = new Map(
+      [...jobMap.entries()].map(([_id, phaseSyncer]) => [
+        phaseSyncer.sriRequest.id,
+        phaseSyncer
+      ])
+    );
+    let queuedJobs;
+    let phasePendingJobs;
+    let failureHasBeenBroadcasted = false;
+    try {
+      const startNewPhase = () => __async(this, null, function* () {
+        const pendingJobList = [...pendingJobs.values()];
+        const [jobsToWake, jobsToQueue] = splitListAt(pendingJobList, concurrency || 1);
+        queuedJobs = new Set(jobsToQueue);
+        phasePendingJobs = new Set(pendingJobs);
+        if (jobsToWake.length > 0) {
+          yield applyHooks(
+            "ps",
+            beforePhaseHooks || [],
+            (f) => f(
+              sriRequestMap,
+              jobMap,
+              pendingJobs,
+              sriInternalUtils,
+              sriInternalConfig.resources,
+              sriInternalConfig.informationSchema,
+              sriInternalConfig.pgColumns
+            ),
+            getParentSriRequestFromRequestMap(sriRequestMap)
+          );
+        }
+        jobsToWake.forEach((id) => {
+          const job = jobMap.get(id);
+          if (job) {
+            job.jobEmitter.queue("ready");
+          } else {
+            error("PhaseSyncer: job not found in jobMap");
+            throw new Error("PhaseSyncer: job not found in jobMap");
+          }
+        });
+      });
+      const startQueuedJob = () => {
+        if (phasePendingJobs.size - queuedJobs.size > (concurrency || 1)) {
+          error(
+            "ERROR: PhaseSyncer: unexpected startQueuedJob() call while max number of concurrent jobs is still running ! -> NOT starting queued job"
+          );
+        } else {
+          if (queuedJobs.size > 0) {
+            const id = queuedJobs.values().next().value;
+            const job = jobMap.get(id);
+            if (job) {
+              job.jobEmitter.queue("ready");
+            } else {
+              error("PhaseSyncer: job not found in jobMap");
+              throw new Error("PhaseSyncer: job not found in jobMap");
+            }
+            queuedJobs.delete(id);
+          }
+        }
+      };
+      const errorHandlingWrapper = (fun) => (id, args) => __async(this, null, function* () {
+        var _a2, _b2, _c, _d;
+        try {
+          yield fun(id, args);
+        } catch (err) {
+          if (err instanceof SriError || ((_b2 = (_a2 = err == null ? void 0 : err.__proto__) == null ? void 0 : _a2.constructor) == null ? void 0 : _b2.name) === "SriError") {
+            if (err.sriRequestID && sriRequestIDToPhaseSyncerMap.get(err.sriRequestID)) {
+              (_c = sriRequestIDToPhaseSyncerMap.get(err.sriRequestID)) == null ? void 0 : _c.jobEmitter.queue("sriError", err);
+              return;
+            }
+            if (jobMap.get(id)) {
+              (_d = jobMap.get(id)) == null ? void 0 : _d.jobEmitter.queue("sriError", err);
+              return;
+            }
+          }
+          console.error(`
+ERROR: ${err} - ${JSON.stringify(err)}
+`);
+        }
+      });
+      ctrlEmitter.on(
+        "stepDone",
+        errorHandlingWrapper((id, stepnr) => __async(this, null, function* () {
+          debug_log(id, `*step ${stepnr}* done.`);
+          phasePendingJobs.delete(id);
+          if (getParentSriRequestFromRequestMap(sriRequestMap).reqCancelled) {
+            throw new SriError({
+              status: 0,
+              errors: [{ code: "cancelled", msg: "Request cancelled by client." }]
+            });
+          }
+          if (phasePendingJobs.size === 0) {
+            debug_log(id, " Starting new phase.");
+            yield startNewPhase();
+          } else {
+            debug_log(id, " Starting queued job.");
+            startQueuedJob();
+          }
+        }))
+      );
+      ctrlEmitter.on(
+        "jobDone",
+        errorHandlingWrapper((id) => __async(this, null, function* () {
+          debug_log(id, "*JOB* done.");
+          pendingJobs.delete(id);
+          queuedJobs.delete(id);
+          phasePendingJobs.delete(id);
+          if (phasePendingJobs.size === 0) {
+            yield startNewPhase();
+          } else {
+            startQueuedJob();
+          }
+        }))
+      );
+      ctrlEmitter.on(
+        "jobFailed",
+        errorHandlingWrapper((id) => __async(this, null, function* () {
+          debug_log(id, "*JOB* failed.");
+          pendingJobs.delete(id);
+          queuedJobs.delete(id);
+          phasePendingJobs.delete(id);
+          if (getParentSriRequestFromRequestMap(sriRequestMap).readOnly === true) {
+            if (phasePendingJobs.size === 0) {
+              yield startNewPhase();
+            } else {
+              startQueuedJob();
+            }
+          } else if (!failureHasBeenBroadcasted) {
+            const parent = getParentSriRequestFromRequestMap(sriRequestMap);
+            failureHasBeenBroadcasted = true;
+            yield pMap3(pendingJobs, (id2) => __async(this, null, function* () {
+              var _a2, _b2, _c;
+              const job = jobMap.get(id2);
+              if (job === void 0) {
+                throw new Error("[jobFailed] Job is undefined, which is unexpected...");
+              } else if (job.sriRequest === void 0 || !(parent.multiInsertFailed && ((_a2 = parent.putRowsToInsertIDs) == null ? void 0 : _a2.includes(job == null ? void 0 : job.sriRequest.id))) && !(parent.multiUpdateFailed && ((_b2 = parent.putRowsToUpdateIDs) == null ? void 0 : _b2.includes(job == null ? void 0 : job.sriRequest.id))) && !(parent.multiDeleteFailed && ((_c = parent.rowsToDeleteIDs) == null ? void 0 : _c.includes(job == null ? void 0 : job.sriRequest.id)))) {
+                job == null ? void 0 : job.jobEmitter.queue(
+                  "sriError",
+                  new SriError({
+                    status: 202,
+                    errors: [
+                      {
+                        code: "cancelled",
+                        msg: "Request cancelled due to failure in accompanying request in batch."
+                      }
+                    ]
+                  })
+                );
+              }
+            }));
+          }
+          if (phasePendingJobs.size === 0) {
+            yield startNewPhase();
+          } else {
+            yield startQueuedJob();
+          }
+        }))
+      );
+      yield startNewPhase();
+      return pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
+    } catch (err) {
+      console.warn("WARN: error in phase syncer");
+      console.warn(err);
+      console.warn(JSON.stringify(err));
+      let sriError;
+      if (err instanceof SriError || ((_b = (_a = err == null ? void 0 : err.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
+        sriError = err;
+      } else {
+        sriError = new SriError({
+          status: 500,
+          errors: [{ code: "phase.synced.settle.failed", err: err.toString() }]
+        });
+      }
+      pendingJobs.forEach((id) => {
+        var _a2;
+        (_a2 = jobMap.get(id)) == null ? void 0 : _a2.jobEmitter.queue(
+          "sriError",
+          new SriError({
+            status: 202,
+            errors: [
+              {
+                code: "cancelled",
+                msg: "Request cancelled due to failure in accompanying request in batch."
+              }
+            ]
+          })
+        );
+      });
+      yield pSettle([...jobMap.values()].map((phaseSyncer) => phaseSyncer.jobPromise));
+      return [...jobMap.values()].map((_phaseSyncer) => ({
+        isFulfilled: false,
+        isRejected: true,
+        reason: sriError
+      }));
+    }
+  });
+}
+
 // js/listResource.ts
-import _5 from "lodash";
+import _4 from "lodash";
 import pMap5 from "p-map";
 import pFilter from "p-filter";
-import url4 from "url";
 
 // js/expand.ts
-import _4 from "lodash";
+import _3 from "lodash";
 import pMap4 from "p-map";
 var checkRecurse = (expandpath) => {
   const parts = expandpath.split(".");
   if (parts.length > 1) {
-    return { expand: _4.first(parts), recurse: true, recursepath: _4.tail(parts).join(".") };
+    return { expand: parts[0], recurse: true, recursepath: _3.tail(parts).join(".") };
   }
-  return { expand: expandpath, recurse: false };
+  return { expand: expandpath, recurse: false, recursepath: void 0 };
 };
-function executeSingleExpansion(db, sriRequest, elements, mapping, resources, expandpath) {
+function executeSingleExpansion(db, sriRequest, elements, mapping, resources, expandpath, sriInternalUtils) {
   return __async(this, null, function* () {
     var _a;
     if (elements && elements.length > 0) {
@@ -2708,7 +2511,7 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
         const keysToExpand = elements.reduce((acc, element) => {
           if (element[expand]) {
             const targetlink = element[expand].href;
-            const targetkey = _4.last(targetlink.split("/"));
+            const targetkey = _3.last(targetlink.split("/"));
             if (!acc.includes(targetkey) && !element[expand].$$expanded) {
               acc.push(targetkey);
             }
@@ -2741,7 +2544,7 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
             element.$$meta.type = mapping.metaType;
             return element;
           });
-          const expandedElementsDict = _4.fromPairs(
+          const expandedElementsDict = _3.fromPairs(
             expandedElements.map((obj) => [obj.$$meta.permalink, obj])
           );
           debug("trace", "expand - executing afterRead functions on expanded resources");
@@ -2755,7 +2558,9 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
                 permalink: e.$$meta.permalink,
                 incoming: null,
                 stored: e
-              }))
+              })),
+              sriInternalUtils,
+              resources
             )
           );
           elements.forEach((elem) => {
@@ -2764,7 +2569,7 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
               elem[expand].$$expanded = expandedElementsDict[permalinkToExpand];
             }
           });
-          if (recurse) {
+          if (recurse && recursepath) {
             debug("trace", `expand - recursing to next level of expansion : ${recursepath}`);
             yield executeSingleExpansion(
               db,
@@ -2772,7 +2577,8 @@ function executeSingleExpansion(db, sriRequest, elements, mapping, resources, ex
               expandedElements,
               targetMapping,
               resources,
-              recursepath
+              recursepath,
+              sriInternalUtils
             );
           } else {
             debug("trace", "expand - executeSingleExpansion resolving");
@@ -2793,10 +2599,9 @@ function parseExpand(expand) {
   debug("trace", `expand - parseExpand() results in : ${ret}`);
   return ret;
 }
-function executeExpansion(db, sriRequest, elements, mapping) {
+function executeExpansion(db, sriRequest, elements, mapping, resources, sriInternalUtils) {
   return __async(this, null, function* () {
-    const { expand } = sriRequest.query;
-    const { resources } = global.sri4node_configuration;
+    const expand = sriRequest.query.get("expand");
     debug("trace", "expand - executeExpansion()");
     if (expand) {
       const paths = parseExpand(expand);
@@ -2804,7 +2609,15 @@ function executeExpansion(db, sriRequest, elements, mapping) {
         const expandedElements = elements.map((element) => element.$$expanded || element);
         yield pMap4(
           paths,
-          (path2) => executeSingleExpansion(db, sriRequest, expandedElements, mapping, resources, path2)
+          (path2) => executeSingleExpansion(
+            db,
+            sriRequest,
+            expandedElements,
+            mapping,
+            resources,
+            path2,
+            sriInternalUtils
+          )
         );
         debug("trace", "expand - expansion done");
       }
@@ -2815,7 +2628,7 @@ function executeExpansion(db, sriRequest, elements, mapping) {
 // js/listResource.ts
 var DEFAULT_LIMIT = 30;
 var MAX_LIMIT = 500;
-function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
+function applyRequestParameters(mapping, query, urlparameters, tx, doCount, informationSchema) {
   return __async(this, null, function* () {
     const standardParameters = [
       "orderBy",
@@ -2830,10 +2643,10 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
     ];
     if (mapping.query) {
       yield pMap5(
-        Object.keys(urlparameters),
+        urlparameters.keys(),
         (key) => __async(this, null, function* () {
           var _a, _b;
-          const currentUrlParam = urlparameters[key];
+          const currentUrlParam = urlparameters.get(key);
           const keyAsString = typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
           if (!standardParameters.includes(key)) {
             if (((_a = mapping.query) == null ? void 0 : _a[key]) || ((_b = mapping.query) == null ? void 0 : _b.defaultFilter)) {
@@ -2845,7 +2658,8 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
                   tx,
                   doCount,
                   mapping,
-                  urlparameters
+                  urlparameters,
+                  informationSchema
                 );
               } else {
                 yield mapping.query[key](
@@ -2855,7 +2669,8 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
                   tx,
                   doCount,
                   mapping,
-                  urlparameters
+                  urlparameters,
+                  informationSchema
                 );
               }
             } else {
@@ -2864,7 +2679,7 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
                 errors: [{ code: "unknown.query.parameter", parameter: key }]
               });
             }
-          } else if (key === "hrefs" && urlparameters.hrefs) {
+          } else if (key === "hrefs" && urlparameters.get("hrefs")) {
             filterHrefs(keyAsString, query, key, tx, doCount, mapping, urlparameters);
           } else if (key === "modifiedSince") {
             modifiedSince(keyAsString, query, key, tx, doCount, mapping, urlparameters);
@@ -2875,35 +2690,35 @@ function applyRequestParameters(mapping, query, urlparameters, tx, doCount) {
     }
   });
 }
-function getSQLFromListResource(mapping, parameters, doCount, tx, query) {
+function getSQLFromListResource(mapping, parameters, doCount, tx, query, informationSchema) {
   return __async(this, null, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     const table = tableFromMapping(mapping);
     let sql;
     let columns;
-    if (((_a = parameters.expand) == null ? void 0 : _a.toLowerCase()) === "none") {
-      if (parameters.orderBy) {
-        columns = parameters.orderBy.split(",").map((v) => `"${v}"`).join(",");
+    if (((_a = parameters.get("expand")) == null ? void 0 : _a.toLowerCase()) === "none") {
+      if (parameters.get("orderBy") !== null) {
+        columns = (_b = parameters.get("orderBy")) == null ? void 0 : _b.split(",").map((v) => `"${v}"`).join(",");
       } else {
         columns = '"key","$$meta.created"';
       }
     } else {
-      columns = sqlColumnNames(mapping, ((_b = parameters.expand) == null ? void 0 : _b.toLowerCase()) === "summary");
+      columns = sqlColumnNames(mapping, ((_c = parameters.get("expand")) == null ? void 0 : _c.toLowerCase()) === "summary");
     }
     if (doCount) {
-      if (parameters["$$meta.deleted"] === "true") {
+      if (parameters.get("$$meta.deleted") === "true") {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
-      } else if (parameters["$$meta.deleted"] === "any") {
+      } else if (parameters.get("$$meta.deleted") === "any") {
         sql = `select count(*) from "${table}" where 1=1 `;
       } else {
         sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = false `;
       }
       query.sql(sql);
     } else {
-      if (parameters["$$meta.deleted"] === "true") {
+      if (parameters.get("$$meta.deleted") === "true") {
         sql = `select ${columns} from "`;
         sql += `${table}" where "${table}"."$$meta.deleted" = true `;
-      } else if (parameters["$$meta.deleted"] === "any") {
+      } else if (parameters.get("$$meta.deleted") === "any") {
         sql = `select ${columns} from "`;
         sql += `${table}" where 1=1 `;
       } else {
@@ -2913,16 +2728,21 @@ function getSQLFromListResource(mapping, parameters, doCount, tx, query) {
       query.sql(sql);
     }
     debug("trace", "listResource - applying URL parameters to WHERE clause");
-    yield applyRequestParameters(mapping, query, parameters, tx, doCount);
+    yield applyRequestParameters(mapping, query, parameters, tx, doCount, informationSchema);
   });
 }
 var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, maxlimit, keyOffset, offset) => {
-  const { orderBy, descending } = queryParams;
+  var _a;
+  const orderBy = queryParams.get("orderBy");
+  const descending = queryParams.get("descending");
   let orderKeys = ["$$meta.created", "key"];
-  if (orderBy !== void 0) {
+  if (orderBy) {
     orderKeys = orderBy.split(",");
     const invalidOrderByKeys = orderKeys.filter(
-      (k) => k !== "$$meta.created" && k !== "$$meta.modified" && !mapping.map[k]
+      (k) => {
+        var _a2;
+        return k !== "$$meta.created" && k !== "$$meta.modified" && !((_a2 = mapping.map) == null ? void 0 : _a2[k]);
+      }
     );
     if (invalidOrderByKeys.length !== 0) {
       throw new SriError({
@@ -2965,7 +2785,7 @@ var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, ma
   query.sql(
     ` order by ${orderKeys.map((k) => `"${k}" ${descending === "true" ? "desc" : "asc"}`).join(",")}`
   );
-  const isGetAllExpandNone = queryLimit === "*" && queryParams.expand !== void 0 && queryParams.expand.toLowerCase() === "none";
+  const isGetAllExpandNone = queryLimit === "*" && ((_a = queryParams.get("expand")) == null ? void 0 : _a.toLowerCase()) === "none";
   if (!isGetAllExpandNone) {
     if (queryLimit > maxlimit || queryLimit === "*") {
       throw new SriError({
@@ -2999,30 +2819,32 @@ var applyOrderAndPagingParameters = (query, queryParams, mapping, queryLimit, ma
   }
   return orderKeys;
 };
-var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, orderKeys) => {
+var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, orderKeys, theInformationSchema) => {
   const results = [];
   const { originalUrl } = sriRequest;
   const queryParams = sriRequest.query;
-  const tableInformation = global.sri4node_configuration.informationSchema[mapping.type];
+  const tableInformation = theInformationSchema[mapping.type];
+  const queryLimitInt = parseInt(queryLimit, 10);
   rows.forEach((currentrow) => {
+    var _a, _b, _c, _d;
     const element = {
       href: `${mapping.type}/${currentrow.key}`
     };
-    if (!queryParams.expand || queryParams.expand.toLowerCase() === "full" || queryParams.expand.toLowerCase() === "summary" || queryParams.expand.indexOf("results") === 0) {
+    if (!queryParams.get("expand") || ["full", "summary"].includes((_b = (_a = queryParams.get("expand")) == null ? void 0 : _a.toLowerCase()) != null ? _b : "") || ((_c = queryParams.get("expand")) == null ? void 0 : _c.indexOf("results")) === 0) {
       element.$$expanded = transformRowToObject(currentrow, mapping);
       element.$$expanded.$$meta.type = mapping.metaType;
-    } else if (queryParams.expand && queryParams.expand.toLowerCase() === "none") {
-    } else if (queryParams.expand) {
-      const msg = `listResource - expand value unknown : ${queryParams.expand}`;
+    } else if (queryParams.get("expand") && typeof queryParams.get("expand") === "string" && ((_d = queryParams.get("expand")) == null ? void 0 : _d.toLowerCase()) === "none") {
+    } else if (queryParams.get("expand")) {
+      const msg = `listResource - expand value unknown : ${queryParams.get("expand")}`;
       debug("trace", msg);
       throw new SriError({
         status: 400,
         errors: [
           {
             code: "parameter.value.unknown",
-            msg: `Unknown value [${queryParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
+            msg: `Unknown value [${queryParams.get("expand")}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
             parameter: "expand",
-            value: queryParams.expand,
+            value: queryParams.get("expand"),
             possibleValues: ["NONE", "SUMMARY", "FULL"]
           }
         ]
@@ -3040,19 +2862,19 @@ var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, order
   if (count != null) {
     output.$$meta.count = count;
   }
-  const addOrReplaceParameter = (url5, parameter, value2) => {
-    if (url5.indexOf(parameter) > 0) {
-      return url5.replace(
+  const addOrReplaceParameter = (url2, parameter, value2) => {
+    if (url2.indexOf(parameter) > 0) {
+      return url2.replace(
         new RegExp(`${parameter}[^&]*`),
         `${parameter}=${encodeURIComponent(value2)}`
       );
     }
-    return `${url5 + (url5.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value2)}`;
+    return `${url2 + (url2.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value2)}`;
   };
-  if (results.length === parseInt(queryLimit, 10) && results.length > 0) {
-    const lastElement = queryParams.expand && queryParams.expand.toLowerCase() === "none" ? rows[queryLimit - 1] : results[queryLimit - 1].$$expanded;
+  if (results.length === queryLimitInt && results.length > 0) {
+    const lastElement = queryParams.get("expand") && queryParams.get("expand").toLowerCase() === "none" ? rows[queryLimitInt - 1] : results[queryLimitInt - 1].$$expanded;
     const keyOffset = orderKeys.map((k) => {
-      const o = _5.get(lastElement, k);
+      const o = _4.get(lastElement, k);
       if (tableInformation[k].type === "timestamp with time zone") {
         return encodeURIComponent(o);
       } else if (o === null) {
@@ -3064,19 +2886,24 @@ var handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, order
   }
   return output;
 };
-function getListResource(phaseSyncer, tx, sriRequest, mapping) {
+function getListResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils, informationSchema, resources) {
   return __async(this, null, function* () {
     const queryParams = sriRequest.query;
     const { type } = mapping;
     const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
     const maxlimit = mapping.maxlimit || MAX_LIMIT;
-    const queryLimit = queryParams.limit || defaultlimit;
-    const keyOffset = queryParams.keyOffset || "";
-    const { offset } = queryParams;
+    const queryLimit = queryParams.get("limit") || defaultlimit;
+    const keyOffset = queryParams.get("keyOffset") || "";
+    const offset = queryParams.get("offset") || 0;
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
-    yield applyHooks("before read", mapping.beforeRead || [], (f) => f(tx, sriRequest), sriRequest);
+    yield applyHooks(
+      "before read",
+      mapping.beforeRead || [],
+      (f) => f(tx, sriRequest, sriInternalUtils),
+      sriRequest
+    );
     yield phaseSyncer.phase();
     debug("trace", `listResource - GET list resource starting${type}`);
     let count = null;
@@ -3084,17 +2911,17 @@ function getListResource(phaseSyncer, tx, sriRequest, mapping) {
     let orderKeys;
     try {
       let includeCount = mapping.listResultDefaultIncludeCount;
-      if (queryParams.$$includeCount !== void 0) {
-        includeCount = queryParams.$$includeCount === "true";
+      if (queryParams.get("$$includeCount") !== null) {
+        includeCount = queryParams.get("$$includeCount") === "true";
       }
       if (includeCount) {
         const countquery = prepareSQL();
-        yield getSQLFromListResource(mapping, queryParams, true, tx, countquery);
+        yield getSQLFromListResource(mapping, queryParams, true, tx, countquery, informationSchema);
         debug("trace", "listResource - executing SELECT COUNT query on tx");
         count = yield getCountResult(tx, countquery, sriRequest);
       }
       const query = prepareSQL();
-      yield getSQLFromListResource(mapping, queryParams, false, tx, query);
+      yield getSQLFromListResource(mapping, queryParams, false, tx, query, informationSchema);
       orderKeys = applyOrderAndPagingParameters(
         query,
         queryParams,
@@ -3114,7 +2941,15 @@ function getListResource(phaseSyncer, tx, sriRequest, mapping) {
       }
     }
     sriRequest.containsDeleted = rows.some((r) => r["$$meta.deleted"] === true);
-    const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, orderKeys);
+    const output = handleListQueryResult(
+      sriRequest,
+      rows,
+      count,
+      mapping,
+      queryLimit,
+      orderKeys,
+      informationSchema
+    );
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
     debug("trace", "listResource - executing afterRead functions on results");
@@ -3137,28 +2972,30 @@ function getListResource(phaseSyncer, tx, sriRequest, mapping) {
             incoming: null,
             stored: null
           };
-        })
+        }),
+        sriInternalUtils,
+        resources
       ),
       sriRequest
     );
     yield phaseSyncer.phase();
-    debug("trace", `listResource - executing expansion : ${queryParams.expand}`);
-    yield executeExpansion(tx, sriRequest, output.results, mapping);
+    debug("trace", `listResource - executing expansion : ${queryParams.get("expand")}`);
+    yield executeExpansion(tx, sriRequest, output.results, mapping, resources, sriInternalUtils);
     return { status: 200, body: output };
   });
 }
-var matchUrl = (url5, mapping) => {
-  if (url5.match(mapping.listResourceRegex) !== null) {
+var matchUrl = (url2, mapping) => {
+  if (url2.match(mapping.listResourceRegex) !== null) {
     return { type: "list" };
   }
-  const matchResult = url5.match(mapping.singleResourceRegex);
+  const matchResult = url2.match(mapping.singleResourceRegex);
   if (matchResult !== null) {
     const key = matchResult[1];
     return { type: "single", key };
   }
-  throw new SriError({ status: 400, errors: [{ code: "unknown.resource.type", url: url5 }] });
+  throw new SriError({ status: 400, errors: [{ code: "unknown.resource.type", url: url2 }] });
 };
-function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
+function isPartOf(phaseSyncer, tx, sriRequest, mapping, _sriInternalUtils, informationSchema) {
   return __async(this, null, function* () {
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
@@ -3187,10 +3024,10 @@ function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
         }
         return false;
       }
-      const { query: paramsB } = url4.parse(urlB, true);
+      const paramsB = new URL(urlB, "https://domain.com").searchParams;
       const queryB = prepareSQL();
       try {
-        yield getSQLFromListResource(mapping, paramsB, false, tx, queryB);
+        yield getSQLFromListResource(mapping, paramsB, false, tx, queryB, informationSchema);
       } catch (err) {
         throw new SriError({
           status: 400,
@@ -3206,10 +3043,10 @@ function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
         );
         query.params.push(...valuesB);
       } else {
-        const { query: paramsA } = url4.parse(urlA, true);
+        const paramsA = new URL(urlA, "https://domain.com").searchParams;
         const queryA = prepareSQL();
         try {
-          yield getSQLFromListResource(mapping, paramsA, false, tx, queryA);
+          yield getSQLFromListResource(mapping, paramsA, false, tx, queryA, informationSchema);
         } catch (err) {
           throw new SriError({
             status: 400,
@@ -3234,13 +3071,9 @@ function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
 }
 
 // js/regularResource.ts
-import _6 from "lodash";
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
+import _5 from "lodash";
 import jsonPatch from "fast-json-patch";
 import pMap6 from "p-map";
-var ajv = new Ajv({ coerceTypes: true });
-addFormats(ajv);
 var makeMultiError = (type) => () => new SriError({
   status: 409,
   errors: [
@@ -3303,7 +3136,7 @@ function queryByKeyGetResult(sriRequest, mapping, key, wantsDeleted) {
   }
   return { code: "not.found" };
 }
-var beforePhaseQueryByKey = function(sriRequestMap, _jobMap, _pendingJobs) {
+var beforePhaseQueryByKey = function(sriRequestMap, _jobMap, _pendingJobs, _sriInternalUtils, resources, informationSchema) {
   return __async(this, null, function* () {
     const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
     if (sriRequest.queryByKeyFetchList !== void 0) {
@@ -3312,10 +3145,10 @@ var beforePhaseQueryByKey = function(sriRequestMap, _jobMap, _pendingJobs) {
         types,
         (type) => __async(this, null, function* () {
           const keys = sriRequest.queryByKeyFetchList[type];
-          const table = tableFromMapping(typeToMapping(type));
-          const columns = sqlColumnNames(typeToMapping(type));
+          const table = tableFromMapping(typeToMapping(type, resources));
+          const columns = sqlColumnNames(typeToMapping(type, resources));
           const query = prepareSQL(`select-rows-by-key-from-${table}`);
-          const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
+          const keyDbType = informationSchema[type].key.type;
           query.sql(
             `SELECT ${columns}
                        FROM UNNEST(`
@@ -3326,18 +3159,23 @@ var beforePhaseQueryByKey = function(sriRequestMap, _jobMap, _pendingJobs) {
         }),
         { concurrency: 3 }
       );
-      sriRequest.queryByKeyResults = Object.fromEntries(_6.zip(types, results));
+      sriRequest.queryByKeyResults = Object.fromEntries(_5.zip(types, results));
       delete sriRequest.queryByKeyFetchList;
     }
   });
 };
-function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+function getRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils, _informationSchema, resources) {
   return __async(this, null, function* () {
     const { key } = sriRequest.params;
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
     yield phaseSyncer.phase();
-    yield applyHooks("before read", mapping.beforeRead || [], (f) => f(tx, sriRequest), sriRequest);
+    yield applyHooks(
+      "before read",
+      mapping.beforeRead || [],
+      (f) => f(tx, sriRequest, sriInternalUtils),
+      sriRequest
+    );
     yield phaseSyncer.phase();
     queryByKeyRequestKey(sriRequest, mapping, key);
     yield phaseSyncer.phase();
@@ -3345,7 +3183,7 @@ function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
       sriRequest,
       mapping,
       key,
-      sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any"
+      sriRequest.query.get("$$meta.deleted") === "true" || sriRequest.query.get("$$meta.deleted") === "any"
     );
     if (result.code == "resource.gone") {
       throw new SriError({
@@ -3359,19 +3197,25 @@ function getRegularResource(phaseSyncer, tx, sriRequest, mapping) {
     sriRequest.containsDeleted = element.$$meta.deleted;
     element.$$meta.type = mapping.metaType;
     debug("trace", "* executing expansion");
-    yield executeExpansion(tx, sriRequest, [element], mapping);
+    yield executeExpansion(tx, sriRequest, [element], mapping, resources, sriInternalUtils);
     yield phaseSyncer.phase();
     debug("trace", "* executing afterRead functions on results");
     yield applyHooks(
       "after read",
       mapping.afterRead || [],
-      (f) => f(tx, sriRequest, [
-        {
-          permalink: element.$$meta.permalink,
-          incoming: null,
-          stored: element
-        }
-      ]),
+      (f) => f(
+        tx,
+        sriRequest,
+        [
+          {
+            permalink: element.$$meta.permalink,
+            incoming: null,
+            stored: element
+          }
+        ],
+        sriInternalUtils,
+        resources
+      ),
       sriRequest
     );
     yield phaseSyncer.phase();
@@ -3394,7 +3238,7 @@ function getSchemaValidationErrors(json, schema, validateSchema) {
   }
   return null;
 }
-function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
+function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping, informationSchema, sriInternalUtils) {
   return __async(this, null, function* () {
     const { key } = sriRequest.params;
     const patch = sriRequest.body || [];
@@ -3417,10 +3261,18 @@ function preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping) {
         errors: [{ code: "patch.invalid", msg: "The patch could not be applied.", error: e }]
       });
     }
-    return preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, result);
+    return preparePutInsideTransaction(
+      phaseSyncer,
+      tx,
+      sriRequest,
+      mapping,
+      informationSchema,
+      sriInternalUtils,
+      result
+    );
   });
 }
-function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previousQueriedByKey = void 0) {
+function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, informationSchema, sriInternalUtils, previousQueriedByKey = void 0) {
   return __async(this, null, function* () {
     const key = sriRequest.params.key;
     const obj = sriRequest.body;
@@ -3484,11 +3336,16 @@ function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previ
       yield applyHooks(
         "before insert",
         mapping.beforeInsert || [],
-        (f) => f(tx, sriRequest, [{ permalink: permalink2, incoming: obj, stored: null }]),
+        (f) => f(
+          tx,
+          sriRequest,
+          [{ permalink: permalink2, incoming: obj, stored: null }],
+          sriInternalUtils
+        ),
         sriRequest
       );
       yield phaseSyncer.phase();
-      const newRow = transformObjectToRow(obj, mapping, true);
+      const newRow = transformObjectToRow(obj, mapping, true, informationSchema);
       newRow.key = key;
       const type = mapping.type;
       const parentSriRequest = getParentSriRequest(sriRequest);
@@ -3509,18 +3366,23 @@ function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previ
       yield applyHooks(
         "before update",
         mapping.beforeUpdate || [],
-        (f) => f(tx, sriRequest, [{ permalink: permalink2, incoming: obj, stored: prevObj }]),
+        (f) => f(
+          tx,
+          sriRequest,
+          [{ permalink: permalink2, incoming: obj, stored: prevObj }],
+          sriInternalUtils
+        ),
         sriRequest
       );
       yield phaseSyncer.phase();
-      if (isEqualSriObject(prevObj, obj, mapping)) {
+      if (isEqualSriObject(prevObj, obj, mapping, informationSchema)) {
         debug("trace", "Putted resource does NOT contain changes -> ignore PUT.");
         yield phaseSyncer.phase();
         yield phaseSyncer.phase();
         yield phaseSyncer.phase();
         return { retVal: { status: 200 } };
       }
-      const updateRow = transformObjectToRow(obj, mapping, false);
+      const updateRow = transformObjectToRow(obj, mapping, false, informationSchema);
       updateRow["$$meta.modified"] = /* @__PURE__ */ new Date();
       const type = mapping.type;
       const parentSriRequest = getParentSriRequest(sriRequest);
@@ -3539,7 +3401,7 @@ function preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping, previ
     }
   });
 }
-function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
+var beforePhaseInsertUpdateDelete = function beforePhaseInsertUpdateDelete2(sriRequestMap, _jobMap, _pendingJobs, _sriInternalUtils, resources, informationSchema, pgColumns) {
   return __async(this, null, function* () {
     const sriRequest = getParentSriRequestFromRequestMap(sriRequestMap);
     const throwIfDbTUndefined = (sriReq) => {
@@ -3548,7 +3410,7 @@ function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
       }
     };
     throwIfDbTUndefined(sriRequest);
-    const pgp2 = getPgp();
+    const pgp = sriRequest.pgp;
     delete sriRequest.multiInsertFailed;
     delete sriRequest.multiUpdateFailed;
     delete sriRequest.multiDeleteFailed;
@@ -3558,9 +3420,9 @@ function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
       yield pMap6(types, (type) => __async(this, null, function* () {
         var _a;
         const rows = putRowsToInsert[type];
-        const table = tableFromMapping(typeToMapping(type));
-        const cs = global.sri4node_configuration.pgColumns[table].insert;
-        const query = pgp2.helpers.insert(rows, cs);
+        const table = tableFromMapping(typeToMapping(type, resources));
+        const cs = pgColumns[table].insert;
+        const query = pgp.helpers.insert(rows, cs);
         try {
           yield (_a = sriRequest.dbT) == null ? void 0 : _a.none(query);
         } catch (err) {
@@ -3581,10 +3443,10 @@ function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
       yield pMap6(types, (type) => __async(this, null, function* () {
         var _a;
         const rows = putRowsToUpdate[type];
-        const table = tableFromMapping(typeToMapping(type));
-        const cs = global.sri4node_configuration.pgColumns[table].update;
-        const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
-        const update = `${pgp2.helpers.update(rows, cs)} WHERE "$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
+        const table = tableFromMapping(typeToMapping(type, resources));
+        const cs = pgColumns[table].update;
+        const keyDbType = informationSchema[type].key.type;
+        const update = `${pgp.helpers.update(rows, cs)} WHERE "$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
         try {
           yield (_a = sriRequest.dbT) == null ? void 0 : _a.none(update);
         } catch (err) {
@@ -3605,10 +3467,10 @@ function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
       yield pMap6(types, (type) => __async(this, null, function* () {
         var _a;
         const rows = rowsToDelete[type];
-        const table = tableFromMapping(typeToMapping(type));
-        const cs = global.sri4node_configuration.pgColumns[table].delete;
-        const keyDbType = global.sri4node_configuration.informationSchema[type].key.type;
-        const update = `${pgp2.helpers.update(rows, cs)} WHERE t."$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
+        const table = tableFromMapping(typeToMapping(type, resources));
+        const cs = pgColumns[table].delete;
+        const keyDbType = informationSchema[type].key.type;
+        const update = `${pgp.helpers.update(rows, cs)} WHERE t."$$meta.deleted" = false AND v.key::${keyDbType} = t.key::${keyDbType}`;
         try {
           yield (_a = sriRequest.dbT) == null ? void 0 : _a.none(update);
         } catch (err) {
@@ -3624,8 +3486,8 @@ function beforePhaseInsertUpdateDelete(sriRequestMap, _jobMap, _pendingJobs) {
     }
     sriRequest.rowsToDelete = void 0;
   });
-}
-function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
+};
+function handlePutResult(phaseSyncer, sriRequest, mapping, state, sriInternalUtils) {
   return __async(this, null, function* () {
     const parentSriRequest = getParentSriRequest(sriRequest);
     if (state.opType === "insert") {
@@ -3641,9 +3503,12 @@ function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
       yield applyHooks(
         "after insert",
         mapping.afterInsert,
-        (f) => f(sriRequest.dbT, sriRequest, [
-          { permalink: state.permalink, incoming: state.obj, stored: null }
-        ]),
+        (f) => f(
+          sriRequest.dbT,
+          sriRequest,
+          [{ permalink: state.permalink, incoming: state.obj, stored: null }],
+          sriInternalUtils
+        ),
         sriRequest
       );
       yield phaseSyncer.phase();
@@ -3661,27 +3526,37 @@ function handlePutResult(phaseSyncer, sriRequest, mapping, state) {
     yield applyHooks(
       "after update",
       mapping.afterUpdate || [],
-      (f) => f(sriRequest.dbT, sriRequest, [
-        { permalink: state.permalink, incoming: state.obj, stored: state.prevObj }
-      ]),
+      (f) => f(
+        sriRequest.dbT,
+        sriRequest,
+        [{ permalink: state.permalink, incoming: state.obj, stored: state.prevObj }],
+        sriInternalUtils
+      ),
       sriRequest
     );
     yield phaseSyncer.phase();
     return { status: 200 };
   });
 }
-function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils, informationSchema) {
   return __async(this, null, function* () {
     var _a, _b;
     yield phaseSyncer.phase();
     debug("trace", "* sri4node PUT processing invoked.");
     try {
-      const state = yield preparePutInsideTransaction(phaseSyncer, tx, sriRequest, mapping);
+      const state = yield preparePutInsideTransaction(
+        phaseSyncer,
+        tx,
+        sriRequest,
+        mapping,
+        informationSchema,
+        sriInternalUtils
+      );
       if (state.retVal !== void 0) {
         return state.retVal;
       }
       yield phaseSyncer.phase();
-      const retVal = yield handlePutResult(phaseSyncer, sriRequest, mapping, state);
+      const retVal = yield handlePutResult(phaseSyncer, sriRequest, mapping, state, sriInternalUtils);
       return retVal;
     } catch (err) {
       if (err.constraint !== void 0) {
@@ -3698,17 +3573,24 @@ function createOrUpdateRegularResource(phaseSyncer, tx, sriRequest, mapping) {
     }
   });
 }
-function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+function patchRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils, informationSchema) {
   return __async(this, null, function* () {
     yield phaseSyncer.phase();
     debug("trace", "* sri4node PATCH processing invoked.");
     try {
-      const state = yield preparePatchInsideTransaction(phaseSyncer, tx, sriRequest, mapping);
+      const state = yield preparePatchInsideTransaction(
+        phaseSyncer,
+        tx,
+        sriRequest,
+        mapping,
+        informationSchema,
+        sriInternalUtils
+      );
       if (state.retVal !== void 0) {
         return state.retVal;
       }
       yield phaseSyncer.phase();
-      const retVal = yield handlePutResult(phaseSyncer, sriRequest, mapping, state);
+      const retVal = yield handlePutResult(phaseSyncer, sriRequest, mapping, state, sriInternalUtils);
       return retVal;
     } catch (err) {
       if (err.constraint !== void 0) {
@@ -3725,8 +3607,9 @@ function patchRegularResource(phaseSyncer, tx, sriRequest, mapping) {
     }
   });
 }
-function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
+function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping, sriInternalUtils) {
   return __async(this, null, function* () {
+    var _a;
     try {
       yield phaseSyncer.phase();
       debug("trace", "sri4node DELETE invoked");
@@ -3737,7 +3620,7 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
         sriRequest,
         mapping,
         key,
-        sriRequest.query["$$meta.deleted"] === "true" || sriRequest.query["$$meta.deleted"] === "any"
+        ["true", "any"].includes((_a = sriRequest.query.get("$$meta.deleted")) != null ? _a : "")
       );
       if (result.code != "found") {
         debug("trace", "No row affected - the resource is already gone");
@@ -3752,7 +3635,12 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
         yield applyHooks(
           "before delete",
           mapping.beforeDelete || [],
-          (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
+          (f) => f(
+            tx,
+            sriRequest,
+            [{ permalink: sriRequest.path, incoming: null, stored: prevObj }],
+            sriInternalUtils
+          ),
           sriRequest
         );
         yield phaseSyncer.phase();
@@ -3798,7 +3686,12 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
         yield applyHooks(
           "after delete",
           mapping.afterDelete || [],
-          (f) => f(tx, sriRequest, [{ permalink: sriRequest.path, incoming: null, stored: prevObj }]),
+          (f) => f(
+            tx,
+            sriRequest,
+            [{ permalink: sriRequest.path, incoming: null, stored: prevObj }],
+            sriInternalUtils
+          ),
           sriRequest
         );
       }
@@ -3815,51 +3708,6 @@ function deleteRegularResource(phaseSyncer, tx, sriRequest, mapping) {
       }
     }
   });
-}
-
-// js/utilLib.ts
-import pMap7 from "p-map";
-function addReferencingResources(type, column, targetkey, excludeOnExpand) {
-  return function(tx, sriRequest, elements) {
-    return __async(this, null, function* () {
-      const { resources } = global.sri4node_configuration;
-      const typeToMapping2 = typeToConfig(resources);
-      const mapping = typeToMapping2[type];
-      if (Array.isArray(sriRequest.query.expand)) {
-        throw new SriError({
-          status: 500,
-          errors: [
-            {
-              code: "multiple.expand.query.parameters.not.allowed",
-              msg: 'Only one "expand" query parameter value can be specified.'
-            }
-          ]
-        });
-      }
-      const expand = sriRequest.query.expand ? sriRequest.query.expand.toLowerCase() : "full";
-      if (elements && elements.length && elements.length > 0 && expand !== "none" && (Array.isArray(excludeOnExpand) && !excludeOnExpand.includes(expand) || !Array.isArray(excludeOnExpand))) {
-        const tablename = type.split("/")[type.split("/").length - 1];
-        const query = prepareSQL();
-        const elementKeys = [];
-        const elementKeysToElement = {};
-        elements.forEach(({ stored: element }) => {
-          const { permalink: permalink2 } = element.$$meta;
-          const elementKey = permalink2.split("/")[2];
-          elementKeys.push(elementKey);
-          elementKeysToElement[elementKey] = element;
-          element[targetkey] = [];
-        });
-        query.sql(`select *, "${column}" as fkey from ${tablename} where "${column}" in (`).array(elementKeys).sql(') and "$$meta.deleted" = false');
-        const rows = yield pgExec(tx, query);
-        yield pMap7(rows, (row) => __async(this, null, function* () {
-          const element = elementKeysToElement[row.fkey];
-          const target = { href: `${type}/${row.key}` };
-          target.$$expanded = yield transformRowToObject(row, mapping);
-          element[targetkey].push(target);
-        }));
-      }
-    });
-  };
 }
 
 // js/overloadProtection.ts
@@ -3892,7 +3740,7 @@ function overloadProtectionFactory(config) {
         );
         return nrServed;
       }
-      return null;
+      return 0;
     },
     endPipeline: (nr = 1) => {
       if (config !== void 0) {
@@ -4357,28 +4205,553 @@ var staticFiles = {
     `
 };
 
-// sri4node.ts
-var ajv2 = new Ajv2({
-  // 2023-10: do not enable strict yet as it might break existing api's
-  // (for example: an object with 'properties' & 'required', but missing type: 'object'
-  // would suddenly fail because it is strictly speaking invalid json-schema)
-  // strict: true,
-  logger: {
-    log: (output) => {
-      debug("general", output);
-    },
-    warn: (output) => {
-      debug("general", output);
-    },
-    error: console.error
+// js/batch.ts
+import _6 from "lodash";
+import pMap7 from "p-map";
+import pEachSeries from "p-each-series";
+import JSONStream from "JSONStream";
+import EventEmitter2 from "events";
+import pEvent3 from "p-event";
+import httpContext2 from "express-http-context";
+function patchBatchResult(res, innerSriRequest) {
+  if (isSriError(res)) {
+    res.sriRequestID = null;
+    res.href = innerSriRequest.originalUrl;
+    res.verb = innerSriRequest.httpMethod;
+    return res;
+  } else {
+    return __spreadProps(__spreadValues({}, res), {
+      href: innerSriRequest.originalUrl,
+      verb: innerSriRequest.httpMethod
+    });
   }
-});
-addFormats2(ajv2);
-var ajvWithCoerceTypes = new Ajv2({
-  strict: true,
-  coerceTypes: true
-});
-addFormats2(ajvWithCoerceTypes);
+}
+function batchFactory(sriInternalConfig) {
+  const maxSubListLen = (a) => (
+    // this code works as long as a batch array contain either all objects or all (sub)arrays
+    // (which is required by batchOpertation, otherwise a 'batch.invalid.type.mix' error is sent)
+    a.reduce((max, e, _idx, arr) => {
+      if (Array.isArray(e)) {
+        return Math.max(maxSubListLen(e), max);
+      }
+      return Math.max(arr.length, max);
+    }, 0)
+  );
+  function matchHref(href, verb) {
+    if (!verb) {
+      console.log(`No VERB stated for ${href}.`);
+      throw new SriError({
+        status: 400,
+        errors: [{ code: "no.verb", msg: `No VERB stated for ${href}.` }]
+      });
+    }
+    const parsedUrl = new URL(href, "https://domain.com");
+    const queryParams = parsedUrl.searchParams;
+    const path2 = (parsedUrl.pathname || "").replace(/\/$/, "");
+    const batchHandlerMap = sriInternalConfig.batchHandlerMap;
+    const matches = batchHandlerMap[verb].map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match);
+    if (matches.length === 0) {
+      throw new SriError({
+        status: 404,
+        errors: [{ code: "no.matching.route", msg: `No route found for ${verb} on ${path2}.` }]
+      });
+    }
+    if (matches.length > 1) {
+      console.log(
+        `WARNING: multiple handler functions match for batch request ${path2}. Only first will be used. Check configuration.`
+      );
+    }
+    const { handler, match: routeParams } = matches[0];
+    return {
+      handler,
+      path: path2,
+      routeParams,
+      queryParams
+    };
+  }
+  function matchBatch(req) {
+    const reqBody = req.body;
+    const batchBase = req.path.split("/batch")[0];
+    if (!Array.isArray(reqBody)) {
+      throw new SriError({
+        status: 400,
+        errors: [
+          {
+            code: "batch.body.invalid",
+            msg: "Batch body should be JSON array.",
+            body: reqBody
+          }
+        ]
+      });
+    }
+    const handleBatchForMatchBatch = (batch) => {
+      if (batch.every((element) => Array.isArray(element))) {
+        batch.forEach(handleBatchForMatchBatch);
+      } else if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
+        batch.forEach((element) => {
+          var _a;
+          const match = matchHref(element.href, element.verb);
+          if (match.handler.isBatch === true) {
+            throw new SriError({
+              status: 400,
+              errors: [
+                {
+                  code: "batch.not.allowed.in.batch",
+                  msg: "Nested /batch requests are not allowed, use 1 batch with sublists inside the batch JSON."
+                }
+              ]
+            });
+          }
+          if (!((_a = match.path) == null ? void 0 : _a.startsWith(batchBase))) {
+            throw new SriError({
+              status: 400,
+              errors: [
+                {
+                  code: "href.across.boundary",
+                  msg: "Only requests within (sub) path of /batch request are allowed."
+                }
+              ]
+            });
+          }
+          if (match.queryParams.get("dryRun") === "true") {
+            throw new SriError({
+              status: 400,
+              errors: [
+                {
+                  code: "dry.run.not.allowed.in.batch",
+                  msg: "The dryRun query parameter is only allowed for the batch url itself (/batch?dryRun=true), not for hrefs inside a batch request."
+                }
+              ]
+            });
+          }
+          element.match = match;
+        });
+      } else {
+        throw new SriError({
+          status: 400,
+          errors: [
+            {
+              code: "batch.invalid.type.mix",
+              msg: "A batch array should contain either all objects or all (sub)arrays."
+            }
+          ]
+        });
+      }
+    };
+    handleBatchForMatchBatch(reqBody);
+  }
+  const batchOperation = function batchOperation2(sriRequest, sriInternalUtils, _informationSchema, overloadProtection) {
+    return __async(this, null, function* () {
+      const reqBody = sriRequest.body || [];
+      const batchConcurrency = Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency);
+      overloadProtection.startPipeline(batchConcurrency);
+      try {
+        let batchFailed = false;
+        const handleBatchInBatchOperation = (batch, tx) => __async(this, null, function* () {
+          if (batch.every((element) => Array.isArray(element))) {
+            debug(
+              "batch",
+              "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+            );
+            debug("batch", "| Handling batch list");
+            debug(
+              "batch",
+              "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+            );
+            return pMap7(
+              batch,
+              (element) => __async(this, null, function* () {
+                const { tx: tx1, resolveTx, rejectTx } = yield startTransaction(tx);
+                const result = yield handleBatchInBatchOperation(element, tx1);
+                if (result.every((e) => e.status < 300)) {
+                  yield resolveTx();
+                } else {
+                  yield rejectTx();
+                }
+                return result;
+              }),
+              { concurrency: 1 }
+            );
+          }
+          if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
+            if (!batchFailed) {
+              const batchJobs = yield pMap7(
+                batch,
+                (batchElement) => __async(this, null, function* () {
+                  var _a;
+                  if (!batchElement.verb) {
+                    throw new SriError({
+                      status: 400,
+                      errors: [{ code: "verb.missing", msg: "VERB is not specified." }]
+                    });
+                  }
+                  debug(
+                    "batch",
+                    "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+                  );
+                  debug(
+                    "batch",
+                    `| Executing /batch section ${batchElement.verb} - ${batchElement.href} `
+                  );
+                  debug(
+                    "batch",
+                    "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+                  );
+                  const { match } = batchElement;
+                  const innerSriRequest = generateSriRequest(
+                    void 0,
+                    void 0,
+                    void 0,
+                    match,
+                    sriRequest,
+                    batchElement
+                  );
+                  if (!((_a = match == null ? void 0 : match.handler) == null ? void 0 : _a.func))
+                    throw new Error("match.handler.func is undefined");
+                  return [
+                    match.handler.func,
+                    [tx, innerSriRequest, match.handler.mapping]
+                  ];
+                }),
+                { concurrency: 1 }
+              );
+              const results = settleResultsToSriResults(
+                yield phaseSyncedSettle(
+                  batchJobs,
+                  {
+                    concurrency: batchConcurrency,
+                    beforePhaseHooks: sriInternalConfig.beforePhase
+                  },
+                  sriInternalConfig,
+                  sriInternalUtils
+                )
+              );
+              if (results.some(isSriError) && sriRequest.readOnly === false) {
+                batchFailed = true;
+              }
+              yield pEachSeries(results, (res, idx) => __async(this, null, function* () {
+                const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
+                if (!isSriError(res)) {
+                  yield applyHooks(
+                    "transform response",
+                    mapping.transformResponse || [],
+                    (f) => f(tx, innerSriRequest, res, sriInternalUtils)
+                  );
+                }
+              }));
+              return results.map((res, idx) => {
+                const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+                const resModified = patchBatchResult(res, innerSriRequest);
+                return resModified;
+              });
+            }
+            return batch.map(
+              (_e) => new SriError({
+                status: 202,
+                errors: [
+                  {
+                    code: "cancelled",
+                    msg: "Request cancelled due to failure in accompanying request in batch."
+                  }
+                ]
+              })
+            );
+          }
+          batchFailed = true;
+          throw new SriError({
+            status: 400,
+            errors: [
+              {
+                code: "batch.invalid.type.mix",
+                msg: "A batch array should contain either all objects or all (sub)arrays."
+              }
+            ]
+          });
+        });
+        const batchResults = _6.flatten(
+          yield handleBatchInBatchOperation(reqBody, sriRequest.dbT)
+        );
+        const status = batchResults.some((e) => e.status === 403) ? 403 : Math.max(200, ...batchResults.map((e) => e.status));
+        return { status, body: batchResults };
+      } finally {
+        overloadProtection.endPipeline(batchConcurrency);
+      }
+    });
+  };
+  const batchOperationStreaming = (sriRequest, sriInternalUtils, _informationSchema, overloadProtection) => __async(this, null, function* () {
+    let keepAliveTimer = null;
+    const reqBody = sriRequest.body;
+    const batchConcurrency = overloadProtection.startPipeline(
+      Math.min(maxSubListLen(reqBody), sriInternalConfig.batchConcurrency)
+    );
+    try {
+      let batchFailed = false;
+      const handleBatchStreaming = (batch, tx) => __async(this, null, function* () {
+        if (batch.every((element) => Array.isArray(element))) {
+          debug(
+            "batch",
+            "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+          );
+          debug("batch", "| Handling batch list");
+          debug(
+            "batch",
+            "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+          );
+          return pMap7(
+            batch,
+            (element) => __async(this, null, function* () {
+              const result = yield handleBatchStreaming(element, tx);
+              return result;
+            }),
+            { concurrency: 1 }
+          );
+        }
+        if (batch.every((element) => typeof element === "object" && !Array.isArray(element))) {
+          if (!batchFailed) {
+            const batchJobs = yield pMap7(
+              batch,
+              (batchElement) => __async(this, null, function* () {
+                var _a;
+                if (!batchElement.verb) {
+                  throw new SriError({
+                    status: 400,
+                    errors: [{ code: "verb.missing", msg: "VERB is not specified." }]
+                  });
+                }
+                debug(
+                  "batch",
+                  "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+                );
+                debug(
+                  "batch",
+                  `| Executing /batch section ${batchElement.verb} - ${batchElement.href} `
+                );
+                debug(
+                  "batch",
+                  "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+                );
+                const { match } = batchElement;
+                if (match) {
+                  const innerSriRequest = __spreadProps(__spreadValues({}, sriRequest), {
+                    parentSriRequest: sriRequest,
+                    path: match.path || "",
+                    originalUrl: batchElement.href,
+                    query: match.queryParams,
+                    params: match.routeParams,
+                    httpMethod: batchElement.verb,
+                    body: batchElement.body,
+                    // element.body === undefined || _.isObject(element.body)
+                    //   ? element.body
+                    //   : JSON.parse(element.body),
+                    sriType: match.handler.mapping.type,
+                    isBatchPart: true
+                    // context,
+                  });
+                  if (!((_a = match == null ? void 0 : match.handler) == null ? void 0 : _a.func))
+                    throw new Error("match.handler.func is undefined");
+                  return [
+                    match.handler.func,
+                    [tx, innerSriRequest, match.handler.mapping]
+                  ];
+                } else {
+                  throw new SriError({
+                    status: 500,
+                    errors: [{ code: "batch.missing.match", msg: "" }]
+                  });
+                }
+              }),
+              { concurrency: 1 }
+            );
+            const results = settleResultsToSriResults(
+              yield phaseSyncedSettle(
+                batchJobs,
+                {
+                  concurrency: batchConcurrency != null ? batchConcurrency : void 0,
+                  beforePhaseHooks: sriInternalConfig.beforePhase
+                },
+                sriInternalConfig,
+                sriInternalUtils
+              )
+            );
+            if (results.some(
+              (e) => {
+                var _a, _b;
+                return e instanceof SriError || ((_b = (_a = e == null ? void 0 : e.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError";
+              }
+            )) {
+              batchFailed = true;
+            }
+            yield pEachSeries(results, (res, idx) => __async(this, null, function* () {
+              const [_tx, innerSriRequest, mapping] = batchJobs[idx][1];
+              if (!isSriError(res)) {
+                yield applyHooks(
+                  "transform response",
+                  mapping.transformResponse || [],
+                  (f) => f(tx, innerSriRequest, res, sriInternalUtils)
+                );
+              }
+            }));
+            return results.map((res, idx) => {
+              const [_tx, innerSriRequest, _mapping] = batchJobs[idx][1];
+              const resModified = patchBatchResult(res, innerSriRequest);
+              stream2.push(resModified);
+              return res.status;
+            });
+          }
+          batch.forEach(
+            (_e) => stream2.push({
+              status: 202,
+              errors: [
+                {
+                  code: "cancelled",
+                  msg: "Request cancelled due to failure in accompanying request in batch."
+                }
+              ]
+            })
+          );
+          return 202;
+        }
+        batchFailed = true;
+        throw new SriError({
+          status: 400,
+          errors: [
+            {
+              code: "batch.invalid.type.mix",
+              msg: "A batch array should contain either all objects or all (sub)arrays."
+            }
+          ]
+        });
+      });
+      if (sriRequest.setHeader) {
+        const reqId = httpContext2.get("reqId");
+        if (reqId !== void 0) {
+          sriRequest.setHeader("vsko-req-id", reqId);
+        }
+        if (sriRequest.headers["request-server-timing"]) {
+          sriRequest.setHeader("Trailer", "Server-Timing");
+        }
+        sriRequest.setHeader("Content-Type", "application/json; charset=utf-8");
+      }
+      const stream2 = createReadableStream(true);
+      stream2.pipe(JSONStream.stringify()).pipe(sriRequest.outStream, { end: false });
+      keepAliveTimer = setInterval(() => {
+        sriRequest.outStream.write("");
+      }, 15e3);
+      const streamEndEmitter = new EventEmitter2();
+      const streamDonePromise = pEvent3(streamEndEmitter, "done");
+      stream2.on("end", () => streamEndEmitter.emit("done"));
+      sriRequest.outStream.write("{");
+      sriRequest.outStream.write('"results":');
+      if (!sriRequest.dbT)
+        throw new Error("sriRequest contains no db transaction to work on");
+      const batchResultsRaw = yield handleBatchStreaming(reqBody, sriRequest.dbT);
+      const batchResults = Array.isArray(batchResultsRaw) ? _6.flatten(batchResultsRaw) : [batchResultsRaw];
+      const status = batchResults.some((e) => e === 403) ? 403 : Math.max(200, ...batchResults.filter((r) => Number.isFinite(r)));
+      stream2.push(null);
+      yield streamDonePromise;
+      sriRequest.outStream.write(`, "status": ${status}`);
+      sriRequest.outStream.write("}\n");
+      return { status };
+    } finally {
+      if (keepAliveTimer !== null) {
+        clearInterval(keepAliveTimer);
+      }
+      overloadProtection.endPipeline(batchConcurrency);
+    }
+  });
+  return { batchFactory, matchHref, matchBatch, batchOperation, batchOperationStreaming };
+}
+
+// sri4node.ts
+function handleExpressWrapperError(resp, err, sriInternalConfig, sriInternalUtils, t, endTask, rejectTx, sriRequest, readOnly) {
+  return __async(this, null, function* () {
+    var _a;
+    if (sriRequest) {
+      yield applyHooks(
+        "errorHandler",
+        sriInternalConfig.errorHandler || [],
+        (f) => f(sriRequest, err, sriInternalUtils),
+        sriRequest
+      );
+    }
+    if (t !== void 0) {
+      if (readOnly === true) {
+        debug(
+          "db",
+          `++ Exception caught. Closing database task. ++
+${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
+          sriInternalConfig.logdebug
+        );
+        yield endTask();
+      } else {
+        debug(
+          "db",
+          `++ Exception caught. Rolling back database transaction. ++
+${isSriError(err) ? JSON.stringify(err.body, null, 2) : err}`,
+          sriInternalConfig.logdebug
+        );
+        yield rejectTx();
+      }
+    }
+    if (resp.headersSent) {
+      error(
+        "____________________________ E R R O R (expressWrapper)____________________________________"
+      );
+      error(err);
+      error(JSON.stringify(err, null, 2));
+      error("STACK:");
+      error(err.stack);
+      error(
+        "___________________________________________________________________________________________"
+      );
+      error("NEED TO DESTROY STREAMING REQ");
+      resp.on("drain", () => __async(this, null, function* () {
+        yield resp.destroy();
+        error("[drain event] Stream is destroyed.");
+      }));
+      resp.on("finish", () => __async(this, null, function* () {
+        yield resp.destroy();
+        error("[finish event] Stream is destroyed.");
+      }));
+      resp.write(
+        "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n"
+      );
+      resp.write(err.toString());
+      resp.write(JSON.stringify(err, null, 2));
+      resp.write(
+        "\n___________________________________________________________________________________________\n"
+      );
+      while (resp.write("       ")) {
+      }
+    } else if (isSriError(err)) {
+      if (err.status > 0) {
+        const reqId = httpContext3.get("reqId");
+        if (reqId !== void 0) {
+          err.body.vskoReqId = reqId;
+          err.headers["vsko-req-id"] = reqId;
+        }
+        resp.set(err.headers).status(err.status).send(err.body);
+      }
+    } else {
+      error(
+        "____________________________ E R R O R (expressWrapper)____________________________________"
+      );
+      error(err);
+      error("STACK:");
+      error((_a = err.stack) != null ? _a : "No stack available");
+      error(
+        "___________________________________________________________________________________________"
+      );
+      resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+    }
+    if (sriInternalConfig.logdebug && sriInternalConfig.logdebug.statuses !== void 0) {
+      setImmediate(() => {
+        console.log("GOING TO CALL handleRequestDebugLog");
+        handleRequestDebugLog(err.status ? err.status : 500, sriInternalConfig.logdebug.statuses);
+      });
+    }
+  });
+}
 function forceSecureSockets(req, res, next) {
   const isHttps = req.headers["x-forwarded-proto"] === "https";
   if (!isHttps && req.get("Host").indexOf("localhost") < 0 && req.get("Host").indexOf("127.0.0.1") < 0) {
@@ -4387,382 +4760,21 @@ function forceSecureSockets(req, res, next) {
     next();
   }
 }
-function getSchema(req, resp) {
-  const type = req.route.path.split("/").slice(0, req.route.path.split("/").length - 1).join("/");
-  const mapping = typeToMapping(type);
-  resp.set("Content-Type", "application/json");
-  resp.send(mapping.schema);
-}
-function getDocs(req, resp) {
-  const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
-  const type = req.route.path.split("/").slice(0, req.route.path.split("/").length - 1).join("/");
-  if (type in typeToMappingMap) {
-    const mapping = typeToMappingMap[type];
-    resp.locals.path = req._parsedUrl.pathname;
-    resp.write(resource({ resource: mapping, queryUtils: queryUtils_exports }));
-    resp.end();
-  } else if (req.route.path === "/docs") {
-    resp.write(index({ config: global.sri4node_configuration }));
-    resp.end();
-  } else {
-    resp.status(404).send("Not Found");
-  }
-}
-var getResourcesOverview = (_req, resp) => {
-  resp.set("Content-Type", "application/json");
-  const resourcesToSend = {};
-  global.sri4node_configuration.resources.forEach((resource2) => {
-    const resourceName = resource2.type.substring(1);
-    resourcesToSend[resourceName] = {
-      docs: `${resource2.type}/docs`,
-      schema: `${resource2.type}/schema`,
-      href: resource2.type
-    };
-    if (resource2.schema) {
-      resourcesToSend[resourceName].description = resource2.schema.title;
-    }
-  });
-  resp.send(resourcesToSend);
-};
-function checkRequiredFields(mapping, information) {
-  const table = tableFromMapping(mapping);
-  const idx = mapping.type;
-  if (!information[idx]) {
-    throw new Error(`Table '${table}' seems to be missing in the database.`);
-  }
-  const mandatoryFields = ["key", "$$meta.created", "$$meta.modified", "$$meta.deleted"];
-  mandatoryFields.forEach((field) => {
-    if (!(field in information[idx])) {
-      throw new Error(`Mapping '${mapping.type}' lacks mandatory field '${field}'`);
-    }
-  });
-}
-var middlewareErrorWrapper = (fun) => (req, resp) => __async(void 0, null, function* () {
-  try {
-    yield fun(req, resp);
-  } catch (err) {
-    error(
-      "____________________________ E R R O R (middlewareErrorWrapper) ___________________________"
-    );
-    error(err);
-    error("STACK:");
-    error(err.stack);
-    error(
-      "___________________________________________________________________________________________"
-    );
-    resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-  }
-});
 process.on("unhandledRejection", (err) => {
   console.log(err);
   throw err;
 });
-var handleRequest = (sriRequest, func, mapping) => __async(void 0, null, function* () {
-  var _a, _b;
-  const { dbT } = sriRequest;
-  let result;
-  if (sriRequest.isBatchRequest) {
-    result = yield func(
-      sriRequest,
-      global.sriInternalUtils
-    );
-  } else {
-    const job = [
-      func,
-      [dbT, sriRequest, mapping, global.sriInternalUtils]
-    ];
-    [result] = settleResultsToSriResults(
-      yield phaseSyncedSettle([job], {
-        beforePhaseHooks: global.sri4node_configuration.beforePhase
-      })
-    );
-    if (result instanceof SriError || ((_b = (_a = result == null ? void 0 : result.__proto__) == null ? void 0 : _a.constructor) == null ? void 0 : _b.name) === "SriError") {
-      throw result;
-    }
-    if (sriRequest.streamStarted === void 0 || !sriRequest.streamStarted()) {
-      yield applyHooks(
-        "transform response",
-        mapping == null ? void 0 : mapping.transformResponse,
-        (f) => f(dbT, sriRequest, result),
-        sriRequest
-      );
-    }
-  }
-  return result;
-});
-var handleServerTiming = (req, resp, sriRequest) => __async(void 0, null, function* () {
-  var _a;
-  const logEnabled = isLogChannelEnabled("server-timing");
-  const hdrEnable = ((_a = sriRequest.headers) == null ? void 0 : _a["request-server-timing"]) !== void 0;
-  let serverTiming = "";
-  if ((logEnabled || hdrEnable) && sriRequest.serverTiming !== void 0) {
-    emtReportToServerTiming(req, resp, sriRequest);
-    const notNullEntries = Object.entries(sriRequest.serverTiming).filter(
-      ([_property, value2]) => value2 > 0
-    );
-    if (notNullEntries.length > 0) {
-      serverTiming = notNullEntries.map(
-        ([property, value2]) => `${property};dur=${(Math.round(value2 * 100) / 100).toFixed(2)}`
-      ).join(", ");
-      if (logEnabled) {
-        debug("server-timing", serverTiming);
-      }
-      if (hdrEnable) {
-        if (resp.headersSent) {
-          sriRequest.outStream.addTrailers({
-            "Server-Timing": serverTiming
-          });
-        } else {
-          resp.set("Server-Timing", serverTiming);
-        }
-      }
-    }
-  }
-});
-var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, isBatchRequest, readOnly0) => function(req, resp, _next) {
-  return __async(this, null, function* () {
-    var _a, _b, _c, _d;
-    let t = null;
-    let endTask;
-    let resolveTx;
-    let rejectTx;
-    let readOnly;
-    const reqMsgStart = `${req.method} ${req.path}`;
-    debug("requests", `${reqMsgStart} starting.`);
-    const hrstart = process.hrtime();
-    resp.on("finish", () => {
-      const hrend = process.hrtime(hrstart);
-      debug("requests", `${reqMsgStart} took ${hrend[0] * 1e3 + hrend[1] / 1e6} ms`);
-    });
-    debug("trace", "Starting express wrapper");
-    let sriRequest;
-    try {
-      let batchRoutingDuration = 0;
-      if (isBatchRequest) {
-        const hrStart2 = process.hrtime();
-        matchBatch(req);
-        const hrDuration = process.hrtime(hrStart2);
-        batchRoutingDuration = hrtimeToMilliseconds(hrDuration);
-        const mapReadOnly = (a) => {
-          if (Array.isArray(a)) {
-            return a.map(mapReadOnly);
-          }
-          return a.match.handler.readOnly;
-        };
-        readOnly = _7.flatten((_a = req.body) == null ? void 0 : _a.map(mapReadOnly)).every((e) => e);
-      } else {
-        readOnly = readOnly0;
-      }
-      global.overloadProtection.startPipeline();
-      const reqId = httpContext3.get("reqId");
-      if (reqId !== void 0) {
-        resp.set("vsko-req-id", reqId);
-      } else {
-        console.log("no reqId ???");
-      }
-      const hrStartStartTransaction = process.hrtime();
-      if (readOnly === true) {
-        ({ t, endTask } = yield startTask(dbR));
-      } else {
-        ({ tx: t, resolveTx, rejectTx } = yield startTransaction(dbW));
-      }
-      const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
-      sriRequest = generateSriRequest(req, resp, {
-        isBatchRequest,
-        readOnly,
-        mapping: mapping || void 0,
-        isStreamingRequest,
-        dbT: t
-      });
-      setServerTimingHdr(
-        sriRequest,
-        "db-starttask",
-        hrtimeToMilliseconds(hrElapsedStartTransaction)
-      );
-      req.on("close", (_err) => {
-        sriRequest.reqCancelled = true;
-      });
-      yield applyHooks(
-        "transform request",
-        sriConfig.transformRequest || [],
-        (f) => f(req, sriRequest, t),
-        sriRequest
-      );
-      setServerTimingHdr(sriRequest, "batch-routing", batchRoutingDuration);
-      const result = yield handleRequest(sriRequest, func, mapping);
-      const terminateDb = (error1, readOnly1) => __async(this, null, function* () {
-        if (readOnly1 === true) {
-          debug("db", "++ Processing went OK. Closing database task. ++");
-          yield endTask();
-        } else if (error1) {
-          if (req.query.dryRun === "true") {
-            debug(
-              "db",
-              "++ Error during processing in dryRun mode. Rolling back database transaction."
-            );
-          } else {
-            debug("db", "++ Error during processing. Rolling back database transaction.");
-          }
-          yield rejectTx();
-        } else if (req.query.dryRun === "true") {
-          debug("db", "++ Processing went OK in dryRun mode. Rolling back database transaction.");
-          yield rejectTx();
-        } else {
-          debug("db", "++ Processing went OK. Committing database transaction.");
-          yield resolveTx();
-        }
-      });
-      if (resp.headersSent) {
-        if (result.status < 300) {
-          yield terminateDb(false, readOnly);
-        } else {
-          yield terminateDb(true, readOnly);
-        }
-        yield handleServerTiming(req, resp, sriRequest);
-        (_b = sriRequest.outStream) == null ? void 0 : _b.end();
-      } else {
-        if (result.status < 300) {
-          yield terminateDb(false, readOnly);
-        } else {
-          yield terminateDb(true, readOnly);
-        }
-        yield handleServerTiming(req, resp, sriRequest);
-        if (result.headers) {
-          resp.set(result.headers);
-        }
-        resp.status(result.status);
-        if (result.body && Array.isArray(result.body.results)) {
-          resp.setHeader("Content-Type", "application/json; charset=utf-8");
-          if (result.body.$$meta) {
-            resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [
-`);
-          }
-          const total = result.body.results.length;
-          result.body.results.forEach(
-            (record, index2) => resp.write(`${JSON.stringify(record)}${index2 + 1 < total ? "," : ""}
-`)
-          );
-          resp.write("]");
-          Object.entries(result.body).filter(([key]) => !["$$meta", "results"].includes(key)).forEach(([key, value2]) => resp.write(`,
-"${key}": ${JSON.stringify(value2)}`));
-          resp.write("\n}");
-          resp.end();
-        } else if (result.body !== void 0) {
-          resp.send(result.body);
-        } else {
-          resp.send();
-        }
-      }
-      yield applyHooks(
-        "afterRequest",
-        sriConfig.afterRequest || [],
-        (f) => f(sriRequest),
-        sriRequest
-      );
-      if (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.statuses !== void 0) {
-        setImmediate(() => {
-          handleRequestDebugLog(result.status);
-        });
-      }
-    } catch (err) {
-      yield applyHooks(
-        "errorHandler",
-        sriConfig.errorHandler || [],
-        (f) => f(sriRequest, err),
-        sriRequest
-      );
-      if (t != null) {
-        if (readOnly === true) {
-          debug("db", "++ Exception caught. Closing database task. ++");
-          yield endTask();
-        } else {
-          debug("db", "++ Exception caught. Rolling back database transaction. ++");
-          yield rejectTx();
-        }
-      }
-      if (resp.headersSent) {
-        error(
-          "____________________________ E R R O R (expressWrapper)____________________________________"
-        );
-        error(err);
-        error(JSON.stringify(err, null, 2));
-        error("STACK:");
-        error(err.stack);
-        error(
-          "___________________________________________________________________________________________"
-        );
-        error("NEED TO DESTROY STREAMING REQ");
-        resp.on("drain", () => __async(this, null, function* () {
-          yield resp.destroy();
-          error("[drain event] Stream is destroyed.");
-        }));
-        resp.on("finish", () => __async(this, null, function* () {
-          yield resp.destroy();
-          error("[finish event] Stream is destroyed.");
-        }));
-        resp.write(
-          "\n\n\n____________________________ E R R O R (expressWrapper)____________________________________\n"
-        );
-        resp.write(err.toString());
-        resp.write(JSON.stringify(err, null, 2));
-        resp.write(
-          "\n___________________________________________________________________________________________\n"
-        );
-        while (resp.write("       ")) {
-        }
-      } else if (err instanceof SriError || ((_d = (_c = err == null ? void 0 : err.__proto__) == null ? void 0 : _c.constructor) == null ? void 0 : _d.name) === "SriError") {
-        if (err.status > 0) {
-          const reqId = httpContext3.get("reqId");
-          if (reqId !== void 0) {
-            err.body.vskoReqId = reqId;
-            err.headers["vsko-req-id"] = reqId;
-          }
-          resp.set(err.headers).status(err.status).send(err.body);
-        }
-      } else {
-        error(
-          "____________________________ E R R O R (expressWrapper)____________________________________"
-        );
-        error(err);
-        error("STACK:");
-        error(err.stack);
-        error(
-          "___________________________________________________________________________________________"
-        );
-        resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
-      }
-      if (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.statuses !== void 0) {
-        setImmediate(() => {
-          console.log("GOING TO CALL handleRequestDebugLog");
-          handleRequestDebugLog(err.status ? err.status : 500);
-        });
-      }
-    } finally {
-      global.overloadProtection.endPipeline();
-    }
-  });
-};
-var toArray = (resource2, name) => {
-  if (resource2[name] === void 0) {
-    resource2[name] = [];
-  } else if (resource2[name] === null) {
-    console.log(`WARNING: handler '${name}' was set to 'null' -> assume []`);
-    resource2[name] = [];
-  } else if (!Array.isArray(resource2[name])) {
-    resource2[name] = [resource2[name]];
-  }
-};
 var utils = {
   // Utilities to run arbitrary SQL in validation, beforeupdate, afterupdate, etc..
   executeSQL: pgExec,
   prepareSQL,
   convertListResourceURLToSQL: getSQLFromListResource,
   addReferencingResources,
-  // removed pgInit and pgResult, but kept pgConnect for now (in case someoine wants to use the
+  // removed pgInit and pgResult, but kept pgConnect for now (in case someone wants to use the
   // db, dbW and/or dbR properties)
   pgConnect,
   // still here for backwards compatibility, in most cases we assume that using an
-  // internalSriRerquest would be sufficient
+  // internalSriRequest would be sufficient
   transformRowToObject,
   transformObjectToRow,
   typeToMapping,
@@ -4771,210 +4783,106 @@ var utils = {
   parseResource
   // should be deprecated in favour of a decent url parsing mechanism
 };
+var exportedUtils = {
+  executeSQL: pgExec,
+  prepareSQL,
+  convertListResourceURLToSQL: getSQLFromListResource,
+  addReferencingResources,
+  pgConnect,
+  typeToMapping,
+  tableFromMapping,
+  urlToTypeAndKey,
+  parseResource
+};
 function configure(app, sriConfig) {
   return __async(this, null, function* () {
     app.disable("x-powered-by");
     try {
-      sriConfig.resources.forEach((resource2) => {
-        [
-          "beforeRead",
-          "afterRead",
-          "beforeUpdate",
-          "afterUpdate",
-          "beforeInsert",
-          "afterInsert",
-          "beforeDelete",
-          "afterDelete",
-          "customRoutes",
-          "transformResponse"
-        ].forEach((name) => toArray(resource2, name));
-        if (resource2.listResultDefaultIncludeCount === void 0) {
-          resource2.listResultDefaultIncludeCount = true;
-        }
+      const extraOptions = {
+        schema: sriConfig.databaseConnectionParameters.schema,
+        monitor: sriConfig.enablePgMonitor === true,
+        connectionInitSql: sriConfig.databaseConnectionParameters.connectionInitSql
+      };
+      const pgp = pgInit(sriConfig.databaseLibraryInitOptions, extraOptions);
+      const db = yield pgConnect(pgp, sriConfig);
+      yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp));
+      const currentInformationSchema = yield getInformationSchema(db, sriConfig);
+      checkSriConfigWithDbInformationSchema(sriConfig, currentInformationSchema);
+      const sriInternalConfig = __spreadProps(__spreadValues({
+        // some DEFAULTS, that may be overridden by sriConfig
+        batchConcurrency: 4,
+        bodyParserLimit: "5mb"
+      }, _7.cloneDeep(sriConfig)), {
+        // properties that have a more specific format in the internal config
+        resources: sriConfig.resources.map(resourceDefToResourceDefInternal),
+        beforePhase: [
+          ...toArray(sriConfig.beforePhase),
+          beforePhaseQueryByKey,
+          beforePhaseInsertUpdateDelete
+        ],
+        // initialize undefined global hooks with empty list
+        transformRequest: toArray(sriConfig.transformRequest),
+        transformInternalRequest: toArray(sriConfig.transformInternalRequest),
+        logdebug: createDebugLogConfigObject(sriConfig.logdebug),
+        // and extra properties that are only valid for the internal config
+        utils,
+        db,
+        // in future we'd want to support a separate read and write database by adding another
+        // connection paramaters object to the config, and if it is filled in that can be the
+        // separate read database
+        dbR: db,
+        dbW: db,
+        informationSchema: currentInformationSchema,
+        pgColumns: generatePgColumns(sriConfig, currentInformationSchema, pgp),
+        // will be filled in later (after some async operations to the DB)
+        batchHandlerMap: { GET: [], POST: [], PUT: [], PATCH: [], DELETE: [] }
       });
-      ["beforePhase", "transformRequest", "transformInternalRequest"].forEach(
-        (name) => toArray(sriConfig, name)
-      );
-      sriConfig.beforePhase = [
-        ...sriConfig.beforePhase || [],
-        beforePhaseQueryByKey
-      ];
-      sriConfig.beforePhase = [
-        ...sriConfig.beforePhase || [],
-        beforePhaseInsertUpdateDelete
-      ];
-      if (sriConfig.bodyParserLimit === void 0) {
-        sriConfig.bodyParserLimit = "5mb";
-      }
-      sriConfig.resources.forEach((resourceDefinition) => {
-        if (!resourceDefinition.onlyCustom) {
-          if (resourceDefinition.query === void 0) {
-            resourceDefinition.query = { defaultFilter };
-          }
-          if (resourceDefinition.map) {
-            Object.keys(resourceDefinition.map).forEach((key) => {
-              var _a, _b, _c;
-              if (((_b = (_a = resourceDefinition.map) == null ? void 0 : _a[key]) == null ? void 0 : _b.references) !== void 0 && resourceDefinition.query && ((_c = resourceDefinition.query) == null ? void 0 : _c[key]) === void 0) {
-                resourceDefinition.query[key] = filterReferencedType(
-                  resourceDefinition.map[key].references,
-                  key
-                );
-              }
-            });
-          }
-          if (resourceDefinition.schema === void 0) {
-            throw new Error(`Schema definition is missing for '${resourceDefinition.type}' !`);
-          }
-          const keyPropertyDefinition = findPropertyInJsonSchema(resourceDefinition.schema, "key");
-          if (keyPropertyDefinition === null) {
-            throw new Error(`Key is not defined in the schema of '${resourceDefinition.type}' !`);
-          }
-          if (keyPropertyDefinition.pattern === guid("foo").pattern) {
-            resourceDefinition.singleResourceRegex = new RegExp(
-              `^${resourceDefinition.type}/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`
-            );
-          } else if (keyPropertyDefinition.type === numeric("foo").type) {
-            resourceDefinition.singleResourceRegex = new RegExp(
-              `^${resourceDefinition.type}/([0-9]+)$`
-            );
-          } else if (keyPropertyDefinition.type === string("foo").type) {
-            resourceDefinition.singleResourceRegex = new RegExp(
-              `^${resourceDefinition.type}/(\\w+)$`
-            );
-          } else {
-            throw new Error(`Key type of resource ${resourceDefinition.type} unknown!`);
-          }
-          resourceDefinition.listResourceRegex = new RegExp(
-            `^${resourceDefinition.type}(?:[?#]\\S*)?$`
-          );
-          try {
-            debug("general", `Going to compile JSON schema of ${resourceDefinition.type}`);
-            resourceDefinition.validateKey = ajvWithCoerceTypes.compile(keyPropertyDefinition);
-            resourceDefinition.validateSchema = ajv2.compile(resourceDefinition.schema);
-          } catch (err) {
-            console.error("===============================================================");
-            console.error(`Compiling JSON schema of ${resourceDefinition.type} failed:`);
-            console.error("");
-            console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
-            console.error("");
-            console.error(`Error: ${err.message}`);
-            console.error("===============================================================");
-            process.exit(1);
-          }
-        }
-      });
-      sriConfig.resources.forEach((mapping) => {
-        if (mapping.metaType === void 0) {
-          error(`WARNING: metaType missing for resource ${mapping.type}`);
-          mapping.metaType = "NOT SPECIFIED";
-        }
-      });
-      sriConfig.utils = utils;
-      if (sriConfig.batchConcurrency === void 0) {
-        sriConfig.batchConcurrency = 4;
-      }
-      if (sriConfig.logdebug !== void 0) {
-        sriConfig.logdebug = createDebugLogConfigObject(sriConfig.logdebug);
-      }
-      global.sri4node_configuration = sriConfig;
-      const db = yield pgConnect(sriConfig);
-      const dbR = db;
-      const dbW = db;
-      const pgp2 = getPgp();
-      yield applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp2));
-      const currentInformationSchema = yield informationSchema(dbR, sriConfig);
-      global.sri4node_configuration.informationSchema = currentInformationSchema;
       yield pMap8(
-        sriConfig.resources,
+        sriInternalConfig.resources,
         (mapping) => __async(this, null, function* () {
           var _a, _b;
           if (!mapping.onlyCustom) {
-            const schema = ((_a = sriConfig.databaseConnectionParameters) == null ? void 0 : _a.schema) || ((_b = sriConfig.databaseLibraryInitOptions) == null ? void 0 : _b.schema);
+            const schema = ((_a = sriInternalConfig.databaseConnectionParameters) == null ? void 0 : _a.schema) || ((_b = sriInternalConfig.databaseLibraryInitOptions) == null ? void 0 : _b.schema);
             const schemaName = Array.isArray(schema) ? schema[0] : schema == null ? void 0 : schema.toString();
-            yield installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
+            yield installVersionIncTriggerOnTable(
+              sriInternalConfig.dbW,
+              tableFromMapping(mapping),
+              schemaName
+            );
           }
         }),
         { concurrency: 1 }
       );
-      checkSriConfigWithDb(sriConfig, currentInformationSchema);
-      const generatePgColumnSet = (columnNames, type, table) => {
-        const columns = columnNames.map((cname) => {
-          const cConf = {
-            name: cname
-          };
-          if (cname.includes(".")) {
-            cConf.prop = `_${cname.replace(/\./g, "_")}`;
-            cConf.init = (c) => c.source[cname];
-          }
-          const cType = global.sri4node_configuration.informationSchema[type][cname].type;
-          const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
-          if (cType !== "text") {
-            if (cType === "ARRAY") {
-              cConf.cast = `${cElementType}[]`;
-            } else {
-              cConf.cast = cType;
-            }
-          }
-          if (cname === "key") {
-            cConf.cnd = true;
-          }
-          return new pgp2.helpers.Column(cConf);
-        });
-        return new pgp2.helpers.ColumnSet(columns, { table });
-      };
-      global.sri4node_configuration.pgColumns = Object.fromEntries(
-        sriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
-          const { type } = resource2;
-          const table = tableFromMapping(typeToMapping(type));
-          const columns = JSON.parse(`[${sqlColumnNames(typeToMapping(type))}]`).filter(
-            (cname) => !cname.startsWith("$$meta.")
-          );
-          const ret = {};
-          ret.insert = new pgp2.helpers.ColumnSet(columns, { table });
-          const dummyUpdateRow = transformObjectToRow({}, resource2, false);
-          ret.update = generatePgColumnSet(
-            [.../* @__PURE__ */ new Set(["key", "$$meta.modified", ...Object.keys(dummyUpdateRow)])],
-            type,
-            table
-          );
-          ret.delete = generatePgColumnSet(
-            ["key", "$$meta.modified", "$$meta.deleted"],
-            type,
-            table
-          );
-          return [table, ret];
-        })
-      );
-      global.sri4node_loaded_plugins = /* @__PURE__ */ new Map();
-      global.sri4node_install_plugin = (plugin) => __async(this, null, function* () {
+      const sri4node_loaded_plugins = /* @__PURE__ */ new Map();
+      const sri4nodeInstallPlugin = (plugin) => __async(this, null, function* () {
         console.log(`Installing plugin ${util.inspect(plugin)}`);
-        if (plugin.uuid !== void 0 && global.sri4node_loaded_plugins.has(plugin.uuid)) {
+        if (plugin.uuid !== void 0 && sri4node_loaded_plugins.has(plugin.uuid)) {
           return;
         }
-        yield plugin.install(global.sri4node_configuration, dbW);
+        yield plugin.install(sriInternalConfig, sriInternalConfig.dbW);
         if (plugin.uuid !== void 0) {
-          debug("general", `Loaded plugin ${plugin.uuid}.`);
-          global.sri4node_loaded_plugins.set(plugin.uuid, plugin);
+          debug("general", `Loaded plugin ${plugin.uuid}.`, sriInternalConfig.logdebug);
+          sri4node_loaded_plugins.set(plugin.uuid, plugin);
         }
       });
-      if (sriConfig.plugins !== void 0) {
+      if (sriInternalConfig.plugins !== void 0) {
         yield pMap8(
-          sriConfig.plugins,
+          sriInternalConfig.plugins,
           (plugin) => __async(this, null, function* () {
-            yield global.sri4node_install_plugin(plugin);
+            yield sri4nodeInstallPlugin(plugin);
           }),
           { concurrency: 1 }
         );
       }
-      global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
+      const overloadProtection = overloadProtectionFactory(sriInternalConfig.overloadProtection);
       app.use((_req, res, next) => __async(this, null, function* () {
         var _a, _b;
-        if (global.overloadProtection.canAccept()) {
+        if (overloadProtection.canAccept()) {
           next();
         } else {
-          debug("overloadProtection", "DROPPED REQ");
-          if (((_a = sriConfig.overloadProtection) == null ? void 0 : _a.retryAfter) !== void 0) {
-            res.set("Retry-After", (_b = sriConfig.overloadProtection) == null ? void 0 : _b.retryAfter.toString());
+          debug("overloadProtection", "DROPPED REQ", sriInternalConfig.logdebug);
+          if (((_a = sriInternalConfig.overloadProtection) == null ? void 0 : _a.retryAfter) !== void 0) {
+            res.set("Retry-After", (_b = sriInternalConfig.overloadProtection) == null ? void 0 : _b.retryAfter.toString());
           }
           res.status(503).send([
             {
@@ -4984,14 +4892,14 @@ function configure(app, sriConfig) {
           ]);
         }
       }));
-      const emt = installEMT(app);
-      if (global.sri4node_configuration.forceSecureSockets) {
+      const emt = installExpressMiddlewareTimer(app);
+      if (sriInternalConfig.forceSecureSockets) {
         app.use(forceSecureSockets);
       }
       app.use(emt.instrument(compression(), "mw-compression"));
       app.use(
         emt.instrument(
-          bodyParser.json({ limit: sriConfig.bodyParserLimit, strict: false }),
+          bodyParser.json({ limit: sriInternalConfig.bodyParserLimit, strict: false }),
           "mw-bodyparser"
         )
       );
@@ -5000,6 +4908,22 @@ function configure(app, sriConfig) {
         res.end();
       };
       app.get("/docs/static/:file", returnFileFromDocsStatic);
+      const middlewareErrorWrapper = (fun) => (req, resp) => __async(this, null, function* () {
+        try {
+          yield fun(req, resp);
+        } catch (err) {
+          error(
+            "____________________________ E R R O R (middlewareErrorWrapper) ___________________________"
+          );
+          error(err);
+          error("STACK:");
+          error(err.stack);
+          error(
+            "___________________________________________________________________________________________"
+          );
+          resp.status(500).send(`Internal Server Error. [${stringifyError(err)}]`);
+        }
+      });
       app.put(
         "/log",
         middlewareErrorWrapper((req, resp) => {
@@ -5009,10 +4933,43 @@ function configure(app, sriConfig) {
           resp.end();
         })
       );
-      app.get("/docs", middlewareErrorWrapper(getDocs));
-      app.get("/resources", middlewareErrorWrapper(getResourcesOverview));
+      const getDocsExpressHandler = (req, resp) => {
+        const typeToMappingMap = typeToConfig(sriInternalConfig.resources);
+        const type = req.route.path.split("/").slice(0, req.route.path.split("/").length - 1).join("/");
+        if (type in typeToMappingMap) {
+          const mapping = typeToMappingMap[type];
+          resp.locals.path = req._parsedUrl.pathname;
+          resp.write(resource({ resource: mapping, queryUtils: queryUtils_exports }));
+          resp.end();
+        } else if (req.route.path === "/docs") {
+          resp.write(index({ config: sriInternalConfig }));
+          resp.end();
+        } else {
+          resp.status(404).send("Not Found");
+        }
+      };
+      app.get("/docs", middlewareErrorWrapper(getDocsExpressHandler));
+      app.get(
+        "/resources",
+        middlewareErrorWrapper((_req, resp) => {
+          resp.set("Content-Type", "application/json");
+          const resourcesToSend = {};
+          sriInternalConfig.resources.forEach((resource2) => {
+            const resourceName = resource2.type.substring(1);
+            resourcesToSend[resourceName] = {
+              docs: `${resource2.type}/docs`,
+              schema: `${resource2.type}/schema`,
+              href: resource2.type
+            };
+            if (resource2.schema) {
+              resourcesToSend[resourceName].description = resource2.schema.title;
+            }
+          });
+          resp.send(resourcesToSend);
+        })
+      );
       app.post("/setlogdebug", (req, resp, _next) => {
-        global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
+        sriInternalConfig.logdebug = createDebugLogConfigObject(req.body);
         resp.send("OK");
       });
       app.use(httpContext3.middleware);
@@ -5027,58 +4984,387 @@ function configure(app, sriConfig) {
         } else {
           reqId = shortid.generate();
         }
-        if (sriConfig.id !== void 0) {
-          reqId = `${sriConfig.id}#${reqId}`;
+        if (sriInternalConfig.id !== void 0) {
+          reqId = `${sriInternalConfig.id}#${reqId}`;
         }
         httpContext3.set("reqId", reqId);
+        httpContext3.set("logdebug", sriInternalConfig.logdebug);
         next();
       });
-      yield pMap8(
-        sriConfig.resources,
-        (mapping) => __async(this, null, function* () {
-          var _a;
-          if (!mapping.onlyCustom) {
-            if (((_a = mapping.map) == null ? void 0 : _a.key) === void 0) {
-              mapping.map = __spreadProps(__spreadValues({}, mapping.map), {
-                key: {}
-              });
-            }
-            checkRequiredFields(mapping, sriConfig.informationSchema);
-            if (mapping.query === void 0) {
-              mapping.query = {};
-            }
-            if (mapping.map.from && mapping.map.to) {
-              mapping.query = __spreadValues(__spreadValues({}, mapping.query), relationsFilter_exports);
-            }
-            app.get(`${mapping.type}/schema`, middlewareErrorWrapper(getSchema));
-            app.get(`${mapping.type}/docs`, middlewareErrorWrapper(getDocs));
-            app.get(`${mapping.type}/docs/static/:file`, returnFileFromDocsStatic);
+      sriInternalConfig.resources.map((mapping) => {
+        var _a;
+        if (!mapping.onlyCustom) {
+          if (((_a = mapping.map) == null ? void 0 : _a.key) === void 0) {
+            mapping.map = __spreadProps(__spreadValues({}, mapping.map), {
+              key: {}
+            });
           }
-        }),
-        { concurrency: 1 }
-      );
-      if (sriConfig.enableGlobalBatch) {
-        const globalBatchPath = `${sriConfig.globalBatchRoutePrefix !== void 0 ? sriConfig.globalBatchRoutePrefix : ""}/batch`;
-        debug("general", `registering route ${globalBatchPath} - PUT/POST`);
-        debug("general", `registering route ${`${globalBatchPath}_streaming`} - PUT/POST`);
+          checkRequiredFields(mapping, sriInternalConfig.informationSchema);
+          if (mapping.query === void 0) {
+            mapping.query = {};
+          }
+          if (mapping.map.from && mapping.map.to) {
+            mapping.query = __spreadValues(__spreadValues({}, mapping.query), relationsFilter_exports);
+          }
+          const getSchema = (req, resp) => {
+            const type = req.route.path.split("/").slice(0, req.route.path.split("/").length - 1).join("/");
+            const mapping2 = typeToMapping(type, sriInternalConfig.resources);
+            resp.set("Content-Type", "application/json");
+            resp.send(mapping2.schema);
+          };
+          app.get(`${mapping.type}/schema`, middlewareErrorWrapper(getSchema));
+          app.get(`${mapping.type}/docs`, middlewareErrorWrapper(getDocsExpressHandler));
+          app.get(`${mapping.type}/docs/static/:file`, returnFileFromDocsStatic);
+        }
+      });
+      const batch = batchFactory(sriInternalConfig);
+      const handleRequest = (sriRequest, func, mapping) => __async(this, null, function* () {
+        const { dbT } = sriRequest;
+        let result;
+        if (sriRequest.isBatchRequest) {
+          result = yield func(
+            sriRequest,
+            sriInternalUtils,
+            sriInternalConfig.informationSchema,
+            overloadProtection
+          );
+        } else {
+          const job = [func, [dbT, sriRequest, mapping]];
+          [result] = settleResultsToSriResults(
+            yield phaseSyncedSettle(
+              [job],
+              {
+                beforePhaseHooks: sriInternalConfig.beforePhase
+              },
+              sriInternalConfig,
+              sriInternalUtils
+            )
+          );
+          if (isSriError(result)) {
+            throw result;
+          }
+          if (sriRequest.streamStarted === void 0 || !sriRequest.streamStarted()) {
+            yield applyHooks(
+              "transform response",
+              mapping == null ? void 0 : mapping.transformResponse,
+              (f) => f(dbT, sriRequest, result, sriInternalUtils),
+              sriRequest
+            );
+          }
+        }
+        return result;
+      });
+      const internalSriRequest = (internalReq) => __async(this, null, function* () {
+        const match = batch.matchHref(internalReq.href, internalReq.verb);
+        const sriRequest = generateSriRequest(
+          void 0,
+          void 0,
+          void 0,
+          match,
+          void 0,
+          void 0,
+          internalReq
+        );
+        yield applyHooks(
+          "transform internal sriRequest",
+          match.handler.config.transformInternalRequest || [],
+          (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
+          sriRequest
+        );
+        const result = yield handleRequest(sriRequest, match.handler.func, match.handler.mapping);
+        return JSON.parse(JSON.stringify(result));
+      });
+      const sriInternalUtils = {
+        debug,
+        error,
+        internalSriRequest
+      };
+      const handleServerTiming = (req, resp, sriRequest) => __async(this, null, function* () {
+        var _a;
+        const logEnabled = isLogChannelEnabled("server-timing", sriInternalConfig.logdebug);
+        const hdrEnable = ((_a = sriRequest.headers) == null ? void 0 : _a["request-server-timing"]) !== void 0;
+        let serverTiming = "";
+        if ((logEnabled || hdrEnable) && sriRequest.serverTiming !== void 0) {
+          expressMiddlewareTimerReportToServerTiming(req, resp, sriRequest);
+          const notNullEntries = Object.entries(sriRequest.serverTiming).filter(
+            ([_property, value2]) => value2 > 0
+          );
+          if (notNullEntries.length > 0) {
+            serverTiming = notNullEntries.map(
+              ([property, value2]) => `${property};dur=${(Math.round(value2 * 100) / 100).toFixed(2)}`
+            ).join(", ");
+            if (logEnabled) {
+              debug("server-timing", serverTiming, sriInternalConfig.logdebug);
+            }
+            if (hdrEnable) {
+              if (resp.headersSent) {
+                sriRequest.outStream.addTrailers({
+                  "Server-Timing": serverTiming
+                });
+              } else {
+                resp.set("Server-Timing", serverTiming);
+              }
+            }
+          }
+        }
+      });
+      const expressWrapper = (dbR, dbW, func, sriConfig2, mapping, isStreamingRequest, isBatchRequest, readOnly0) => function(req, resp, _next) {
+        return __async(this, null, function* () {
+          var _a, _b;
+          let t;
+          let endTask;
+          let resolveTx;
+          let rejectTx;
+          let readOnly;
+          const reqMsgStart = `${req.method} ${req.path}`;
+          debug("requests", `${reqMsgStart} starting.`, sriInternalConfig.logdebug);
+          const hrstart = process.hrtime();
+          resp.on("finish", () => {
+            const hrend = process.hrtime(hrstart);
+            debug(
+              "requests",
+              `${reqMsgStart} took ${hrend[0] * 1e3 + hrend[1] / 1e6} ms`,
+              sriInternalConfig.logdebug
+            );
+          });
+          debug("trace", "Starting express wrapper", sriInternalConfig.logdebug);
+          let sriRequest;
+          try {
+            let batchRoutingDuration = 0;
+            if (isBatchRequest) {
+              const hrStart2 = process.hrtime();
+              batch.matchBatch(req);
+              const hrDuration = process.hrtime(hrStart2);
+              batchRoutingDuration = hrtimeToMilliseconds(hrDuration);
+              const mapReadOnly = (a) => {
+                if (Array.isArray(a)) {
+                  return a.map(mapReadOnly);
+                }
+                return a.match.handler.readOnly;
+              };
+              readOnly = _7.flatten((_a = req.body) == null ? void 0 : _a.map(mapReadOnly)).every((e) => e);
+            } else {
+              readOnly = readOnly0;
+            }
+            overloadProtection.startPipeline();
+            const reqId = httpContext3.get("reqId");
+            if (reqId !== void 0) {
+              resp.set("vsko-req-id", reqId);
+            } else {
+              console.log("no reqId ???");
+            }
+            const hrStartStartTransaction = process.hrtime();
+            if (readOnly === true) {
+              ({ t, endTask } = yield startTask(dbR));
+            } else {
+              ({ tx: t, resolveTx, rejectTx } = yield startTransaction(dbW));
+            }
+            const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
+            sriRequest = generateSriRequest(req, resp, {
+              isBatchRequest,
+              readOnly,
+              mapping: mapping || void 0,
+              isStreamingRequest,
+              dbT: t,
+              pgp
+            });
+            setServerTimingHdr(
+              sriRequest,
+              "db-starttask",
+              hrtimeToMilliseconds(hrElapsedStartTransaction)
+            );
+            req.on("close", (_err) => {
+              sriRequest.reqCancelled = true;
+            });
+            if (t === void 0) {
+              throw new SriError({
+                status: 500,
+                errors: ["Error during startTask/startTransaction"]
+              });
+            } else {
+              yield applyHooks(
+                "transform request",
+                sriConfig2.transformRequest || [],
+                (f) => f(req, sriRequest, t, sriInternalUtils),
+                sriRequest
+              );
+              setServerTimingHdr(sriRequest, "batch-routing", batchRoutingDuration);
+              const result = yield handleRequest(sriRequest, func, mapping);
+              const terminateDb = (error1, readOnly1) => __async(this, null, function* () {
+                if (readOnly1 === true) {
+                  debug(
+                    "db",
+                    "++ Processing went OK. Closing database task. ++",
+                    sriInternalConfig.logdebug
+                  );
+                  yield endTask();
+                } else if (error1) {
+                  if (req.query.dryRun === "true") {
+                    debug(
+                      "db",
+                      "++ Error during processing in dryRun mode. Rolling back database transaction.",
+                      sriInternalConfig.logdebug
+                    );
+                  } else {
+                    debug(
+                      "db",
+                      "++ Error during processing. Rolling back database transaction.",
+                      sriInternalConfig.logdebug
+                    );
+                  }
+                  yield rejectTx();
+                } else if (req.query.dryRun === "true") {
+                  debug(
+                    "db",
+                    "++ Processing went OK in dryRun mode. Rolling back database transaction.",
+                    sriInternalConfig.logdebug
+                  );
+                  yield rejectTx();
+                } else {
+                  debug(
+                    "db",
+                    "++ Processing went OK. Committing database transaction.",
+                    sriInternalConfig.logdebug
+                  );
+                  yield resolveTx();
+                }
+              });
+              if (resp.headersSent) {
+                if (result.status < 300) {
+                  yield terminateDb(false, readOnly);
+                } else {
+                  yield terminateDb(true, readOnly);
+                }
+                yield handleServerTiming(req, resp, sriRequest);
+                (_b = sriRequest.outStream) == null ? void 0 : _b.end();
+              } else {
+                if (result.status < 300) {
+                  yield terminateDb(false, readOnly);
+                } else {
+                  yield terminateDb(true, readOnly);
+                }
+                yield handleServerTiming(req, resp, sriRequest);
+                if (result.headers) {
+                  resp.set(result.headers);
+                }
+                resp.status(result.status);
+                if (result.body && Array.isArray(result.body.results)) {
+                  resp.setHeader("Content-Type", "application/json; charset=utf-8");
+                  if (result.body.$$meta) {
+                    resp.write(`{"$$meta": ${JSON.stringify(result.body.$$meta)}, "results": [
+`);
+                  }
+                  const total = result.body.results.length;
+                  result.body.results.forEach(
+                    (record, index2) => resp.write(`${JSON.stringify(record)}${index2 + 1 < total ? "," : ""}
+`)
+                  );
+                  resp.write("]");
+                  Object.entries(result.body).filter(([key]) => !["$$meta", "results"].includes(key)).forEach(([key, value2]) => resp.write(`,
+"${key}": ${JSON.stringify(value2)}`));
+                  resp.write("\n}");
+                  resp.end();
+                } else if (result.body !== void 0) {
+                  resp.send(result.body);
+                } else {
+                  resp.send();
+                }
+              }
+              yield applyHooks(
+                "afterRequest",
+                sriConfig2.afterRequest || [],
+                (f) => f(sriRequest),
+                sriRequest
+              );
+              if (sriConfig2.logdebug && sriConfig2.logdebug.statuses !== void 0) {
+                setImmediate(() => {
+                  handleRequestDebugLog(result.status, sriInternalConfig.logdebug.statuses);
+                });
+              }
+            }
+          } catch (err) {
+            yield handleExpressWrapperError(
+              resp,
+              err,
+              sriConfig2,
+              sriInternalUtils,
+              t,
+              endTask,
+              rejectTx,
+              sriRequest,
+              readOnly
+            );
+          } finally {
+            overloadProtection.endPipeline();
+          }
+        });
+      };
+      if (sriInternalConfig.enableGlobalBatch) {
+        const globalBatchPath = `${sriInternalConfig.globalBatchRoutePrefix !== void 0 ? sriInternalConfig.globalBatchRoutePrefix : ""}/batch`;
+        debug(
+          "general",
+          `registering route ${globalBatchPath} - PUT/POST`,
+          sriInternalConfig.logdebug
+        );
+        debug(
+          "general",
+          `registering route ${`${globalBatchPath}_streaming`} - PUT/POST`,
+          sriInternalConfig.logdebug
+        );
         app.put(
           globalBatchPath,
-          expressWrapper(dbR, dbW, batchOperation, sriConfig, null, false, true, false)
+          expressWrapper(
+            sriInternalConfig.dbR,
+            sriInternalConfig.dbW,
+            batch.batchOperation,
+            sriInternalConfig,
+            null,
+            false,
+            true,
+            false
+          )
         );
         app.post(
           globalBatchPath,
-          expressWrapper(dbR, dbW, batchOperation, sriConfig, null, false, true, false)
+          expressWrapper(
+            sriInternalConfig.dbR,
+            sriInternalConfig.dbW,
+            batch.batchOperation,
+            sriInternalConfig,
+            null,
+            false,
+            true,
+            false
+          )
         );
         app.put(
           `${globalBatchPath}_streaming`,
-          expressWrapper(dbR, dbW, batchOperationStreaming, sriConfig, null, true, true, false)
+          expressWrapper(
+            sriInternalConfig.dbR,
+            sriInternalConfig.dbW,
+            batch.batchOperationStreaming,
+            sriInternalConfig,
+            null,
+            true,
+            true,
+            false
+          )
         );
         app.post(
           `${globalBatchPath}_streaming`,
-          expressWrapper(dbR, dbW, batchOperationStreaming, sriConfig, null, true, true, false)
+          expressWrapper(
+            sriInternalConfig.dbR,
+            sriInternalConfig.dbW,
+            batch.batchOperationStreaming,
+            sriInternalConfig,
+            null,
+            true,
+            true,
+            false
+          )
         );
       }
-      const batchHandlerMap = sriConfig.resources.reduce(
+      const batchHandlerMap = sriInternalConfig.resources.reduce(
         (acc, mapping) => {
           var _a;
           const crudRoutes = [
@@ -5086,7 +5372,7 @@ function configure(app, sriConfig) {
               route: `${mapping.type}/:key`,
               verb: "GET",
               func: getRegularResource,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: true,
@@ -5096,7 +5382,7 @@ function configure(app, sriConfig) {
               route: `${mapping.type}/:key`,
               verb: "PUT",
               func: createOrUpdateRegularResource,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: false,
@@ -5106,7 +5392,7 @@ function configure(app, sriConfig) {
               route: `${mapping.type}/:key`,
               verb: "PATCH",
               func: patchRegularResource,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: false,
@@ -5116,7 +5402,7 @@ function configure(app, sriConfig) {
               route: `${mapping.type}/:key`,
               verb: "DELETE",
               func: deleteRegularResource,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: false,
@@ -5126,7 +5412,7 @@ function configure(app, sriConfig) {
               route: mapping.type,
               verb: "GET",
               func: getListResource,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: true,
@@ -5137,7 +5423,7 @@ function configure(app, sriConfig) {
               route: `${mapping.type}/isPartOf`,
               verb: "POST",
               func: isPartOf,
-              config: sriConfig,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: true,
@@ -5149,8 +5435,8 @@ function configure(app, sriConfig) {
             {
               route: `${mapping.type}/batch`,
               verb: "PUT",
-              func: batchOperation,
-              config: sriConfig,
+              func: batch.batchOperation,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: false,
@@ -5160,8 +5446,8 @@ function configure(app, sriConfig) {
             {
               route: `${mapping.type}/batch`,
               verb: "POST",
-              func: batchOperation,
-              config: sriConfig,
+              func: batch.batchOperation,
+              config: sriInternalConfig,
               mapping,
               streaming: false,
               readOnly: false,
@@ -5171,8 +5457,8 @@ function configure(app, sriConfig) {
             {
               route: `${mapping.type}/batch_streaming`,
               verb: "PUT",
-              func: batchOperationStreaming,
-              config: sriConfig,
+              func: batch.batchOperationStreaming,
+              config: sriInternalConfig,
               mapping,
               streaming: true,
               readOnly: false,
@@ -5182,8 +5468,8 @@ function configure(app, sriConfig) {
             {
               route: `${mapping.type}/batch_streaming`,
               verb: "POST",
-              func: batchOperationStreaming,
-              config: sriConfig,
+              func: batch.batchOperationStreaming,
+              config: sriInternalConfig,
               mapping,
               streaming: true,
               readOnly: false,
@@ -5219,7 +5505,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                     route: crudPath + cr.routePostfix,
                     verb,
                     func,
-                    config: sriConfig,
+                    config: sriInternalConfig,
                     mapping: customMapping,
                     streaming,
                     readOnly,
@@ -5232,7 +5518,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   route: mapping.type + cr.routePostfix,
                   verb: method.toUpperCase(),
                   func: (_phaseSyncer, tx, sriRequest, _mapping1) => __async(this, null, function* () {
-                    var _a2, _b;
                     if (sriRequest.isBatchPart) {
                       throw new SriError({
                         status: 400,
@@ -5267,7 +5552,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                           tx,
                           sriRequest,
                           customMapping,
-                          global.sriInternalUtils
+                          sriInternalUtils
                         );
                         if (result !== void 0) {
                           const { status, headers } = result;
@@ -5281,7 +5566,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                           }
                         }
                       } catch (err) {
-                        if (err instanceof SriError || ((_b = (_a2 = err == null ? void 0 : err.__proto__) == null ? void 0 : _a2.constructor) == null ? void 0 : _b.name) === "SriError") {
+                        if (isSriError(err)) {
                           throw err;
                         } else {
                           throw new SriError({ status: 500, errors: [`${util.format(err)}`] });
@@ -5307,14 +5592,14 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                         if (sriRequest.outStream instanceof ServerResponse) {
                           sriRequest.outStream.flush();
                         }
-                      }, sriConfig.streamingKeepAliveTimeoutMillis || 2e4);
+                      }, sriInternalConfig.streamingKeepAliveTimeoutMillis || 2e4);
                     }
                     sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                     const streamingHandlerPromise = streamingHandler(
                       tx,
                       sriRequest,
                       stream2,
-                      global.sriInternalUtils
+                      sriInternalUtils
                     );
                     if (cr.busBoy && sriRequest.busBoy) {
                       sriRequest.inStream.pipe(sriRequest.busBoy);
@@ -5334,7 +5619,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                     yield streamDonePromise;
                     return { status: 200 };
                   }),
-                  config: sriConfig,
+                  config: sriInternalConfig,
                   mapping: customMapping,
                   streaming: true,
                   readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -5350,35 +5635,19 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                     yield phaseSyncer.phase();
                     yield phaseSyncer.phase();
                     if (cr.beforeHandler !== void 0) {
-                      yield cr.beforeHandler(
-                        tx,
-                        sriRequest,
-                        customMapping,
-                        global.sriInternalUtils
-                      );
+                      yield cr.beforeHandler(tx, sriRequest, customMapping, sriInternalUtils);
                     }
                     yield phaseSyncer.phase();
-                    const result = yield handler(
-                      tx,
-                      sriRequest,
-                      customMapping,
-                      global.sriInternalUtils
-                    );
+                    const result = yield handler(tx, sriRequest, customMapping, sriInternalUtils);
                     yield phaseSyncer.phase();
                     yield phaseSyncer.phase();
                     if (cr.afterHandler !== void 0) {
-                      yield cr.afterHandler(
-                        tx,
-                        sriRequest,
-                        customMapping,
-                        result,
-                        global.sriInternalUtils
-                      );
+                      yield cr.afterHandler(tx, sriRequest, customMapping, result, sriInternalUtils);
                     }
                     yield phaseSyncer.phase();
                     return result;
                   }),
-                  config: sriConfig,
+                  config: sriInternalConfig,
                   mapping: customMapping,
                   streaming: false,
                   readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -5397,46 +5666,21 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
         },
         []
       );
-      const internalSriRequest = (internalReq) => __async(this, null, function* () {
-        const match = matchHref(internalReq.href, internalReq.verb);
-        const sriRequest = generateSriRequest(
-          void 0,
-          void 0,
-          void 0,
-          match,
-          void 0,
-          void 0,
-          internalReq
-        );
-        yield applyHooks(
-          "transform internal sriRequest",
-          match.handler.config.transformInternalRequest || [],
-          (f) => f(internalReq.dbT, sriRequest, internalReq.parentSriRequest),
-          sriRequest
-        );
-        const result = yield handleRequest(sriRequest, match.handler.func, match.handler.mapping);
-        return JSON.parse(JSON.stringify(result));
-      });
-      global.sri4node_internal_interface = internalSriRequest;
-      const sriInternalUtils = {
-        internalSriRequest
-      };
-      global.sriInternalUtils = sriInternalUtils;
       const sriServerInstance = {
-        pgp: pgp2,
+        pgp,
         db,
         app,
         // informationSchema: currentInformationSchema, // maybe later
         close: () => __async(this, null, function* () {
-          if (Array.isArray(sriConfig.plugins)) {
+          if (Array.isArray(sriInternalConfig.plugins)) {
             const alreadyClosed = /* @__PURE__ */ new Set();
             yield pMap8(
-              sriConfig.plugins,
+              sriInternalConfig.plugins,
               (plugin) => __async(this, null, function* () {
                 if (plugin.close) {
                   try {
                     if (!plugin.uuid || !alreadyClosed.has(plugin.uuid)) {
-                      yield plugin.close(global.sri4node_configuration, dbW);
+                      yield plugin.close(sriInternalConfig, sriInternalConfig.dbW);
                     }
                   } catch (err) {
                     console.error(`Error closing plugin ${plugin.uuid}: ${err}`);
@@ -5455,17 +5699,30 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
       };
       batchHandlerMap.forEach(
         ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => {
-          debug("general", `registering route ${route} - ${verb} - ${readOnly}`);
+          debug(
+            "general",
+            `registering route ${route} - ${verb} - ${readOnly}`,
+            sriInternalConfig.logdebug
+          );
           app[verb.toLowerCase()](
             route,
             emt.instrument(
-              expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly),
+              expressWrapper(
+                sriInternalConfig.dbR,
+                sriInternalConfig.dbW,
+                func,
+                config,
+                mapping,
+                streaming,
+                isBatch,
+                readOnly
+              ),
               "express-wrapper"
             )
           );
         }
       );
-      sriConfig.batchHandlerMap = _7.groupBy(
+      sriInternalConfig.batchHandlerMap = _7.groupBy(
         batchHandlerMap.map(
           ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => ({
             route: new Route(route),
@@ -5478,7 +5735,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
             isBatch
           })
         ),
-        (e) => e.verb
+        ({ verb }) => verb
       );
       app.get("/", (_req, res) => res.redirect("/resources"));
       console.log(
@@ -5497,14 +5754,12 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
 export {
   SriError,
   configure,
-  debugAnyChannelAllowed as debug,
-  error,
   isLikeCustomRouteDefinition,
   isNonStreamingCustomRouteDefinition,
   isStreamingCustomRouteDefinition,
   mapUtils_exports as mapUtils,
   queryUtils_exports as queryUtils,
   schemaUtils_exports as schemaUtils,
-  utils
+  exportedUtils as utils
 };
 //# sourceMappingURL=sri4node.esm.mjs.map

@@ -79,10 +79,6 @@ This example shows a resource for storing content as `html` with meta-data like 
 The declaration of the editor is a reference to a second resource (/person), which itself is not shown here.
 
     const sriConfig = {
-            // Log and time HTTP requests ?
-            logrequests : true,
-            // Log SQL ?
-            logsql: false,
             // Log debugging information ?
             logdebug: false,
             // Log middleware timing ?

@@ -68,7 +68,7 @@ module.exports = function (httpClient) {
       });
       assert.equal(result.status, 401);
     });
-    it("\"query\" overwrite should worki for the custom 'like' route", async () => {
+    it("\"query\" overwrite should work for the custom 'like' route", async () => {
       const result = await httpClient.get({
         path: "http://localhost:5000/persons/likeWithCommunitiesError?communities=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
         auth: "sabine",

@@ -10,8 +10,8 @@
     "outDir": "./dist",
     "rootDir": "./",
 
-    "module": "CommonJS",
-    "moduleResolution": "nodenext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
 
     "sourceMap": true,
     "sourceRoot": "./",

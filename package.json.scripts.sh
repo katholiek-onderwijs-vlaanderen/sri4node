@@ -15,14 +15,27 @@
 
 # prepare -> will set the git core.hooksPath to ./git-hooks
 prepare() {
-  ( 
-    case "$(pwd)" in 
-      *"/node_modules"*) echo 'Not setting git core.hooksPath (installed as a dependency)';; 
-      *) git config core.hooksPath ./git-hooks && echo git core.hooksPath has been set to: $(git config core.hooksPath);;
-    esac 
-  )
-  ( 
-    [ "$(ls ./dist)" = "" ] && npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE ) || echo "[sri4node prepare script] dist/ folder already exists"
+  if [ -d .git ]; then
+    git config core.hooksPath ./git-hooks \
+      && echo "git core.hooksPath has been set to: $(git config core.hooksPath)";
+  else
+    echo "Not setting git core.hooksPath (installed as a dependency)";
+  fi
+
+  # check if the files as defined in package.json, main and module exist
+  # read the package.json file, and extract the main and module fields
+  local MAIN=$(node -p 'require("./package.json").main')
+  local MODULE=$(node -p 'require("./package.json").module')
+
+  if [ "$MAIN" != "" ] && [ ! -f "$MAIN" ]; then
+    echo "[sri4node prepare script] The main file '$MAIN' as defined in package.json does not exist, so we'll run 'npm run build:esbuild'"
+    npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE
+  elif [ "$MODULE" != "" ] && [ ! -f "$MODULE" ]; then
+    echo "[sri4node prepare script] The module file '$MODULE' as defined in package.json does not exist, so we'll run 'npm run build:esbuild'"
+    npm run build:esbuild && touch ./dist/CREATED_BY_NPM_PREPARE
+  else
+    echo "[sri4node prepare script] dist/ folder exists and seems to contain the right files, so we won't be running 'npm run build:esbuild' in order to savesome time"
+  fi
 }
 
 # prebuild -> will clean the dist folder
@@ -86,7 +99,7 @@ test_on_docker() {
 
   local NODEANDPOSTGRESVERSIONS=$@
   if [ "$NODEANDPOSTGRESVERSIONS" = "" ]; then
-    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker [--continue] 16,11 16,12, 18,12 20,15)'
+    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker -- [--continue] 16,11-alpine 16,12-alpine 18,12-alpine 20,15-alpine)'
     return 1
   fi
 
@@ -119,7 +132,7 @@ test_on_docker() {
       # npm run test:cleanup
       printf "\n$MSG\n"
       local ALL_MESSAGES="$ALL_MESSAGES\n$MSG"
-      [ $EXITCODE -eq 0 ] || [ $CONTINUE = 'true' ] || return $EXITCODE
+      [ $EXITCODE -eq 0 ] || [ "$CONTINUE" = 'true' ] || return $EXITCODE
     done
     npm run test:cleanup
     printf "============\nTEST RESULTS\n============\n\n${ALL_MESSAGES}\n"
@@ -136,7 +149,7 @@ test_inside_docker() {
     fi
   INSIDE_DOCKER='true' ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
   R=$?
-  echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test ./testBatch.ts\n********\n'
+  echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test test/testBatch.ts   (or test/testB* would also work)\n********\n'
   return $R
 }
 

@@ -1,5 +1,4 @@
 import { assert, config } from "chai";
-import exec from "await-exec";
 import { Server } from "http";
 import { TSriServerInstance } from "../sri4node";
 import { getConfiguration } from "./context";
@@ -50,9 +49,8 @@ module.exports = function (
 
       await breakDbConnections(testContext.sriServerInstance);
 
-      assert.equal(
+      assert.isFalse(
         responsePromiseResolved,
-        false,
         "The slow request is supposed to be still pending. Maybe the docker restart took too long?",
       );
 

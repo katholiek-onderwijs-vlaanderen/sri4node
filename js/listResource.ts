@@ -10,14 +10,23 @@ import {
   tableFromMapping,
   pgExec,
 } from "./common";
-import { TResourceDefinition, SriError, TSriRequest, TPreparedSql } from "./typeDefinitions";
+import {
+  TResourceDefinitionInternal,
+  SriError,
+  TSriRequestExternal,
+  TPreparedSql,
+  TInformationSchema,
+  TSriInternalUtils,
+  TBeforeReadHook,
+  TAfterReadHook,
+} from "./typeDefinitions";
 import { prepareSQL } from "./queryObject";
 
 import { applyHooks } from "./hooks";
 import { executeExpansion } from "./expand";
 import * as queryUtils from "./queryUtils";
-import { IDatabase } from "pg-promise";
-import { ParsedUrlQuery } from "querystring";
+import { IDatabase, ITask } from "pg-promise";
+import { PhaseSyncer } from "./phaseSyncedSettle";
 
 // Constants
 const DEFAULT_LIMIT = 30;
@@ -25,11 +34,12 @@ const MAX_LIMIT = 500;
 
 // apply extra parameters on request URL for a list-resource to a select.
 async function applyRequestParameters(
-  mapping: TResourceDefinition,
+  mapping: TResourceDefinitionInternal,
   query: TPreparedSql,
-  urlparameters: ParsedUrlQuery,
-  tx: IDatabase<unknown>,
+  urlparameters: URLSearchParams,
+  tx: IDatabase<unknown> | ITask<unknown>,
   doCount: boolean,
+  informationSchema: TInformationSchema,
 ) {
   const standardParameters = [
     "orderBy",
@@ -45,9 +55,9 @@ async function applyRequestParameters(
 
   if (mapping.query) {
     await pMap(
-      Object.keys(urlparameters),
+      urlparameters.keys(),
       async (key) => {
-        const currentUrlParam = urlparameters[key];
+        const currentUrlParam = urlparameters.get(key);
         const keyAsString =
           typeof currentUrlParam === "string" ? currentUrlParam : (currentUrlParam || []).join(",");
         if (!standardParameters.includes(key)) {
@@ -63,6 +73,7 @@ async function applyRequestParameters(
                 doCount,
                 mapping,
                 urlparameters,
+                informationSchema,
               );
             } else {
               await mapping.query[key](
@@ -73,6 +84,7 @@ async function applyRequestParameters(
                 doCount,
                 mapping,
                 urlparameters,
+                informationSchema,
               );
             }
           } else {
@@ -81,7 +93,7 @@ async function applyRequestParameters(
               errors: [{ code: "unknown.query.parameter", parameter: key }],
             }); // this is small API change (previous: errors: [{code: 'invalid.query.parameter', parameter: key}])
           }
-        } else if (key === "hrefs" && urlparameters.hrefs) {
+        } else if (key === "hrefs" && urlparameters.get("hrefs")) {
           // queryUtils.filterHrefs(urlparameters.hrefs, query, key, tx, count, mapping);
           queryUtils.filterHrefs(keyAsString, query, key, tx, doCount, mapping, urlparameters);
         } else if (key === "modifiedSince") {
@@ -94,20 +106,22 @@ async function applyRequestParameters(
 }
 
 async function getSQLFromListResource(
-  mapping: TResourceDefinition,
-  parameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  parameters: url.URLSearchParams,
   doCount: boolean,
-  tx: IDatabase<unknown>,
+  tx: IDatabase<unknown> | ITask<unknown>,
   query: TPreparedSql,
+  informationSchema: TInformationSchema,
 ) {
   const table = tableFromMapping(mapping);
 
   let sql;
   let columns;
-  if ((parameters.expand as string)?.toLowerCase() === "none") {
-    if (parameters.orderBy) {
-      columns = (parameters.orderBy as string)
-        .split(",")
+  if (parameters.get("expand")?.toLowerCase() === "none") {
+    if (parameters.get("orderBy") !== null) {
+      columns = parameters
+        .get("orderBy")
+        ?.split(",")
         .map((v) => `"${v}"`)
         .join(",");
     } else {
@@ -117,23 +131,23 @@ async function getSQLFromListResource(
     }
     // what if orderby is specified in a list query with expand=NONE?
   } else {
-    columns = sqlColumnNames(mapping, (parameters.expand as string)?.toLowerCase() === "summary");
+    columns = sqlColumnNames(mapping, parameters.get("expand")?.toLowerCase() === "summary");
   }
 
   if (doCount) {
-    if (parameters["$$meta.deleted"] === "true") {
+    if (parameters.get("$$meta.deleted") === "true") {
       sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = true `;
-    } else if (parameters["$$meta.deleted"] === "any") {
+    } else if (parameters.get("$$meta.deleted") === "any") {
       sql = `select count(*) from "${table}" where 1=1 `;
     } else {
       sql = `select count(*) from "${table}" where "${table}"."$$meta.deleted" = false `;
     }
     query.sql(sql);
   } else {
-    if (parameters["$$meta.deleted"] === "true") {
+    if (parameters.get("$$meta.deleted") === "true") {
       sql = `select ${columns} from "`;
       sql += `${table}" where "${table}"."$$meta.deleted" = true `;
-    } else if (parameters["$$meta.deleted"] === "any") {
+    } else if (parameters.get("$$meta.deleted") === "any") {
       sql = `select ${columns} from "`;
       sql += `${table}" where 1=1 `;
     } else {
@@ -144,13 +158,13 @@ async function getSQLFromListResource(
   }
 
   debug("trace", "listResource - applying URL parameters to WHERE clause");
-  await applyRequestParameters(mapping, query, parameters, tx, doCount);
+  await applyRequestParameters(mapping, query, parameters, tx, doCount, informationSchema);
 }
 
 const applyOrderAndPagingParameters = (
   query,
-  queryParams,
-  mapping,
+  queryParams: url.URLSearchParams,
+  mapping: TResourceDefinitionInternal,
   queryLimit,
   maxlimit,
   keyOffset,
@@ -159,14 +173,15 @@ const applyOrderAndPagingParameters = (
   // All list resources support orderBy, limit and offset.
 
   // Order parameters
-  const { orderBy, descending } = queryParams;
+  const orderBy = queryParams.get("orderBy");
+  const descending = queryParams.get("descending");
 
   let orderKeys = ["$$meta.created", "key"]; // default
 
-  if (orderBy !== undefined) {
-    orderKeys = orderBy.split(",");
+  if (orderBy) {
+    orderKeys = (orderBy as string).split(",");
     const invalidOrderByKeys = orderKeys.filter(
-      (k) => k !== "$$meta.created" && k !== "$$meta.modified" && !mapping.map[k],
+      (k) => k !== "$$meta.created" && k !== "$$meta.modified" && !mapping.map?.[k],
     );
     if (invalidOrderByKeys.length !== 0) {
       throw new SriError({
@@ -222,9 +237,7 @@ const applyOrderAndPagingParameters = (
 
   // add limit parameter
   const isGetAllExpandNone =
-    queryLimit === "*" &&
-    queryParams.expand !== undefined &&
-    queryParams.expand.toLowerCase() === "none";
+    queryLimit === "*" && queryParams.get("expand")?.toLowerCase() === "none";
   if (!isGetAllExpandNone) {
     if (queryLimit > maxlimit || queryLimit === "*") {
       throw new SriError({
@@ -263,12 +276,22 @@ const applyOrderAndPagingParameters = (
 };
 
 // sriRequest
-const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, orderKeys) => {
+const handleListQueryResult = (
+  sriRequest: TSriRequestExternal,
+  rows: Array<Record<string, unknown>>,
+  count: number,
+  mapping: TResourceDefinitionInternal,
+  queryLimit: string | number,
+  orderKeys: Array<string>,
+  theInformationSchema: TInformationSchema,
+) => {
   const results: any[] = [];
   const { originalUrl } = sriRequest;
   const queryParams = sriRequest.query;
 
-  const tableInformation = global.sri4node_configuration.informationSchema[mapping.type];
+  const tableInformation = theInformationSchema[mapping.type];
+
+  const queryLimitInt = parseInt(queryLimit as string, 10);
 
   // const elements = [];
   rows.forEach((currentrow) => {
@@ -280,27 +303,30 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
     // all start with "results.href" or "results.href.*" will result in inclusion
     // of the regular resources in the list resources.
     if (
-      !queryParams.expand ||
-      queryParams.expand.toLowerCase() === "full" ||
-      queryParams.expand.toLowerCase() === "summary" ||
-      queryParams.expand.indexOf("results") === 0
+      !queryParams.get("expand") ||
+      ["full", "summary"].includes(queryParams.get("expand")?.toLowerCase() ?? "") ||
+      queryParams.get("expand")?.indexOf("results") === 0
     ) {
       element.$$expanded = transformRowToObject(currentrow, mapping);
       element.$$expanded.$$meta.type = mapping.metaType;
-    } else if (queryParams.expand && queryParams.expand.toLowerCase() === "none") {
+    } else if (
+      queryParams.get("expand") &&
+      typeof queryParams.get("expand") === "string" &&
+      queryParams.get("expand")?.toLowerCase() === "none"
+    ) {
       // Intentionally left blank.
-    } else if (queryParams.expand) {
+    } else if (queryParams.get("expand")) {
       // Error expand must be either 'full','none' or start with 'href'
-      const msg = `listResource - expand value unknown : ${queryParams.expand}`;
+      const msg = `listResource - expand value unknown : ${queryParams.get("expand")}`;
       debug("trace", msg);
       throw new SriError({
         status: 400,
         errors: [
           {
             code: "parameter.value.unknown",
-            msg: `Unknown value [${queryParams.expand}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
+            msg: `Unknown value [${queryParams.get("expand")}] for 'expand' parameter. The possible values are 'NONE', 'SUMMARY' and 'FULL'.`,
             parameter: "expand",
-            value: queryParams.expand,
+            value: queryParams.get("expand"),
             possibleValues: ["NONE", "SUMMARY", "FULL"],
           },
         ],
@@ -331,11 +357,11 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
     return `${url + (url.indexOf("?") > 0 ? "&" : "?") + parameter}=${encodeURIComponent(value)}`;
   };
 
-  if (results.length === parseInt(queryLimit, 10) && results.length > 0) {
+  if (results.length === queryLimitInt && results.length > 0) {
     const lastElement =
-      queryParams.expand && queryParams.expand.toLowerCase() === "none"
-        ? rows[queryLimit - 1]
-        : results[queryLimit - 1].$$expanded;
+      queryParams.get("expand") && (queryParams.get("expand") as string).toLowerCase() === "none"
+        ? rows[queryLimitInt - 1]
+        : results[queryLimitInt - 1].$$expanded;
     const keyOffset = orderKeys
       .map((k) => {
         // !!! _.get supports a dotted notation path { 'my.key': 'value' } as well as { my: { key: 'value' } }
@@ -355,25 +381,33 @@ const handleListQueryResult = (sriRequest, rows, count, mapping, queryLimit, ord
 };
 
 async function getListResource(
-  phaseSyncer,
-  tx,
-  sriRequest: TSriRequest,
-  mapping: TResourceDefinition,
+  phaseSyncer: PhaseSyncer,
+  tx: ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  mapping: TResourceDefinitionInternal,
+  sriInternalUtils: TSriInternalUtils,
+  informationSchema: TInformationSchema,
+  resources: Array<TResourceDefinitionInternal>,
 ) {
   const queryParams = sriRequest.query;
   const { type } = mapping;
 
   const defaultlimit = mapping.defaultlimit || DEFAULT_LIMIT;
   const maxlimit = mapping.maxlimit || MAX_LIMIT;
-  const queryLimit = queryParams.limit || defaultlimit;
-  const keyOffset = queryParams.keyOffset || "";
-  const { offset } = queryParams;
+  const queryLimit = queryParams.get("limit") || defaultlimit;
+  const keyOffset = queryParams.get("keyOffset") || "";
+  const offset = queryParams.get("offset") || 0;
 
   await phaseSyncer.phase(); // step 0
   await phaseSyncer.phase(); // step 1
   await phaseSyncer.phase(); // step 2
 
-  await applyHooks("before read", mapping.beforeRead || [], (f) => f(tx, sriRequest), sriRequest);
+  await applyHooks<TBeforeReadHook>(
+    "before read",
+    mapping.beforeRead || [],
+    (f) => f(tx, sriRequest, sriInternalUtils),
+    sriRequest,
+  );
 
   await phaseSyncer.phase();
 
@@ -384,18 +418,18 @@ async function getListResource(
   let orderKeys;
   try {
     let includeCount = mapping.listResultDefaultIncludeCount;
-    if (queryParams.$$includeCount !== undefined) {
-      includeCount = queryParams.$$includeCount === "true";
+    if (queryParams.get("$$includeCount") !== null) {
+      includeCount = queryParams.get("$$includeCount") === "true";
     }
     if (includeCount) {
       const countquery = prepareSQL();
-      await getSQLFromListResource(mapping, queryParams, true, tx, countquery);
+      await getSQLFromListResource(mapping, queryParams, true, tx, countquery, informationSchema);
       debug("trace", "listResource - executing SELECT COUNT query on tx");
       count = await getCountResult(tx, countquery, sriRequest);
     }
 
     const query = prepareSQL();
-    await getSQLFromListResource(mapping, queryParams, false, tx, query);
+    await getSQLFromListResource(mapping, queryParams, false, tx, query, informationSchema);
     orderKeys = applyOrderAndPagingParameters(
       query,
       queryParams,
@@ -418,14 +452,22 @@ async function getListResource(
 
   sriRequest.containsDeleted = rows.some((r) => r["$$meta.deleted"] === true);
 
-  const output = handleListQueryResult(sriRequest, rows, count, mapping, queryLimit, orderKeys);
+  const output = handleListQueryResult(
+    sriRequest,
+    rows,
+    count,
+    mapping,
+    queryLimit as number,
+    orderKeys,
+    informationSchema,
+  );
 
   await phaseSyncer.phase();
   await phaseSyncer.phase();
 
   debug("trace", "listResource - executing afterRead functions on results");
 
-  await applyHooks(
+  await applyHooks<TAfterReadHook>(
     "after read",
     mapping.afterRead || [],
     (f) =>
@@ -446,14 +488,16 @@ async function getListResource(
             stored: null,
           };
         }),
+        sriInternalUtils,
+        resources,
       ),
     sriRequest,
   );
 
   await phaseSyncer.phase();
 
-  debug("trace", `listResource - executing expansion : ${queryParams.expand}`);
-  await executeExpansion(tx, sriRequest, output.results, mapping);
+  debug("trace", `listResource - executing expansion : ${queryParams.get("expand")}`);
+  await executeExpansion(tx, sriRequest, output.results, mapping, resources, sriInternalUtils);
 
   return { status: 200, body: output };
 }
@@ -481,7 +525,14 @@ const matchUrl = (url, mapping) => {
 // }
 // ==> [ [urlB2] ]  (all raw urls from list B for which url A is a subset)
 
-async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
+async function isPartOf(
+  phaseSyncer: PhaseSyncer,
+  tx: IDatabase<unknown>,
+  sriRequest: TSriRequestExternal,
+  mapping: TResourceDefinitionInternal,
+  _sriInternalUtils: TSriInternalUtils,
+  informationSchema: TInformationSchema,
+) {
   await phaseSyncer.phase();
   await phaseSyncer.phase();
   await phaseSyncer.phase();
@@ -518,10 +569,10 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
       }
       return false;
     }
-    const { query: paramsB } = url.parse(urlB, true);
+    const paramsB = new URL(urlB, "https://domain.com").searchParams; //url.parse(urlB, true);
     const queryB = prepareSQL();
     try {
-      await getSQLFromListResource(mapping, paramsB, false, tx, queryB);
+      await getSQLFromListResource(mapping, paramsB, false, tx, queryB, informationSchema);
     } catch (err) {
       throw new SriError({
         status: 400,
@@ -538,10 +589,10 @@ async function isPartOf(phaseSyncer, tx, sriRequest, mapping) {
       );
       query.params.push(...valuesB);
     } else {
-      const { query: paramsA } = url.parse(urlA, true);
+      const paramsA = new URL(urlA, "https://domain.com").searchParams;
       const queryA = prepareSQL();
       try {
-        await getSQLFromListResource(mapping, paramsA, false, tx, queryA);
+        await getSQLFromListResource(mapping, paramsA, false, tx, queryA, informationSchema);
       } catch (err) {
         throw new SriError({
           status: 400,

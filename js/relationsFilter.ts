@@ -1,8 +1,7 @@
 import _ from "lodash";
 import { IDatabase } from "pg-promise";
 import * as common from "./common";
-import { TPreparedSql, TResourceDefinition } from "./typeDefinitions";
-import { ParsedUrlQuery } from "querystring";
+import { TPreparedSql, TResourceDefinitionInternal } from "./typeDefinitions";
 
 function fromTypesFilter(
   value: string,
@@ -10,8 +9,8 @@ function fromTypesFilter(
   _key: string,
   _database: IDatabase<unknown>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   let sql;
   let fromCondition;
@@ -47,8 +46,8 @@ function toTypesFilter(
   _key: string,
   _database: IDatabase<unknown>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   let sql;
   let fromCondition;
@@ -83,8 +82,8 @@ function fromsFilter(
   _key: string,
   _database: IDatabase<unknown>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   if (value) {
     const table = common.tableFromMapping(mapping);
@@ -101,8 +100,8 @@ function tosFilter(
   _key: string,
   _database: IDatabase<unknown>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
 ) {
   if (value) {
     const table = common.tableFromMapping(mapping);

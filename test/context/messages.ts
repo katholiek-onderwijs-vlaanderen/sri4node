@@ -11,11 +11,11 @@ module.exports = function (sri4node: typeof Sri4Node) {
     select.sql(" and posted > ").param(value);
   }
 
-  function validateMoreThan(_field, max) {
-    return async function (_tx, sriRequest, elements) {
+  function validateMoreThan(_field, max): Sri4Node.TAfterInsertHook & Sri4Node.TAfterUpdateHook {
+    return async function (_tx, sriRequest, elements, { debug, error }) {
       elements.forEach(({ incoming }) => {
         if (incoming.amount <= max) {
-          sri4node.debug("mocha", "Should be more, or equal to " + max);
+          debug("mocha", "Should be more, or equal to " + max);
           throw new sriRequest.SriError({ status: 409, errors: [{ code: "not.enough" }] });
         }
       });
@@ -98,8 +98,8 @@ module.exports = function (sri4node: typeof Sri4Node) {
       communities: $q.filterReferencedType("/communities", "community"),
       postedSince: messagesPostedSince, // For compatability, to be removed.
       modifiedsince: messagesPostedSince,
-      cteOneGuid: cteOneGuid,
-      cteOneGuid2: cteOneGuid2,
+      cteOneGuid,
+      cteOneGuid2,
       defaultFilter: $q.defaultFilter,
     },
     afterRead: [addExtraKeysAfterRead],

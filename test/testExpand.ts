@@ -1,4 +1,4 @@
-import assert from "assert";
+import { assert } from "chai";
 import { THttpClient } from "./httpClient";
 
 module.exports = function (httpClient: THttpClient) {
@@ -104,7 +104,7 @@ module.exports = function (httpClient: THttpClient) {
        * in context/communities.js, an afterRead function will disallow getting 1 single community
        * which is why this test should fail.
        */
-      it("should fail since 1 of the expandeded chained resources will throw due to an afterRead function in communities", async () => {
+      it("should fail since 1 of the expanded chained resources will throw due to an afterRead function in communities", async () => {
         const response = await httpClient.get({
           path: "/messages/5a2747d4-ed99-4ceb-9058-8152e34f4cd5?expand=person.community",
           auth: "kevin",

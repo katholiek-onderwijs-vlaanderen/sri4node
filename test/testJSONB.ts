@@ -3,6 +3,7 @@ import * as uuid from "uuid";
 import { assert } from "chai";
 import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
+import { inspect } from "node:util";
 
 module.exports = function (httpClient: THttpClient) {
   describe("JSONB support", function () {
@@ -11,7 +12,7 @@ module.exports = function (httpClient: THttpClient) {
         path: "/jsonb/10f00e9a-f953-488b-84fe-24b31ee9d504",
       });
       assert.equal(response.status, 200);
-      debug("mocha", response.body);
+      debug("mocha", inspect(response.body));
       assert.equal(
         response.body.details.productDeliveryOptions[0].product,
         "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c",

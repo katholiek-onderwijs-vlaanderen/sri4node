@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
+import { assert } from "chai";
 import { THttpClient } from "./httpClient";
 
 module.exports = function (httpClient: THttpClient) {

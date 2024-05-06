@@ -1,9 +1,21 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
+import { assert } from "chai";
 import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";
+import { Server } from "http";
+import { TSriServerInstance } from "../sri4node";
+import * as context from "./context";
+import { createMethodCalledPromise } from "./utils";
 
-module.exports = function (httpClient: THttpClient) {
+module.exports = function (
+  httpClient: THttpClient,
+  _testContext: {
+    server: null | Server;
+    sriServerInstance: null | TSriServerInstance;
+    // did not work somehow, so we just imported the context module
+    context: typeof context;
+  },
+) {
   const communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
 
   function generateRandomPerson(key, communityPermalink) {
@@ -24,7 +36,7 @@ module.exports = function (httpClient: THttpClient) {
     };
   }
 
-  describe("Error handling", () => {
+  describe("Error handling for internal errors", () => {
     const key = uuid.v4();
     const p = generateRandomPerson(key, communityDendermonde);
 
@@ -143,5 +155,111 @@ module.exports = function (httpClient: THttpClient) {
     //   });
 
     // });
+  });
+
+  /**
+   * Utiltiy function to test what happens when a client connection gets broken during a request
+   *
+   * @param url the url to call
+   * @param dbMethodToWaitFor the db hook that will trigger the connection to break.
+   *        For example the connection could be broken right after a db connection has been acquired
+   *        from the pool, but you could also wait for the query method to be called in order to
+   *        test what happens if the connection gets broken during a long running query.
+   * @param waitTimeAfterMethodCalled extra time to wait after the dbMethodToWaitFor method has
+   *        been called, before destroying the connection.
+   */
+  async function testBrokenConnection(
+    url: string,
+    dbMethodToWaitFor: keyof typeof context.pgpStats,
+    waitTimeAfterMethodCalled = 0,
+  ) {
+    try {
+      context.resetPgpStats();
+      const methodCalledPromise = createMethodCalledPromise(
+        context.pgpStats[dbMethodToWaitFor],
+        "push",
+      );
+      const responsePromise = httpClient.get({
+        path: url,
+        auth: "sabine",
+      });
+      await methodCalledPromise;
+      await new Promise((resolve) => setTimeout(resolve, waitTimeAfterMethodCalled));
+      await httpClient.destroy();
+      await responsePromise;
+      assert.fail("Expected an error to be thrown");
+    } catch (e) {
+      // this is expected to throw
+      assert.equal(e.message, "htpclient.failure");
+    }
+    assert.equal(context.pgpStats[dbMethodToWaitFor].length, 1);
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    console.log("            [testBrokenConnection] ======== QUERIES ========");
+    console.log(
+      "            [testBrokenConnection]",
+      JSON.stringify(context.pgpStats.query.map(({ eventContext }) => eventContext.query)),
+    );
+    assert.equal(
+      context.pgpStats.disconnect.length,
+      1,
+      `Expected 1 disconnect, got ${context.pgpStats.disconnect.length} for (${url}, ${dbMethodToWaitFor}, ${waitTimeAfterMethodCalled})`,
+    );
+  }
+
+  /**
+   * In this secton, we want to check what happens when a client breaks the connection,
+   * or when the connection gets broken by something in between like a proxy server or
+   * a load balancer.
+   */
+  describe("Error handling for external errors", () => {
+    // const key = uuid.v4();
+    // const p = generateRandomPerson(key, communityDendermonde);
+
+    describe("Client ends connection before response received", () => {
+      describe("GET requests", () => {
+        it("should recover and return the db connection to the pool if connection broken after connection", async () => {
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simple_slow`,
+            "connect",
+          );
+
+          // We would hope that it can stop executing the rest of a request when the connection gets broken, but seems this is notyet the case
+          // const nodeVersion = process.version.substring(1, 3);
+          // if (nodeVersion <= "16") {
+          //   console.log(
+          //     "\x1b[96m\x1b[1m",
+          //     "            Not assuming that the actual query was not executed, because Node < 16 does not seem to detect disconnections early",
+          //     "\x1b[0m",
+          //   );
+          //   assert.isAtMost(context.pgpStats.query.length, 3, "Expected 3 queries to be executed (node 16 and below does not detect disconnections early)");
+          // } else {
+          //   assert.isAtMost(context.pgpStats.query.length, 2, "Expected 2 queries to be executed (node > 16 should detect disconnections early)");
+          // }
+        });
+        // skipped for now, because sri4node is unable to cancel a running query, when the cient ends the connection
+        // this would avoid overloading the database with queries that are not needed anymore
+        it.skip("should recover and return the db connection to the pool if connection broken after connection during long query execution", async () => {
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/db_slow`,
+            "connect",
+            1000,
+          );
+          await testBrokenConnection(
+            `/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/db_timeout`,
+            "connect",
+            1000,
+          );
+        });
+        it("should recover and return the db connection to the pool if connection broken after transaction", async () => {
+          await testBrokenConnection("/persons/de32ce31-af0c-4620-988e-1d0de282ee9d", "task");
+        });
+      });
+      describe.skip("should recover and return the db connection to the pool after a put request", () => {
+        // todo
+      });
+      describe.skip("should recover and return the db connection to the pool after a delete request", () => {
+        // todo
+      });
+    });
   });
 };

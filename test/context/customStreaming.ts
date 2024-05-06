@@ -11,10 +11,10 @@ exports = module.exports = function (_sri4node) {
         routePostfix: "",
         httpMethods: ["GET"],
         streamingHandler: async (_tx, sriRequest, stream) => {
-          if (sriRequest.query["slowstart"] !== undefined) {
+          if (sriRequest.query.get("slowstart") !== null) {
             await sleep(5_000);
             stream.push("foo");
-          } else if (sriRequest.query["superslowstart"] !== undefined) {
+          } else if (sriRequest.query.get("superslowstart") !== null) {
             await sleep(70_000);
             stream.push("foo");
           } else {

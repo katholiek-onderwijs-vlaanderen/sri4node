@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interfacedoGet(
-import assert from "assert";
+import { assert } from "chai";
 import _ from "lodash";
 import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";
@@ -179,7 +179,7 @@ module.exports = function (httpClient: THttpClient) {
       const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
       const copyResponse = _.cloneDeep(responseGet1);
-      delete copyResponse.$$meta;
+      delete copyResponse["$$meta"];
       const responsePut = await httpClient.put({
         path: "/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096",
         body: copyResponse.body,
@@ -207,7 +207,7 @@ module.exports = function (httpClient: THttpClient) {
       const currentModified = new Date(responseGet1.body.$$meta.modified).getTime();
 
       const copyResponse = _.cloneDeep(responseGet1);
-      copyResponse.blah = "foobar";
+      copyResponse["blah"] = "foobar";
       const responsePut = await httpClient.put({
         path: "/alldatatypes/e7e49d48-010b-480d-9f90-cdcd802a3096",
         body: copyResponse.body,
