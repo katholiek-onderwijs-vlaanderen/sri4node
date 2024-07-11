@@ -12,10 +12,22 @@ module.exports = function (sri4node: typeof Sri4Node) {
       type: "object",
       properties: {
         key: $s.guid(""),
-        details: { type: "object" },
+        details: {
+          anyOf: [
+            {
+              type: "object",
+            },
+            {
+              type: "null",
+            },
+            {
+              type: "array",
+            },
+          ],
+        },
         foo: $s.permalink("/foo", "json permalink test"),
       },
-      required: ["key", "details", "foo"],
+      required: ["key", "foo"],
     },
     map: {
       key: {},

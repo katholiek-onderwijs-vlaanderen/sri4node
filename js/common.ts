@@ -861,17 +861,10 @@ function transformObjectToRow(
     const fieldTypeDb =
       global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
     if (fieldTypeDb === "jsonb") {
-      /// ALWAYS stringify the json !!!
-      row[key] = JSON.stringify(row[key]);
-
-      /// VERSION < 2023-10 wouldonly stringify arrays
-      // const fieldTypeObject = findPropertyInJsonSchema(resourceMapping.schema, key)?.type;
-
-      // if (fieldTypeObject === "array") {
-      //   // for this type combination we need to explicitly stringify the JSON,
-      //   // otherwise insert will attempt to store a postgres array which fails for jsonb
-      //   row[key] = JSON.stringify(row[key]);
-      // }
+      if (row[key] !== null) {
+        // do not stringify null, it ends up in the db as 'null'
+        row[key] = JSON.stringify(row[key]);
+      }
     }
   });
 

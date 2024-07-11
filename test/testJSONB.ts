@@ -18,11 +18,10 @@ module.exports = function (httpClient: THttpClient) {
       );
     });
 
-    it("should support PUT with sub-objects", async function () {
-      const key = uuid.v4();
-      const x = {
-        key: key,
-        details: {
+    [
+      {
+        title: "with sub-objects",
+        value: {
           productDeliveryOptions: [
             {
               product: "/store/products/f02a30b0-0bd9-49a3-9a14-3b71130b187c",
@@ -30,18 +29,38 @@ module.exports = function (httpClient: THttpClient) {
             },
           ],
         },
-        foo: { href: "/foo/00000000-0000-0000-0000-000000000000" },
-      };
+      },
+      {
+        title: "with sub-arrays",
+        value: {
+          productDeliveryOptions: [[0], [1], [3]],
+        },
+      },
+      {
+        title: "of null",
+        value: null,
+      },
+    ].forEach((test) => {
+      it(`should support PUT ${test.title}`, async function () {
+        const key = uuid.v4();
+        const x = {
+          key: key,
+          details: test.value,
+          foo: { href: "/foo/00000000-0000-0000-0000-000000000000" },
+        };
 
-      const responsePut = await httpClient.put({ path: "/jsonb/" + key, body: x, auth: "sabine" });
-      assert.equal(responsePut.status, 201);
+        const responsePut = await httpClient.put({
+          path: "/jsonb/" + key,
+          body: x,
+          auth: "sabine",
+        });
+        assert.equal(responsePut.status, 201);
 
-      const responseGet = await httpClient.get({ path: "/jsonb/" + key, auth: "sabine" });
-      assert.equal(responseGet.status, 200);
-      debug("mocha", typeof responseGet.body.details);
-      if (typeof responseGet.body.details !== "object") {
-        assert.fail("should be object");
-      }
+        const responseGet = await httpClient.get({ path: "/jsonb/" + key, auth: "sabine" });
+        assert.equal(responseGet.status, 200);
+        debug("mocha", typeof responseGet.body.details);
+        assert.deepEqual(responseGet.body.details, x.details);
+      });
     });
   });
 };

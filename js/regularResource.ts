@@ -1,9 +1,8 @@
 import _ from "lodash";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import jsonPatch from "fast-json-patch";
+import jsonPatch, { Operation } from "fast-json-patch";
 import pMap from "p-map";
-import { Operation } from "fast-json-patch";
 import { SriError, TSriRequest, TBeforePhase, TResourceDefinition } from "./typeDefinitions";
 import {
   debug,
@@ -317,6 +316,7 @@ async function preparePutInsideTransaction(
   // Treat fields with explicit null values the same as missing fields.
   // We remove them now, before validation (otherwise validation will fail). They will be set
   // to null again in 'transformObjectToRow' (just as fields missing in the original request).
+  // ^^^^^ this sounds like a bad idea... jsonschema allows you to define null as a valid option.
   Object.keys(obj).forEach((k) => {
     if (obj[k] === null) {
       delete obj[k];
