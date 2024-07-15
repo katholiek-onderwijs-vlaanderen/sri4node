@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.36 (25-04-2024)
+
+### Fixed
+
+- saving `null` into a jsonb field will no longer save a string `"null"` but will result in an actuall `null` in the DB.
+
 ## version 2.3.35 (25-04-2024)
 
 ### Fixed
