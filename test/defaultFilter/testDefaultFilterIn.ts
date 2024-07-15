@@ -671,13 +671,13 @@ module.exports = function (httpClient: THttpClient) {
         });
 
         // Remark: the last two tests will fail if ran individually as they depend on earlier changes to the database
-        // by other testcases.
+        // by other testcases. <== this is bad test design! :) you should set up your data in a before hook. this test now failed because of added JSONB tests!
         it("should find no resources with a not in match", async () => {
           const q =
             "/jsonb?foo.hrefNotIn=/foO/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/Foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
           const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
-          assert.equal(response.body.results.length, 2); // jsonb put test case adds one new
+          assert.equal(response.body.results.length, 4); // jsonb put test case adds one new
         });
 
         it("should find no resources with a case sensitive not in match", async () => {
@@ -685,7 +685,7 @@ module.exports = function (httpClient: THttpClient) {
             "/jsonb?foo.hrefCaseSensitiveNotIn=/foo/8bf649b4-c50a-4ee9-9b02-877aa0a71849,/foo/362c4fd7-42e1-4668-8cfc-a479cc8e374a";
           const response = await httpClient.get({ path: q, auth: "kevin" });
           assert.equal(response.status, 200);
-          assert.equal(response.body.results.length, 2); // jsonb put test case adds one new
+          assert.equal(response.body.results.length, 4); // jsonb put test case adds one new
         });
       });
     });
