@@ -736,7 +736,9 @@ function transformObjectToRow(obj, resourceMapping, isNewResource) {
     }
     const fieldTypeDb = global.sri4node_configuration.informationSchema[resourceMapping.type][key].type;
     if (fieldTypeDb === "jsonb") {
-      row[key] = JSON.stringify(row[key]);
+      if (row[key] !== null) {
+        row[key] = JSON.stringify(row[key]);
+      }
     }
   });
   return row;
