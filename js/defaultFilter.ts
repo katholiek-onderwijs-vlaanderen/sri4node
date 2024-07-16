@@ -1,15 +1,11 @@
-import { IDatabase } from "pg-promise";
+import { IDatabase, ITask } from "pg-promise";
 import { tableFromMapping } from "./common";
 import {
   SriError,
   TInformationSchema,
   TPreparedSql,
-  TResourceDefinition,
-  TSriConfig,
+  TResourceDefinitionInternal,
 } from "./typeDefinitions";
-import { IClient } from "pg-promise/typescript/pg-subset";
-import { ParsedUrlQuery } from "querystring";
-import { integer } from "./schemaUtils";
 
 type TParsedParam = {
   key: string;
@@ -56,8 +52,8 @@ function filterString(
   select: TPreparedSql,
   filter: TParsedParam,
   value: string,
-  mapping: TResourceDefinition,
-  baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
+  mapping: TResourceDefinitionInternal,
+  _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
   _field: TInformationSchema[string][string],
 ) {
   let values;
@@ -167,7 +163,7 @@ function filterNumericOrTimestamp(
   select: TPreparedSql,
   filter: TParsedParam,
   value: string,
-  _mapping: TResourceDefinition,
+  _mapping: TResourceDefinitionInternal,
   baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
   _field: TInformationSchema[string][string],
 ) {
@@ -232,7 +228,7 @@ function filterArray(
   select: TPreparedSql,
   filter: TParsedParam,
   value: string,
-  _mapping: TResourceDefinition,
+  _mapping: TResourceDefinitionInternal,
   _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
   field: TInformationSchema[string][string],
 ) {
@@ -281,7 +277,7 @@ function filterBoolean(
   select: TPreparedSql,
   filter: TParsedParam,
   value: string,
-  _mapping: TResourceDefinition,
+  _mapping: TResourceDefinitionInternal,
   _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
   _field: TInformationSchema[string][string],
 ) {
@@ -300,7 +296,7 @@ function filterJson(
   select: TPreparedSql,
   filter: TParsedParam,
   value: string,
-  mapping: TResourceDefinition,
+  _mapping: TResourceDefinitionInternal,
   _baseType: "timestamp" | "text" | "array" | "boolean" | "numeric" | "json" | null,
   _field: TInformationSchema[string][string],
 ) {
@@ -329,7 +325,6 @@ function filterJson(
 
     const not = filter.postfix === "Not";
     const sensitive = filter.prefix === "CaseSensitive";
-    const tablename = tableFromMapping(mapping);
 
     if (
       (filter.operator === "Greater" && not && sensitive) ||
@@ -563,10 +558,11 @@ function defaultFilter(
   valueEnc: string,
   query: TPreparedSql,
   parameter: string,
-  _tx: IDatabase<unknown, IClient>,
+  _tx: ITask<unknown> | IDatabase<unknown>,
   _doCount: boolean,
-  mapping: TResourceDefinition,
-  _urlParameters: ParsedUrlQuery,
+  mapping: TResourceDefinitionInternal,
+  _urlParameters: URLSearchParams,
+  informationSchema: TInformationSchema,
 ) {
   const value = decodeURIComponent(valueEnc);
 
@@ -574,7 +570,6 @@ function defaultFilter(
   const filter = analyseParameter(parameter);
 
   // 2) Find data type on database from information schema;
-  const { informationSchema } = global.sri4node_configuration as TSriConfig;
   const idx = mapping.type;
   const field: TInformationSchema[string][string] | null =
     informationSchema?.[idx][filter.key] ?? null;

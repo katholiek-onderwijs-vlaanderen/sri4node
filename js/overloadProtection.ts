@@ -1,7 +1,9 @@
 import * as common from "./common";
-import { TOverloadProtection } from "./typeDefinitions";
+import { TOverloadProtection, TOverloadProtectionConfig } from "./typeDefinitions";
 
-function overloadProtectionFactory(config: TOverloadProtection | undefined) {
+function overloadProtectionFactory(
+  config: TOverloadProtectionConfig | undefined,
+): TOverloadProtection {
   let usedPipelines = 0;
   let extraDrop = 0;
   return {
@@ -30,7 +32,7 @@ function overloadProtectionFactory(config: TOverloadProtection | undefined) {
         );
         return nrServed;
       }
-      return null;
+      return 0;
     },
     endPipeline: (nr = 1) => {
       if (config !== undefined) {

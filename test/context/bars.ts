@@ -91,7 +91,7 @@ module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
       {
         routePostfix: "/only_custom_via_internal_interface",
         httpMethods: ["GET"],
-        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
+        handler: async (tx, sriRequest, _customMapping, sriInternalUtils) => {
           const getRequest = {
             href: "/onlyCustom",
             verb: "GET" as THttpMethod,
@@ -99,13 +99,13 @@ module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
             parentSriRequest: sriRequest,
           };
 
-          return internalUtils.internalSriRequest(getRequest);
+          return sriInternalUtils.internalSriRequest(getRequest);
         },
       },
       {
         routePostfix: "/simple_like_via_internal_interface",
         httpMethods: ["GET"],
-        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
+        handler: async (tx, sriRequest, _customMapping, sriInternalUtils) => {
           const getRequest = {
             href: "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d/simpleLike",
             verb: "GET" as THttpMethod,
@@ -113,34 +113,34 @@ module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
             parentSriRequest: sriRequest,
           };
 
-          return internalUtils.internalSriRequest(getRequest);
+          return sriInternalUtils.internalSriRequest(getRequest);
         },
       },
       {
         routePostfix: "/proxy_internal_interface",
         httpMethods: ["POST"],
-        handler: async (tx, sriRequest, _customMapping, internalUtils) => {
-          if (!sriRequest.query.href || Array.isArray(sriRequest.query.href)) {
+        handler: async (tx, sriRequest, _customMapping, sriinternalUtils) => {
+          if (!sriRequest.query.get("href") || Array.isArray(sriRequest.query.get("href"))) {
             return {
               status: 500,
               body: 'One "href" query value is required.',
             };
           }
-          if (!sriRequest.query.method || Array.isArray(sriRequest.query.method)) {
+          if (!sriRequest.query.get("method") || Array.isArray(sriRequest.query.get("method"))) {
             return {
               status: 500,
               body: 'One "verb" query value is required.',
             };
           }
           const intRequest = {
-            href: sriRequest.query.href,
-            verb: sriRequest.query.method as THttpMethod,
+            href: sriRequest.query.get("href") as string,
+            verb: sriRequest.query.get("method") as THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
             body: sriRequest.body,
           };
 
-          return internalUtils.internalSriRequest(intRequest);
+          return sriinternalUtils.internalSriRequest(intRequest);
         },
       },
     ],

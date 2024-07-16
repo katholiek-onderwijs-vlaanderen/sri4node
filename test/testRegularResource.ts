@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
+import { assert } from "chai";
 import { THttpClient } from "./httpClient";
-import utils from "./utils";
+import * as utils from "./utils";
 
 module.exports = function (httpClient: THttpClient) {
   describe("GET public regular resource", function () {

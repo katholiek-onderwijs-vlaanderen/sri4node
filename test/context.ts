@@ -14,21 +14,74 @@ import {
   TSriConfig,
   SriError,
   TSriRequest,
-  TLogDebug,
   TSriServerInstance,
+  TLogDebugExternal,
 } from "../js/typeDefinitions";
-import utils from "./utils";
+import * as utils from "./utils";
 import { Server } from "http";
-import { IDatabase, IMain } from "pg-promise";
+import { IDatabase, IEventContext, IMain } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
+import _ from "lodash";
+
+/**
+ * Type to store args of pgp callbacks, so we can look at then later
+ */
+type TPgpStats = {
+  connect: Array<{ client: IClient; databaseContext; useCount: number }>;
+  disconnect: Array<{ client: IClient; databaseContext }>;
+  error: Array<{ error; eventContext: IEventContext<IClient> }>;
+  query: Array<{ eventContext: IEventContext<IClient> }>;
+  task: Array<{ eventContext: IEventContext<IClient> }>;
+  transact: Array<{ eventContext: IEventContext<IClient> }>;
+};
 
 let configCache: TSriConfig;
+let configCacheClone: TSriConfig;
+
+/**
+ * We will keep all the event calls here, so that we get a list of
+ * everything that has been done on the library.
+ */
+const pgpStats: TPgpStats = {
+  connect: [],
+  disconnect: [],
+  error: [],
+  query: [],
+  task: [],
+  transact: [],
+};
 
 import * as sri4nodeTS from "../index";
+import path from "path";
+import { readFileSync } from "fs";
 
+/**
+ * Wraps the given code in a DO block, so it can be executed as a single statement.
+ *
+ * @param {string} code
+ * @returns string
+ */
+const sqlPlpgsql = (code) => `
+DO $___$
+BEGIN
+  ${code}
+END
+$___$
+LANGUAGE 'plpgsql';
+`;
+
+/**
+ * Creates the TSriConfig object.
+ *
+ * @param sri4node
+ * @param logdebug
+ * @param dummyLogger
+ * @param resourceFiles
+ * @returns
+ */
 function config(
   sri4node: typeof sri4nodeTS,
-  logdebug: TLogDebug,
+  logdebug: TLogDebugExternal,
   dummyLogger: Console,
   resourceFiles: Array<string>,
 ) {
@@ -42,18 +95,62 @@ function config(
       ssl: false,
       schema: "sri4node",
       connectionInitSql: 'INSERT INTO "db_connections" DEFAULT VALUES RETURNING *;',
+      statement_timeout: 5000,
+    },
+    databaseLibraryInitOptions: {
+      connect(client, databaseContext, useCount) {
+        pgpStats.connect.push({ client, databaseContext, useCount });
+      },
+      disconnect(client, databaseContext) {
+        pgpStats.disconnect.push({ client, databaseContext });
+      },
+      error(error, eventContext) {
+        pgpStats.error.push({ error, eventContext });
+      },
+      query(eventContext) {
+        pgpStats.query.push({ eventContext });
+      },
+      task(eventContext) {
+        pgpStats.task.push({ eventContext });
+      },
+      transact(eventContext) {
+        pgpStats.transact.push({ eventContext });
+      },
     },
 
     resources: resourceFiles.map((file) => require(file)(sri4node)),
 
     startUp: [
-      async (db: IDatabase<unknown, IClient>, pgp: IMain) => {
+      async (db: IDatabase<unknown>, pgp: IMain) => {
         // crash if either db or pgp is undefined
         if (!db?.connect) {
           throw new Error("startUp hook error: db parameter is not what we expected");
         }
         if (!pgp?.pg) {
           throw new Error("startUp hook error: pgp parameter is not what we expected");
+        }
+
+        // read sql/*.sql and execute it to create all the tables and fill in all the test data !
+        /////////////////////////////////////////////////////////////////////////////////////////
+
+        // create the schema
+        await db.query(readFileSync(path.join(__dirname, "context/sql/schema.sql"), "utf8"));
+        // insert test data (if not inserted yet)
+        const dbInitialized = await db.one(
+          "select EXISTS (SELECT 1 FROM communities) as db_initialized",
+        );
+        if (!dbInitialized["db_initialized"]) {
+          // This hideous code is needed to execute each insert statement a a separate statement
+          // otherwise all the $$meta.created dates are the same, and our tests depend on the
+          // insert order ($$meta.created is used as the default sort key in sri4node)
+          const sqlLines = readFileSync(path.join(__dirname, "context/sql/testdata.sql"), "utf8")
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0 && !l.startsWith("--"));
+
+          for (const l of sqlLines) {
+            await db.query(l);
+          }
         }
 
         // add a useless trigger to the countries table
@@ -132,13 +229,14 @@ function config(
   };
 
   configCache = config;
+  configCacheClone = _.cloneDeep(config);
   return config;
 }
 
 async function serve(
   sri4node,
   port,
-  logdebug: TLogDebug,
+  logdebug: TLogDebugExternal,
   dummyLogger,
   resourceFiles,
 ): Promise<{ server: Server; sriServerInstance: TSriServerInstance }> {
@@ -167,4 +265,28 @@ function getConfiguration() {
   return configCache;
 }
 
-export { config, serve, getConfiguration };
+/**
+ * When calling config, we make a clone, so we can test after calling serve
+ * if the config object is not altered by sri4node.configure()
+ *
+ * @returns a deep clone of the original configuration object
+ */
+function getConfigurationClone() {
+  if (!configCacheClone) {
+    throw new Error("please first configure the context");
+  }
+
+  return configCacheClone;
+}
+
+/**
+ * Make sure all the arrays in the pgpStats object are emptied again.
+ *
+ * (Just setting the array length to 0, replacing each pgpStats[k] with an empty array seems
+ * to break the pg-promise hooks (=> no events recorded anymore).
+ */
+function resetPgpStats() {
+  Object.keys(pgpStats).forEach((k) => (pgpStats[k].length = 0));
+}
+
+export { config, serve, getConfiguration, getConfigurationClone, pgpStats, resetPgpStats };

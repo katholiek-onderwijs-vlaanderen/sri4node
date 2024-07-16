@@ -4,6 +4,7 @@ import { assert } from "chai";
 import * as uuid from "uuid";
 import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
+import { inspect } from "node:util";
 
 module.exports = function (httpClient: THttpClient) {
   const communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
@@ -445,13 +446,13 @@ module.exports = function (httpClient: THttpClient) {
 
     it("must return 201 on a new resource", async () => {
       const response = await httpClient.put({ path: `/persons/${key}`, body: p, auth: "sabine" });
-      debug("mocha", response.body);
+      debug("mocha", inspect(response.body));
       assert.equal(response.status, 201);
     });
 
     it("must return 200 on an update without changes", async () => {
       const response = await httpClient.put({ path: `/persons/${key}`, body: p, auth: "sabine" });
-      debug("mocha", response.body);
+      debug("mocha", inspect(response.body));
       assert.equal(response.status, 200);
     });
 
@@ -463,7 +464,7 @@ module.exports = function (httpClient: THttpClient) {
         body: p1.body,
         auth: "sabine",
       });
-      debug("mocha", response.body);
+      debug("mocha", inspect(response.body));
       assert.equal(response.status, 200);
       const p2 = await httpClient.get({ path: `/persons/${key}`, auth: "sabine" });
       assert.notStrictEqual(p1.body.$$meta.modified, p2.body.$$meta.modified);

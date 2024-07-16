@@ -62,7 +62,7 @@ module.exports = (sri4nodeHolder: { sri4node: any }, port, logdebug, dummyLogger
       assert.isTrue(exitStub.called, "expected process.exit to be called");
       assert.isTrue(
         consoleSpy.calledWith(
-          `\n[CONFIGURATION PROBLEM] No database column found for property 'bAr' as specified in sriConfig of resource '/invalidconfig1'. It is probably a case mismatch because we did find a column named 'bar'instead.`,
+          `\n[CONFIGURATION PROBLEM] No database column found for property 'bAr' as specified in sriConfig of resource '/invalidconfig1'. It is probably a case mismatch because we did find a column named 'bar' instead.`,
         ),
         "expected logging of mismatch between sri4node config and the database",
       );
@@ -95,7 +95,7 @@ module.exports = (sri4nodeHolder: { sri4node: any }, port, logdebug, dummyLogger
       assert.isTrue(exitStub.called, "expected process.exit to be called");
       assert.isTrue(
         consoleSpy.calledWith(
-          `\n[CONFIGURATION PROBLEM] No database column found for property 'foo' as specified in sriConfig of resource '/invalidconfig2'. All available column names are $$meta.created, $$meta.deleted, $$meta.modified, $$meta.version, bar, key`,
+          `\n[CONFIGURATION PROBLEM] No database column found for property 'foo' as specified in sriConfig of resource '/invalidconfig2'. All available column names are $$meta.created, $$meta.deleted, $$meta.modified, bar, key`,
         ),
         "expected logging of mismatch between sri4node config and the database",
       );

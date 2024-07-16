@@ -23,11 +23,15 @@ import { IDatabase } from "pg-promise";
  * Assumes that sriConfig.databaseConnectionParameters.schema is set to a single string !!!
  *
  */
-async function informationSchema(
+async function getInformationSchema(
   db: IDatabase<unknown>,
   sriConfig: TSriConfig,
 ): Promise<TInformationSchema> {
-  const tableNames = _.uniq(sriConfig.resources.map((mapping) => common.tableFromMapping(mapping)));
+  const tableNames = _.uniq(
+    sriConfig.resources
+      .map((mapping) => common.tableFromMapping(mapping))
+      .filter((u) => u !== undefined),
+  ) as Array<string>;
   const query = prepareSQL("information-schema");
   const { schema } = sriConfig.databaseConnectionParameters;
   let schemaParam = "public";
@@ -78,4 +82,4 @@ async function informationSchema(
   );
 }
 
-export { informationSchema };
+export { getInformationSchema };

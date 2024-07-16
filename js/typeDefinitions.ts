@@ -8,13 +8,53 @@ import { Request } from "express";
 import { Operation } from "fast-json-patch";
 import { IncomingHttpHeaders } from "http2";
 import { JSONSchema4 } from "json-schema";
-import pgPromise from "pg-promise";
-import { IClient, IConnectionParameters } from "pg-promise/typescript/pg-subset";
+import pgPromise, { ITask } from "pg-promise";
+import { IConnectionParameters } from "pg-promise/typescript/pg-subset";
 import stream from "stream";
 import { PhaseSyncer } from "./phaseSyncedSettle";
 
 import { ValidateFunction } from "ajv";
-import { ParsedUrlQuery } from "querystring";
+import {
+  addReferencingResources,
+  parseResource,
+  pgConnect,
+  pgExec,
+  tableFromMapping,
+  transformObjectToRow,
+  transformRowToObject,
+  typeToMapping,
+  urlToTypeAndKey,
+} from "./common";
+import { prepareSQL } from "./queryObject";
+import { getSQLFromListResource } from "./listResource";
+
+//#region UTILTIY TYPES to help make new types based on existing types
+
+/** got this from Copilot, should return a union type that has all the required keys of type T */
+export type RequiredKeysOf<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+} extends { [_ in keyof T]-?: infer U }
+  ? U
+  : never;
+
+/**
+ * Helper type to only pick the required properties of an object
+ */
+export type RequiredOnly<T> = Pick<T, RequiredKeysOf<T>>;
+
+/**
+ * Helper type to make extra properties mandatory based on an existing type
+ * @example
+ * ```ts
+ * // a is required, b, c and d are optional
+ * type T = { a: boolean, b?: number, c?: string, d?: Date };
+ * // a, b and c are required, d is optional
+ * type TReqB = RequiredExtra<T, 'b' | 'c'>;
+ * ```
+ */
+export type RequiredExtra<T, K extends keyof T> = T & Required<Pick<T, K>>;
+
+//#endregion UTILTIY TYPES to help make new types based on existing types
 
 /**
  * This is the type definition for the plugin configuration object.
@@ -32,7 +72,10 @@ export type TPluginConfig = {
    * can do some database operations on startup.
    *
    */
-  install: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+  install: (
+    sriConfig: TSriInternalConfig,
+    db: pgPromise.IDatabase<unknown>,
+  ) => void | Promise<void>;
   // Record<string, unknown>;
 
   /**
@@ -43,7 +86,7 @@ export type TPluginConfig = {
    * @param db
    * @returns
    */
-  close?: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+  close?: (sriConfig: TSriInternalConfig, db: pgPromise.IDatabase<unknown>) => void | Promise<void>;
 };
 
 // for example /llinkid/activityplanning, so should only start with a slash
@@ -65,26 +108,44 @@ export type TDebugChannel =
   | "overloadProtection"
   | "mocha";
 
-export type TLogDebug = {
-  channels: Set<TDebugChannel> | TDebugChannel[] | "all";
-  statuses?: Set<number> | Array<number>;
+export type TLogDebugExternal = {
+  channels: TDebugChannel[] | "all";
+  statuses?: Array<number>;
+};
+
+export type TLogDebugInternal = {
+  channels: Set<TDebugChannel | string> | "all";
+  statuses?: Set<number>;
 };
 
 export type TDebugLogFunction = (
   channel: TDebugChannel | string,
   x: (() => string) | string,
+  logdebugConfig?: TSriInternalConfig["logdebug"],
 ) => void;
 
 export type TErrorLogFunction = (...unknown) => void;
 
+/**
+ * Base class for every error that is being thrown throughout the lifetime of an sri request
+ */
 export class SriError {
   status: number;
 
-  body: { errors: unknown[]; status: number; document: { [key: string]: unknown } };
+  body: {
+    errors: unknown[];
+    status: number;
+    document: { [key: string]: unknown };
+    vskoReqId?: string;
+  };
 
   headers: { [key: string]: string };
 
   sriRequestID: string | null;
+
+  verb?: THttpMethod;
+
+  href?: string;
 
   /**
    * Contructs an sri error based on the given initialisation object
@@ -126,8 +187,8 @@ export type TSriBatchElement = {
   body: TSriRequestBody;
   match?: {
     path: string;
-    queryParams: ParsedUrlQuery;
-    routeParams: any;
+    queryParams: URLSearchParams;
+    routeParams: Record<string, string>;
     handler: TBatchHandlerRecord;
   };
 };
@@ -208,7 +269,7 @@ export type TSriServerInstance = {
   /**
    * pgPromise database object (http://vitaly-t.github.io/pg-promise/Database.html)
    */
-  db: pgPromise.IDatabase<unknown, IClient>;
+  db: pgPromise.IDatabase<unknown>;
   app: Express.Application;
 
   // maybe later
@@ -224,9 +285,9 @@ export type TSriServerInstance = {
 };
 
 // TODO make more strict
-export type TSriRequest = {
+export type TSriRequestExternal = {
   id: string;
-  parentSriRequest?: TSriRequest;
+  parentSriRequest?: TSriRequestExternal;
 
   logDebug: TDebugLogFunction;
   logError: TErrorLogFunction;
@@ -240,7 +301,7 @@ export type TSriRequest = {
   originalUrl?: string;
 
   path: TUriPath;
-  query: ParsedUrlQuery; //Record<string, string>, // batchHandlerAndParams.queryParams,
+  query: URLSearchParams; //Record<string, string>, // batchHandlerAndParams.queryParams,
   params: Record<string, string>; // batchHandlerAndParams.routeParams,
 
   sriType?: string; // batchHandlerAndParams.handler.mapping.type,
@@ -250,7 +311,8 @@ export type TSriRequest = {
 
   headers: { [key: string]: string } | IncomingHttpHeaders;
   body?: TSriRequestBody;
-  dbT: pgPromise.IDatabase<unknown>; // db transaction
+  dbT: ITask<unknown>; // db transaction
+  pgp: pgPromise.IMain;
   inStream: stream.Readable;
   outStream: stream.Writable;
   setHeader?: (key: string, value: string) => void;
@@ -298,12 +360,23 @@ export type TSriRequest = {
   userObject?: any; // can be used to store information of the user
 };
 
-export type TInternalSriRequest = {
+/**
+ * This is the internal sri request object that is used for internal requests.
+ * These are requests that do not go through express, but that will reuse
+ * an existing database transaction, and are being run while handling another request.
+ *
+ * You could imagine that you could use it for a validation rule for instance.
+ * Or maybe if a put to one resource should result in puts to other resources as well.
+ * It is up to the user to imagine what they could do with this.
+ */
+export type TSriRequestInternal = TSriRequestExternal & {
+  id: string;
   protocol: "_internal_";
   href: string;
   verb: THttpMethod;
-  dbT: pgPromise.IDatabase<unknown>; // transaction or task object of pg promise
-  parentSriRequest: TSriRequest;
+  dbT: ITask<unknown>; // transaction or task object of pg promise
+  pgp: pgPromise.IMain;
+  parentSriRequest: TSriRequestExternal;
   headers?: { [key: string]: string } | IncomingHttpHeaders;
   body?: Array<{ href: string; verb: THttpMethod; body: TSriRequestBody }> | TSriRequestBody;
 
@@ -320,6 +393,11 @@ export type TInternalSriRequest = {
   serverTiming: { [key: string]: unknown };
 };
 
+/**
+ * This srirequest can be either an external (the normal one) or an internal one.
+ */
+export type TSriRequest = TSriRequestExternal | TSriRequestInternal;
+
 export type TResourceMetaType = Uppercase<string>;
 
 /**
@@ -331,14 +409,32 @@ export type TResourceMetaType = Uppercase<string>;
  * So we decided to pass an object with extra useful functions (starting with internalSriRequest)
  * to every handler and hook that we have in the configuration.
  *
- * By adding it as the last patrameter, this should not break anything on existing projects,
+ * By adding it as the last parameter, this should not break anything on existing projects,
  * but at least we can start using this new way of doing things right away.
  *
  * If we find more useful functions later, we can also easily add them to this object in the future.
  */
 export type TSriInternalUtils = {
+  debug: TDebugLogFunction;
+  error: TErrorLogFunction;
   internalSriRequest: (
-    internalReq: Omit<TInternalSriRequest, "protocol" | "serverTiming">,
+    internalReq: Omit<
+      TSriRequestInternal,
+      | "id"
+      | "protocol"
+      | "serverTiming"
+      | "pgp"
+      | "query"
+      | "logDebug"
+      | "logError"
+      | "SriError"
+      | "path"
+      | "params"
+      | "headers"
+      | "inStream"
+      | "outStream"
+      | "userData"
+    >,
   ) => Promise<TSriResult>;
 };
 
@@ -347,10 +443,11 @@ export type TSriQueryFun = {
     value: string,
     select: TPreparedSql,
     key: string,
-    database: pgPromise.IDatabase<unknown, IClient>,
+    database: pgPromise.IDatabase<unknown> | ITask<unknown>,
     doCount: boolean,
-    mapping: TResourceDefinition,
-    urlParameters: ParsedUrlQuery,
+    mapping: TResourceDefinitionInternal,
+    urlParameters: URLSearchParams,
+    informationSchema: TInformationSchema,
   ) => void;
 };
 
@@ -383,12 +480,12 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties &
     query?: TSriQueryFun;
   } & (
     | {
-        alterMapping: (mapping: TResourceDefinition) => void;
+        alterMapping: (mapping: TResourceDefinitionInternal) => void;
       }
     | {
         transformResponse: (
-          dbT: pgPromise.IDatabase<unknown>,
-          sriRequest: TSriRequest,
+          dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+          sriRequest: TSriRequestExternal,
           sriResult: TSriResult,
         ) => Promise<void>;
       }
@@ -398,30 +495,30 @@ export type TLikeCustomRoute = TCustomRouteGeneralProperties &
 export type TNonStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** this will define where the customRoute listens relative to the resource base */
   beforeHandler?: (
-    tx: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
-    customMapping: TResourceDefinition,
-    internalUtils: TSriInternalUtils,
+    tx: pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
+    customMapping: TResourceDefinitionInternal,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
   handler: (
-    tx: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
-    customMapping: TResourceDefinition,
-    internalUtils: TSriInternalUtils,
+    tx: pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
+    customMapping: TResourceDefinitionInternal,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<TSriResult>;
   /** probably not so useful, since we can already control exactly what the response wil look like in the handler */
   transformResponse?: (
-    dbT: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
+    dbT: pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
     sriResult: TSriResult,
-    internalUtils: TSriInternalUtils,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
   afterHandler?: (
-    tx: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
-    customMapping: TResourceDefinition,
+    tx: pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
+    customMapping: TResourceDefinitionInternal,
     result: TSriResult,
-    internalUtils: TSriInternalUtils,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
 };
 
@@ -433,16 +530,16 @@ export type TStreamingCustomRoute = TCustomRouteGeneralProperties & {
   /** indicates that the output stream is a binary stream (otherwise a response header Content-Type: 'application/json' will be set) */
   binaryStream?: boolean;
   beforeStreamingHandler?: (
-    tx: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
-    customMapping: TResourceDefinition,
-    internalUtils: TSriInternalUtils,
+    tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
+    customMapping: TResourceDefinitionInternal,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<{ status: number; headers: Array<[key: string, value: string]> } | undefined>;
   streamingHandler: (
-    tx: pgPromise.IDatabase<unknown>,
-    sriRequest: TSriRequest,
+    tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+    sriRequest: TSriRequestExternal,
     stream: import("stream").Duplex,
-    internalUtils: TSriInternalUtils,
+    sriInternalUtils: TSriInternalUtils,
   ) => Promise<void>;
 };
 
@@ -466,6 +563,133 @@ export function isStreamingCustomRouteDefinition(cr: TCustomRoute): cr is TStrea
   return "streamingHandler" in cr;
 }
 
+export type TBeforeUpdateHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: Record<string, any>;
+    stored: Record<string, any>;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TBeforeInsertHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: Record<string, any>;
+    stored: null;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TBeforePhaseHook = (
+  sriRequestMap: Map<string, TSriRequest>,
+  jobMap: TJobMap,
+  pendingJobs: Set<string>,
+  sriInternalUtils: TSriInternalUtils,
+  resources: Array<TResourceDefinitionInternal>,
+  informationSchema: TInformationSchema,
+  pgColumns: TPgColumns,
+) => Promise<void>;
+
+export type TBeforeReadHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TBeforeDeleteHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: null;
+    stored: Record<string, any>;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TAfterReadHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: null;
+    stored: Record<string, any>;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+  resources: Array<TResourceDefinitionInternal>,
+) => void;
+
+export type TAfterUpdateHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: Record<string, any>;
+    stored: Record<string, any>;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TAfterInsertHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: Record<string, any>;
+    stored: Record<string, any> | null;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TAfterDeleteHook = (
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequestExternal,
+  data: Array<{
+    permalink: string;
+    incoming: null;
+    stored: Record<string, any>;
+  }>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TTransformResponseHook = (
+  dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriRequest: TSriRequest,
+  sriResult: TSriResult,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TTransformInternalRequestHook = (
+  dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  internalSriRequest: TSriRequestInternal,
+  parentSriRequest: TSriRequestExternal,
+) => void;
+
+export type TErrorHandlerHook = (
+  sriRequest: TSriRequestExternal,
+  error: Error,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TAfterRequestHook = (sriRequest: TSriRequestExternal) => void;
+
+export type TTransformRequestHook = (
+  expressRequest: Request,
+  sriRequest: TSriRequestExternal,
+  dbT: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
+  sriInternalUtils: TSriInternalUtils,
+) => void;
+
+export type TStartupHook = (
+  dbT: pgPromise.IDatabase<unknown>,
+  pgp: pgPromise.IMain<unknown>,
+) => void;
+
 export type TResourceDefinition = {
   type: TUriPath;
   metaType: TResourceMetaType;
@@ -473,12 +697,6 @@ export type TResourceDefinition = {
 
   /** the database table to store the records, optional, inferred from typeif missing */
   table?: string;
-
-  // these next lines are put onto the same object afterwards, not by the user
-  singleResourceRegex?: RegExp;
-  listResourceRegex?: RegExp;
-  validateKey?: ValidateFunction;
-  validateSchema?: ValidateFunction;
 
   listResultDefaultIncludeCount?: boolean;
   maxlimit?: number;
@@ -562,109 +780,39 @@ export type TResourceDefinition = {
   //     "period"
   //   ]
   // },
-  beforeUpdate?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: Record<string, any>;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  beforeInsert?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: Record<string, any>;
-        stored: null;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  beforeRead?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  beforeDelete?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: null;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  afterRead?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: null;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  afterUpdate?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: Record<string, any>;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  afterInsert?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: Record<string, any>;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  afterDelete?: Array<
-    (
-      tx: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      data: Array<{
-        permalink: string;
-        incoming: null;
-        stored: Record<string, any>;
-      }>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
-  transformResponse?: Array<
-    (
-      dbT: pgPromise.IDatabase<unknown>,
-      sriRequest: TSriRequest,
-      sriResult: TSriResult,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
+  beforeUpdate?: Array<TBeforeUpdateHook>;
+  beforeInsert?: Array<TBeforeInsertHook>;
+  beforeRead?: Array<TBeforeReadHook>;
+  beforeDelete?: Array<TBeforeDeleteHook>;
+  afterRead?: Array<TAfterReadHook>;
+  afterUpdate?: Array<TAfterUpdateHook>;
+  afterInsert?: Array<TAfterInsertHook>;
+  afterDelete?: Array<TAfterDeleteHook>;
+  transformResponse?: Array<TTransformResponseHook>;
 
   // all supported query parameters, with a function that will modify the preparedSQL so far
   // to make sure only the relevant results are returned
   query?: TSriQueryFun;
+
+  // // POSSIBLE_FUTURE_QUERY
+  // "customQueryParams": {
+  //   // THIS SHOULD ALWAYS WORK defaultFilter,
+  //   _rootWithContextContains: {
+  //     name: '_rootWithContextContains', // necessary if the key already contains that name, or do we make customQueryParams an array of object?
+  //     // propertyName: undefined or property if this filter filters on a specific property
+  //     // operatorName: '_INCLUDED_IN_ROOT'
+  //     'aliases': [ 'rootWithConextContains' ],
+  //     default: '*', // the filter value that is equivalent to not specifying the filter, if applicable
+  //     expectedValueType: 'string[]', // kind of 'borrowed' from typescript
+  //     // option 1: the handler to produce the SQL is per custom filter
+  //     handler: function(normalizedName, value) return { where: ..., joins: ..., cte: ... }
+  //     // BUT what to do with customFilters that produce other query when multiple filters are combined
+  //   },
+  //   // option 2: the handler to produce the SQL gets all the custom filters as input
+  //   // (which allows for optimizing combinations of fillters, and also allows implementing a default for a custom filter)
+  //   handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
+  // },
+
   // uses the same jeys as in 'query', to make sure the custom filters are documented as well
   queryDocs?: Record<string, string>;
 
@@ -694,17 +842,46 @@ export type TResourceDefinition = {
   customRoutes?: Array<TCustomRoute>;
 };
 
+/**
+ * For internal resource definition, make sure some of the optional properties are required.
+ *
+ * In case onlyCustom is true, many properties should NOT be in the object as they make no sense,
+ * but for now we are keepig things simple.
+ */
+export type TResourceDefinitionInternal = RequiredExtra<
+  TResourceDefinition,
+  | "beforeRead"
+  | "afterRead"
+  | "beforeUpdate"
+  | "afterUpdate"
+  | "beforeInsert"
+  | "afterInsert"
+  | "beforeDelete"
+  | "afterDelete"
+  | "customRoutes"
+  | "transformResponse"
+> & {
+  singleResourceRegex: RegExp;
+  listResourceRegex: RegExp;
+  validateKey: ValidateFunction;
+  validateSchema: ValidateFunction;
+};
+
 export type TSriRequestHandlerForPhaseSyncer = (
   phaseSyncer: PhaseSyncer,
-  tx: pgPromise.IDatabase<unknown>,
+  tx: pgPromise.IDatabase<unknown> | pgPromise.ITask<unknown>,
   sriRequest: TSriRequest,
-  mapping: TResourceDefinition | null,
-  internalUtils: TSriInternalUtils,
+  mapping: TResourceDefinitionInternal | null,
+  sriInternalUtils: TSriInternalUtils,
+  informationSchema: TInformationSchema,
+  resources: Array<TResourceDefinitionInternal>,
 ) => Promise<TSriResult>;
 
 export type TSriRequestHandlerForBatch = (
   sriRequest: TSriRequest,
-  internalUtils: TSriInternalUtils,
+  sriInternalUtils: TSriInternalUtils,
+  informationSchema: TInformationSchema,
+  overloadProtection: TOverloadProtection,
 ) => Promise<TSriResult>;
 
 export type TSriRequestHandler = TSriRequestHandlerForBatch | TSriRequestHandlerForPhaseSyncer;
@@ -714,8 +891,8 @@ export type TBatchHandlerRecord = {
   verb: THttpMethod;
   func: TSriRequestHandler;
   // eslint-disable-next-line no-use-before-define
-  config: TSriConfig;
-  mapping: TResourceDefinition;
+  config: TSriInternalConfig;
+  mapping: TResourceDefinitionInternal;
   streaming: boolean;
   readOnly: boolean;
   isBatch: boolean;
@@ -760,113 +937,85 @@ export type TSriResult = {
     | any;
 };
 
-export type TOverloadProtection = {
+export type TOverloadProtectionConfig = {
   maxPipelines: number;
   retryAfter?: number;
 };
 
+/**
+ * A stateful object that exposes methods to help protect against overload
+ */
+export type TOverloadProtection = {
+  canAccept: () => boolean;
+  startPipeline: (nr?: number) => number;
+  endPipeline: (nr?: number) => void;
+  addExtraDrops: (nr: number) => void;
+};
+
 export type TJobMap = Map<string, PhaseSyncer>;
 
-export type TBeforePhase = (
-  sriRequestMap: Map<string, TSriRequest>,
-  jobMap: TJobMap,
-  pendingJobs: Set<string>,
-  internalUtils: TSriInternalUtils,
-) => Promise<void>;
-
+/**
+ * The configuration object as passed by the user to the configure() function.
+ */
 export type TSriConfig = {
-  // these next lines are put onto the same object afterwards, not by the user
-  utils?: unknown;
-  db?: pgPromise.IDatabase<unknown>;
-  dbR?: pgPromise.IDatabase<unknown>;
-  dbW?: pgPromise.IDatabase<unknown>;
-  informationSchema?: TInformationSchema;
-  /** a short string that will be added to every request id while logging
-   * (tis can help to differentiate between different api's while searching thourgh logs)
-   */
-  id?: string;
-
-  // the real properties !!!
   plugins?: TPluginConfig[];
   enableGlobalBatch?: boolean;
   globalBatchRoutePrefix?: TUriPath;
-  // logrequests?: boolean,
-  // logsql?: boolean,
-  logdebug?: TLogDebug;
+  logdebug?: TLogDebugExternal;
+  /** a short string that will be added to every request id while logging
+   * (this can help to differentiate between different api's while searching through logs)
+   */
+  id?: string;
+  /** Explain what kind of information is being stored in this API */
   description?: string;
   bodyParserLimit?: string; // example 50mb
   batchConcurrency?: number;
-  overloadProtection?: TOverloadProtection;
+  overloadProtection?: TOverloadProtectionConfig;
 
   defaultlimit?: boolean;
-  // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
-  // trackHeapMax?: boolean,
   /**
-   * DO NOT USE! This is generated when configure() is called,
-   * and then added to the sriConfig object, which is bad practice.
-   *
-   * This is a map generated when configure() is called.
-   * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
+   * An Array of resource definitions. Each resource definition is an object that defines
+   * the path of the resource, and the schema (+ some other info to customize the api's behevior).
    */
-  batchHandlerMap?: {
-    [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, "route"> & { route: Record<string, any> }>;
-  };
   resources: TResourceDefinition[];
 
   /**
    * This is a global hook. It is called during configuration, before anything is done.
    */
-  startUp?: Array<
-    (dbT: pgPromise.IDatabase<unknown>, pgp: pgPromise.IMain<unknown, IClient>) => void
-  >;
+  startUp?: Array<TStartupHook>;
 
   /**
    * This is a global hook. New hook which will be called before each phase of a request is executed (phases are parts of requests,
    * they are used to synchronize between executing batch operations in parallel, see Batch execution order in the README.
    */
-  beforePhase?: Array<TBeforePhase>;
+  beforePhase?: Array<TBeforePhaseHook>;
 
   /**
    * This is a global hook. This function is called at the very start of each http request (i.e. for batch only once).
    * Based on the expressRequest (maybe some headers?) you could make changes to the sriRequest object (like maybe
    * add the user's identity if it can be deducted from the headers).
    */
-  transformRequest?: Array<
-    (
-      expressRequest: Request,
-      sriRequest: TSriRequest,
-      dbT: pgPromise.IDatabase<unknown>,
-      internalUtils: TSriInternalUtils,
-    ) => void
-  >;
+  transformRequest?: Array<TTransformRequestHook>;
 
   /**
    * This is a global hook. This hook is defined to be able to copy data set by transformRequest (like use data) from the
    * original (parent) request to the new internal request. This function is called at creation of each sriRequest created
    * via the 'internal' interface.
    */
-  transformInternalRequest?: Array<
-    (
-      dbT: pgPromise.IDatabase<unknown>,
-      internalSriRequest: TInternalSriRequest,
-      parentSriRequest: TSriRequest,
-    ) => void
-  >;
+  transformInternalRequest?: Array<TTransformInternalRequestHook>;
 
   /**
    * This is a global hook. This hook will be called in case an exception is catched during the handling of an SriResquest.
    * After calling this hook, sri4node continues with the built-in error handling (logging and sending error reply to the cient).
    * Warning: in case of an early error, sriRequest might be undefined!
    */
-  errorHandler?: Array<
-    (sriRequest: TSriRequest, error: Error, internalUtils: TSriInternalUtils) => void
-  >;
+  errorHandler?: Array<TErrorHandlerHook>;
 
   /**
    * This is a global hook. It will be called after the request is handled (without errors). At the moment this handler is called,
    * the database task/transaction is already closed and the response is already sent to the client.
    */
-  afterRequest?: Array<(sriRequest: TSriRequest) => void>;
+  afterRequest?: Array<TAfterRequestHook>;
 
   /**
    * @deprecated
@@ -875,11 +1024,13 @@ export type TSriConfig = {
 
   /**
    * @deprecated
+   * @see databaseConnectionParameters.connectionInitSql
    */
   dbConnectionInitSql?: string; // example "set random_page_cost = 1.1;",
 
   /**
    * @deprecated
+   * @see databaseConnectionParameters.max
    */
   maxConnections?: string;
 
@@ -902,6 +1053,68 @@ export type TSriConfig = {
    * DEFAULT: 20_000 (20 seconds)
    */
   streamingKeepAliveTimeoutMillis?: number;
+
+  /** Enforce https on express (will redirect if not on localhost). */
+  forceSecureSockets?: boolean;
+};
+
+export type TPgColumns = {
+  [resourcePath: string]: {
+    insert: pgPromise.ColumnSet<unknown>;
+    update: pgPromise.ColumnSet<unknown>;
+    delete: pgPromise.ColumnSet<unknown>;
+  };
+};
+
+/**
+ * The internal configuration object which is a extended and modified version of the TSriConfig
+ * object that the user passed into the configure() function.
+ */
+export type TSriInternalConfig = RequiredExtra<
+  Omit<TSriConfig, "logdebug" | "resources">,
+  | "batchConcurrency"
+  | "bodyParserLimit"
+  | "beforePhase"
+  | "transformRequest"
+  | "transformInternalRequest"
+> & {
+  /** logdebug gets overwritten with an internal version ! */
+  logdebug: TLogDebugInternal;
+  resources: Array<TResourceDefinitionInternal>;
+
+  // these next lines are put onto the same object afterwards, not by the user
+  utils: {
+    executeSQL: typeof pgExec;
+    prepareSQL: typeof prepareSQL;
+    convertListResourceURLToSQL: typeof getSQLFromListResource;
+    addReferencingResources: typeof addReferencingResources;
+    pgConnect: typeof pgConnect;
+
+    transformRowToObject: typeof transformRowToObject;
+    transformObjectToRow: typeof transformObjectToRow;
+
+    typeToMapping: typeof typeToMapping;
+    tableFromMapping: typeof tableFromMapping;
+    urlToTypeAndKey: typeof urlToTypeAndKey;
+    /**
+     * should be deprecated in favour of a decent url parsing mechanism
+     */
+    parseResource: typeof parseResource;
+  };
+
+  db: pgPromise.IDatabase<unknown>;
+  dbR: pgPromise.IDatabase<unknown>;
+  dbW: pgPromise.IDatabase<unknown>;
+  informationSchema: TInformationSchema;
+
+  pgColumns: TPgColumns;
+  /**
+   * This is a map generated when configure() is called.
+   * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
+   */
+  batchHandlerMap: {
+    [K in THttpMethod]: Array<TBatchHandlerRecord>;
+  };
 };
 
 export type ParseTreeType = "string" | "number" | "integer" | "boolean";
@@ -928,364 +1141,3 @@ export type ParseTree = {
 
 // can be improved and made a lot more strict (cfr. @types/json-schema), but for now...
 export type FlattenedJsonSchema = { [path: string]: { [jsonSchemaProperty: string]: unknown } };
-
-// const sriConfig = {
-//   "plugins": [
-//     {
-//       "uuid": "7569812c-a992-11ea-841b-1f780ac2b6cc"
-//     },
-//     {}
-//   ],
-//   "enableGlobalBatch": true,
-//   "globalBatchRoutePrefix": "/llinkid/activityplanning",
-//   "logrequests": true,
-//   "logsql": true,
-//   "logdebug": "general",
-//   "description": "This API is to provide custom curricula",
-//   "bodyParserLimit": "50mb",
-//   "dbConnectionInitSql": "set random_page_cost = 1.1;",
-//   "resources": [
-//     {
-//       "type": "/llinkid/activityplanning/activityplans/activities",
-//       "metaType": "ACTIVITY",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "activities on a plan",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           },
-//           "parent": {
-//             "type": "object",
-//             "description": "a permalink to the parent. either another activity or the plan",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "title": {
-//             "type": "string",
-//             "description": "name of the activity"
-//           },
-//           "description": {
-//             "type": "string",
-//             "description": "short description of the entire activity (over all weeks/the entire period of the activity)."
-//           },
-//           "period": {
-//             "type": "object",
-//             "description": "the time-range that the activities is spanning.",
-//             "properties": {
-//               "startDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be published."
-//               },
-//               "endDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be unpublished."
-//               }
-//             },
-//             "required": [
-//               "startDate",
-//               "endDate"
-//             ]
-//           },
-//           "goals": {
-//             "type": "array",
-//             "description": "An array of permalinks to goals (either in the base curriculum, or one of the custom curricula).",
-//             "items": {
-//               "type": "object",
-//               "description": "a permalink to the goal",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           }
-//         },
-//         "required": [
-//           "key",
-//           "parent",
-//           "period"
-//         ]
-//       },
-//       "beforeUpdate": [
-//         null,
-//         null
-//       ],
-//       "beforeInsert": [
-//         null,
-//         null
-//       ],
-//       "afterRead": [
-//         null,
-//         null
-//       ],
-//       "query": {
-//         defaultFilter: function(x,y,z) {}
-//       },
-//       // POSSIBLE_FUTURE_QUERY
-//       "customQueryParams": {
-//         // THIS SHOULD ALWAYS WORK defaultFilter,
-//         _rootWithContextContains: {
-//           name: '_rootWithContextContains', // necessary if the key already contains that name, or do we make customQueryParams an array of object?
-//           // propertyName: undefined or property if this filter filters on a specific property
-//           // operatorName: '_INCLUDED_IN_ROOT'
-//           'aliases': [ 'rootWithConextContains' ],
-//           default: '*', // the filter value that is equivalent to not specifying the filter, if applicable
-//           expectedValueType: 'string[]', // kind of 'borrowed' from typescript
-//           // option 1: the handler to produce the SQL is per custom filter
-//           handler: function(normalizedName, value) return { where: ..., joins: ..., cte: ... }
-//           // BUT what to do with customFilters that produce other query when multiple filters are combined
-//         },
-//         // option 2: the handlet to produce the SQL gets all the custom filters as input
-//         // (which allows for optimizing combinations of fillters, and also allows implementing a default for a custom filter)
-//         handler: function(customFilters) {} //function([ { normalizedName, value }, ... ]) return { where: ..., joins: ..., cte: ... }
-//       },
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {},
-//         "parentPlan": {},
-//         "parentActivity": {},
-//         "title": {},
-//         "description": {},
-//         "period": {},
-//         "goals": {}
-//       },
-//       "customRoutes": [
-//         {
-//           "routePostfix": "/attachments",
-//           "httpMethods": [
-//             "POST"
-//           ],
-//           "readOnly": false,
-//           "busBoy": true
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:filename([^/]*.[A-Za-z0-9]{1,})",
-//           "httpMethods": [
-//             "GET"
-//           ],
-//           "readOnly": true,
-//           "binaryStream": true
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:attachmentKey",
-//           "readOnly": false,
-//           "httpMethods": [
-//             "DELETE"
-//           ]
-//         },
-//         {
-//           "routePostfix": "/:key/attachments/:attachmentKey",
-//           "httpMethods": [
-//             "GET"
-//           ],
-//           "readOnly": true
-//         }
-//       ]
-//     },
-//     {
-//       "type": "/llinkid/activityplanning/activityplans",
-//       "metaType": "ACTIVITY_PLAN",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "List of activity plans",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           },
-//           "title": {
-//             "type": "string",
-//             "description": "The additional name of this curriculum"
-//           },
-//           "creators": {
-//             "type": "array",
-//             "description": "List of creators for this activityplan",
-//             "minItems": 1,
-//             "items": {
-//               "type": "object",
-//               "description": "A permalink to the authoring [organisational unit | responsibility] of this plan",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "context": {
-//             "type": "object",
-//             "description": "mandatory reference to the schoolentity that this activityplan is valid for",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "issued": {
-//             "type": "object",
-//             "description": "the time-range that the activityplan is valid.",
-//             "properties": {
-//               "startDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be published."
-//               },
-//               "endDate": {
-//                 "type": "string",
-//                 "format": "date-time",
-//                 "description": "Date on which this item must be unpublished."
-//               }
-//             },
-//             "required": [
-//               "startDate",
-//               "endDate"
-//             ]
-//           },
-//           "curricula": {
-//             "type": "array",
-//             "description": "List of curricula for this activityplan",
-//             "minItems": 1,
-//             "items": {
-//               "type": "object",
-//               "description": "permalink to customcurricula or customcurriculagroup",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "activityplangroup": {
-//             "type": "object",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/llinkid/activityplanning/activityplangroups/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-//                 "description": "permalink to the activityplan group"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "class": {
-//             "type": "object",
-//             "properties": {
-//               "href": {
-//                 "type": "string",
-//                 "pattern": "^/sam/organisationalunits/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-//                 "description": "permalink to a class (OU in samenscholing of type CLASS)"
-//               }
-//             },
-//             "required": [
-//               "href"
-//             ]
-//           },
-//           "observers": {
-//             "type": "array",
-//             "description": "List of people/OUs who can view this activityplan",
-//             "items": {
-//               "type": "object",
-//               "description": "A permalink to the authoring [organisational unit | responsibility] of this plan",
-//               "properties": {
-//                 "href": {
-//                   "type": "string",
-//                   "pattern": "^/[a-zA-Z/]+/[-0-9a-f].*$"
-//                 }
-//               },
-//               "required": [
-//                 "href"
-//               ]
-//             }
-//           },
-//           "softDeleted": {
-//             "type": "string",
-//             "format": "date-time",
-//             "description": "a timestamp defining if/when the plan is soft-deleted"
-//           }
-//         },
-//         "required": [
-//           "key",
-//           "curricula",
-//           "creators",
-//           "issued",
-//           "class",
-//           "activityplangroup"
-//         ]
-//       },
-//       "query": {},
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {},
-//         "title": {},
-//         "context": {},
-//         "creators": {},
-//         "issued": {},
-//         "curricula": {},
-//         "activityplangroup": {
-//           "references": "/llinkid/activityplanning/activityplangroups"
-//         },
-//         "class": {},
-//         "observers": {},
-//         "softDeleted": {}
-//       }
-//     },
-//     {
-//       "type": "/llinkid/activityplanning/activityplangroups",
-//       "metaType": "ACTIVITY_PLAN_GROUP",
-//       "listResultDefaultIncludeCount": false,
-//       "schema": {
-//         "$schema": "http://json-schema.org/schema#",
-//         "title": "List of activity plan groups",
-//         "type": "object",
-//         "properties": {
-//           "key": {
-//             "type": "string",
-//             "description": "unique key of this activityplangroup",
-//             "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-//           }
-//         },
-//         "required": [
-//           "key"
-//         ]
-//       },
-//       "query": {},
-//       "maxlimit": 5000,
-//       "map": {
-//         "key": {}
-//       }
-//     }
-//   ]
-// };

@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import assert from "assert";
+import { assert } from "chai";
 import * as uuid from "uuid";
 import sinon from "sinon";
 import sleep from "await-sleep";
@@ -9,6 +9,7 @@ import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
 
 import FormData from "form-data";
+import { inspect } from "node:util";
 
 const nrPhasesInRequest = 7;
 const communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
@@ -1005,7 +1006,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
       });
 
       describe("afterRead methods", () => {
-        describe("should be executed on regular resources", () => {
+        describe("executed on regular resources", () => {
           it("should have a correct messagecount.", async () => {
             const response = await httpClient.get({
               path: "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
@@ -1019,25 +1020,25 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           });
         });
 
-        describe("should be executed on list resources", () => {
+        describe("executed on list resources", () => {
           it("should have a correct messagecount.", async () => {
             const response = await httpClient.get({
               path: "/communities?hrefs=/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849",
               auth: "kevin",
             });
-            debug("mocha", response.body);
+            debug("mocha", inspect(response.body));
             assert.equal(response.body.$$meta.count, 1);
             assert.equal(response.body.results[0].$$expanded.$$messagecount, 5);
           });
         });
 
-        describe("should be executed on lists with many resources", () => {
+        describe("executed on lists with many resources", () => {
           it("should have correct messagecounts on all items", async () => {
             const response = await httpClient.get({ path: "/communities?limit=4", auth: "kevin" });
             debug("mocha", "response body");
-            debug("mocha", response.body);
-            debug("mocha", response.body.results[2].$$expanded);
-            debug("mocha", response.body.results[3].$$expanded);
+            debug("mocha", inspect(response.body));
+            debug("mocha", inspect(response.body.results[2].$$expanded));
+            debug("mocha", inspect(response.body.results[3].$$expanded));
             if (response.body.results[0].$$expanded.$$messagecount === null) {
               assert.fail("should have $$messagecount");
             }
@@ -1053,7 +1054,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           });
         });
 
-        describe("Should be able to modify response headers", () => {
+        describe("that modify response headers", () => {
           it("should have a test header when reading a specific resource", async () => {
             const response = await httpClient.get({
               path: "/alldatatypes/3d3e6b7a-67e3-11e8-9298-e7ebb66610b3",

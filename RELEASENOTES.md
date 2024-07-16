@@ -13,11 +13,42 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 
+- Separate type TSriInternalConfig, so we could make TSriConfig more strict and thus easier
+  to understand. This also better reflects the differences between the two types.
+- Initial tests to check that sri4node does not get in trouble if a client breaks a connection
+  before the response has been sent.
+
 ### Changed
+
+- Stateful functions (like debug and error) are not exported from the library directly anymore
+  because they were only safe to use after configure had been called.
+  In order to allow hooks to use these functions, they are now passed to the hooks via the
+  sriInternalUtils argument.
+- We do not rewrite sriConfig anymore in the configure function, but we create a new object
+  with type TSriInternalConfig.
+- Removed the use of properties on the global Object to share state between functions.
+  This would make it hard to use muliple sri4node instances in the same process. While you might
+  not expect this to be used often, it can come in handy for writing tests using multiple
+  sri4node api's in parallel.
+  - global.sri4node_configuration
+  - global.sriinternalUtils
+  - global.sri4node_internal_interface
+  - global.overloadProtection
+- Everything that used to have type **ParsedUrlQuery** has type **URLSearchParams** now (TSriQueryFun.urlParameters, TSriBatchElement.match.queryParams, TSriRequest.query). This means that where you might have used to do `query.key` you now have to do `query.get('key')`!
+  For example, for afterRead handlers of type TAfterReadHook, sriRequest.query will now be a URLSearchParams object instead of a ParsedUrlQuery object.
+  Watch out: where you used to check for `!== undefined`, you need to replace it with `!== null`.
+- schema.sql and testdata.sql are moved from docker/postgres_initdb/sql to test/context/sql
+  and are being run during the startUp hook of the sri4node server instance, in order to make sure
+  nothing important is done by sri4node on the DB before this hook has run.
 
 ### Deprecated
 
 ### Removed
+
+- It was still possible to override transformRowToObject and transformObjectToRow in the sriConfig
+  object, but that will not work anymore.
+- Removed the use of properties on the global Object to share state between functions.
+- js/utilLib.ts file, put everything in js/common.ts
 
 ### Fixed
 

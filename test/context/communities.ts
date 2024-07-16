@@ -11,18 +11,18 @@ module.exports = function (sri4node: typeof Sri4Node) {
     throw new sri4node.SriError({ status: 404, errors: [{ code: "invalid.query.parameter" }] });
   }
 
-  function disallowOneCommunity(forbiddenKey) {
-    return async function (_tx, sriRequest, elements) {
+  function disallowOneCommunity(forbiddenKey): Sri4Node.TAfterReadHook {
+    return async function (_tx, sriRequest, elements, { debug, error }, _resourceDefinition) {
       if (sriRequest.httpMethod === "GET") {
         await pMap(
           elements,
           async (e: any) => {
             if (
               sriRequest.path === `/communities/${forbiddenKey}` ||
-              (sriRequest.query.expand !== undefined &&
+              (sriRequest.query.get("expand") !== null &&
                 e.permalink === `/communities/${forbiddenKey}`)
             ) {
-              sri4node.debug(
+              debug(
                 "mocha",
                 `security method disallowedOneCommunity for ${forbiddenKey} denies access`,
               );
@@ -64,9 +64,15 @@ module.exports = function (sri4node: typeof Sri4Node) {
     }
   }
 
-  async function addMessageCountToCommunities(tx, _sriRequest, elements) {
-    sri4node.debug("mocha", "addMessageCountToCommunities");
-    sri4node.debug("mocha", elements);
+  const addMessageCountToCommunities: Sri4Node.TAfterReadHook = async (
+    tx,
+    _sriRequest,
+    elements,
+    { debug, error },
+    _resourceDefinition,
+  ) => {
+    debug("mocha", "addMessageCountToCommunities");
+    debug("mocha", JSON.stringify(elements, null, 2));
 
     if (elements.length > 0) {
       // Lets do this efficiently. Remember that we receive an array of elements.
@@ -91,7 +97,7 @@ module.exports = function (sri4node: typeof Sri4Node) {
         (row) => (keyToElement[row.community].$$messagecount = parseInt(row.messagecount, 10)),
       );
     }
-  }
+  };
 
   const r: TResourceDefinition = {
     type: "/communities",
@@ -174,16 +180,16 @@ module.exports = function (sri4node: typeof Sri4Node) {
       {
         routePostfix: "/customroute_via_internal_interface",
         httpMethods: ["GET"],
-        handler: async (tx, sriRequest, _customMapping) => {
+        handler: async (tx, sriRequest, _customMapping, sriInternalUtils) => {
           const getRequest = {
             href: "/persons/de32ce31-af0c-4620-988e-1d0de282ee9d",
-            verb: "GET",
+            verb: "GET" as Sri4Node.THttpMethod,
             dbT: tx,
             parentSriRequest: sriRequest,
             body: "",
           };
 
-          return global.sri4node_internal_interface(getRequest);
+          return sriInternalUtils.internalSriRequest(getRequest);
         },
       },
     ],
