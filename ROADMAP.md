@@ -8,7 +8,6 @@
 - [#94](https://github.com/dimitrydhondt/sri4node/issues/94): Numeric column not included in insert or update when value is 0
 - [#48](https://github.com/dimitrydhondt/sri4node/issues/48): Release and close resources on error
 
-
 # Version 1.1.5
 
 - [#38](https://github.com/dimitrydhondt/sri4node/issues/38): Use the cache and security middleware in /batch operation
