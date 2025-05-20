@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.37 (20-05-2025)
+
+### Added
+
+- full url for "requests" logging.
+
 ## version 2.3.36 (25-04-2024)
 
 ### Fixed
