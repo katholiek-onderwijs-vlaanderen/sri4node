@@ -169,8 +169,8 @@ lint() {
 # preversion -> will run the tests and build the project
 # Do not use this script directly, use the release script instead
 preversion() {
-  if [ $(git symbolic-ref --short HEAD) != 'master' ]; then
-    echo '[version] Bumping the version should only be done on the master branch.' && exit 1
+  if [ $(git symbolic-ref --short HEAD) != 'main' ]; then
+    echo '[version] Bumping the version should only be done on the main branch.' && exit 1
   fi
 
   npm run test:bundles &&
@@ -181,8 +181,8 @@ preversion() {
 # version -> will check if the release notes are up to date and bump the version
 # Do not use this script directly, use the release script instead
 version() {
-  if [ $(git symbolic-ref --short HEAD) != 'master' ]; then
-    echo '[version] Bumping the version should only be done on the master branch.' && exit 1
+  if [ $(git symbolic-ref --short HEAD) != 'main' ]; then
+    echo '[version] Bumping the version should only be done on the main branch.' && exit 1
   fi
 
   NEW_VERSION=$(node -p 'require("./package.json").version')
@@ -200,8 +200,8 @@ version() {
 # postversion -> will push the changes and the tags
 # Do not use this script directly, use the release script instead
 postversion() {
-  if [ $(git symbolic-ref --short HEAD) != 'master' ]; then
-    echo '[version] Bumping the version should only be done on the master branch.' && exit 1
+  if [ $(git symbolic-ref --short HEAD) != 'main' ]; then
+    echo '[version] Bumping the version should only be done on the main branch.' && exit 1
   fi
 
   git push && git push --tags
