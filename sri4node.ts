@@ -322,13 +322,14 @@ const expressWrapper = (
     let resolveTx;
     let rejectTx;
     let readOnly;
-    const reqMsgStart = `${req.method} ${req.path}`;
+    const reqMsgStart = `${req.method} ${req.originalUrl}`;
     debug("requests", `${reqMsgStart} starting.`);
 
     const hrstart = process.hrtime();
     resp.on("finish", () => {
       const hrend = process.hrtime(hrstart);
-      debug("requests", `${reqMsgStart} took ${hrend[0] * 1000 + hrend[1] / 1000000} ms`);
+      const ms = hrend[0] * 1000 + hrend[1] / 1e6;
+      debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
     });
     debug("trace", "Starting express wrapper");
     let sriRequest;
