@@ -590,7 +590,7 @@ function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
         "------------------------------------------------------------------------------------------------------------------\n\n\n",
     );
     return {
-      channels: new Set(["general", "trace", "requests", "server-timing"]),
+      channels: new Set(["general", "uploads", "trace", "requests", "server-timing"]),
     };
   }
   if (logdebug === false) {
@@ -1580,6 +1580,7 @@ function generateSriRequest(
       const inStream = new stream.PassThrough({
         allowHalfOpen: false,
         emitClose: true,
+	highWaterMark: 64 << 20,
       });
       const outStream = new stream.PassThrough({
         allowHalfOpen: false,
@@ -1590,6 +1591,15 @@ function generateSriRequest(
       generatedSriRequest.setHeader = (k, v) => expressResponse.set(k, v);
       generatedSriRequest.setStatus = (s) => expressResponse.status(s);
       generatedSriRequest.streamStarted = () => expressResponse.headersSent;
+     
+      inStream.on("pause",  () => debug("uploads", `[pause]  buffer full – ${expressRequest.originalUrl}`));
+      inStream.on("resume", () => debug("uploads", `[resume] flow resumes – ${expressRequest.originalUrl}`));
+      inStream.on("error",  (err) => error("uploads", `[error]  ${expressRequest.originalUrl}: ${err}`));
+	    
+      expressRequest.once("aborted", () => { 
+        debug("uploads", `[abort]  client dropped – ${expressRequest.originalUrl}`);
+        inStream.destroy(new Error("client aborted"));
+      });    
     }
     return generatedSriRequest;
   }
