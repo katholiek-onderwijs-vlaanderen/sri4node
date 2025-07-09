@@ -1,0 +1,220 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.prepareSQL = void 0;
+const common_1 = require("./common");
+/*
+A query object used to allow multiple functions to annotate a common piece for SQL
+independently from each other. For example : all 'query' functions in an sri4node
+configuration can add pieces to the WHERE clause of a list resource.
+They can all add CTEs as well, without affecting one another.
+*/
+const parameterPattern = "$?$?";
+function prepareSQL(name) {
+    return {
+        name,
+        text: "",
+        params: [],
+        param(x, noQuotes = false) {
+            // Convenience function for adding a parameter to the text, it
+            // automatically adds $x to the SQL text, and adds the supplied value
+            // to the 'value'-array.
+            this.params.push(x);
+            this.text += parameterPattern;
+            if (noQuotes) {
+                this.text += ":value";
+            }
+            return this;
+        },
+        sql(x) {
+            // Convenience function for adding a parameter to the SQL statement.
+            this.text += x;
+            return this;
+        },
+        array(x) {
+            // Convenience function for adding an array of values to a SQL statement.
+            // The values are added comma-separated.
+            if (Array.isArray(x)) {
+                for (let i = 0; i < x.length; i++) {
+                    this.param(x[i]);
+                    if (i < x.length - 1) {
+                        this.text += ",";
+                    }
+                }
+            }
+            return this;
+        },
+        /**
+         * Adds an array of tuples to the SQL statement.
+         * @example
+         * ```
+         * prepareSQL()
+         *  .sql('select name from mytable where (name, code) in('))
+         *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+         *  .sql(')');
+         *
+         * prepareSQL()
+         *  .sql('select name from mytable where exists name, code in('))
+         *  .arrayOfTuples([['a', 1], ['b', 2], ['c', 3]])
+         *  .sql(')');
+         * ```
+         */
+        arrayOfTuples(tuples, cast) {
+            tuples.forEach((tuple, i) => {
+                this.text += "(";
+                tuple.forEach((el, j) => {
+                    this.param(el);
+                    if (i === 0 && cast && cast[j]) {
+                        this.text += `::${cast[j]}`;
+                    }
+                    if (j < tuple.length - 1) {
+                        this.text += ",";
+                    }
+                });
+                this.text += ")";
+                if (i < tuples.length - 1) {
+                    this.text += ",";
+                }
+            });
+            return this;
+        },
+        valueIn(valueRef, values, cast) {
+            this.text += ` EXISTS (SELECT 1 FROM (VALUES `;
+            this.arrayOfTuples(values.map((v) => [v]), [cast]);
+            this.text += `) AS t(v) WHERE t.v = ${valueRef})`;
+            return this;
+        },
+        /**
+         * @todo IMPLEMENT
+         *
+         * @param tupleRef
+         * @param values
+         * @returns
+         */
+        tupleIn(tupleRef, values, cast) {
+            throw new Error("Not implemented");
+            return this;
+        },
+        keys(o) {
+            // Convenience function for adding all keys in an object (comma-separated)
+            const columnNames = [];
+            let key;
+            let j;
+            for (key in o) {
+                if (Object.prototype.hasOwnProperty.call(o, key)) {
+                    columnNames.push(key);
+                }
+            }
+            let sqlColumnNames = "";
+            for (j = 0; j < columnNames.length; j++) {
+                sqlColumnNames += `"${columnNames[j]}"`;
+                if (j < columnNames.length - 1) {
+                    sqlColumnNames += ",";
+                }
+            }
+            this.text += sqlColumnNames;
+            return this;
+        },
+        values(o) {
+            // Convenience function for adding all values of an object as parameters.
+            // Same iteration order as 'columns'.
+            let key;
+            let firstcolumn = true;
+            for (key in o) {
+                if (Object.prototype.hasOwnProperty.call(o, key)) {
+                    if (!firstcolumn) {
+                        this.text += ",";
+                    }
+                    else {
+                        firstcolumn = false;
+                    }
+                    this.param(o[key]);
+                }
+            }
+            return this;
+        },
+        with(nonrecursivequery, unionclause, recursivequery, virtualtablename) {
+            // Form : select.with(nonrecursiveterm,virtualtablename)
+            let tablename;
+            let cte;
+            let countParamsInCurrentCtes = 0;
+            if (nonrecursivequery && unionclause && !recursivequery && !virtualtablename) {
+                tablename = unionclause;
+                if (this.text.indexOf("WITH RECURSIVE") === -1) {
+                    this.text = `WITH RECURSIVE ${tablename} AS (${nonrecursivequery.text}) /*LASTCTE*/ ${this.text}`;
+                }
+                else {
+                    cte = `, ${tablename} AS (${nonrecursivequery.text}) /*LASTCTE*/ `;
+                    // Do not use text.replace() as this function special uses replacement patterns which can
+                    // interfere with our $$meta fields.
+                    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
+                    const textSplitted = this.text.split("/*LASTCTE*/");
+                    countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
+                    this.text = textSplitted.join(cte);
+                }
+                this.params.splice(countParamsInCurrentCtes, 0, ...nonrecursivequery.params);
+            }
+            // Format : select.with(nonrecursiveterm, 'UNION' or 'UNION ALL', recursiveterm, virtualtablename)
+            else if (nonrecursivequery && unionclause && nonrecursivequery && virtualtablename) {
+                unionclause = unionclause.toLowerCase().trim();
+                if (unionclause === "union" || unionclause === "union all") {
+                    if (this.text.indexOf("WITH RECURSIVE") === -1) {
+                        this.text = `WITH RECURSIVE ${virtualtablename} AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ ${this.text}`;
+                    }
+                    else {
+                        cte = `, ${virtualtablename} AS (${nonrecursivequery.text} ${unionclause} ${recursivequery.text}) /*LASTCTE*/ `;
+                        // Do not use text.replace() as this function special uses replacement patterns which
+                        // can interfere with our $$meta fields.
+                        // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
+                        const textSplitted = this.text.split("/*LASTCTE*/");
+                        countParamsInCurrentCtes = (textSplitted[0].match(/\$\?\$\?/g) || []).length;
+                        this.text = textSplitted.join(cte);
+                    }
+                    this.params.splice(countParamsInCurrentCtes, 0, ...nonrecursivequery.params.concat(recursivequery.params));
+                }
+                else {
+                    throw new Error("Must use UNION or UNION ALL as union-clause");
+                }
+                tablename = virtualtablename;
+            }
+            else {
+                throw new Error("Parameter combination not supported...");
+            }
+            return this;
+        },
+        toParameterizedSql() {
+            let { text } = this;
+            const values = this.params;
+            let paramCount = 1;
+            if (values && values.length > 0) {
+                for (let i = 0; i < values.length; i++) {
+                    const index = text.indexOf(parameterPattern);
+                    if (index === -1) {
+                        const msg = "Parameter count in query does not add up. Too few parameters in the query string";
+                        (0, common_1.error)(`** ${msg}`);
+                        throw new Error(msg);
+                    }
+                    else {
+                        const prefix = text.substring(0, index);
+                        const postfix = text.substring(index + parameterPattern.length, text.length);
+                        text = `${prefix}$${paramCount}${postfix}`;
+                        paramCount += 1;
+                    }
+                }
+                const index = text.indexOf(parameterPattern);
+                if (index !== -1) {
+                    const msg = "Parameter count in query does not add up. Extra parameters in the query string.";
+                    (0, common_1.error)(`** ${msg}`);
+                    throw new Error(msg);
+                }
+            }
+            return { sql: text, values };
+        },
+        appendQueryObject(queryObject2) {
+            this.text += queryObject2.text;
+            this.params.push(...queryObject2.params);
+            return this;
+        },
+    };
+}
+exports.prepareSQL = prepareSQL;
+//# sourceMappingURL=queryObject.js.map
