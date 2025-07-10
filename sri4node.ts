@@ -1234,6 +1234,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                         ...cr.busBoyConfig,
                         headers: sriRequest.headers,
                       });
+
+                       sriRequest.inStream.pipe(sriRequest.busBoy);
                     } catch (err) {
                       throw new SriError({
                         status: 400,
@@ -1323,7 +1325,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                   // beforeStreamingHandler or streamingHandler) before piping request
                   // to busBoy (otherwise events might get lost).
                   if (cr.busBoy && sriRequest.busBoy) {
-                    sriRequest.inStream.pipe(sriRequest.busBoy);
+                    //sriRequest.inStream.pipe(sriRequest.busBoy);
                   }
 
                   try {
