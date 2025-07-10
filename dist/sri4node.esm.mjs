@@ -69,6 +69,7 @@ import compression from "compression";
 import bodyParser from "body-parser";
 import Route from "route-parser";
 import pMap8 from "p-map";
+import busboy from "busboy";
 import EventEmitter3 from "events";
 import pEvent4 from "p-event";
 import httpContext3 from "express-http-context";
@@ -5263,6 +5264,24 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                         ]
                       });
                     }
+                    if (cr.busBoy) {
+                      try {
+                        sriRequest.busBoy = busboy(__spreadProps(__spreadValues({}, cr.busBoyConfig), {
+                          headers: sriRequest.headers
+                        }));
+                        sriRequest.inStream.pipe(sriRequest.busBoy);
+                      } catch (err) {
+                        throw new SriError({
+                          status: 400,
+                          errors: [
+                            {
+                              code: "error.initialising.busboy",
+                              msg: `Error during initialisation of busboy: ${err}`
+                            }
+                          ]
+                        });
+                      }
+                    }
                     if (cr.beforeStreamingHandler !== void 0) {
                       try {
                         const result = yield cr.beforeStreamingHandler(
@@ -5318,6 +5337,9 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                       stream2,
                       global.sriInternalUtils
                     );
+                    if (cr.busBoy && sriRequest.busBoy) {
+                      sriRequest.inStream.pipe(sriRequest.busBoy);
+                    }
                     try {
                       yield streamingHandlerPromise;
                     } finally {

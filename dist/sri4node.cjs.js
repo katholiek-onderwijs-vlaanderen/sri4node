@@ -107,6 +107,7 @@ var import_compression = __toESM(require("compression"));
 var import_body_parser = __toESM(require("body-parser"));
 var import_route_parser = __toESM(require("route-parser"));
 var import_p_map8 = __toESM(require("p-map"));
+var import_busboy = __toESM(require("busboy"));
 var import_events4 = __toESM(require("events"));
 var import_p_event4 = __toESM(require("p-event"));
 var import_express_http_context3 = __toESM(require("express-http-context"));
@@ -5301,6 +5302,24 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                         ]
                       });
                     }
+                    if (cr.busBoy) {
+                      try {
+                        sriRequest.busBoy = (0, import_busboy.default)(__spreadProps(__spreadValues({}, cr.busBoyConfig), {
+                          headers: sriRequest.headers
+                        }));
+                        sriRequest.inStream.pipe(sriRequest.busBoy);
+                      } catch (err) {
+                        throw new SriError({
+                          status: 400,
+                          errors: [
+                            {
+                              code: "error.initialising.busboy",
+                              msg: `Error during initialisation of busboy: ${err}`
+                            }
+                          ]
+                        });
+                      }
+                    }
                     if (cr.beforeStreamingHandler !== void 0) {
                       try {
                         const result = yield cr.beforeStreamingHandler(
@@ -5356,6 +5375,9 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                       stream2,
                       global.sriInternalUtils
                     );
+                    if (cr.busBoy && sriRequest.busBoy) {
+                      sriRequest.inStream.pipe(sriRequest.busBoy);
+                    }
                     try {
                       yield streamingHandlerPromise;
                     } finally {
