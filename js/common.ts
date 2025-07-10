@@ -1580,7 +1580,6 @@ function generateSriRequest(
       const inStream = new stream.PassThrough({
         allowHalfOpen: false,
         emitClose: true,
-        highWaterMark: 64 << 20,
       });
       const outStream = new stream.PassThrough({
         allowHalfOpen: false,
