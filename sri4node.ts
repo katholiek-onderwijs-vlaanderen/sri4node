@@ -1228,26 +1228,26 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                       ],
                     });
                   }
-                  if (cr.busBoy) {
-                    try {
-                      sriRequest.busBoy = busboy({
-                        ...cr.busBoyConfig,
-                        headers: sriRequest.headers,
-                      });
+                  // if (cr.busBoy) {
+                  //   try {
+                  //     sriRequest.busBoy = busboy({
+                  //       ...cr.busBoyConfig,
+                  //       headers: sriRequest.headers,
+                  //     });
 
-                       sriRequest.inStream.pipe(sriRequest.busBoy);
-                    } catch (err) {
-                      throw new SriError({
-                        status: 400,
-                        errors: [
-                          {
-                            code: "error.initialising.busboy",
-                            msg: `Error during initialisation of busboy: ${err}`,
-                          },
-                        ],
-                      });
-                    }
-                  }
+                  //     // sriRequest.inStream.pipe(sriRequest.busBoy);
+                  //   } catch (err) {
+                  //     throw new SriError({
+                  //       status: 400,
+                  //       errors: [
+                  //         {
+                  //           code: "error.initialising.busboy",
+                  //           msg: `Error during initialisation of busboy: ${err}`,
+                  //         },
+                  //       ],
+                  //     });
+                  //   }
+                  // }
 
                   if (cr.beforeStreamingHandler !== undefined) {
                     try {
@@ -1324,9 +1324,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                   // Wait till busboy handler are in place (can be done in
                   // beforeStreamingHandler or streamingHandler) before piping request
                   // to busBoy (otherwise events might get lost).
-                  if (cr.busBoy && sriRequest.busBoy) {
-                    //sriRequest.inStream.pipe(sriRequest.busBoy);
-                  }
+                  // if (cr.busBoy && sriRequest.busBoy) {
+                  //   //sriRequest.inStream.pipe(sriRequest.busBoy);
+                  // }
 
                   try {
                     await streamingHandlerPromise;
