@@ -5269,6 +5269,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                         sriRequest.busBoy = busboy(__spreadProps(__spreadValues({}, cr.busBoyConfig), {
                           headers: sriRequest.headers
                         }));
+                        sriRequest.inStream.pipe(sriRequest.busBoy);
                       } catch (err) {
                         throw new SriError({
                           status: 400,
@@ -5337,7 +5338,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                       global.sriInternalUtils
                     );
                     if (cr.busBoy && sriRequest.busBoy) {
-                      sriRequest.inStream.pipe(sriRequest.busBoy);
                     }
                     try {
                       yield streamingHandlerPromise;
