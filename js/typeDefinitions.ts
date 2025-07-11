@@ -296,6 +296,8 @@ export type TSriRequest = {
 
   userData: Record<string, any>;
   userObject?: any; // can be used to store information of the user
+
+  _rawReq?: any; // the original express request, if available
 };
 
 export type TInternalSriRequest = {

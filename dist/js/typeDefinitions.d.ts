@@ -213,6 +213,7 @@ export type TSriRequest = {
     multiDeleteError?: any;
     userData: Record<string, any>;
     userObject?: any;
+    _rawReq?: any;
 };
 export type TInternalSriRequest = {
     protocol: "_internal_";

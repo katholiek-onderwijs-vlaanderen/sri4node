@@ -1162,6 +1162,7 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
       isBatchPart: false,
       isBatchRequest: basicConfig == null ? void 0 : basicConfig.isBatchRequest,
       readOnly: basicConfig == null ? void 0 : basicConfig.readOnly,
+      _rawReq: expressRequest,
       // the batch code will set sriType for batch elements
       sriType: !(basicConfig == null ? void 0 : basicConfig.isBatchRequest) ? (_a = basicConfig == null ? void 0 : basicConfig.mapping) == null ? void 0 : _a.type : void 0
     });
