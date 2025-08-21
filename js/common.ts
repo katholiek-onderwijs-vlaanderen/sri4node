@@ -894,12 +894,12 @@ async function pgInit(
     connect:
       extraOptions.connectionInitSql === undefined
         ? pgpInitOptions.connect
-        : (client, dc, useCount) => {
+        : ({ client, dc, useCount }) => {
             if (useCount === 0) {
               client.query(extraOptions.connectionInitSql);
             }
             if (pgpInitOptions.connect) {
-              pgpInitOptions.connect(client, dc, useCount);
+              pgpInitOptions.connect({ client, dc, useCount });
             }
           },
   };
