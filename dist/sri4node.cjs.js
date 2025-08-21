@@ -748,12 +748,12 @@ function pgInit() {
     const pgpInitOptionsUpdated = __spreadProps(__spreadValues({
       schema: extraOptions.schema
     }, pgpInitOptions), {
-      connect: extraOptions.connectionInitSql === void 0 ? pgpInitOptions.connect : (client, dc, useCount) => {
+      connect: extraOptions.connectionInitSql === void 0 ? pgpInitOptions.connect : ({ client, dc, useCount }) => {
         if (useCount === 0) {
           client.query(extraOptions.connectionInitSql);
         }
         if (pgpInitOptions.connect) {
-          pgpInitOptions.connect(client, dc, useCount);
+          pgpInitOptions.connect({ client, dc, useCount });
         }
       }
     });
