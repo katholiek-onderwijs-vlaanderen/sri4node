@@ -79,7 +79,7 @@ import shortid from "shortid";
 import pgPromise from "pg-promise";
 import monitor from "pg-monitor";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream";
+import stream, { Readable } from "stream";
 import _ from "lodash";
 
 // js/schemaUtils.ts
@@ -326,7 +326,6 @@ import url2 from "url";
 import EventEmitter from "events";
 import pEvent from "p-event";
 import path from "path";
-import stream from "stream";
 import peggy2 from "peggy";
 import httpContext from "express-http-context";
 
@@ -886,38 +885,27 @@ function startTransaction(_0) {
 function startTask(db) {
   return __async(this, null, function* () {
     debug("db", "++ Starting database task.");
-    const emitter = new EventEmitter();
-    const taskWrapper = (emitter2) => __async(this, null, function* () {
-      try {
-        yield db.task((t) => __async(this, null, function* () {
-          emitter2.emit("tEvent", t);
-          yield pEvent(emitter2, "terminate");
-        }));
-        emitter2.emit("tDone");
-      } catch (err) {
-        emitter2.emit("tDone", err);
-      }
-    });
+    let taskResolve;
     try {
-      const t = yield new Promise((resolve, reject) => {
-        emitter.on("tEvent", (t2) => {
-          resolve(t2);
-        });
-        emitter.on("tDone", (err) => {
-          reject(err);
-        });
-        taskWrapper(emitter);
-      });
-      debug("db", "Got db t object.");
-      const endTask = () => __async(this, null, function* () {
-        emitter.emit("terminate");
-        const res = yield pEvent(emitter, "tDone");
-        debug("db", "db task done.");
-        if (res !== void 0) {
-          throw res;
+      const taskPromise = new Promise(
+        (resolve, reject) => {
+          db.task((t) => __async(this, null, function* () {
+            debug("db", "Got db t object.");
+            const endTask = () => __async(this, null, function* () {
+              debug("db", "++ Terminating database task.");
+              if (taskResolve) {
+                taskResolve();
+              }
+            });
+            resolve({ t, endTask });
+            yield new Promise((resolveTask) => {
+              taskResolve = resolveTask;
+            });
+            debug("db", "db task done.");
+          })).catch(reject);
         }
-      });
-      return { t, endTask };
+      );
+      return yield taskPromise;
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err));
