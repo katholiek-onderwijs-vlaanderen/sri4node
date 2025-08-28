@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.38 (28-08-2025)
+
+### Changed
+
+- updated pg-promise and compression libraries.
+
 ## version 2.3.37 (20-05-2025)
 
 ### Added
