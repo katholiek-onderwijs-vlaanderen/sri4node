@@ -117,7 +117,7 @@ var import_shortid = __toESM(require("shortid"));
 var import_pg_promise = __toESM(require("pg-promise"));
 var import_pg_monitor = __toESM(require("pg-monitor"));
 var import_uuid = require("uuid");
-var import_stream = require("stream");
+var import_stream = __toESM(require("stream"));
 var import_lodash = __toESM(require("lodash"));
 
 // js/schemaUtils.ts
@@ -364,7 +364,6 @@ var import_url = __toESM(require("url"));
 var import_events = __toESM(require("events"));
 var import_p_event = __toESM(require("p-event"));
 var import_path = __toESM(require("path"));
-var import_stream2 = __toESM(require("stream"));
 var import_peggy2 = __toESM(require("peggy"));
 var import_express_http_context = __toESM(require("express-http-context"));
 
@@ -924,35 +923,28 @@ function startTransaction(_0) {
 function startTask(db) {
   return __async(this, null, function* () {
     debug("db", "++ Starting database task.");
-    const emitter = new import_events.default();
-    const taskWrapper = (emitter2) => __async(this, null, function* () {
-      try {
-        yield db.task((t) => __async(this, null, function* () {
-          emitter2.emit("tEvent", t);
-          yield (0, import_p_event.default)(emitter2, "terminate");
-        }));
-        emitter2.emit("tDone");
-      } catch (err) {
-        emitter2.emit("tDone", err);
-      }
-    });
+    let endTaskCallback;
+    let taskComplete = false;
     try {
-      const t = yield new Promise((resolve, reject) => {
-        emitter.on("tEvent", (t2) => {
+      const taskPromise = new Promise((resolve, reject) => {
+        db.task((t2) => __async(this, null, function* () {
+          debug("db", "Got db t object.");
           resolve(t2);
-        });
-        emitter.on("tDone", (err) => {
-          reject(err);
-        });
-        taskWrapper(emitter);
+          yield new Promise((resolveTask) => {
+            endTaskCallback = resolveTask;
+          });
+          taskComplete = true;
+          debug("db", "db task done.");
+        })).catch(reject);
       });
-      debug("db", "Got db t object.");
+      const t = yield taskPromise;
       const endTask = () => __async(this, null, function* () {
-        emitter.emit("terminate");
-        const res = yield (0, import_p_event.default)(emitter, "tDone");
-        debug("db", "db task done.");
-        if (res !== void 0) {
-          throw res;
+        debug("db", "++ Terminating database task.");
+        if (endTaskCallback) {
+          endTaskCallback();
+          while (!taskComplete) {
+            yield new Promise((resolve) => setTimeout(resolve, 1));
+          }
         }
       });
       return { t, endTask };
@@ -1132,8 +1124,8 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     headers: {},
     body: void 0,
     dbT: (basicConfig == null ? void 0 : basicConfig.dbT) || (internalSriRequest == null ? void 0 : internalSriRequest.dbT) || (parentSriRequest == null ? void 0 : parentSriRequest.dbT),
-    inStream: new import_stream2.default.Readable(),
-    outStream: new import_stream2.default.Writable(),
+    inStream: new import_stream.default.Readable(),
+    outStream: new import_stream.default.Writable(),
     setHeader: void 0,
     setStatus: void 0,
     streamStarted: void 0,
@@ -1209,11 +1201,11 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
           "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
         );
       }
-      const inStream = new import_stream2.default.PassThrough({
+      const inStream = new import_stream.default.PassThrough({
         allowHalfOpen: false,
         emitClose: true
       });
-      const outStream = new import_stream2.default.PassThrough({
+      const outStream = new import_stream.default.PassThrough({
         allowHalfOpen: false,
         emitClose: true
       });

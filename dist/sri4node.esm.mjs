@@ -79,7 +79,7 @@ import shortid from "shortid";
 import pgPromise from "pg-promise";
 import monitor from "pg-monitor";
 import { v4 as uuidv4 } from "uuid";
-import { Readable } from "stream";
+import stream, { Readable } from "stream";
 import _ from "lodash";
 
 // js/schemaUtils.ts
@@ -326,7 +326,6 @@ import url2 from "url";
 import EventEmitter from "events";
 import pEvent from "p-event";
 import path from "path";
-import stream from "stream";
 import peggy2 from "peggy";
 import httpContext from "express-http-context";
 
@@ -886,35 +885,28 @@ function startTransaction(_0) {
 function startTask(db) {
   return __async(this, null, function* () {
     debug("db", "++ Starting database task.");
-    const emitter = new EventEmitter();
-    const taskWrapper = (emitter2) => __async(this, null, function* () {
-      try {
-        yield db.task((t) => __async(this, null, function* () {
-          emitter2.emit("tEvent", t);
-          yield pEvent(emitter2, "terminate");
-        }));
-        emitter2.emit("tDone");
-      } catch (err) {
-        emitter2.emit("tDone", err);
-      }
-    });
+    let endTaskCallback;
+    let taskComplete = false;
     try {
-      const t = yield new Promise((resolve, reject) => {
-        emitter.on("tEvent", (t2) => {
+      const taskPromise = new Promise((resolve, reject) => {
+        db.task((t2) => __async(this, null, function* () {
+          debug("db", "Got db t object.");
           resolve(t2);
-        });
-        emitter.on("tDone", (err) => {
-          reject(err);
-        });
-        taskWrapper(emitter);
+          yield new Promise((resolveTask) => {
+            endTaskCallback = resolveTask;
+          });
+          taskComplete = true;
+          debug("db", "db task done.");
+        })).catch(reject);
       });
-      debug("db", "Got db t object.");
+      const t = yield taskPromise;
       const endTask = () => __async(this, null, function* () {
-        emitter.emit("terminate");
-        const res = yield pEvent(emitter, "tDone");
-        debug("db", "db task done.");
-        if (res !== void 0) {
-          throw res;
+        debug("db", "++ Terminating database task.");
+        if (endTaskCallback) {
+          endTaskCallback();
+          while (!taskComplete) {
+            yield new Promise((resolve) => setTimeout(resolve, 1));
+          }
         }
       });
       return { t, endTask };

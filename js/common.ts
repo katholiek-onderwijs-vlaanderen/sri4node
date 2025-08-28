@@ -1,13 +1,11 @@
 /* Internal utilities for sri4node */
 import { URL } from "url";
-import Express from "express";
-import { IInitOptions } from "pg-promise";
-import pgPromise from "pg-promise";
+import Express, { Application, Request, Response } from "express";
+import pgPromise, { IInitOptions } from "pg-promise";
 import monitor from "pg-monitor";
-import { Application, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 
-import { Readable } from "stream";
+import stream, { Readable } from "stream";
 // import { DEFAULT_MAX_VERSION } from 'tls';
 // import { generateFlatQueryStringParserGrammar } from './url_parsing/flat_url_parser';
 
@@ -34,7 +32,6 @@ import url from "url";
 import EventEmitter from "events";
 import pEvent from "p-event";
 import path from "path";
-import stream from "stream";
 import peggy from "peggy";
 import httpContext from "express-http-context";
 import * as emt from "./express-middleware-timer";
@@ -85,9 +82,9 @@ const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
 const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId: string = httpContext.get("reqId");
-    const msg = `${new Date().toISOString()} ${
-      reqId ? `[reqId:${reqId}]` : ""
-    }[${channel}] ${typeof output === "function" ? output() : output}`;
+    const msg = `${new Date().toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${
+      typeof output === "function" ? output() : output
+    }`;
     if (reqId !== undefined) {
       if (global.sri4node_configuration.logdebug.statuses !== undefined) {
         if (!logBuffer[reqId]) {
@@ -1165,41 +1162,36 @@ async function startTransaction(
 async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
   debug("db", "++ Starting database task.");
 
-  const emitter = new EventEmitter();
-
-  const taskWrapper = async (emitter) => {
-    // This wrapper run async without being awaited. This has some consequences:
-    //   * errors are not passed the usual way, but via the 'tDone' event
-    //   * debug() does not log the correct reqId
-    try {
-      await db.task(async (t) => {
-        emitter.emit("tEvent", t);
-        await pEvent(emitter, "terminate");
-      });
-      emitter.emit("tDone");
-    } catch (err) {
-      emitter.emit("tDone", err);
-    }
-  };
+  let endTaskCallback: (() => void) | undefined;
+  let taskComplete = false;
 
   try {
-    const t = await new Promise((resolve, reject) => {
-      emitter.on("tEvent", (t) => {
+    // Create a simple promise that we can control
+    const taskPromise = new Promise<pgPromise.ITask<unknown>>((resolve, reject) => {
+      db.task(async (t) => {
+        debug("db", "Got db t object.");
         resolve(t);
-      });
-      emitter.on("tDone", (err) => {
-        reject(err);
-      });
-      taskWrapper(emitter);
+
+        // Wait until endTask is called
+        await new Promise<void>((resolveTask) => {
+          endTaskCallback = resolveTask;
+        });
+
+        taskComplete = true;
+        debug("db", "db task done.");
+      }).catch(reject);
     });
-    debug("db", "Got db t object.");
+
+    const t = await taskPromise;
 
     const endTask = async () => {
-      emitter.emit("terminate");
-      const res = await pEvent(emitter, "tDone");
-      debug("db", "db task done.");
-      if (res !== undefined) {
-        throw res;
+      debug("db", "++ Terminating database task.");
+      if (endTaskCallback) {
+        endTaskCallback();
+        // Wait a bit for the task to complete
+        while (!taskComplete) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
       }
     };
 
@@ -1207,6 +1199,7 @@ async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
   } catch (err) {
     error("CAUGHT ERROR: ");
     error(JSON.stringify(err));
+
     throw new SriError({
       status: 503,
       errors: [
