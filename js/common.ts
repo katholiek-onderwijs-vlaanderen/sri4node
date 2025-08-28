@@ -1162,40 +1162,34 @@ async function startTransaction(
 async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
   debug("db", "++ Starting database task.");
 
-  let endTaskCallback: (() => void) | undefined;
-  let taskComplete = false;
+  let taskResolve: (() => void) | undefined;
 
   try {
-    // Create a simple promise that we can control
-    const taskPromise = new Promise<pgPromise.ITask<unknown>>((resolve, reject) => {
-      db.task(async (t) => {
-        debug("db", "Got db t object.");
-        resolve(t);
+    const taskPromise = new Promise<{ t: pgPromise.ITask<unknown>; endTask: () => Promise<void> }>(
+      (resolve, reject) => {
+        db.task(async (t) => {
+          debug("db", "Got db t object.");
 
-        // Wait until endTask is called
-        await new Promise<void>((resolveTask) => {
-          endTaskCallback = resolveTask;
-        });
+          const endTask = async () => {
+            debug("db", "++ Terminating database task.");
+            if (taskResolve) {
+              taskResolve();
+            }
+          };
 
-        taskComplete = true;
-        debug("db", "db task done.");
-      }).catch(reject);
-    });
+          resolve({ t, endTask });
 
-    const t = await taskPromise;
+          // Wait until endTask is called
+          await new Promise<void>((resolveTask) => {
+            taskResolve = resolveTask;
+          });
 
-    const endTask = async () => {
-      debug("db", "++ Terminating database task.");
-      if (endTaskCallback) {
-        endTaskCallback();
-        // Wait a bit for the task to complete
-        while (!taskComplete) {
-          await new Promise((resolve) => setTimeout(resolve, 1));
-        }
-      }
-    };
+          debug("db", "db task done.");
+        }).catch(reject);
+      },
+    );
 
-    return { t, endTask };
+    return await taskPromise;
   } catch (err) {
     error("CAUGHT ERROR: ");
     error(JSON.stringify(err));

@@ -923,31 +923,27 @@ function startTransaction(_0) {
 function startTask(db) {
   return __async(this, null, function* () {
     debug("db", "++ Starting database task.");
-    let endTaskCallback;
-    let taskComplete = false;
+    let taskResolve;
     try {
-      const taskPromise = new Promise((resolve, reject) => {
-        db.task((t2) => __async(this, null, function* () {
-          debug("db", "Got db t object.");
-          resolve(t2);
-          yield new Promise((resolveTask) => {
-            endTaskCallback = resolveTask;
-          });
-          taskComplete = true;
-          debug("db", "db task done.");
-        })).catch(reject);
-      });
-      const t = yield taskPromise;
-      const endTask = () => __async(this, null, function* () {
-        debug("db", "++ Terminating database task.");
-        if (endTaskCallback) {
-          endTaskCallback();
-          while (!taskComplete) {
-            yield new Promise((resolve) => setTimeout(resolve, 1));
-          }
+      const taskPromise = new Promise(
+        (resolve, reject) => {
+          db.task((t) => __async(this, null, function* () {
+            debug("db", "Got db t object.");
+            const endTask = () => __async(this, null, function* () {
+              debug("db", "++ Terminating database task.");
+              if (taskResolve) {
+                taskResolve();
+              }
+            });
+            resolve({ t, endTask });
+            yield new Promise((resolveTask) => {
+              taskResolve = resolveTask;
+            });
+            debug("db", "db task done.");
+          })).catch(reject);
         }
-      });
-      return { t, endTask };
+      );
+      return yield taskPromise;
     } catch (err) {
       error("CAUGHT ERROR: ");
       error(JSON.stringify(err));
