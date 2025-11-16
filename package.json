@@ -39,9 +39,9 @@
     "@kathondvla/sri-client": "https://github.com/katholiek-onderwijs-vlaanderen/sri-client.git#sprint-220-0",
     "await-sleep": "0.0.1",
     "describe": "^1.2.0",
-    "eslint": "7.2.0",
+    "eslint": "9.39.1",
     "express": "4.17.1",
-    "mocha": "~8.0.1",
+    "mocha": "~11.7.5",
     "nodemon": "2.0.4",
     "pg-monitor": "^1.4.0",
     "stream-equal": "2.0.0"
