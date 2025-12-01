@@ -94,6 +94,10 @@ import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
 
+// Initialize console proxy to add timestamps to all console output
+import { initializeConsoleProxy } from "./js/consoleProxy";
+initializeConsoleProxy();
+
 const ajv = new Ajv({
   // 2023-10: do not enable strict yet as it might break existing api's
   // (for example: an object with 'properties' & 'required', but missing type: 'object'
