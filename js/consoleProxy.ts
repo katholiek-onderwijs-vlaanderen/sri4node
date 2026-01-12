@@ -12,11 +12,17 @@ const originalConsole = {
   debug: console.debug.bind(console),
 };
 
+let isConsoleProxied = false;
+
 function getTimestamp(): string {
   return new Date().toISOString();
 }
 
 function initializeConsoleProxy(): void {
+  if (isConsoleProxied) {
+    return;
+  }
+  isConsoleProxied = true;
   console.log = function (...args: any[]) {
     originalConsole.log(getTimestamp(), ...args);
   };
