@@ -471,7 +471,7 @@ var isLogChannelEnabled = (channel) => {
 var debugAnyChannelAllowed = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId = import_express_http_context.default.get("reqId");
-    const msg = `${(/* @__PURE__ */ new Date()).toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
+    const msg = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
     if (reqId !== void 0) {
       if (global.sri4node_configuration.logdebug.statuses !== void 0) {
         if (!logBuffer[reqId]) {
@@ -4397,7 +4397,37 @@ var staticFiles = {
     `
 };
 
+// js/consoleProxy.ts
+var originalConsole = {
+  log: console.log.bind(console),
+  error: console.error.bind(console),
+  warn: console.warn.bind(console),
+  info: console.info.bind(console),
+  debug: console.debug.bind(console)
+};
+function getTimestamp() {
+  return (/* @__PURE__ */ new Date()).toISOString();
+}
+function initializeConsoleProxy() {
+  console.log = function(...args) {
+    originalConsole.log(getTimestamp(), ...args);
+  };
+  console.error = function(...args) {
+    originalConsole.error(getTimestamp(), ...args);
+  };
+  console.warn = function(...args) {
+    originalConsole.warn(getTimestamp(), ...args);
+  };
+  console.info = function(...args) {
+    originalConsole.info(getTimestamp(), ...args);
+  };
+  console.debug = function(...args) {
+    originalConsole.debug(getTimestamp(), ...args);
+  };
+}
+
 // sri4node.ts
+initializeConsoleProxy();
 var ajv2 = new import_ajv2.default({
   // 2023-10: do not enable strict yet as it might break existing api's
   // (for example: an object with 'properties' & 'required', but missing type: 'object'
