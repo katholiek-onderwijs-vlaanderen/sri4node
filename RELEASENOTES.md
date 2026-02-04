@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.39 (04-02-2026)
+
+### Changed
+
+- Prepend the timestamp to all logs.
+
 ## version 2.3.38 (28-08-2025)
 
 ### Changed
