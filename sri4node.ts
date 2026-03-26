@@ -145,6 +145,25 @@ function forceSecureSockets(req, res: Response, next) {
   }
 }
 
+function getMetaSchemaObject(path, type) {
+  return {
+    type: "object",
+    readOnly: true,
+    properties: {
+      created: schemaUtils.timestamp("The date and time when the resource was created."),
+      modified: schemaUtils.timestamp("The date and time when the resource was last modified."),
+      permalink: schemaUtils.string(
+        "The permalink to this resource.",
+        undefined,
+        undefined,
+        `^${path}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`,
+      ),
+      version: schemaUtils.integer("The version number of this resource."),
+      type: schemaUtils.enumeration("The meta type of this resource.", [type]),
+    },
+  };
+}
+
 /**
  * Handle GET /{type}/schema
  */
@@ -155,8 +174,13 @@ function getSchema(req, resp) {
     .join("/");
   const mapping = typeToMapping(type);
 
+  const schema = _.cloneDeep(mapping.schema);
+  if (schema.properties) {
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping.metaType);
+  }
+
   resp.set("Content-Type", "application/json");
-  resp.send(mapping.schema);
+  resp.send(schema);
 }
 
 /**
@@ -1025,7 +1049,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     // temporarilty allow a global /batch via config option for samenscholing
     if (sriConfig.enableGlobalBatch) {
-      const globalBatchPath = `${sriConfig.globalBatchRoutePrefix !== undefined ? sriConfig.globalBatchRoutePrefix : ""}/batch`;
+      const globalBatchPath = `${
+        sriConfig.globalBatchRoutePrefix !== undefined ? sriConfig.globalBatchRoutePrefix : ""
+      }/batch`;
       debug("general", `registering route ${globalBatchPath} - PUT/POST`);
       debug("general", `registering route ${`${globalBatchPath}_streaming`} - PUT/POST`);
       app.put(

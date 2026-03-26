@@ -4367,10 +4367,15 @@ var originalConsole = {
   info: console.info.bind(console),
   debug: console.debug.bind(console)
 };
+var isConsoleProxied = false;
 function getTimestamp() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
 function initializeConsoleProxy() {
+  if (isConsoleProxied) {
+    return;
+  }
+  isConsoleProxied = true;
   console.log = function(...args) {
     originalConsole.log(getTimestamp(), ...args);
   };
@@ -4419,11 +4424,28 @@ function forceSecureSockets(req, res, next) {
     next();
   }
 }
+function getMetaSchemaObject(path2, type) {
+  return {
+    type: "object",
+    readOnly: true,
+    properties: {
+      created: timestamp("The date and time when the resource was created."),
+      modified: timestamp("The date and time when the resource was last modified."),
+      permalink: string("The permalink to this resource.", void 0, void 0, `^${path2}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`),
+      version: integer("The version number of this resource."),
+      type: enumeration("The meta type of this resource.", [type])
+    }
+  };
+}
 function getSchema(req, resp) {
   const type = req.route.path.split("/").slice(0, req.route.path.split("/").length - 1).join("/");
   const mapping = typeToMapping(type);
+  const schema = _7.cloneDeep(mapping.schema);
+  if (schema.properties) {
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping.metaType);
+  }
   resp.set("Content-Type", "application/json");
-  resp.send(mapping.schema);
+  resp.send(schema);
 }
 function getDocs(req, resp) {
   const typeToMappingMap = typeToConfig(global.sri4node_configuration.resources);
