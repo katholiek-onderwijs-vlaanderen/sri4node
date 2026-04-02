@@ -4469,7 +4469,12 @@ function getMetaSchemaObject(path2, type) {
     properties: {
       created: timestamp("The date and time when the resource was created."),
       modified: timestamp("The date and time when the resource was last modified."),
-      permalink: string("The permalink to this resource.", void 0, void 0, `^${path2}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`),
+      permalink: string(
+        "The permalink to this resource.",
+        void 0,
+        void 0,
+        `^${path2}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
+      ),
       version: integer("The version number of this resource."),
       type: enumeration("The meta type of this resource.", [type])
     }
@@ -4864,6 +4869,35 @@ var utils = {
   parseResource
   // should be deprecated in favour of a decent url parsing mechanism
 };
+var listRegisteredRoutes = (app) => {
+  debug("general", "___________________________ REGISTERED ROUTES ___________________________");
+  const routesByPath = /* @__PURE__ */ new Map();
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      const path2 = middleware.route.path;
+      const methods = Object.keys(middleware.route.methods).map((m) => m.toUpperCase());
+      if (!routesByPath.has(path2)) {
+        routesByPath.set(path2, /* @__PURE__ */ new Set());
+      }
+      methods.forEach((method) => routesByPath.get(path2).add(method));
+    } else if (middleware.name === "router") {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const path2 = handler.route.path;
+          const methods = Object.keys(handler.route.methods).map((m) => m.toUpperCase());
+          if (!routesByPath.has(path2)) {
+            routesByPath.set(path2, /* @__PURE__ */ new Set());
+          }
+          methods.forEach((method) => routesByPath.get(path2).add(method));
+        }
+      });
+    }
+  });
+  Array.from(routesByPath.entries()).sort(([pathA], [pathB]) => pathA.localeCompare(pathB)).forEach(([path2, methods]) => {
+    const methodsStr = Array.from(methods).sort().join(", ");
+    debug("general", `${path2} [${methodsStr}]`);
+  });
+};
 function configure(app, sriConfig) {
   return __async(this, null, function* () {
     app.disable("x-powered-by");
@@ -5108,6 +5142,45 @@ function configure(app, sriConfig) {
         global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
         resp.send("OK");
       });
+      const healthCheckWrapper = (req, res, healthCheck) => __async(this, null, function* () {
+        const healthCheckLogging = global.sri4node_configuration.logdebug.channels === "all" || global.sri4node_configuration.logdebug.channels.has("healthcheck");
+        let hrstart;
+        let reqMsgStart;
+        if (healthCheckLogging) {
+          hrstart = process.hrtime();
+          reqMsgStart = `${req.method} ${req.originalUrl}`;
+          debug("requests", `${reqMsgStart} starting.`);
+        }
+        try {
+          yield healthCheck(healthCheckLogging);
+        } catch (err) {
+          res.status(503).json({
+            status: "NOT READY",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            error: err.toString()
+          });
+        }
+        if (healthCheckLogging) {
+          const hrend = process.hrtime(hrstart);
+          const ms = hrend[0] * 1e3 + hrend[1] / 1e6;
+          debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
+        }
+      });
+      app.get("/health/live", (req, res) => __async(this, null, function* () {
+        yield healthCheckWrapper(req, res, (_healthCheckLogging) => __async(this, null, function* () {
+          res.status(200).json({ status: "ALIVE" });
+        }));
+      }));
+      app.get("/health/ready", (req, res) => __async(this, null, function* () {
+        yield healthCheckWrapper(req, res, (healthCheckLogging) => __async(this, null, function* () {
+          const testQuery = "SELECT 1";
+          if (healthCheckLogging) {
+            debug("sql", testQuery);
+          }
+          yield dbR.query(testQuery);
+          res.status(200).json({ status: "READY", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+        }));
+      }));
       app.use(import_express_http_context3.default.middleware);
       app.use((req, res, next) => {
         import_express_http_context3.default.ns.bindEmitter(req);
@@ -5152,8 +5225,6 @@ function configure(app, sriConfig) {
       );
       if (sriConfig.enableGlobalBatch) {
         const globalBatchPath = `${sriConfig.globalBatchRoutePrefix !== void 0 ? sriConfig.globalBatchRoutePrefix : ""}/batch`;
-        debug("general", `registering route ${globalBatchPath} - PUT/POST`);
-        debug("general", `registering route ${`${globalBatchPath}_streaming`} - PUT/POST`);
         app.put(
           globalBatchPath,
           expressWrapper(dbR, dbW, batchOperation, sriConfig, null, false, true, false)
@@ -5548,7 +5619,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
       };
       batchHandlerMap.forEach(
         ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => {
-          debug("general", `registering route ${route} - ${verb} - ${readOnly}`);
           app[verb.toLowerCase()](
             route,
             emt.instrument(
@@ -5574,6 +5644,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
         (e) => e.verb
       );
       app.get("/", (_req, res) => res.redirect("/resources"));
+      listRegisteredRoutes(app);
       console.log(
         "___________________________ SRI4NODE INITIALIZATION DONE _____________________________"
       );

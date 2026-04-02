@@ -37,6 +37,7 @@ Logging can be enabled in the sri4node configuration by specifying the `logdebug
   - `trace`: detailed information of interal sri4node flow (schema validation, expansion, count, ...)
   - `phaseSyncer`: information about the `phase syncer` mechanism
   - `overloadProtection`: information from the `overload protection`mechanism
+  - `healthcheck`: a meta logging channel that enables health-check logging through the regular log channels. On its own, it does not produce logs; it simply allows other channels to include health-check logs (which are suppressed by default to avoid log noise)
   - `mocha`: extra debug logging when running the mocha test suite
 - `statuses`: **optional**, a list with status codes; if specified, logging is only done for requests returning the specified statuses
 
