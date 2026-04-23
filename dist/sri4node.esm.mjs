@@ -4424,7 +4424,20 @@ function forceSecureSockets(req, res, next) {
     next();
   }
 }
-function getMetaSchemaObject(path2, type) {
+function getMetaSchemaObject(path2, mapping) {
+  var _a, _b;
+  const type = mapping.metaType;
+  let pattern = (_b = (_a = mapping.schema.properties) == null ? void 0 : _a.key) == null ? void 0 : _b.pattern;
+  if (pattern) {
+    if (pattern.startsWith("^")) {
+      pattern = pattern.substring(1);
+    }
+    if (pattern.endsWith("$")) {
+      pattern = pattern.substring(0, pattern.length - 1);
+    }
+  } else {
+    throw new Error(`No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource.`);
+  }
   return {
     type: "object",
     readOnly: true,
@@ -4435,7 +4448,7 @@ function getMetaSchemaObject(path2, type) {
         "The permalink to this resource.",
         void 0,
         void 0,
-        `^${path2}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
+        `^${path2}/${pattern}$`
       ),
       version: integer("The version number of this resource."),
       type: enumeration("The meta type of this resource.", [type])
@@ -4447,7 +4460,7 @@ function getSchema(req, resp) {
   const mapping = typeToMapping(type);
   const schema = _7.cloneDeep(mapping.schema);
   if (schema.properties) {
-    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping.metaType);
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
   }
   resp.set("Content-Type", "application/json");
   resp.send(schema);
