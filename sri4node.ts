@@ -145,7 +145,23 @@ function forceSecureSockets(req, res: Response, next) {
   }
 }
 
-function getMetaSchemaObject(path, type) {
+function getMetaSchemaObject(path, mapping) {
+  const type = mapping.metaType;
+  let pattern = mapping.schema.properties?.key?.pattern;
+  if (pattern) {
+    // Strip leading '^' if present
+    if (pattern.startsWith("^")) {
+      pattern = pattern.substring(1);
+    }
+    // Strip trailing '$' if present
+    if (pattern.endsWith("$")) {
+      pattern = pattern.substring(0, pattern.length - 1);
+    }
+  } else {
+    throw new Error(
+      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource.`,
+    );
+  }
   return {
     type: "object",
     readOnly: true,
@@ -156,7 +172,7 @@ function getMetaSchemaObject(path, type) {
         "The permalink to this resource.",
         undefined,
         undefined,
-        `^${path}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`,
+        `^${path}/${pattern}$`,
       ),
       version: schemaUtils.integer("The version number of this resource."),
       type: schemaUtils.enumeration("The meta type of this resource.", [type]),
@@ -176,7 +192,7 @@ function getSchema(req, resp) {
 
   const schema = _.cloneDeep(mapping.schema);
   if (schema.properties) {
-    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping.metaType);
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
   }
 
   resp.set("Content-Type", "application/json");
