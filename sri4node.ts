@@ -145,7 +145,47 @@ function forceSecureSockets(req, res: Response, next) {
   }
 }
 
-function getMetaSchemaObject(path, type) {
+function getMetaSchemaObject(path, mapping) {
+  const type = mapping.metaType;
+  let pattern = mapping.schema.properties?.key?.pattern;
+  if (mapping.schema.properties.key.type === "number") {
+    if (
+      mapping.schema.properties.key.minimum !== undefined &&
+      mapping.schema.properties.key.maximum !== undefined
+    ) {
+      // Generate regex that matches numbers in the range
+      const min = mapping.schema.properties.key.minimum;
+      const max = mapping.schema.properties.key.maximum;
+
+      // Simple approach: match any sequence of digits and rely on schema validation for actual range
+      const minDigits = min.toString().length;
+      const maxDigits = max.toString().length;
+
+      if (minDigits === maxDigits) {
+        // All numbers have same number of digits
+        pattern = `\\d{${minDigits}}`;
+      } else {
+        // Numbers can have varying digit lengths
+        pattern = `\\d{${minDigits},${maxDigits}}`;
+      }
+    } else {
+      pattern = "\\d+";
+    }
+  }
+  if (pattern) {
+    // Strip leading '^' if present
+    if (pattern.startsWith("^")) {
+      pattern = pattern.substring(1);
+    }
+    // Strip trailing '$' if present
+    if (pattern.endsWith("$")) {
+      pattern = pattern.substring(0, pattern.length - 1);
+    }
+  } else {
+    throw new Error(
+      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource or define key as numeric.`,
+    );
+  }
   return {
     type: "object",
     readOnly: true,
@@ -156,7 +196,7 @@ function getMetaSchemaObject(path, type) {
         "The permalink to this resource.",
         undefined,
         undefined,
-        `^${path}/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`,
+        `^${path}/${pattern}$`,
       ),
       version: schemaUtils.integer("The version number of this resource."),
       type: schemaUtils.enumeration("The meta type of this resource.", [type]),
@@ -176,7 +216,7 @@ function getSchema(req, resp) {
 
   const schema = _.cloneDeep(mapping.schema);
   if (schema.properties) {
-    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping.metaType);
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
   }
 
   resp.set("Content-Type", "application/json");
