@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.41 (04-05-2026)
+
+### Fixed
+
+- $$meta in schema, in case key is no guid
+
 ## version 2.3.40 (15-04-2026)
 
 ### Added
