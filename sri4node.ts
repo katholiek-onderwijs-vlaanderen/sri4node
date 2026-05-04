@@ -148,6 +148,30 @@ function forceSecureSockets(req, res: Response, next) {
 function getMetaSchemaObject(path, mapping) {
   const type = mapping.metaType;
   let pattern = mapping.schema.properties?.key?.pattern;
+  if (mapping.schema.properties.key.type === "number") {
+    if (
+      mapping.schema.properties.key.minimum !== undefined &&
+      mapping.schema.properties.key.maximum !== undefined
+    ) {
+      // Generate regex that matches numbers in the range
+      const min = mapping.schema.properties.key.minimum;
+      const max = mapping.schema.properties.key.maximum;
+
+      // Simple approach: match any sequence of digits and rely on schema validation for actual range
+      const minDigits = min.toString().length;
+      const maxDigits = max.toString().length;
+
+      if (minDigits === maxDigits) {
+        // All numbers have same number of digits
+        pattern = `\\d{${minDigits}}`;
+      } else {
+        // Numbers can have varying digit lengths
+        pattern = `\\d{${minDigits},${maxDigits}}`;
+      }
+    } else {
+      pattern = "\\d+";
+    }
+  }
   if (pattern) {
     // Strip leading '^' if present
     if (pattern.startsWith("^")) {
@@ -159,7 +183,7 @@ function getMetaSchemaObject(path, mapping) {
     }
   } else {
     throw new Error(
-      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource.`,
+      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource or define key as numeric.`,
     );
   }
   return {

@@ -4466,6 +4466,21 @@ function getMetaSchemaObject(path2, mapping) {
   var _a, _b;
   const type = mapping.metaType;
   let pattern = (_b = (_a = mapping.schema.properties) == null ? void 0 : _a.key) == null ? void 0 : _b.pattern;
+  if (mapping.schema.properties.key.type === "number") {
+    if (mapping.schema.properties.key.minimum !== void 0 && mapping.schema.properties.key.maximum !== void 0) {
+      const min = mapping.schema.properties.key.minimum;
+      const max = mapping.schema.properties.key.maximum;
+      const minDigits = min.toString().length;
+      const maxDigits = max.toString().length;
+      if (minDigits === maxDigits) {
+        pattern = `\\d{${minDigits}}`;
+      } else {
+        pattern = `\\d{${minDigits},${maxDigits}}`;
+      }
+    } else {
+      pattern = "\\d+";
+    }
+  }
   if (pattern) {
     if (pattern.startsWith("^")) {
       pattern = pattern.substring(1);
@@ -4474,7 +4489,9 @@ function getMetaSchemaObject(path2, mapping) {
       pattern = pattern.substring(0, pattern.length - 1);
     }
   } else {
-    throw new Error(`No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource.`);
+    throw new Error(
+      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource or define key as numeric.`
+    );
   }
   return {
     type: "object",
