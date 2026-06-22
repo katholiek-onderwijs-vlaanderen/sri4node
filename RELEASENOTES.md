@@ -23,6 +23,14 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.42 (22-06-2026)
+
+### Changed
+
+- use currently supported nodejs versions
+- removed obsolete deps and updated remaining deps (+ adapted code to it)
+- fixed all npm audit issues
+
 ## version 2.3.41 (04-05-2026)
 
 ### Fixed

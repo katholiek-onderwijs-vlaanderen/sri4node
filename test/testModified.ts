@@ -1,8 +1,8 @@
 // Utility methods for calling the SRI interfacedoGet(
 import assert from "assert";
 import _ from "lodash";
-import * as uuid from "uuid";
 import { THttpClient } from "./httpClient";
+import { randomUUID as uuidv4 } from "crypto";
 
 const { isValidISODateString } = require("iso-datestring-validator");
 
@@ -271,7 +271,7 @@ module.exports = function (httpClient: THttpClient) {
     //       };
     //     }
 
-    //     const key = uuid.v4();
+    //     const key = uuidv4();
     //     const body = generateRandomCommunity(key);
 
     //     await httpClient.put({ path: '/communities/' + key, body, authHdrObj)
@@ -287,7 +287,7 @@ module.exports = function (httpClient: THttpClient) {
     //   });
 
     it("New version with float should work", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const body = generateRandomAllDatatypes(key);
       const resultPut1 = await httpClient.put({
         path: `/alldatatypes/${key}`,

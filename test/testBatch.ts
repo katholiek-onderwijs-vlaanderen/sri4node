@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 import pMap from "p-map";
 import { assert } from "chai";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import { THttpClient } from "./httpClient";
 
 /**
@@ -105,7 +105,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it.skip("create community and immediately delete", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const body = generateRandomCommunity(key);
       const communityHref = `/communities/${key}`;
       // create a batch array
@@ -136,7 +136,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("create community and immediately delete with batchlist", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const body = generateRandomCommunity(key);
       // create a batch array
       const batch = [
@@ -167,7 +167,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("single PATCH on existing person", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const personHref = `/persons/${key}`;
       const body = generateRandomPerson(key, communityDendermonde, "John", "Doe");
       const newStreetNumber = "999";
@@ -198,7 +198,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("2 consecutive PATCHes on existing person", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const personHref = `/persons/${key}`;
       const body = generateRandomPerson(key, communityDendermonde, "John", "Doe");
       const newStreetNumber = "999";
@@ -246,7 +246,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("create person and immediately PATCH in same batch", async () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const personHref = `/persons/${key}`;
       const body = generateRandomPerson(key, communityDendermonde, "Don", "Quichotte");
       const newStreetNumber = "999";
@@ -296,9 +296,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("with error should be completely rollbacked", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomCommunity(keyC2);
       delete bodyC2.name; // this wil trigger a validation error
 
@@ -333,9 +333,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("with error should be completely rollbacked", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomCommunity(keyC2);
       delete bodyC2.name; // this will trigger a validation error
 
@@ -374,9 +374,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("no VERB should result in error", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomCommunity(keyC2);
 
       // create a batch array
@@ -405,9 +405,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("cross boundary should result in error", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomMessage(keyC2, personSabine, communityDendermonde);
 
       // create a batch array
@@ -437,10 +437,10 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("error should result in cancellation of accompanying requests ", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
       delete bodyC1.name; // no name ==> validation error
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomCommunity(keyC2);
 
       // create a batch array
@@ -472,9 +472,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("no matching route should result in error", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomCommunity(keyC2);
 
       // create a batch array
@@ -500,9 +500,9 @@ module.exports = function (httpClient: THttpClient) {
 
     // global batch (temporarily for samenscholing)
     it("global batch -- specific for samenscholing", async () => {
-      const keyC1 = uuid.v4();
+      const keyC1 = uuidv4();
       const bodyC1 = generateRandomCommunity(keyC1);
-      const keyC2 = uuid.v4();
+      const keyC2 = uuidv4();
       const bodyC2 = generateRandomMessage(keyC2, personSabine, communityDendermonde);
 
       // create a batch array
@@ -530,7 +530,7 @@ module.exports = function (httpClient: THttpClient) {
     it("'big' batch", async () => {
       // create a batch array
       const batch = await pMap(Array(100), async () => {
-        const keyC1 = uuid.v4();
+        const keyC1 = uuidv4();
         const bodyC1 = generateRandomCommunity(keyC1);
         return {
           href: `/communities/${keyC1}`,
@@ -546,7 +546,7 @@ module.exports = function (httpClient: THttpClient) {
     it("'big' batch_streaming", async () => {
       // create a batch array
       const batch = await pMap(Array(1000), async () => {
-        const keyC1 = uuid.v4();
+        const keyC1 = uuidv4();
         const bodyC1 = generateRandomCommunity(keyC1);
         return {
           href: `/communities/${keyC1}`,
@@ -566,7 +566,7 @@ module.exports = function (httpClient: THttpClient) {
     it("'big' batch with sub-batches", async () => {
       // create a batch array
       const batch = await pMap(Array(100), async () => {
-        const keyC1 = uuid.v4();
+        const keyC1 = uuidv4();
         const bodyC1 = generateRandomCommunity(keyC1);
         return [
           {
@@ -877,9 +877,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multiple single inserts with one constraint error", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, "/communities/00000000-0000-0000-0000-000000000000");
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -907,9 +907,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row insert and a constraint error", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, "/communities/00000000-0000-0000-0000-000000000000"); // ==> constraint error
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -946,9 +946,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row insert and a constraint error (reverse order)", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, "/communities/00000000-0000-0000-0000-000000000000"); // ==> constraint error
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       const batch2 = [
         {
@@ -984,9 +984,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row update and a constraint error", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityHamme);
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -1068,9 +1068,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row delete and a constraint error + multi insert ", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityHamme);
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -1110,9 +1110,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row delete and a constraint error + multi insert (reverse order)", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityHamme);
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -1153,9 +1153,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row insert and a constraint error + multi delete", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, "/communities/00000000-0000-0000-0000-000000000000"); // constraint error
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -1195,9 +1195,9 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row insert and a constraint error + multi delete (reverse order)", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, "/communities/00000000-0000-0000-0000-000000000000"); // ==> constraint error
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       // create a batch array
       const batch = [
@@ -1237,10 +1237,10 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multiple single updates with one constraint error", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: "sabine" });
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp2}`, body: p2, auth: "sabine" });
       p1.community.href = "/communities/00000000-0000-0000-0000-000000000000"; // ==> constraint error
@@ -1270,13 +1270,13 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi row update and a constraint error", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: "sabine" });
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp2}`, body: p2, auth: "sabine" });
-      const keyp3 = uuid.v4();
+      const keyp3 = uuidv4();
       const p3 = generateRandomPerson(keyp3, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp3}`, body: p3, auth: "sabine" });
 
@@ -1312,10 +1312,10 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     it("batch with multi delete", async () => {
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: "sabine" });
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
       await httpClient.put({ path: `/persons/${keyp2}`, body: p2, auth: "sabine" });
 
@@ -1430,17 +1430,17 @@ module.exports = function (httpClient: THttpClient) {
 
     it("batch with read and multi row create, re-put, update & delete", async () => {
       // in preparation for being able to do update, run a create batch first
-      const keyp1 = uuid.v4();
+      const keyp1 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityHamme);
-      const keyp2 = uuid.v4();
+      const keyp2 = uuidv4();
       const p2 = generateRandomPerson(keyp2, communityDendermonde);
-      const keyp3 = uuid.v4();
+      const keyp3 = uuidv4();
       const p3 = generateRandomPerson(keyp3, communityHamme);
-      const keyp4 = uuid.v4();
+      const keyp4 = uuidv4();
       const p4 = generateRandomPerson(keyp4, communityDendermonde);
-      const keyp5 = uuid.v4();
+      const keyp5 = uuidv4();
       const p5 = generateRandomPerson(keyp5, communityDendermonde);
-      const keyp6 = uuid.v4();
+      const keyp6 = uuidv4();
       const p6 = generateRandomPerson(keyp6, communityDendermonde);
 
       const batch = [
@@ -1485,35 +1485,35 @@ module.exports = function (httpClient: THttpClient) {
       updateBatchPart[2].body.streetnumber = "18"; // will trigger an update
 
       // inserts, one will fail
-      const keyp11 = uuid.v4();
+      const keyp11 = uuidv4();
       const p11 = generateRandomPerson(keyp11, communityHamme);
-      const keyp12 = uuid.v4();
+      const keyp12 = uuidv4();
       const p12 = generateRandomPerson(keyp12, communityHamme);
-      const keyp13 = uuid.v4();
+      const keyp13 = uuidv4();
       const p13 = generateRandomPerson(keyp13, communityHamme);
-      const keyp14 = uuid.v4();
+      const keyp14 = uuidv4();
       const p14 = generateRandomPerson(keyp14, communityHamme);
-      const keyp15 = uuid.v4();
+      const keyp15 = uuidv4();
       const p15 = generateRandomPerson(keyp15, communityHamme);
-      const keyp16 = uuid.v4();
+      const keyp16 = uuidv4();
       const p16 = generateRandomPerson(keyp16, communityHamme);
-      const keyp17 = uuid.v4();
+      const keyp17 = uuidv4();
       const p17 = generateRandomPerson(keyp17, communityHamme);
-      const keyp18 = uuid.v4();
+      const keyp18 = uuidv4();
       const p18 = generateRandomPerson(keyp18, "/communities/00000000-0000-0000-0000-000000000000"); // ==> constraint error
 
       // inserts of other type, will succeed
-      const keyc1 = uuid.v4();
+      const keyc1 = uuidv4();
       const c1 = generateRandomCommunity(keyc1);
-      const keyc2 = uuid.v4();
+      const keyc2 = uuidv4();
       const c2 = generateRandomCommunity(keyc2);
-      const keyc3 = uuid.v4();
+      const keyc3 = uuidv4();
       const c3 = generateRandomCommunity(keyc3);
-      const keyc4 = uuid.v4();
+      const keyc4 = uuidv4();
       const c4 = generateRandomCommunity(keyc4);
-      const keyc5 = uuid.v4();
+      const keyc5 = uuidv4();
       const c5 = generateRandomCommunity(keyc5);
-      const keyc6 = uuid.v4();
+      const keyc6 = uuidv4();
       const c6 = generateRandomCommunity(keyc6);
 
       const composedBatch = [

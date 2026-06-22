@@ -5,7 +5,7 @@ import { IInitOptions } from "pg-promise";
 import pgPromise from "pg-promise";
 import monitor from "pg-monitor";
 import { Application, Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 
 import { Readable } from "stream";
 // import { DEFAULT_MAX_VERSION } from 'tls';

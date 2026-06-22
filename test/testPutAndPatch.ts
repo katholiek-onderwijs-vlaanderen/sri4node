@@ -1,7 +1,7 @@
 // Utility methods for calling the SRI interface
 import pMap from "p-map";
 import { assert } from "chai";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
 
@@ -93,7 +93,7 @@ module.exports = function (httpClient: THttpClient) {
   describe("PUT", () => {
     describe("schema validation", () => {
       it("should detect if a field is too long", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomCommunity(key);
         body.email = body.email + body.email + body.email;
 
@@ -106,7 +106,7 @@ module.exports = function (httpClient: THttpClient) {
       });
 
       it("should support complex schema's using oneOf/anyOf/allOf", async function () {
-        const key = uuid.v4();
+        const key = uuidv4();
 
         const response1 = await httpClient.put({
           path: `/complexschema/${key}`,
@@ -181,7 +181,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with rejecting custom validation function", () => {
       it("should return a 409 Conflict", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomMessage(key, personSabine, communityDendermonde);
 
         const response = await httpClient.put({ path: `/messages/${key}`, body, auth: "sabine" });
@@ -192,7 +192,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with a missing field (community without name)", () => {
       it("should return a 409 Conflict", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomCommunity(key);
         delete body.name;
 
@@ -211,7 +211,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with a numeric value of 0", () => {
       it("should work and not skip 0 as a null value", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateTransaction(
           key,
           "/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b",
@@ -230,7 +230,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with a float", () => {
       it("should work", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomAllDatatypes(key);
         body.id = 40.95;
         const response = await httpClient.put({
@@ -246,7 +246,7 @@ module.exports = function (httpClient: THttpClient) {
   describe("VALIDATION", () => {
     describe("schema validation", () => {
       it("should detect if a field is too long", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomCommunity(key);
         body.email = body.email + body.email + body.email;
 
@@ -261,7 +261,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with rejecting custom validation function", () => {
       it("should return a 409 Conflict", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomMessage(key, personSabine, communityDendermonde);
 
         const response = await httpClient.put({
@@ -276,7 +276,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with a missing field (community without name)", () => {
       it("should return a 409 Conflict", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateRandomCommunity(key);
         delete body.name;
 
@@ -295,7 +295,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe("with a numeric value of 0", () => {
       it("should work and not skip 0 as a null value", async () => {
-        const key = uuid.v4();
+        const key = uuidv4();
         const body = generateTransaction(
           key,
           "/persons/2f11714a-9c45-44d3-8cde-cd37eb0c048b",
@@ -312,7 +312,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     describe("should have no side effects", () => {
-      const key = uuid.v4();
+      const key = uuidv4();
       const person = generateRandomPerson(key, communityDendermonde, "Rodrigo", "Uroz");
 
       it("must return 201 on a new resource but the person must not be persisted", async () => {
@@ -326,7 +326,7 @@ module.exports = function (httpClient: THttpClient) {
   describe("afterupdate", () => {
     describe("should support", () => {
       it("multiple functions", async () => {
-        const keyp1 = uuid.v4();
+        const keyp1 = uuidv4();
         const p1 = generateRandomPerson(keyp1, communityDendermonde);
         const responsePut1 = await httpClient.put({
           path: `/persons/${keyp1}`,
@@ -335,7 +335,7 @@ module.exports = function (httpClient: THttpClient) {
         });
         assert.equal(responsePut1.status, 201);
         debug("mocha", "p1 created");
-        const keyp2 = uuid.v4();
+        const keyp2 = uuidv4();
         const p2 = generateRandomPerson(keyp2, communityDendermonde);
         const responsePut2 = await httpClient.put({
           path: `/persons/${keyp2}`,
@@ -344,7 +344,7 @@ module.exports = function (httpClient: THttpClient) {
         });
         assert.equal(responsePut2.status, 201);
         debug("mocha", "p2 created");
-        const keyt = uuid.v4();
+        const keyt = uuidv4();
         const t = generateTransaction(keyt, `/persons/${keyp1}`, `/persons/${keyp2}`, 20);
         const responsePut3 = await httpClient.put({
           path: `/transactions/${keyt}`,
@@ -366,8 +366,8 @@ module.exports = function (httpClient: THttpClient) {
 
   describe("key in PUT ", () => {
     it("should return error in case of url and permalink mismatch", async () => {
-      const keyp1 = uuid.v4();
-      const keyp2 = uuid.v4();
+      const keyp1 = uuidv4();
+      const keyp2 = uuidv4();
       const p1 = generateRandomPerson(keyp1, communityDendermonde);
       const response = await httpClient.put({
         path: `/persons/${keyp2}`,
@@ -397,7 +397,7 @@ module.exports = function (httpClient: THttpClient) {
 
   describe("permalink reference in PUT", () => {
     it("should return error in case of invalid UUID", async () => {
-      const keyp = uuid.v4();
+      const keyp = uuidv4();
       const p = generateRandomPerson(keyp, "/communities/foo-bar");
       const response = await httpClient.put({ path: `/persons/${keyp}`, body: p, auth: "sabine" });
       assert.equal(response.status, 409);
@@ -410,7 +410,7 @@ module.exports = function (httpClient: THttpClient) {
 
   describe("PUT (insert) resulting in foreign key error", () => {
     it("should return 409 conflict", async () => {
-      const keyp = uuid.v4();
+      const keyp = uuidv4();
       const p = generateRandomPerson(keyp, "/communities/00000000-0000-0000-0000-000000000000");
       const response = await httpClient.put({ path: `/persons/${keyp}`, body: p, auth: "sabine" });
       assert.equal(response.status, 409);
@@ -420,7 +420,7 @@ module.exports = function (httpClient: THttpClient) {
 
   describe("PUT (update) resulting in foreign key error", () => {
     it("should return 409 conflict", async () => {
-      const keyp = uuid.v4();
+      const keyp = uuidv4();
       const p = generateRandomPerson(keyp, communityDendermonde);
       const responsePut1 = await httpClient.put({
         path: `/persons/${keyp}`,
@@ -440,7 +440,7 @@ module.exports = function (httpClient: THttpClient) {
   });
 
   describe("PUT must distinguish between create (201) and update (200)", () => {
-    const key = uuid.v4();
+    const key = uuidv4();
     const p = generateRandomPerson(key, communityDendermonde);
 
     it("must return 201 on a new resource", async () => {
@@ -475,7 +475,7 @@ module.exports = function (httpClient: THttpClient) {
       await pMap(
         Array(100),
         async () => {
-          const key = uuid.v4();
+          const key = uuidv4();
           const person = generateRandomPerson(key, communityDendermonde);
           const response = await httpClient.put({
             path: `/persons/${key}`,

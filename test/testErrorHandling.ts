@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import assert from "assert";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import { THttpClient } from "./httpClient";
 
 module.exports = function (httpClient: THttpClient) {
@@ -25,7 +25,7 @@ module.exports = function (httpClient: THttpClient) {
   }
 
   describe("Error handling", () => {
-    const key = uuid.v4();
+    const key = uuidv4();
     const p = generateRandomPerson(key, communityDendermonde);
 
     describe("After Read", () => {
@@ -84,7 +84,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     describe("After Delete", () => {
-      const key2 = uuid.v4();
+      const key2 = uuidv4();
       const p2 = generateRandomPerson(key2, communityDendermonde);
 
       before(async () => {
@@ -110,7 +110,7 @@ module.exports = function (httpClient: THttpClient) {
     // TODO: find another way to trigger an SQL error as duplicates generate now a 409 conflict
     // describe('SQL error ', function () {
 
-    //   const key = uuid.v4();
+    //   const key = uuidv4();
     //   const p = generateRandomPerson(key, communityDendermonde);
     //   p.email = 'sabine@email.be';
 
