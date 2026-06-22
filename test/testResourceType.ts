@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import { THttpClient } from "./httpClient";
 
 module.exports = function (httpClient: THttpClient) {
@@ -40,7 +40,7 @@ module.exports = function (httpClient: THttpClient) {
 
     describe(" put new resource with references", function () {
       it("should succeed with correct referenced link.", async function () {
-        const key = uuid.v4();
+        const key = uuidv4();
         const packageKey = "2edb2754-1598-4996-ae5b-ec33c903ee4d";
         const body = generateRandomProduct(key, packageKey);
         const response = await httpClient.put({
@@ -55,7 +55,7 @@ module.exports = function (httpClient: THttpClient) {
     describe(" batch put new resources", function () {
       it("should succeed all of them with correct status.", async function () {
         const batch = ["p1", "p2"].map(function () {
-          const key = uuid.v4();
+          const key = uuidv4();
           const packageKey = "2edb2754-1598-4996-ae5b-ec33c903ee4d";
           const body = generateRandomProduct(key, packageKey);
           return {
@@ -99,7 +99,7 @@ module.exports = function (httpClient: THttpClient) {
     });
 
     describe(" delete resource", function () {
-      const key = uuid.v4();
+      const key = uuidv4();
 
       before(async function () {
         const package1 = { key: key, name: "ToDelete-" + key };

@@ -38,14 +38,23 @@ const httpClient = httpClientMod.httpClientFactory(base);
  * @param testFileName
  * @param args
  */
-function runTestIfNeeded(testFileName: string, args: any[] | undefined = undefined) {
+function runTestIfNeeded(testFileName: string, args?: any[]) {
   const underscoresIndex = process.argv.indexOf("--pick");
   const testsToRun = underscoresIndex >= 0 ? process.argv.slice(underscoresIndex + 1) : [];
   if (underscoresIndex < 0 || testsToRun.includes(testFileName)) {
-    const t = require(testFileName);
-    if (args !== undefined) {
-      t(...args);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const imported = require(testFileName);
+    // handle both module.exports = fn AND export default fn
+    const t = typeof imported === "function" ? imported : imported.default;
+    if (typeof t === "function") {
+      // file exports a function - call it with args
+      if (args !== undefined) {
+        t(...args);
+      } else {
+        t();
+      }
     }
+    // else: file defines describe() blocks inline - they already ran on require()
   } else {
     describe(`tests ${testFileName}`, () => {
       it(`⛔ will not run because not found in ${testsToRun.join()}`, () => {
@@ -94,9 +103,11 @@ describe("Sri4node VALIDATION AT STARTUP TESTS", function () {
 
 describe("Sri4node SERVER TESTS", function () {
   this.timeout(0);
-  // let server:any = null;
-  // let sriServerInstance:TSriServerInstance | null = null;
-  const testContext: { server: null | Server; sriServerInstance: null | TSriServerInstance } = {
+  interface ITestContext {
+    server: Server | null;
+    sriServerInstance: TSriServerInstance | null;
+  }
+  const testContext: ITestContext = {
     server: null,
     sriServerInstance: null,
   };
@@ -139,13 +150,16 @@ describe("Sri4node SERVER TESTS", function () {
   });
 
   after(async () => {
-    const { server, sriServerInstance } = testContext;
     // uncomment this keep server running for manual inspection
     // await new Promise(function(resolve, reject){});
 
     console.log("Stopping the server.");
-    server && (await server.close());
-    sriServerInstance && (await sriServerInstance.close());
+    if (testContext.server) {
+      await testContext.server.close();
+    }
+    if (testContext.sriServerInstance) {
+      await testContext.sriServerInstance.close();
+    }
     console.log("Done.");
   });
 

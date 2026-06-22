@@ -16,7 +16,7 @@ import {
   TSriRequest,
   TLogDebug,
   TSriServerInstance,
-} from "../js/typeDefinitions";
+} from "../js/typeDefinitions.js";
 import utils from "./utils";
 import { Server } from "http";
 import { IDatabase, IMain } from "pg-promise";
