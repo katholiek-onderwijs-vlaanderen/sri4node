@@ -80,7 +80,7 @@
     "chai": "^4.3.4",
     "dev-null": "^0.1.1",
     "esbuild": "^0.28.1",
-    "esbuild-node-externals": "^1.7.0",
+    "esbuild-node-externals": "^1.23.1",
     "eslint": "^8.8.0",
     "eslint-plugin-import": "^2.25.4",
     "expect.js": "^0.3.1",
