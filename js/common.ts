@@ -3,7 +3,7 @@ import { URL } from "url";
 import Express, { Application, Request, Response } from "express";
 import pgPromise, { IInitOptions } from "pg-promise";
 import monitor from "pg-monitor";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 
 import stream, { Readable } from "stream";
 // import { DEFAULT_MAX_VERSION } from 'tls';
@@ -1424,8 +1424,7 @@ function generateSriRequest(
   parentSriRequest: TSriRequest | undefined = undefined,
   batchElement: any = undefined,
   internalSriRequest:
-    | Omit<TInternalSriRequest, "protocol" | "serverTiming">
-    | undefined = undefined,
+    Omit<TInternalSriRequest, "protocol" | "serverTiming"> | undefined = undefined,
 ): TSriRequest {
   const baseSriRequest: TSriRequest = {
     id: uuidv4(),

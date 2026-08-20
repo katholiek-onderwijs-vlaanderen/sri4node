@@ -23,6 +23,35 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.42 (22-06-2026)
+
+### Changed
+
+- use currently supported nodejs versions
+- removed obsolete deps and updated remaining deps (+ adapted code to it)
+- fixed all npm audit issues
+
+## version 2.3.41 (04-05-2026)
+
+### Fixed
+
+- $$ meta in schema, in case key is no guid
+  $$
+
+## version 2.3.40 (15-04-2026)
+
+### Added
+
+- health checks (live and ready - last one still needs to be extended)
+- $$ meta in schema
+  $$
+
+## version 2.3.39 (04-02-2026)
+
+### Changed
+
+- Prepend the timestamp to all logs.
+
 ## version 2.3.38 (28-08-2025)
 
 ### Changed

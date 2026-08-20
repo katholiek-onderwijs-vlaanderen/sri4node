@@ -64,7 +64,7 @@ test() {
 
   npm run test:cleanup
   ( cd $(npm prefix)/docker && SRI4NODE_TESTS_NODE_VERSION=$(node --version) docker compose up --wait sri4nodepostgresdbfortests ) &&
-    ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
+    TS_NODE_PROJECT=tsconfig.test.json ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
   R=$?
   npm run test:cleanup
   echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test ./testBatch.ts\n********\n'
@@ -86,7 +86,7 @@ test_on_docker() {
 
   local NODEANDPOSTGRESVERSIONS=$@
   if [ "$NODEANDPOSTGRESVERSIONS" = "" ]; then
-    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker [--continue] 16,11 16,12, 18,12 20,15)'
+    echo 'Error: pass 'node,postgres' versions as arguments (example npm run test:on_docker [--continue] 26,15 26,16, 22,15 20,18)'
     return 1
   fi
 
@@ -134,7 +134,7 @@ test_inside_docker() {
       PICK="--pick ${@}"
       echo "$PICK\n"
     fi
-  INSIDE_DOCKER='true' ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
+  INSIDE_DOCKER='true' TS_NODE_PROJECT=tsconfig.test.json ./node_modules/.bin/mocha --exit --require ts-node/register ./test/tests.ts ${PICK}
   R=$?
   echo '\n\n********\nDid you know you can run only a subset of the tests?\n  Example: npm run test ./testBatch.ts\n********\n'
   return $R

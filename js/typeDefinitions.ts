@@ -63,6 +63,7 @@ export type TDebugChannel =
   | "trace"
   | "phaseSyncer"
   | "overloadProtection"
+  | "healthcheck"
   | "mocha";
 
 export type TLogDebug = {

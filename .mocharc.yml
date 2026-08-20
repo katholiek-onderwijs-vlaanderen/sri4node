@@ -1,0 +1,6 @@
+require:
+  - tsx/cjs
+spec: test/tests.ts
+timeout: 10000
+env:
+  TS_NODE_PROJECT: tsconfig.test.json

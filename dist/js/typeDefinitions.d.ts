@@ -41,7 +41,7 @@ export type TPluginConfig = {
 };
 export type TUriPath = string;
 export type THttpMethod = "GET" | "PUT" | "DELETE" | "PATCH" | "POST";
-export type TDebugChannel = "general" | "db" | "sql" | "requests" | "hooks" | "server-timing" | "batch" | "trace" | "phaseSyncer" | "overloadProtection" | "mocha";
+export type TDebugChannel = "general" | "db" | "sql" | "requests" | "hooks" | "server-timing" | "batch" | "trace" | "phaseSyncer" | "overloadProtection" | "healthcheck" | "mocha";
 export type TLogDebug = {
     channels: Set<TDebugChannel> | TDebugChannel[] | "all";
     statuses?: Set<number> | Array<number>;

@@ -94,6 +94,10 @@ import { JsonStreamStringify } from "json-stream-stringify";
 
 import * as pugTpl from "./js/docs/pugTemplates";
 
+// Initialize console proxy to add timestamps to all console output
+import { initializeConsoleProxy } from "./js/consoleProxy";
+initializeConsoleProxy();
+
 const ajv = new Ajv({
   // 2023-10: do not enable strict yet as it might break existing api's
   // (for example: an object with 'properties' & 'required', but missing type: 'object'
@@ -141,6 +145,65 @@ function forceSecureSockets(req, res: Response, next) {
   }
 }
 
+function getMetaSchemaObject(path, mapping) {
+  const type = mapping.metaType;
+  let pattern = mapping.schema.properties?.key?.pattern;
+  if (mapping.schema.properties.key.type === "number") {
+    if (
+      mapping.schema.properties.key.minimum !== undefined &&
+      mapping.schema.properties.key.maximum !== undefined
+    ) {
+      // Generate regex that matches numbers in the range
+      const min = mapping.schema.properties.key.minimum;
+      const max = mapping.schema.properties.key.maximum;
+
+      // Simple approach: match any sequence of digits and rely on schema validation for actual range
+      const minDigits = min.toString().length;
+      const maxDigits = max.toString().length;
+
+      if (minDigits === maxDigits) {
+        // All numbers have same number of digits
+        pattern = `\\d{${minDigits}}`;
+      } else {
+        // Numbers can have varying digit lengths
+        pattern = `\\d{${minDigits},${maxDigits}}`;
+      }
+    } else {
+      pattern = "\\d+";
+    }
+  }
+  if (pattern) {
+    // Strip leading '^' if present
+    if (pattern.startsWith("^")) {
+      pattern = pattern.substring(1);
+    }
+    // Strip trailing '$' if present
+    if (pattern.endsWith("$")) {
+      pattern = pattern.substring(0, pattern.length - 1);
+    }
+  } else {
+    throw new Error(
+      `No pattern for key property of resource ${mapping.type}. Please define a pattern in the JSON schema of the resource or define key as numeric.`,
+    );
+  }
+  return {
+    type: "object",
+    readOnly: true,
+    properties: {
+      created: schemaUtils.timestamp("The date and time when the resource was created."),
+      modified: schemaUtils.timestamp("The date and time when the resource was last modified."),
+      permalink: schemaUtils.string(
+        "The permalink to this resource.",
+        undefined,
+        undefined,
+        `^${path}/${pattern}$`,
+      ),
+      version: schemaUtils.integer("The version number of this resource."),
+      type: schemaUtils.enumeration("The meta type of this resource.", [type]),
+    },
+  };
+}
+
 /**
  * Handle GET /{type}/schema
  */
@@ -151,8 +214,13 @@ function getSchema(req, resp) {
     .join("/");
   const mapping = typeToMapping(type);
 
+  const schema = _.cloneDeep(mapping.schema);
+  if (schema.properties) {
+    schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
+  }
+
   resp.set("Content-Type", "application/json");
-  resp.send(mapping.schema);
+  resp.send(schema);
 }
 
 /**
@@ -621,6 +689,47 @@ const utils = {
   parseResource, // should be deprecated in favour of a decent url parsing mechanism
 };
 
+const listRegisteredRoutes = (app: Application) => {
+  // List all registered routes
+
+  debug("general", "___________________________ REGISTERED ROUTES ___________________________");
+  const routesByPath = new Map<string, Set<string>>();
+
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      // Routes registered directly on the app
+      const path = middleware.route.path;
+      const methods = Object.keys(middleware.route.methods).map((m) => m.toUpperCase());
+
+      if (!routesByPath.has(path)) {
+        routesByPath.set(path, new Set());
+      }
+      methods.forEach((method) => routesByPath.get(path)!.add(method));
+    } else if (middleware.name === "router") {
+      // Routes added as router middleware
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const path = handler.route.path;
+          const methods = Object.keys(handler.route.methods).map((m) => m.toUpperCase());
+
+          if (!routesByPath.has(path)) {
+            routesByPath.set(path, new Set());
+          }
+          methods.forEach((method) => routesByPath.get(path)!.add(method));
+        }
+      });
+    }
+  });
+
+  // Sort paths and display grouped by path
+  Array.from(routesByPath.entries())
+    .sort(([pathA], [pathB]) => pathA.localeCompare(pathB))
+    .forEach(([path, methods]) => {
+      const methodsStr = Array.from(methods).sort().join(", ");
+      debug("general", `${path} [${methodsStr}]`);
+    });
+};
+
 /**
  * The main function that configures an sri4node api on top of an existing express app,
  * and based on an sriConfig object
@@ -960,6 +1069,62 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       resp.send("OK");
     });
 
+    const healthCheckWrapper = async (
+      req: Request,
+      res: Response,
+      healthCheck: (healthLogging: boolean) => void,
+    ) => {
+      const healthCheckLogging =
+        global.sri4node_configuration.logdebug.channels === "all" ||
+        global.sri4node_configuration.logdebug.channels.has("healthcheck");
+
+      let hrstart;
+      let reqMsgStart;
+      if (healthCheckLogging) {
+        hrstart = process.hrtime();
+        reqMsgStart = `${req.method} ${req.originalUrl}`;
+        debug("requests", `${reqMsgStart} starting.`);
+      }
+
+      try {
+        await healthCheck(healthCheckLogging);
+      } catch (err) {
+        res.status(503).json({
+          status: "NOT READY",
+          timestamp: new Date().toISOString(),
+          error: err.toString(),
+        });
+      }
+
+      if (healthCheckLogging) {
+        const hrend = process.hrtime(hrstart);
+        const ms = hrend[0] * 1000 + hrend[1] / 1e6;
+        debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
+      }
+    };
+
+    app.get("/health/live", async (req, res) => {
+      await healthCheckWrapper(req, res, async (_healthCheckLogging) => {
+        res.status(200).json({ status: "ALIVE" });
+      });
+    });
+    app.get("/health/ready", async (req, res) => {
+      await healthCheckWrapper(req, res, async (healthCheckLogging) => {
+        const testQuery = "SELECT 1";
+        if (healthCheckLogging) {
+          debug("sql", testQuery);
+        }
+        await dbR.query(testQuery);
+
+        // TODO: check also:
+        //   1> sri4node plugins
+        //   2> the application itself by calling a user provided function in the config that should throw an error when not ready, and can be used to check dependencies like elasticsearch, redis, etc..
+        //   3> if fetch interceptor is used for fetching a bearer token instead of basic auth, then it should be checked as well
+        //         (not sure if we can integrate this in sri4node or should be done in the application health check)
+        res.status(200).json({ status: "READY", timestamp: new Date().toISOString() });
+      });
+    });
+
     app.use(httpContext.middleware);
     // Run the context for each request. Assign a unique identifier to each request
     app.use((req, res, next) => {
@@ -1021,9 +1186,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     // temporarilty allow a global /batch via config option for samenscholing
     if (sriConfig.enableGlobalBatch) {
-      const globalBatchPath = `${sriConfig.globalBatchRoutePrefix !== undefined ? sriConfig.globalBatchRoutePrefix : ""}/batch`;
-      debug("general", `registering route ${globalBatchPath} - PUT/POST`);
-      debug("general", `registering route ${`${globalBatchPath}_streaming`} - PUT/POST`);
+      const globalBatchPath = `${
+        sriConfig.globalBatchRoutePrefix !== undefined ? sriConfig.globalBatchRoutePrefix : ""
+      }/batch`;
       app.put(
         globalBatchPath,
         expressWrapper(dbR, dbW, batch.batchOperation, sriConfig, null, false, true, false),
@@ -1504,7 +1669,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => {
         // Also use phaseSyncedSettle like in batch to use same shared code,
         // has no direct added value in case of single request.
-        debug("general", `registering route ${route} - ${verb} - ${readOnly}`);
         app[verb.toLowerCase()](
           route,
           emt.instrument(
@@ -1535,6 +1699,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     app.get("/", (_req: Request, res: Response) => res.redirect("/resources"));
 
+    listRegisteredRoutes(app);
     console.log(
       "___________________________ SRI4NODE INITIALIZATION DONE _____________________________",
     );

@@ -15,7 +15,7 @@ import { IDatabase } from "pg-promise";
 import { IClient } from "pg-promise/typescript/pg-subset";
 import { applyHooks } from "./hooks";
 
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 
 const debug_log = (id, msg) => {
   debug("phaseSyncer", `PS -${id}- ${msg}`);

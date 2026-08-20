@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import assert from "assert";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import sinon from "sinon";
 import sleep from "await-sleep";
 import fs from "fs";
@@ -77,7 +77,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
 
           // create
           dummyLoggerSpy.resetHistory();
-          const keyp1 = uuid.v4();
+          const keyp1 = uuidv4();
           const p1 = generateRandomPerson(keyp1, communityDendermonde, "Sara", "Hermelink");
           await httpClient.put({ path: `/persons/${keyp1}`, body: p1, auth: "kevin" });
           assert.equal(
@@ -130,7 +130,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           );
           // delete  unexisting
           dummyLoggerSpy.resetHistory();
-          await httpClient.delete({ path: `/persons/${uuid.v4()}`, auth: "kevin" });
+          await httpClient.delete({ path: `/persons/${uuidv4()}`, auth: "kevin" });
           assert.equal(
             dummyLoggerSpy.calledWith(`final beforePhaseCntr: ${nrPhasesInRequest}`),
             true,
@@ -235,11 +235,11 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           );
         });
         it("batch request - parallel", async () => {
-          const keypA = uuid.v4();
+          const keypA = uuidv4();
           const pA = generateRandomPerson(keypA, communityDendermonde, "Oona", "Hazelhof");
           await httpClient.put({ path: `/persons/${keypA}`, body: pA, auth: "kevin" });
 
-          const keypB = uuid.v4();
+          const keypB = uuidv4();
           const pB = generateRandomPerson(
             keypB,
             communityDendermonde,
@@ -248,21 +248,21 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           );
           await httpClient.put({ path: `/persons/${keypB}`, body: pB, auth: "kevin" });
 
-          const keypC = uuid.v4();
+          const keypC = uuidv4();
           const pC = generateRandomPerson(keypC, communityDendermonde, "Sonja", "Lambert");
           await httpClient.put({ path: `/persons/${keypC}`, body: pC, auth: "kevin" });
 
-          const keypD = uuid.v4();
+          const keypD = uuidv4();
           const pD = generateRandomPerson(keypD, communityDendermonde, "Elena", "van der Hagen");
           await httpClient.put({ path: `/persons/${keypD}`, body: pD, auth: "kevin" });
 
-          const keypE = uuid.v4();
+          const keypE = uuidv4();
           const pE = generateRandomPerson(keypE, communityDendermonde, "Stijn", "Lindhout");
           await httpClient.put({ path: `/persons/${keypE}`, body: pE, auth: "kevin" });
           await httpClient.delete({ path: `/persons/${keypE}`, auth: "kevin" });
 
           dummyLoggerSpy.resetHistory();
-          const keypN = uuid.v4();
+          const keypN = uuidv4();
           const pN = generateRandomPerson(keypN, communityDendermonde, "Sara", "Hermelink");
           const batch = [
             {
@@ -314,7 +314,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             },
             {
               // delete unexisting
-              href: `/persons/${uuid.v4()}`,
+              href: `/persons/${uuidv4()}`,
               verb: "DELETE",
             },
             {
@@ -340,11 +340,11 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           );
         });
         it("batch request - parallel with error", async () => {
-          const keypA = uuid.v4();
+          const keypA = uuidv4();
           const pA = generateRandomPerson(keypA, communityDendermonde, "Oona", "Hazelhof");
           await httpClient.put({ path: `/persons/${keypA}`, body: pA, auth: "kevin" });
 
-          const keypB = uuid.v4();
+          const keypB = uuidv4();
           const pB = generateRandomPerson(
             keypB,
             communityDendermonde,
@@ -353,21 +353,21 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           );
           await httpClient.put({ path: `/persons/${keypB}`, body: pB, auth: "kevin" });
 
-          const keypC = uuid.v4();
+          const keypC = uuidv4();
           const pC = generateRandomPerson(keypC, communityDendermonde, "Sonja", "Lambert");
           await httpClient.put({ path: `/persons/${keypC}`, body: pC, auth: "kevin" });
 
-          const keypD = uuid.v4();
+          const keypD = uuidv4();
           const pD = generateRandomPerson(keypD, communityDendermonde, "Elena", "van der Hagen");
           await httpClient.put({ path: `/persons/${keypD}`, body: pD, auth: "kevin" });
 
-          const keypE = uuid.v4();
+          const keypE = uuidv4();
           const pE = generateRandomPerson(keypE, communityDendermonde, "Stijn", "Lindhout");
           await httpClient.put({ path: `/persons/${keypE}`, body: pE, auth: "kevin" });
           await httpClient.delete({ path: `/persons/${keypE}`, auth: "kevin" });
 
           dummyLoggerSpy.resetHistory();
-          const keypN = uuid.v4();
+          const keypN = uuidv4();
           const pN = generateRandomPerson(keypN, communityDendermonde, "Sara", "Hermelink");
           const batch = [
             {
@@ -419,7 +419,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             },
             {
               // delete unexisting
-              href: `/persons/${uuid.v4()}`,
+              href: `/persons/${uuidv4()}`,
               verb: "DELETE",
             },
             {
@@ -454,7 +454,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
         it("batch request - sequential", async () => {
           dummyLoggerSpy.resetHistory();
 
-          const keypA = uuid.v4();
+          const keypA = uuidv4();
           const pA = generateRandomPerson(keypA, communityDendermonde, "Oona", "Hazelhof");
 
           const batch = [
@@ -518,7 +518,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
               },
               {
                 // delete unexisting
-                href: `/persons/${uuid.v4()}`,
+                href: `/persons/${uuidv4()}`,
                 verb: "DELETE",
               },
             ],
@@ -585,7 +585,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
 
     describe("Resource specific hooks", () => {
       describe("before and after hooks (CRUD)", async () => {
-        const testKey = uuid.v4();
+        const testKey = uuidv4();
         it("read", async () => {
           // single
           await httpClient.get({
@@ -624,11 +624,11 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           // delete already deleted
           await httpClient.delete({ path: `/bars/${testKey}`, auth: "kevin" });
           // delete existing
-          await httpClient.delete({ path: `/bars/${uuid.v4()}`, auth: "kevin" });
+          await httpClient.delete({ path: `/bars/${uuidv4()}`, auth: "kevin" });
         });
 
         it("batch - sequential", async () => {
-          const testKey2 = uuid.v4();
+          const testKey2 = uuidv4();
           const batch = [
             [
               {
@@ -702,7 +702,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             [
               {
                 // delete non-existing
-                href: `/bars/${uuid.v4()}`,
+                href: `/bars/${uuidv4()}`,
                 verb: "DELETE",
               },
             ],
@@ -718,16 +718,16 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             };
             await httpClient.put({ path: `/bars/${key}`, body, auth: "kevin" });
           };
-          const testKeyP1 = uuid.v4(); // used for create in batch
-          const testKeyP2 = uuid.v4();
+          const testKeyP1 = uuidv4(); // used for create in batch
+          const testKeyP2 = uuidv4();
           createTestBar(testKeyP2);
-          const testKeyP3 = uuid.v4();
+          const testKeyP3 = uuidv4();
           createTestBar(testKeyP3);
-          const testKeyP4 = uuid.v4();
+          const testKeyP4 = uuidv4();
           createTestBar(testKeyP4);
-          const testKeyP5 = uuid.v4();
+          const testKeyP5 = uuidv4();
           createTestBar(testKeyP5);
-          const testKeyP6 = uuid.v4();
+          const testKeyP6 = uuidv4();
           createTestBar(testKeyP6);
           await httpClient.delete({ path: `/bars/${testKeyP6}`, auth: "kevin" });
 
@@ -787,7 +787,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             },
             {
               // delete non-existing
-              href: `/bars/${uuid.v4()}`,
+              href: `/bars/${uuidv4()}`,
               verb: "DELETE",
             },
           ];
@@ -796,7 +796,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
 
         describe("via internal interface", async () => {
           it("non-batch", async () => {
-            const testKey2 = uuid.v4();
+            const testKey2 = uuidv4();
             // single
             await httpClient.post({
               path: "/bars/proxy_internal_interface?method=GET&href=/bars/5de9c352-2534-11ed-84bc-9bce6d5e13f9",
@@ -852,7 +852,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
             });
             // delete delete non-existing
             await httpClient.post({
-              path: `/bars/proxy_internal_interface?method=DELETE&href=/bars/${uuid.v4()}`,
+              path: `/bars/proxy_internal_interface?method=DELETE&href=/bars/${uuidv4()}`,
               auth: "kevin",
             });
 
@@ -866,7 +866,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
           it.skip("batch", async () => {
             // Currently batch does not seem to work in internal requests
 
-            const testKey3 = uuid.v4();
+            const testKey3 = uuidv4();
             const batch = [
               [
                 {
@@ -940,7 +940,7 @@ module.exports = function (httpClient: THttpClient, dummyLogger: Console) {
               [
                 {
                   // delete non-existing
-                  href: `/bars/${uuid.v4()}`,
+                  href: `/bars/${uuidv4()}`,
                   verb: "DELETE",
                 },
               ],

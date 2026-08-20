@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import assert from "assert";
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import _ from "lodash";
 import { THttpClient } from "./httpClient";
 
@@ -21,7 +21,7 @@ module.exports = function (httpClient: THttpClient) {
   }
 
   describe("DELETE regular resource", function () {
-    const key = uuid.v4();
+    const key = uuidv4();
     const body = generateRandomCommunity(key);
 
     before(async function () {

@@ -1,6 +1,6 @@
 // Utility methods for calling the SRI interface
 import { assert } from "chai";
-import { TSriServerInstance } from "../js/typeDefinitions";
+import { TSriServerInstance } from "../js/typeDefinitions.js";
 
 /**
  * These tests depend on the fact that sriConfig.databaseConnectionParameters.connectionInitSql

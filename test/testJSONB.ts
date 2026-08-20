@@ -1,5 +1,5 @@
 // Utility methods for calling the SRI interface
-import * as uuid from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 import { assert } from "chai";
 import { debug } from "../js/common";
 import { THttpClient } from "./httpClient";
@@ -42,7 +42,7 @@ module.exports = function (httpClient: THttpClient) {
       },
     ].forEach((test) => {
       it(`should support PUT ${test.title}`, async function () {
-        const key = uuid.v4();
+        const key = uuidv4();
         const x = {
           key: key,
           details: test.value,
