@@ -1,9 +1,7 @@
 /// <reference types="node" />
-import Express from "express";
-import { IInitOptions } from "pg-promise";
+import Express, { Application, Request, Response } from "express";
 import pgPromise from "pg-promise";
-import { Application, Request, Response } from "express";
-import { Readable } from "stream";
+import stream from "stream";
 import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
@@ -222,7 +220,7 @@ declare function transformObjectToRow(obj: Record<string, any>, resourceMapping:
  * @param pgpInitOptions
  * @param extraOptions
  */
-declare function pgInit(pgpInitOptions: IInitOptions<{}, IClient> | undefined, extraOptions: {
+declare function pgInit(pgpInitOptions: pgPromise.IInitOptions<{}, IClient> | undefined, extraOptions: {
     schema?: pgPromise.ValidSchema | ((dc: any) => pgPromise.ValidSchema) | undefined;
     connectionInitSql?: string;
     monitor: boolean;
@@ -264,7 +262,7 @@ declare function startTransaction(db: pgPromise.IDatabase<unknown, IClient>, mod
     rejectTx: () => Promise<void>;
 }>;
 declare function startTask(db: pgPromise.IDatabase<unknown, IClient>): Promise<{
-    t: unknown;
+    t: pgPromise.ITask<unknown>;
     endTask: () => Promise<void>;
 }>;
 declare function installVersionIncTriggerOnTable(db: pgPromise.IDatabase<unknown, IClient>, tableName: string, schemaName?: string): Promise<void>;
@@ -279,7 +277,7 @@ declare function tableFromMapping(mapping: TResourceDefinition): any;
 declare function isEqualSriObject(obj1: any, obj2: any, mapping: any): any;
 declare function stringifyError(e: any): string;
 declare function settleResultsToSriResults(results: any): any;
-declare function createReadableStream(objectMode?: boolean): Readable;
+declare function createReadableStream(objectMode?: boolean): stream.Readable;
 declare function getParentSriRequestFromRequestMap(sriRequestMap: Map<string, TSriRequest>, recurse?: boolean): any;
 declare function getPgp(): pgPromise.IMain<{}, IClient>;
 /**

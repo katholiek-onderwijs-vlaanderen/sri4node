@@ -308,7 +308,6 @@ var import_url = __toESM(require("url"));
 var import_events = __toESM(require("events"));
 var import_p_event = __toESM(require("p-event"));
 var import_path = __toESM(require("path"));
-var import_stream2 = __toESM(require("stream"));
 var import_peggy2 = __toESM(require("peggy"));
 var import_express_http_context = __toESM(require("express-http-context"));
 
@@ -1135,11 +1134,11 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
           "[generateSriRequest] basicConfig.isStreamingRequest is true, but expressResponse argument is missing"
         );
       }
-      const inStream = new import_stream2.default.PassThrough({
+      const inStream = new import_stream.default.PassThrough({
         allowHalfOpen: false,
         emitClose: true
       });
-      const outStream = new import_stream2.default.PassThrough({
+      const outStream = new import_stream.default.PassThrough({
         allowHalfOpen: false,
         emitClose: true
       });
