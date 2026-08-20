@@ -82,7 +82,7 @@ const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
 const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId: string = httpContext.get("reqId");
-    const msg = `${new Date().toISOString()} ${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${
+    const msg = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${
       typeof output === "function" ? output() : output
     }`;
     if (reqId !== undefined) {
