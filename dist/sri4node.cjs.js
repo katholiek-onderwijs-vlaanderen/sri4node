@@ -62,7 +62,7 @@ var import_shortid = __toESM(require("shortid"));
 var import_pg_promise = __toESM(require("pg-promise"));
 var import_pg_monitor = __toESM(require("pg-monitor"));
 var import_crypto = require("crypto");
-var import_stream = require("stream");
+var import_stream = __toESM(require("stream"));
 var import_lodash = __toESM(require("lodash"));
 
 // js/schemaUtils.ts
@@ -853,38 +853,27 @@ async function startTransaction(db, mode = new pgp.txMode.TransactionMode()) {
 }
 async function startTask(db) {
   debug("db", "++ Starting database task.");
-  const emitter = new import_events.default();
-  const taskWrapper = async (emitter2) => {
-    try {
-      await db.task(async (t) => {
-        emitter2.emit("tEvent", t);
-        await (0, import_p_event.default)(emitter2, "terminate");
-      });
-      emitter2.emit("tDone");
-    } catch (err) {
-      emitter2.emit("tDone", err);
-    }
-  };
+  let taskResolve;
   try {
-    const t = await new Promise((resolve, reject) => {
-      emitter.on("tEvent", (t2) => {
-        resolve(t2);
-      });
-      emitter.on("tDone", (err) => {
-        reject(err);
-      });
-      taskWrapper(emitter);
-    });
-    debug("db", "Got db t object.");
-    const endTask = async () => {
-      emitter.emit("terminate");
-      const res = await (0, import_p_event.default)(emitter, "tDone");
-      debug("db", "db task done.");
-      if (res !== void 0) {
-        throw res;
+    const taskPromise = new Promise(
+      (resolve, reject) => {
+        db.task(async (t) => {
+          debug("db", "Got db t object.");
+          const endTask = async () => {
+            debug("db", "++ Terminating database task.");
+            if (taskResolve) {
+              taskResolve();
+            }
+          };
+          resolve({ t, endTask });
+          await new Promise((resolveTask) => {
+            taskResolve = resolveTask;
+          });
+          debug("db", "db task done.");
+        }).catch(reject);
       }
-    };
-    return { t, endTask };
+    );
+    return await taskPromise;
   } catch (err) {
     error("CAUGHT ERROR: ");
     error(JSON.stringify(err));
@@ -1053,8 +1042,8 @@ function generateSriRequest(expressRequest = void 0, expressResponse = void 0, b
     headers: {},
     body: void 0,
     dbT: basicConfig?.dbT || internalSriRequest?.dbT || parentSriRequest?.dbT,
-    inStream: new import_stream2.default.Readable(),
-    outStream: new import_stream2.default.Writable(),
+    inStream: new import_stream.default.Readable(),
+    outStream: new import_stream.default.Writable(),
     setHeader: void 0,
     setStatus: void 0,
     streamStarted: void 0,

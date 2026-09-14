@@ -22,8 +22,8 @@ import shortid from "shortid";
 // js/common.ts
 import pgPromise from "pg-promise";
 import monitor from "pg-monitor";
-import { randomUUID as uuidv4 , randomUUID as uuidv42 } from "crypto";
-import { Readable } from "stream";
+import { randomUUID as uuidv4 } from "crypto";
+import stream, { Readable } from "stream";
 import _ from "lodash";
 
 // js/schemaUtils.ts
@@ -814,38 +814,27 @@ async function startTransaction(db, mode = new pgp.txMode.TransactionMode()) {
 }
 async function startTask(db) {
   debug("db", "++ Starting database task.");
-  const emitter = new EventEmitter();
-  const taskWrapper = async (emitter2) => {
-    try {
-      await db.task(async (t) => {
-        emitter2.emit("tEvent", t);
-        await pEvent(emitter2, "terminate");
-      });
-      emitter2.emit("tDone");
-    } catch (err) {
-      emitter2.emit("tDone", err);
-    }
-  };
+  let taskResolve;
   try {
-    const t = await new Promise((resolve, reject) => {
-      emitter.on("tEvent", (t2) => {
-        resolve(t2);
-      });
-      emitter.on("tDone", (err) => {
-        reject(err);
-      });
-      taskWrapper(emitter);
-    });
-    debug("db", "Got db t object.");
-    const endTask = async () => {
-      emitter.emit("terminate");
-      const res = await pEvent(emitter, "tDone");
-      debug("db", "db task done.");
-      if (res !== void 0) {
-        throw res;
+    const taskPromise = new Promise(
+      (resolve, reject) => {
+        db.task(async (t) => {
+          debug("db", "Got db t object.");
+          const endTask = async () => {
+            debug("db", "++ Terminating database task.");
+            if (taskResolve) {
+              taskResolve();
+            }
+          };
+          resolve({ t, endTask });
+          await new Promise((resolveTask) => {
+            taskResolve = resolveTask;
+          });
+          debug("db", "db task done.");
+        }).catch(reject);
       }
-    };
-    return { t, endTask };
+    );
+    return await taskPromise;
   } catch (err) {
     error("CAUGHT ERROR: ");
     error(JSON.stringify(err));
@@ -1242,6 +1231,7 @@ import pEvent2 from "p-event";
 import pMap2 from "p-map";
 import queue from "emitter-queue";
 import Emitter from "events";
+import { randomUUID as uuidv42 } from "crypto";
 var debug_log = (id, msg) => {
   debug("phaseSyncer", `PS -${id}- ${msg}`);
 };
