@@ -23,6 +23,12 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.43 (14-09-2026)
+
+### Fixed
+
+- edgecase when db connections are not closed properly for closed/interrupted requests
+
 ## version 2.3.42 (22-06-2026)
 
 ### Changed
