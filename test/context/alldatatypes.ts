@@ -70,6 +70,7 @@ module.exports = function (sri4node: typeof Sri4Node): TResourceDefinition {
           undefined,
           "[0-9]+",
         ),
+        "$$meta.hash": $s.string("Hash to test adding field to $$meta section"),
       },
       required: [],
     },

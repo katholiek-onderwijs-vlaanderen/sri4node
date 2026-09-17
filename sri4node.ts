@@ -217,6 +217,17 @@ function getSchema(req, resp) {
   const schema = _.cloneDeep(mapping.schema);
   if (schema.properties) {
     schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
+
+    // Move any flat "$$meta.xxxx" properties into the nested $$meta.properties object
+    Object.keys(schema.properties)
+      .filter((propName) => propName.startsWith("$$meta."))
+      .forEach((propName) => {
+        const subKey = propName.substring("$$meta.".length); // strip "$$meta." prefix
+        // move the property into $$meta.properties[subKey]
+        schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+        // remove the flat property from the root
+        delete schema.properties[propName];
+      });
   }
 
   resp.set("Content-Type", "application/json");

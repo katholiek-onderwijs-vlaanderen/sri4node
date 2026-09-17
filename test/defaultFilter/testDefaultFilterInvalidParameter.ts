@@ -35,7 +35,9 @@ module.exports = function (httpClient: THttpClient) {
 
         const possibleParameters = [
           ...new Set([
-            ...Object.keys(alldatatypes.schema.properties),
+            ...Object.keys(alldatatypes.schema.properties).filter(
+              (p) => p.startsWith("$$meta.") === false,
+            ),
             "key",
             "$$meta.deleted",
             "$$meta.modified",

@@ -4356,6 +4356,11 @@ function getSchema(req, resp) {
   const schema = import_lodash7.default.cloneDeep(mapping.schema);
   if (schema.properties) {
     schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
+    Object.keys(schema.properties).filter((propName) => propName.startsWith("$$meta.")).forEach((propName) => {
+      const subKey = propName.substring("$$meta.".length);
+      schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+      delete schema.properties[propName];
+    });
   }
   resp.set("Content-Type", "application/json");
   resp.send(schema);
