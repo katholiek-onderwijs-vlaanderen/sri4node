@@ -224,7 +224,14 @@ function getSchema(req, resp) {
       .forEach((propName) => {
         const subKey = propName.substring("$$meta.".length); // strip "$$meta." prefix
         // move the property into $$meta.properties[subKey]
-        schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+        if (
+          !Object.prototype.hasOwnProperty.call(
+            schema.properties.$$meta.properties,
+            subKey,
+          )
+        ) {
+          schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+        }
         // remove the flat property from the root
         delete schema.properties[propName];
       });
