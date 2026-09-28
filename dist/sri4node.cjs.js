@@ -4358,9 +4358,29 @@ function getSchema(req, resp) {
     schema.properties.$$meta = getMetaSchemaObject(req.route.path, mapping);
     Object.keys(schema.properties).filter((propName) => propName.startsWith("$$meta.")).forEach((propName) => {
       const subKey = propName.substring("$$meta.".length);
-      schema.properties.$$meta.properties[subKey] = schema.properties[propName];
-      delete schema.properties[propName];
+      if (!Object.prototype.hasOwnProperty.call(
+        schema.properties.$$meta.properties,
+        subKey
+      )) {
+        schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+        delete schema.properties[propName];
+      }
     });
+    if (Array.isArray(schema.required)) {
+      const metaRequiredSubKeys = schema.required.filter((propName) => propName.startsWith("$$meta.")).map((propName) => propName.substring("$$meta.".length));
+      if (metaRequiredSubKeys.length > 0) {
+        schema.required = schema.required.filter(
+          (propName) => !propName.startsWith("$$meta.")
+        );
+        const existingMetaRequired = Array.isArray(schema.properties.$$meta.required) ? schema.properties.$$meta.required : [];
+        schema.properties.$$meta.required = [
+          .../* @__PURE__ */ new Set([...existingMetaRequired, ...metaRequiredSubKeys])
+        ];
+        if (!schema.required.includes("$$meta")) {
+          schema.required.push("$$meta");
+        }
+      }
+    }
   }
   resp.set("Content-Type", "application/json");
   resp.send(schema);

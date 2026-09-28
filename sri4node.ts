@@ -224,17 +224,39 @@ function getSchema(req, resp) {
       .forEach((propName) => {
         const subKey = propName.substring("$$meta.".length); // strip "$$meta." prefix
         // move the property into $$meta.properties[subKey]
-        if (
-          !Object.prototype.hasOwnProperty.call(
-            schema.properties.$$meta.properties,
-            subKey,
-          )
-        ) {
+        if (!Object.prototype.hasOwnProperty.call(schema.properties.$$meta.properties, subKey)) {
           schema.properties.$$meta.properties[subKey] = schema.properties[propName];
+          // remove the flat property from the root
+          delete schema.properties[propName];
         }
-        // remove the flat property from the root
-        delete schema.properties[propName];
       });
+
+    // Move any flat "$$meta.xxxx" entries from the root "required" array into
+    // $$meta.required, and require the parent $$meta object if at least one
+    // nested field is required.
+    if (Array.isArray(schema.required)) {
+      const metaRequiredSubKeys = schema.required
+        .filter((propName) => propName.startsWith("$$meta."))
+        .map((propName) => propName.substring("$$meta.".length));
+
+      if (metaRequiredSubKeys.length > 0) {
+        // remove the flat "$$meta.*" entries from the root required array
+        schema.required = schema.required.filter((propName) => !propName.startsWith("$$meta."));
+
+        // add the nested required entries to $$meta.required (avoid duplicates)
+        const existingMetaRequired = Array.isArray(schema.properties.$$meta.required)
+          ? schema.properties.$$meta.required
+          : [];
+        schema.properties.$$meta.required = [
+          ...new Set([...existingMetaRequired, ...metaRequiredSubKeys]),
+        ];
+
+        // require the parent $$meta object itself
+        if (!schema.required.includes("$$meta")) {
+          schema.required.push("$$meta");
+        }
+      }
+    }
   }
 
   resp.set("Content-Type", "application/json");
