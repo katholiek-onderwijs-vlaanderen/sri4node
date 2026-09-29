@@ -23,6 +23,16 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.44 (29-09-2026)
+
+### Added
+
+- added possibility to extend $$meta schema by adding "$$meta.<propery> in API shema - this will be moved into $$meta schema by sri4node
+
+### Fixed
+
+- proper error logging in case of err object when startTask/Transaction failed
+
 ## version 2.3.43 (14-09-2026)
 
 ### Fixed
