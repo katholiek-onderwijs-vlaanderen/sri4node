@@ -1145,8 +1145,8 @@ async function startTransaction(
       rejectTx: terminateTx("reject"),
     };
   } catch (err) {
-    error("CAUGHT ERROR: ");
-    error(JSON.stringify(err), err);
+    error("CAUGHT ERROR (startTransaction): ");
+    error(stringifyError(err), err);
     throw new SriError({
       status: 503,
       errors: [
@@ -1191,8 +1191,8 @@ async function startTask(db: pgPromise.IDatabase<unknown, IClient>) {
 
     return await taskPromise;
   } catch (err) {
-    error("CAUGHT ERROR: ");
-    error(JSON.stringify(err));
+    error("CAUGHT ERROR (startTask): ");
+    error(stringifyError(err), err);
 
     throw new SriError({
       status: 503,
