@@ -127,4 +127,43 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(response.body.errors[0].code, "key.invalid");
     });
   });
+
+  describe("GET schema of /alldatatypes", function () {
+    it("should return a valid $$meta object in the schema", async function () {
+      const response = await httpClient.get({ path: "/alldatatypes/schema" });
+      assert.equal(response.status, 200);
+
+      const schema = response.body;
+      assert.ok(schema.properties, "schema should have properties");
+
+      // $$meta should be nested as an object with its own properties
+      const meta = schema.properties.$$meta;
+      assert.ok(meta, "schema.properties.$$meta should exist");
+      assert.equal(meta.type, "object");
+      assert.ok(meta.properties, "$$meta should have a nested properties object");
+
+      // verify all standard $$meta properties are present
+      const expectedMetaProps = ["created", "modified", "permalink", "version", "type"];
+      expectedMetaProps.forEach((prop) => {
+        assert.ok(meta.properties[prop], `$$meta.properties.${prop} should exist in the schema`);
+      });
+
+      // there should be no flat "$$meta.xxx" properties left at the root
+      const flatMetaKeys = Object.keys(schema.properties).filter((k) => k.startsWith("$$meta."));
+      assert.deepEqual(
+        flatMetaKeys,
+        [],
+        `no flat $$meta.* properties should remain at root, found: ${flatMetaKeys.join(", ")}`,
+      );
+    });
+
+    it("should contain the 'hash' property nested under $$meta", async function () {
+      const response = await httpClient.get({ path: "/alldatatypes/schema" });
+      assert.equal(response.status, 200);
+
+      const metaProperties = response.body.properties.$$meta.properties;
+      assert.ok(metaProperties, "$$meta.properties should exist");
+      assert.ok(metaProperties.hash, "$$meta.properties.hash should exist in the schema");
+    });
+  });
 };
