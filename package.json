@@ -37,6 +37,7 @@
     "release": ". \"$(npm prefix)/package.json.scripts.sh\" && $( echo ${npm_lifecycle_event} | tr ':' '_' )"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@types/busboy": "^1.5.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.0.2",

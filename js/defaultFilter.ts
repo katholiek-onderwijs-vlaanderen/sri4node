@@ -4,6 +4,7 @@ import {
   SriError,
   TInformationSchema,
   TPreparedSql,
+  TResolvedSriConfig,
   TResourceDefinition,
   TSriConfig,
 } from "./typeDefinitions";
@@ -574,7 +575,7 @@ function defaultFilter(
   const filter = analyseParameter(parameter);
 
   // 2) Find data type on database from information schema;
-  const { informationSchema } = global.sri4node_configuration as TSriConfig;
+  const { informationSchema } = global.sri4node_configuration as TResolvedSriConfig;
   const idx = mapping.type;
   const field: TInformationSchema[string][string] | null =
     informationSchema?.[idx][filter.key] ?? null;

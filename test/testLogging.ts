@@ -55,14 +55,15 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length > 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs > 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("single get - logging one specific channel", async () => {
@@ -74,14 +75,15 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 0);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("single get - invalid logconfig ", async () => {
@@ -93,14 +95,8 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length === 0);
+      console.log("logLines", logLines);
+      assert.ok(logLines.length === 0);
     });
 
     it("single get - logging for specific status (200), status match", async () => {
@@ -112,14 +108,15 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 0);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("single get - logging for specific status (302), no status match", async () => {
@@ -131,14 +128,7 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length === 0);
+      assert.ok(logLines.length === 0);
     });
 
     it("single get - logging for specific status (401), status match", async () => {
@@ -152,14 +142,15 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(response.status, 401);
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("list get", async () => {
@@ -171,14 +162,15 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("list get - logging for specific status (401), status match", async () => {
@@ -189,14 +181,15 @@ module.exports = function (httpClient: THttpClient) {
       assert.equal(response.status, 401);
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
     });
 
     it("list get - logging for specific status (401), no status match", async () => {
@@ -208,14 +201,7 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length === 0);
+      assert.ok(logLines.length === 0);
     });
 
     it("batch", async () => {
@@ -233,16 +219,17 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
+      const nrBatchLogs = logObjects.filter((l) => l.channel === "batch").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
-      assert.ok(logLinesBatch.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
+      assert.ok(nrBatchLogs > 0);
     });
 
     it("batch - logging for specific status (401), status match", async () => {
@@ -264,16 +251,17 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
+      const nrBatchLogs = logObjects.filter((l) => l.channel === "batch").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
-      assert.ok(logLinesBatch.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
+      assert.ok(nrBatchLogs > 0);
     });
 
     it("batch - logging for specific status (401), no status match", async () => {
@@ -291,16 +279,7 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
-
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length === 0);
-      assert.ok(logLinesBatch.length === 0);
+      assert.ok(logLines.length === 0);
     });
 
     it("batch - streaming", async () => {
@@ -322,16 +301,17 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
+      const nrBatchLogs = logObjects.filter((l) => l.channel === "batch").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
-      assert.ok(logLinesBatch.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
+      assert.ok(nrBatchLogs > 0);
     });
 
     it("batch - streaming - logging for specific status (401), status match", async () => {
@@ -353,16 +333,17 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
+      const logObjects = logLines.map((l) => JSON.parse(l));
 
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
+      const nrTraceLogs = logObjects.filter((l) => l.channel === "trace").length;
+      const nrRequestLogs = logObjects.filter((l) => l.channel === "requests").length;
+      const nrDbLogs = logObjects.filter((l) => l.channel === "db").length;
+      const nrBatchLogs = logObjects.filter((l) => l.channel === "batch").length;
 
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 2);
-      assert.ok(logLinesDb.length > 0);
-      assert.ok(logLinesBatch.length > 0);
+      assert.ok(nrTraceLogs === 0);
+      assert.ok(nrRequestLogs === 2);
+      assert.ok(nrDbLogs > 0);
+      assert.ok(nrBatchLogs > 0);
     });
 
     it("batch - streaming - logging for specific status (401), no status match", async () => {
@@ -380,16 +361,7 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-
-      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
-      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
-      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
-      const logLinesBatch = logLines.filter((l) => l.includes("[batch]"));
-
-      assert.ok(logLinesTrace.length === 0);
-      assert.ok(logLinesRequests.length === 0);
-      assert.ok(logLinesDb.length === 0);
-      assert.ok(logLinesBatch.length === 0);
+      assert.ok(logLines.length === 0);
     });
 
     it("single get - server-timing logging", async () => {
@@ -401,8 +373,10 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      const logLinesServerTiming = logLines.filter((l) => l.includes("[server-timing]"));
-      assert.ok(logLinesServerTiming.length === 1);
+      const logObjects = logLines.map((l) => JSON.parse(l));
+
+      const nrServerTimingLogs = logObjects.filter((l) => l.channel === "server-timing").length;
+      assert.ok(nrServerTimingLogs === 1);
     });
 
     it("list get - server-timing logging", async () => {
@@ -414,8 +388,10 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      const logLinesServerTiming = logLines.filter((l) => l.includes("[server-timing]"));
-      assert.ok(logLinesServerTiming.length === 1);
+      const logObjects = logLines.map((l) => JSON.parse(l));
+
+      const nrServerTimingLogs = logObjects.filter((l) => l.channel === "server-timing").length;
+      assert.ok(nrServerTimingLogs === 1);
     });
 
     it("batch - server-timing logging", async () => {
@@ -433,8 +409,10 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      const logLinesServerTiming = logLines.filter((l) => l.includes("[server-timing]"));
-      assert.ok(logLinesServerTiming.length === 1);
+      const logObjects = logLines.map((l) => JSON.parse(l));
+
+      const nrServerTimingLogs = logObjects.filter((l) => l.channel === "server-timing").length;
+      assert.ok(nrServerTimingLogs === 1);
     });
 
     it("batch streaming - server-timing logging", async () => {
@@ -452,8 +430,10 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      const logLinesServerTiming = logLines.filter((l) => l.includes("[server-timing]"));
-      assert.ok(logLinesServerTiming.length === 1);
+      const logObjects = logLines.map((l) => JSON.parse(l));
+
+      const nrServerTimingLogs = logObjects.filter((l) => l.channel === "server-timing").length;
+      assert.ok(nrServerTimingLogs === 1);
     });
 
     it("single get - all -> server-timing logging", async () => {
@@ -465,8 +445,30 @@ module.exports = function (httpClient: THttpClient) {
 
       inspect.restore();
       const logLines = inspect.output;
-      const logLinesServerTiming = logLines.filter((l) => l.includes("[server-timing]"));
-      assert.ok(logLinesServerTiming.length === 1);
+      const logObjects = logLines.map((l) => JSON.parse(l));
+
+      const nrServerTimingLogs = logObjects.filter((l) => l.channel === "server-timing").length;
+      assert.ok(nrServerTimingLogs === 1);
+    });
+
+    it("json = false", async () => {
+      await setLogLvl(httpClient, { channels: "all", json: false });
+      const inspect = stdout.inspect();
+
+      const response = await httpClient.get({ path: "/cities/38002" });
+      assert.equal(response.status, 200);
+
+      inspect.restore();
+      const logLines = inspect.output;
+      const logLinesTrace = logLines.filter((l) => l.includes("[trace]"));
+      const logLinesRequests = logLines.filter((l) => l.includes("[requests]"));
+      const logLinesDb = logLines.filter((l) => l.includes("[db]"));
+      const logLinesHooks = logLines.filter((l) => l.includes("[hooks]"));
+
+      assert.ok(logLinesTrace.length > 0);
+      assert.ok(logLinesRequests.length > 0);
+      assert.ok(logLinesDb.length > 0);
+      assert.ok(logLinesHooks.length > 0);
     });
   });
 };

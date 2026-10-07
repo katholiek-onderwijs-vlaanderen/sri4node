@@ -25,6 +25,7 @@ import monitor from "pg-monitor";
 import { randomUUID as uuidv4 } from "crypto";
 import stream, { Readable } from "stream";
 import _ from "lodash";
+import { trace, context } from "@opentelemetry/api";
 
 // js/schemaUtils.ts
 var schemaUtils_exports = {};
@@ -360,6 +361,33 @@ function init(reporter) {
   };
 }
 
+// js/consoleProxy.ts
+var ORIGINAL_KEY = /* @__PURE__ */ Symbol.for("sri4node.originalConsole");
+var PROXIED_KEY = /* @__PURE__ */ Symbol.for("sri4node.consoleProxied");
+var g = globalThis;
+if (!g[ORIGINAL_KEY]) {
+  g[ORIGINAL_KEY] = {
+    log: console.log.bind(console),
+    error: console.error.bind(console),
+    warn: console.warn.bind(console),
+    info: console.info.bind(console),
+    debug: console.debug.bind(console)
+  };
+}
+var originalConsole = g[ORIGINAL_KEY];
+function getTimestamp() {
+  return (/* @__PURE__ */ new Date()).toISOString();
+}
+function initializeConsoleProxy() {
+  if (g[PROXIED_KEY]) {
+    return;
+  }
+  g[PROXIED_KEY] = true;
+  Object.keys(originalConsole).forEach((method) => {
+    console[method] = (...args) => originalConsole[method](getTimestamp(), ...args);
+  });
+}
+
 // js/common.ts
 var pgp;
 var logBuffer = {};
@@ -367,24 +395,42 @@ function hrtimeToMilliseconds([seconds, nanoseconds]) {
   return seconds * 1e3 + nanoseconds / 1e6;
 }
 var isLogChannelEnabled = (channel) => {
-  return global.sri4node_configuration === void 0 || global.sri4node_configuration.logdebug && (global.sri4node_configuration.logdebug.channels === "all" || global.sri4node_configuration.logdebug.channels.has(channel));
+  return global.sri4node_configuration === void 0 || global.sri4node_configuration.logdebug && (global.sri4node_configuration.logdebug.channels === "all" || channel !== "all" && global.sri4node_configuration.logdebug.channels.has(channel));
 };
+function logToJson(level, channel, reqId, message) {
+  const span = trace.getSpan(context.active());
+  const spanCtx = span?.spanContext();
+  return JSON.stringify({
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    level,
+    channel,
+    reqId,
+    traceId: spanCtx?.traceId,
+    spanId: spanCtx?.spanId,
+    message
+  });
+}
 var debugAnyChannelAllowed = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId = httpContext.get("reqId");
-    const msg = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
-    if (reqId !== void 0) {
-      if (global.sri4node_configuration.logdebug.statuses !== void 0) {
-        if (!logBuffer[reqId]) {
-          logBuffer[reqId] = [msg];
-        } else {
-          logBuffer[reqId].push(msg);
-        }
-      } else {
-        console.log(msg);
-      }
+    let logLine;
+    if (global.sri4node_configuration?.logdebug.json) {
+      logLine = logToJson("info", channel, reqId, typeof output === "function" ? output() : output);
     } else {
-      console.log(msg);
+      logLine = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${typeof output === "function" ? output() : output}`;
+    }
+    if (global.sri4node_configuration?.logdebug.statuses !== void 0 && reqId !== void 0) {
+      if (!logBuffer[reqId]) {
+        logBuffer[reqId] = [logLine];
+      } else {
+        logBuffer[reqId].push(logLine);
+      }
+      return;
+    }
+    if (global.sri4node_configuration?.logdebug.json) {
+      originalConsole.log(logLine);
+    } else {
+      console.log(logLine);
     }
   }
 };
@@ -451,14 +497,17 @@ but please specify the preferred channels for which logging is requested.
 `
     );
     return {
-      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"])
+      channels: /* @__PURE__ */ new Set(["general", "trace", "requests", "server-timing"]),
+      json: false
     };
   }
   if (logdebug === false) {
-    return { channels: /* @__PURE__ */ new Set() };
+    return { channels: /* @__PURE__ */ new Set(), json: false };
   }
   const tempLogDebug = {
-    channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels)
+    channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels),
+    json: logdebug.json ?? true
+    // by default, we log in json format (for easier parsing by cloudwatch or other log parsers)
   };
   if (logdebug.statuses) {
     tempLogDebug.statuses = new Set(logdebug.statuses);
@@ -467,8 +516,14 @@ but please specify the preferred channels for which logging is requested.
 }
 function handleRequestDebugLog(status) {
   const reqId = httpContext.get("reqId");
-  if (global.sri4node_configuration.logdebug.statuses.has(status)) {
-    logBuffer[reqId].forEach((e) => console.log(e));
+  if (global.sri4node_configuration.logdebug.statuses && global.sri4node_configuration.logdebug.statuses.has(status)) {
+    logBuffer[reqId].forEach((e) => {
+      if (global.sri4node_configuration.logdebug.json) {
+        originalConsole.log(e);
+      } else {
+        console.log(e);
+      }
+    });
   }
   delete logBuffer[reqId];
 }
@@ -681,26 +736,6 @@ async function pgInit(pgpInitOptions = {}, extraOptions) {
   }
 }
 async function pgConnect(sri4nodeConfig) {
-  if (sri4nodeConfig.defaultdatabaseurl !== void 0) {
-    console.warn(
-      "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead"
-    );
-  }
-  if (sri4nodeConfig.maxConnections) {
-    console.warn(
-      "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead"
-    );
-  }
-  if (sri4nodeConfig.dbConnectionInitSql) {
-    console.warn(
-      "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead"
-    );
-  }
-  if (process.env.PGP_MONITOR) {
-    console.warn(
-      "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead"
-    );
-  }
   if (!pgp) {
     const extraOptions = {
       schema: sri4nodeConfig.databaseConnectionParameters.schema,
@@ -1498,7 +1533,7 @@ function matchHref(href, verb) {
   const queryParams = parsedUrl.query;
   const path2 = (parsedUrl.pathname || "").replace(/\/$/, "");
   const batchHandlerMap = global.sri4node_configuration.batchHandlerMap;
-  const matches = batchHandlerMap[verb].map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match !== false);
+  const matches = (batchHandlerMap[verb] ?? []).map((handler2) => ({ handler: handler2, match: handler2.route.match(path2) })).filter(({ match }) => match !== false);
   if (matches.length > 1) {
     console.log(
       `WARNING: multiple handler functions match for batch request ${path2}. Only first will be used. Check configuration.`
@@ -1728,7 +1763,7 @@ var batchOperationStreaming = async (sriRequest, internalUtils) => {
   let keepAliveTimer = null;
   const reqBody = sriRequest.body;
   const batchConcurrency = global.overloadProtection.startPipeline(
-    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency)
+    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency || 0)
   );
   try {
     let batchFailed = false;
@@ -4199,40 +4234,6 @@ var staticFiles = {
     `
 };
 
-// js/consoleProxy.ts
-var originalConsole = {
-  log: console.log.bind(console),
-  error: console.error.bind(console),
-  warn: console.warn.bind(console),
-  info: console.info.bind(console),
-  debug: console.debug.bind(console)
-};
-var isConsoleProxied = false;
-function getTimestamp() {
-  return (/* @__PURE__ */ new Date()).toISOString();
-}
-function initializeConsoleProxy() {
-  if (isConsoleProxied) {
-    return;
-  }
-  isConsoleProxied = true;
-  console.log = function(...args) {
-    originalConsole.log(getTimestamp(), ...args);
-  };
-  console.error = function(...args) {
-    originalConsole.error(getTimestamp(), ...args);
-  };
-  console.warn = function(...args) {
-    originalConsole.warn(getTimestamp(), ...args);
-  };
-  console.info = function(...args) {
-    originalConsole.info(getTimestamp(), ...args);
-  };
-  console.debug = function(...args) {
-    originalConsole.debug(getTimestamp(), ...args);
-  };
-}
-
 // sri4node.ts
 initializeConsoleProxy();
 var ajv2 = new Ajv2({
@@ -4678,7 +4679,6 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
     }
     if (global.sri4node_configuration.logdebug && global.sri4node_configuration.logdebug.statuses !== void 0) {
       setImmediate(() => {
-        console.log("GOING TO CALL handleRequestDebugLog");
         handleRequestDebugLog(err.status ? err.status : 500);
       });
     }
@@ -4829,6 +4829,7 @@ async function configure(app, sriConfig) {
           console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
           console.error("");
           console.error(`Error: ${err.message}`);
+          console.error(`Error: ${err.stack}`);
           console.error("===============================================================");
           process.exit(1);
         }
@@ -4840,33 +4841,34 @@ async function configure(app, sriConfig) {
         mapping.metaType = "NOT SPECIFIED";
       }
     });
-    sriConfig.utils = utils;
     if (sriConfig.batchConcurrency === void 0) {
       sriConfig.batchConcurrency = 4;
     }
-    if (sriConfig.logdebug !== void 0) {
-      sriConfig.logdebug = createDebugLogConfigObject(sriConfig.logdebug);
-    }
-    global.sri4node_configuration = sriConfig;
     const db = await pgConnect(sriConfig);
     const dbR = db;
     const dbW = db;
     const pgp2 = getPgp();
     await applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp2));
     const currentInformationSchema = await informationSchema(dbR, sriConfig);
-    global.sri4node_configuration.informationSchema = currentInformationSchema;
+    const resolvedSriConfig = {
+      ...sriConfig,
+      informationSchema: currentInformationSchema,
+      logdebug: createDebugLogConfigObject(sriConfig.logdebug ?? { channels: [] }),
+      utils
+    };
+    global.sri4node_configuration = resolvedSriConfig;
     await pMap8(
-      sriConfig.resources,
+      resolvedSriConfig.resources,
       async (mapping) => {
         if (!mapping.onlyCustom) {
-          const schema = sriConfig.databaseConnectionParameters?.schema || sriConfig.databaseLibraryInitOptions?.schema;
+          const schema = resolvedSriConfig.databaseConnectionParameters?.schema || resolvedSriConfig.databaseLibraryInitOptions?.schema;
           const schemaName = Array.isArray(schema) ? schema[0] : schema?.toString();
           await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
         }
       },
       { concurrency: 1 }
     );
-    checkSriConfigWithDb(sriConfig, currentInformationSchema);
+    checkSriConfigWithDb(resolvedSriConfig, currentInformationSchema);
     const generatePgColumnSet = (columnNames, type, table) => {
       const columns = columnNames.map((cname) => {
         const cConf = {
@@ -4876,8 +4878,8 @@ async function configure(app, sriConfig) {
           cConf.prop = `_${cname.replace(/\./g, "_")}`;
           cConf.init = (c) => c.source[cname];
         }
-        const cType = global.sri4node_configuration.informationSchema[type][cname].type;
-        const cElementType = global.sri4node_configuration.informationSchema[type][cname].element_type;
+        const cType = resolvedSriConfig.informationSchema[type][cname].type;
+        const cElementType = resolvedSriConfig.informationSchema[type][cname].element_type;
         if (cType !== "text") {
           if (cType === "ARRAY") {
             cConf.cast = `${cElementType}[]`;
@@ -4892,8 +4894,8 @@ async function configure(app, sriConfig) {
       });
       return new pgp2.helpers.ColumnSet(columns, { table });
     };
-    global.sri4node_configuration.pgColumns = Object.fromEntries(
-      sriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
+    resolvedSriConfig.pgColumns = Object.fromEntries(
+      resolvedSriConfig.resources.filter((resource2) => !resource2.onlyCustom).map((resource2) => {
         const { type } = resource2;
         const table = tableFromMapping(typeToMapping(type));
         const columns = JSON.parse(`[${sqlColumnNames(typeToMapping(type))}]`).filter(
@@ -4921,29 +4923,29 @@ async function configure(app, sriConfig) {
       if (plugin.uuid !== void 0 && global.sri4node_loaded_plugins.has(plugin.uuid)) {
         return;
       }
-      await plugin.install(global.sri4node_configuration, dbW);
+      await plugin.install(resolvedSriConfig, dbW);
       if (plugin.uuid !== void 0) {
         debug("general", `Loaded plugin ${plugin.uuid}.`);
         global.sri4node_loaded_plugins.set(plugin.uuid, plugin);
       }
     };
-    if (sriConfig.plugins !== void 0) {
+    if (resolvedSriConfig.plugins !== void 0) {
       await pMap8(
-        sriConfig.plugins,
+        resolvedSriConfig.plugins,
         async (plugin) => {
           await global.sri4node_install_plugin(plugin);
         },
         { concurrency: 1 }
       );
     }
-    global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
+    global.overloadProtection = overloadProtectionFactory(resolvedSriConfig.overloadProtection);
     app.use(async (_req, res, next) => {
       if (global.overloadProtection.canAccept()) {
         next();
       } else {
         debug("overloadProtection", "DROPPED REQ");
-        if (sriConfig.overloadProtection?.retryAfter !== void 0) {
-          res.set("Retry-After", sriConfig.overloadProtection?.retryAfter.toString());
+        if (resolvedSriConfig.overloadProtection?.retryAfter !== void 0) {
+          res.set("Retry-After", resolvedSriConfig.overloadProtection?.retryAfter.toString());
         }
         res.status(503).send([
           {
@@ -4954,13 +4956,13 @@ async function configure(app, sriConfig) {
       }
     });
     const emt = installEMT(app);
-    if (global.sri4node_configuration.forceSecureSockets) {
+    if (resolvedSriConfig.forceSecureSockets) {
       app.use(forceSecureSockets);
     }
     app.use(emt.instrument(compression(), "mw-compression"));
     app.use(
       emt.instrument(
-        bodyParser.json({ limit: sriConfig.bodyParserLimit, strict: false }),
+        bodyParser.json({ limit: resolvedSriConfig.bodyParserLimit, strict: false }),
         "mw-bodyparser"
       )
     );
@@ -4981,11 +4983,11 @@ async function configure(app, sriConfig) {
     app.get("/docs", middlewareErrorWrapper(getDocs));
     app.get("/resources", middlewareErrorWrapper(getResourcesOverview));
     app.post("/setlogdebug", (req, resp, _next) => {
-      global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
+      resolvedSriConfig.logdebug = createDebugLogConfigObject(req.body);
       resp.send("OK");
     });
     const healthCheckWrapper = async (req, res, healthCheck) => {
-      const healthCheckLogging = global.sri4node_configuration.logdebug.channels === "all" || global.sri4node_configuration.logdebug.channels.has("healthcheck");
+      const healthCheckLogging = resolvedSriConfig.logdebug.channels === "all" || resolvedSriConfig.logdebug.channels.has("healthcheck");
       let hrstart;
       let reqMsgStart;
       if (healthCheckLogging) {
@@ -5035,14 +5037,14 @@ async function configure(app, sriConfig) {
       } else {
         reqId = shortid.generate();
       }
-      if (sriConfig.id !== void 0) {
-        reqId = `${sriConfig.id}#${reqId}`;
+      if (resolvedSriConfig.id !== void 0) {
+        reqId = `${resolvedSriConfig.id}#${reqId}`;
       }
       httpContext3.set("reqId", reqId);
       next();
     });
     await pMap8(
-      sriConfig.resources,
+      resolvedSriConfig.resources,
       async (mapping) => {
         if (!mapping.onlyCustom) {
           if (mapping.map?.key === void 0) {
@@ -5051,7 +5053,7 @@ async function configure(app, sriConfig) {
               key: {}
             };
           }
-          checkRequiredFields(mapping, sriConfig.informationSchema);
+          checkRequiredFields(mapping, resolvedSriConfig.informationSchema);
           if (mapping.query === void 0) {
             mapping.query = {};
           }
@@ -5068,33 +5070,33 @@ async function configure(app, sriConfig) {
       },
       { concurrency: 1 }
     );
-    if (sriConfig.enableGlobalBatch) {
-      const globalBatchPath = `${sriConfig.globalBatchRoutePrefix !== void 0 ? sriConfig.globalBatchRoutePrefix : ""}/batch`;
+    if (resolvedSriConfig.enableGlobalBatch) {
+      const globalBatchPath = `${resolvedSriConfig.globalBatchRoutePrefix !== void 0 ? resolvedSriConfig.globalBatchRoutePrefix : ""}/batch`;
       app.put(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batchOperation, sriConfig, null, false, true, false)
+        expressWrapper(dbR, dbW, batchOperation, resolvedSriConfig, null, false, true, false)
       );
       app.post(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batchOperation, sriConfig, null, false, true, false)
+        expressWrapper(dbR, dbW, batchOperation, resolvedSriConfig, null, false, true, false)
       );
       app.put(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batchOperationStreaming, sriConfig, null, true, true, false)
+        expressWrapper(dbR, dbW, batchOperationStreaming, resolvedSriConfig, null, true, true, false)
       );
       app.post(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batchOperationStreaming, sriConfig, null, true, true, false)
+        expressWrapper(dbR, dbW, batchOperationStreaming, resolvedSriConfig, null, true, true, false)
       );
     }
-    const batchHandlerMap = sriConfig.resources.reduce(
+    const batchHandlerMap = resolvedSriConfig.resources.reduce(
       (acc, mapping) => {
         const crudRoutes = [
           {
             route: `${mapping.type}/:key`,
             verb: "GET",
             func: getRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -5104,7 +5106,7 @@ async function configure(app, sriConfig) {
             route: `${mapping.type}/:key`,
             verb: "PUT",
             func: createOrUpdateRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -5114,7 +5116,7 @@ async function configure(app, sriConfig) {
             route: `${mapping.type}/:key`,
             verb: "PATCH",
             func: patchRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -5124,7 +5126,7 @@ async function configure(app, sriConfig) {
             route: `${mapping.type}/:key`,
             verb: "DELETE",
             func: deleteRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -5134,7 +5136,7 @@ async function configure(app, sriConfig) {
             route: mapping.type,
             verb: "GET",
             func: getListResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -5145,7 +5147,7 @@ async function configure(app, sriConfig) {
             route: `${mapping.type}/isPartOf`,
             verb: "POST",
             func: isPartOf,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -5153,45 +5155,45 @@ async function configure(app, sriConfig) {
           }
         ];
         const batchRoutes = [
-          // [`${mapping.type}/batch`, 'PUT', batch.batchOperation, sriConfig, mapping, false, false, true],
+          // [`${mapping.type}/batch`, 'PUT', batch.batchOperation, resolvedSriConfig, mapping, false, false, true],
           {
             route: `${mapping.type}/batch`,
             verb: "PUT",
             func: batchOperation,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
             isBatch: true
           },
-          // [`${mapping.type}/batch`, 'POST', batch.batchOperation, sriConfig, mapping, false, false, true],
+          // [`${mapping.type}/batch`, 'POST', batch.batchOperation, resolvedSriConfig, mapping, false, false, true],
           {
             route: `${mapping.type}/batch`,
             verb: "POST",
             func: batchOperation,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
             isBatch: true
           },
-          // [`${mapping.type}/batch_streaming`, 'PUT', batch.batchOperationStreaming, sriConfig, mapping, true, false, true],
+          // [`${mapping.type}/batch_streaming`, 'PUT', batch.batchOperationStreaming, resolvedSriConfig, mapping, true, false, true],
           {
             route: `${mapping.type}/batch_streaming`,
             verb: "PUT",
             func: batchOperationStreaming,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: true,
             readOnly: false,
             isBatch: true
           },
-          // [`${mapping.type}/batch_streaming`, 'POST', batch.batchOperationStreaming, sriConfig, mapping, true, false, true],
+          // [`${mapping.type}/batch_streaming`, 'POST', batch.batchOperationStreaming, resolvedSriConfig, mapping, true, false, true],
           {
             route: `${mapping.type}/batch_streaming`,
             verb: "POST",
             func: batchOperationStreaming,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: true,
             readOnly: false,
@@ -5230,7 +5232,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   route: crudPath + cr.routePostfix,
                   verb,
                   func,
-                  config: sriConfig,
+                  config: resolvedSriConfig,
                   mapping: customMapping,
                   streaming,
                   readOnly,
@@ -5318,7 +5320,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                       if (sriRequest.outStream instanceof ServerResponse) {
                         sriRequest.outStream.flush();
                       }
-                    }, sriConfig.streamingKeepAliveTimeoutMillis || 2e4);
+                    }, resolvedSriConfig.streamingKeepAliveTimeoutMillis || 2e4);
                   }
                   sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   const streamingHandlerPromise = streamingHandler(
@@ -5345,7 +5347,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   await streamDonePromise;
                   return { status: 200 };
                 },
-                config: sriConfig,
+                config: resolvedSriConfig,
                 mapping: customMapping,
                 streaming: true,
                 readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -5389,7 +5391,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   await phaseSyncer.phase();
                   return result;
                 },
-                config: sriConfig,
+                config: resolvedSriConfig,
                 mapping: customMapping,
                 streaming: false,
                 readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -5439,15 +5441,15 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
       app,
       // informationSchema: currentInformationSchema, // maybe later
       close: async () => {
-        if (Array.isArray(sriConfig.plugins)) {
+        if (Array.isArray(resolvedSriConfig.plugins)) {
           const alreadyClosed = /* @__PURE__ */ new Set();
           await pMap8(
-            sriConfig.plugins,
+            resolvedSriConfig.plugins,
             async (plugin) => {
               if (plugin.close) {
                 try {
                   if (!plugin.uuid || !alreadyClosed.has(plugin.uuid)) {
-                    await plugin.close(global.sri4node_configuration, dbW);
+                    await plugin.close(resolvedSriConfig, dbW);
                   }
                 } catch (err) {
                   console.error(`Error closing plugin ${plugin.uuid}: ${err}`);
@@ -5475,7 +5477,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
         );
       }
     );
-    sriConfig.batchHandlerMap = _7.groupBy(
+    resolvedSriConfig.batchHandlerMap = _7.groupBy(
       batchHandlerMap.map(
         ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => ({
           route: new Route(route),
