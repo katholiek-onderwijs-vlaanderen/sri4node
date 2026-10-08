@@ -59,19 +59,32 @@ export type TUriPath = string;
 
 export type THttpMethod = "GET" | "PUT" | "DELETE" | "PATCH" | "POST";
 
-export type TDebugChannel =
-  | "general"
-  | "db"
-  | "sql"
-  | "requests"
-  | "hooks"
-  | "server-timing"
-  | "batch"
-  | "trace"
-  | "phaseSyncer"
-  | "overloadProtection"
-  | "healthcheck"
-  | "mocha";
+/**
+ * Registry of all known debug channels.
+ * Consumers can add their own channels via module augmentation:
+ *
+ *   declare module 'sri4node' {
+ *     interface TDebugChannelRegistry {
+ *       'my-custom-channel': true;
+ *     }
+ *   }
+ */
+export interface TDebugChannelRegistry {
+  general: true;
+  db: true;
+  sql: true;
+  requests: true;
+  hooks: true;
+  "server-timing": true;
+  batch: true;
+  trace: true;
+  phaseSyncer: true;
+  overloadProtection: true;
+  healthcheck: true;
+  mocha: true;
+}
+
+export type TDebugChannel = keyof TDebugChannelRegistry;
 
 export type TLogDebug = {
   channels: TDebugChannel[] | "all";

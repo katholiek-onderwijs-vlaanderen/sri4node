@@ -5082,11 +5082,29 @@ async function configure(app, sriConfig) {
       );
       app.put(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batchOperationStreaming, resolvedSriConfig, null, true, true, false)
+        expressWrapper(
+          dbR,
+          dbW,
+          batchOperationStreaming,
+          resolvedSriConfig,
+          null,
+          true,
+          true,
+          false
+        )
       );
       app.post(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batchOperationStreaming, resolvedSriConfig, null, true, true, false)
+        expressWrapper(
+          dbR,
+          dbW,
+          batchOperationStreaming,
+          resolvedSriConfig,
+          null,
+          true,
+          true,
+          false
+        )
       );
     }
     const batchHandlerMap = resolvedSriConfig.resources.reduce(
