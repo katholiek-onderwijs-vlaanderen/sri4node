@@ -4511,6 +4511,17 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
   let resolveTx;
   let rejectTx;
   let readOnly;
+  let reqCancelled = false;
+  let sriRequest;
+  const onClose = () => {
+    if (!resp.writableFinished) {
+      reqCancelled = true;
+      if (sriRequest) {
+        sriRequest.reqCancelled = true;
+      }
+    }
+  };
+  resp.on("close", onClose);
   const reqMsgStart = `${req.method} ${req.originalUrl}`;
   debug("requests", `${reqMsgStart} starting.`);
   const hrstart = process.hrtime();
@@ -4520,7 +4531,6 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
     debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
   });
   debug("trace", "Starting express wrapper");
-  let sriRequest;
   try {
     let batchRoutingDuration = 0;
     if (isBatchRequest) {
@@ -4559,14 +4569,22 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
       isStreamingRequest,
       dbT: t
     });
+    sriRequest.reqCancelled = reqCancelled;
     setServerTimingHdr(
       sriRequest,
       "db-starttask",
       hrtimeToMilliseconds(hrElapsedStartTransaction)
     );
-    req.on("close", (_err) => {
-      sriRequest.reqCancelled = true;
-    });
+    if (reqCancelled || resp.destroyed) {
+      debug("requests", `${reqMsgStart} cancelled by client before processing started.`);
+      if (readOnly === true) {
+        await endTask();
+      } else {
+        await rejectTx();
+      }
+      t = null;
+      return;
+    }
     await applyHooks(
       "transform request",
       sriConfig.transformRequest || [],
@@ -5378,6 +5396,11 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                         sriRequest.outStream.flush();
                       }
                     }, resolvedSriConfig.streamingKeepAliveTimeoutMillis || 2e4);
+                  }
+                  if (sriRequest.outStream.destroyed || sriRequest.reqCancelled) {
+                    setImmediate(() => streamEndEmitter.emit("done"));
+                  } else {
+                    sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   }
                   sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   const streamingHandlerPromise = streamingHandler(

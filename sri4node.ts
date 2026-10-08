@@ -431,6 +431,21 @@ const expressWrapper = (
     let resolveTx;
     let rejectTx;
     let readOnly;
+
+    // Track client disconnects from the very start. Note: req 'close' fires as soon as the
+    // request body is consumed (Node >= 16), so use resp 'close' + writableFinished instead.
+    let reqCancelled = false;
+    let sriRequest;
+    const onClose = () => {
+      if (!resp.writableFinished) {
+        reqCancelled = true;
+        if (sriRequest) {
+          sriRequest.reqCancelled = true;
+        }
+      }
+    };
+    resp.on("close", onClose);
+
     const reqMsgStart = `${req.method} ${req.originalUrl}`;
     debug("requests", `${reqMsgStart} starting.`);
 
@@ -441,7 +456,6 @@ const expressWrapper = (
       debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
     });
     debug("trace", "Starting express wrapper");
-    let sriRequest;
     try {
       let batchRoutingDuration = 0;
       if (isBatchRequest) {
@@ -488,15 +502,27 @@ const expressWrapper = (
         isStreamingRequest,
         dbT: t,
       });
+      // copy a cancellation that happened while we were waiting for the db
+      sriRequest.reqCancelled = reqCancelled;
+
       setServerTimingHdr(
         sriRequest,
         "db-starttask",
         hrtimeToMilliseconds(hrElapsedStartTransaction),
       );
 
-      req.on("close", (_err) => {
-        sriRequest.reqCancelled = true;
-      });
+      // If client is already gone: release the db task/transaction immediately
+      // instead of processing a request nobody will receive.
+      if (reqCancelled || resp.destroyed) {
+        debug("requests", `${reqMsgStart} cancelled by client before processing started.`);
+        if (readOnly === true) {
+          await endTask();
+        } else {
+          await rejectTx();
+        }
+        t = null; // prevent a second release in the catch block
+        return;
+      }
 
       await applyHooks(
         "transform request",
@@ -1523,6 +1549,13 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                     }, resolvedSriConfig.streamingKeepAliveTimeoutMillis || 20000);
                   }
 
+                  // 'close' may already have fired (client disconnected early):
+                  // in that case don't wait for an event that will never come.
+                  if (sriRequest.outStream.destroyed || sriRequest.reqCancelled) {
+                    setImmediate(() => streamEndEmitter.emit("done"));
+                  } else {
+                    sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
+                  }
                   sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
 
                   const streamingHandlerPromise = streamingHandler(

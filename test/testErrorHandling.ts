@@ -1,9 +1,13 @@
 // Utility methods for calling the SRI interface
 import assert from "assert";
 import { randomUUID as uuidv4 } from "crypto";
+import sleep from "await-sleep";
 import { THttpClient } from "./httpClient";
 
-module.exports = function (httpClient: THttpClient) {
+module.exports = function (
+  httpClient: THttpClient,
+  testContext: { server: null | Server; sriServerInstance: null | TSriServerInstance },
+) {
   const communityDendermonde = "/communities/8bf649b4-c50a-4ee9-9b02-877aa0a71849";
 
   function generateRandomPerson(key, communityPermalink) {
@@ -143,5 +147,36 @@ module.exports = function (httpClient: THttpClient) {
     //   });
 
     // });
+
+    it("releases the db task when the client disconnects before processing starts", async function () {
+      this.timeout(10000);
+      const db = testContext.sriServerInstance!.db;
+      const poolMax: number = (db.$pool as any).options.max;
+
+      // 1. occupy ALL pool connections so the request has to wait in startTask
+      const held = await Promise.all(Array.from({ length: poolMax }, () => db.connect()));
+
+      // 2. send a streaming request and abort it while it waits for a connection
+      const controller = new AbortController();
+      const p = fetch(`${httpClient.getBaseUrl()}/persons/downStreamJSON`, {
+        signal: controller.signal,
+      }).catch(() => {});
+      await sleep(200); // make sure the request reached expressWrapper
+      controller.abort();
+      await p;
+      await sleep(100); // let the 'close' event fire on the server
+
+      // 3. release the connections: the pending startTask now gets one,
+      //    AFTER the 'close' event has already fired
+      held.forEach((sco) => sco.done());
+      await sleep(1000);
+
+      // 4. without the fix the streaming handler hangs and keeps its connection
+      assert.equal(
+        db.$pool.totalCount,
+        db.$pool.idleCount,
+        `pool not idle: total=${db.$pool.totalCount}, idle=${db.$pool.idleCount}`,
+      );
+    });
   });
 };

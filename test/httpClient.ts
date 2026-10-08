@@ -28,6 +28,8 @@ export type THttpClient = {
   delete: (req: THttpRequest) => Promise<THttpResponse>;
   post: (req: THttpRequest) => Promise<THttpResponse>;
   patch: (req: THttpRequest) => Promise<THttpResponse>;
+
+  getBaseUrl: () => string;
 };
 
 const handleHttpRequest = async (
@@ -84,6 +86,8 @@ export default {
         handleHttpRequest("POST", req, undiciClient),
       patch: (req: THttpRequest): Promise<THttpResponse> =>
         handleHttpRequest("PATCH", req, undiciClient),
+
+      getBaseUrl: (): string => base,
     };
   },
 };
