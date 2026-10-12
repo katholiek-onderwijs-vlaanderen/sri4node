@@ -2,6 +2,7 @@ import { TLogDebug, TSriServerInstance } from "../js/typeDefinitions";
 
 import devNull from "dev-null";
 import { Console } from "console";
+import sleep from "await-sleep";
 
 import * as context from "./context";
 
@@ -157,9 +158,12 @@ describe("Sri4node SERVER TESTS", function () {
     if (testContext.server) {
       await testContext.server.close();
     }
-    if (testContext.sriServerInstance) {
-      await testContext.sriServerInstance.close();
-    }
+    await Promise.race([
+      testContext.sriServerInstance?.close(),
+      sleep(5000).then(() => {
+        console.warn("WARNING: server close timed out (leaked db connection?)");
+      }),
+    ]);
     console.log("Done.");
   });
 
@@ -178,7 +182,7 @@ describe("Sri4node SERVER TESTS", function () {
   runTestIfNeeded("./testModified.ts", [httpClient]);
   runTestIfNeeded("./testResourceType.ts", [httpClient]);
   runTestIfNeeded("./testExpand.ts", [httpClient]);
-  runTestIfNeeded("./testErrorHandling.ts", [httpClient]);
+  runTestIfNeeded("./testErrorHandling.ts", [httpClient, testContext]);
   runTestIfNeeded("./testIsPartOf.ts", [httpClient]);
   runTestIfNeeded("./testBatch.ts", [httpClient]);
   runTestIfNeeded("./testInternalRequest.ts", [httpClient]);

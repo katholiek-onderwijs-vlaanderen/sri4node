@@ -11,6 +11,8 @@ import stream, { Readable } from "stream";
 
 import _ from "lodash";
 
+import { trace, context } from "@opentelemetry/api";
+
 import * as flatUrlParser from "./url_parsing/flat_url_parser";
 import * as schemaUtils from "./schemaUtils";
 import {
@@ -26,6 +28,8 @@ import {
   SriError,
   TLogDebug,
   TInformationSchema,
+  TResolvedLogDebug,
+  TResolvedSriConfig,
 } from "./typeDefinitions";
 import { generateNonFlatQueryStringParser } from "./url_parsing/non_flat_url_parser";
 import url from "url";
@@ -37,6 +41,7 @@ import httpContext from "express-http-context";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
 import { IClient } from "pg-promise/typescript/pg-subset";
+import { originalConsole } from "./consoleProxy";
 
 let pgp: pgPromise.IMain; // will be initialized at pgConnect
 
@@ -56,14 +61,29 @@ function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number 
   return seconds * 1000 + nanoseconds / 1000000;
 }
 
-const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
+const isLogChannelEnabled = (channel: TDebugChannel | "all"): boolean => {
   return (
     global.sri4node_configuration === undefined ||
     (global.sri4node_configuration.logdebug &&
       (global.sri4node_configuration.logdebug.channels === "all" ||
-        global.sri4node_configuration.logdebug.channels.has(channel)))
+        (channel !== "all" && global.sri4node_configuration.logdebug.channels.has(channel))))
   );
 };
+
+function logToJson(level: string, channel: string, reqId: string, message: unknown) {
+  const span = trace.getSpan(context.active());
+  const spanCtx = span?.spanContext();
+
+  return JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    channel,
+    reqId,
+    traceId: spanCtx?.traceId,
+    spanId: spanCtx?.spanId,
+    message,
+  });
+}
 
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
@@ -82,21 +102,31 @@ const isLogChannelEnabled = (channel: TDebugChannel | string): boolean => {
 const debugAnyChannelAllowed: TDebugLogFunction = (channel, output) => {
   if (isLogChannelEnabled(channel)) {
     const reqId: string = httpContext.get("reqId");
-    const msg = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${
-      typeof output === "function" ? output() : output
-    }`;
-    if (reqId !== undefined) {
-      if (global.sri4node_configuration.logdebug.statuses !== undefined) {
-        if (!logBuffer[reqId]) {
-          logBuffer[reqId] = [msg];
-        } else {
-          logBuffer[reqId].push(msg);
-        }
-      } else {
-        console.log(msg);
-      }
+
+    let logLine;
+    if (global.sri4node_configuration?.logdebug.json) {
+      logLine = logToJson("info", channel, reqId, typeof output === "function" ? output() : output);
     } else {
-      console.log(msg);
+      logLine = `${reqId ? `[reqId:${reqId}]` : ""}[${channel}] ${
+        typeof output === "function" ? output() : output
+      }`;
+    }
+
+    if (global.sri4node_configuration?.logdebug.statuses !== undefined && reqId !== undefined) {
+      if (!logBuffer[reqId]) {
+        logBuffer[reqId] = [logLine];
+      } else {
+        logBuffer[reqId].push(logLine);
+      }
+      return;
+    }
+
+    if (global.sri4node_configuration?.logdebug.json) {
+      // bypass the timestamp proxy: the JSON already contains a timestamp,
+      // and a prefix would make the line invalid JSON
+      originalConsole.log(logLine);
+    } else {
+      console.log(logLine);
     }
   }
 };
@@ -575,7 +605,7 @@ function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRe
   }
 }
 
-function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
+function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TResolvedLogDebug {
   if (logdebug === true) {
     // for backwards compability
     console.warn(
@@ -588,13 +618,15 @@ function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
     );
     return {
       channels: new Set(["general", "trace", "requests", "server-timing"]),
+      json: false,
     };
   }
   if (logdebug === false) {
-    return { channels: new Set() };
+    return { channels: new Set(), json: false };
   }
-  const tempLogDebug: TLogDebug = {
+  const tempLogDebug: TResolvedLogDebug = {
     channels: logdebug.channels === "all" ? "all" : new Set(logdebug.channels),
+    json: logdebug.json ?? true, // by default, we log in json format (for easier parsing by cloudwatch or other log parsers)
   };
   if (logdebug.statuses) {
     tempLogDebug.statuses = new Set(logdebug.statuses);
@@ -604,8 +636,17 @@ function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug {
 
 function handleRequestDebugLog(status: number) {
   const reqId = httpContext.get("reqId");
-  if (global.sri4node_configuration.logdebug.statuses.has(status)) {
-    logBuffer[reqId].forEach((e) => console.log(e));
+  if (
+    global.sri4node_configuration.logdebug.statuses &&
+    global.sri4node_configuration.logdebug.statuses.has(status)
+  ) {
+    logBuffer[reqId].forEach((e) => {
+      if (global.sri4node_configuration.logdebug.json) {
+        originalConsole.log(e);
+      } else {
+        console.log(e);
+      }
+    });
   }
   delete logBuffer[reqId];
 }
@@ -779,7 +820,10 @@ function transformRowToObject(row: any, resourceMapping: TResourceDefinition) {
  * @returns nothing, throw an error in case something is wrong
  */
 
-function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema) {
+function checkSriConfigWithDb(
+  sriConfig: TResolvedSriConfig,
+  informationSchema: TInformationSchema,
+) {
   sriConfig.resources.forEach((resourceMapping) => {
     const map = resourceMapping.map || {};
     Object.keys(map).forEach((key) => {
@@ -962,32 +1006,6 @@ async function pgInit(
  * @returns {pgPromise.IDatabase} the database connection
  */
 async function pgConnect(sri4nodeConfig: TSriConfig) {
-  // WARN WHEN USING OBSOLETE PROPETIES IN THE CONFIG
-  if (sri4nodeConfig.defaultdatabaseurl !== undefined) {
-    console.warn(
-      "defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead",
-    );
-    // throw new Error('defaultdatabaseurl config property has been deprecated, use databaseConnectionParameters.connectionString instead');
-  }
-  if (sri4nodeConfig.maxConnections) {
-    // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn(
-      "maxConnections config property has been deprecated, use databaseConnectionParameters.max instead",
-    );
-  }
-  if (sri4nodeConfig.dbConnectionInitSql) {
-    // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn(
-      "dbConnectionInitSql config property has been deprecated, use databaseConnectionParameters.connectionInitSql instead",
-    );
-  }
-  if (process.env.PGP_MONITOR) {
-    // maximum size of the connection pool: sri4nodeConfig.databaseConnectionParameters.max
-    console.warn(
-      "environemtn variable PGP_MONITOR has been deprecated, set config property databaseLibraryInitOptions.pgMonitor to true instead",
-    );
-  }
-
   // FIRST INITIALIZE THE LIBRARY IF IT HASN'T BEEN INITIALIZED BEFORE
   if (!pgp) {
     const extraOptions = {

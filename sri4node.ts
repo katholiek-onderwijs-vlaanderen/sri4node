@@ -74,6 +74,7 @@ import {
   TSriInternalUtils,
   TSriRequestHandlerForPhaseSyncer,
   TPluginConfig,
+  TResolvedSriConfig,
 } from "./js/typeDefinitions";
 import * as queryUtils from "./js/queryUtils";
 import * as schemaUtils from "./js/schemaUtils";
@@ -415,10 +416,8 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
 };
 
 const expressWrapper = (
-  dbR,
-  dbW,
   func: TSriRequestHandler,
-  sriConfig: TSriConfig,
+  sriConfig: TResolvedSriConfig,
   mapping: TResourceDefinition | null,
   isStreamingRequest: boolean,
   isBatchRequest: boolean,
@@ -430,6 +429,21 @@ const expressWrapper = (
     let resolveTx;
     let rejectTx;
     let readOnly;
+
+    // Track client disconnects from the very start. Note: req 'close' fires as soon as the
+    // request body is consumed (Node >= 16), so use resp 'close' + writableFinished instead.
+    let reqCancelled = false;
+    let sriRequest;
+    const onClose = () => {
+      if (!resp.writableFinished) {
+        reqCancelled = true;
+        if (sriRequest) {
+          sriRequest.reqCancelled = true;
+        }
+      }
+    };
+    resp.on("close", onClose);
+
     const reqMsgStart = `${req.method} ${req.originalUrl}`;
     debug("requests", `${reqMsgStart} starting.`);
 
@@ -440,7 +454,6 @@ const expressWrapper = (
       debug("requests", `${reqMsgStart} took ${ms.toFixed(2)} ms`);
     });
     debug("trace", "Starting express wrapper");
-    let sriRequest;
     try {
       let batchRoutingDuration = 0;
       if (isBatchRequest) {
@@ -474,9 +487,9 @@ const expressWrapper = (
       // Before creating the inital SriRequest object, we need to generate a task/transaction !!!
       const hrStartStartTransaction = process.hrtime();
       if (readOnly === true) {
-        ({ t, endTask } = await startTask(dbR));
+        ({ t, endTask } = await startTask(sriConfig.dbR));
       } else {
-        ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW));
+        ({ tx: t, resolveTx, rejectTx } = await startTransaction(sriConfig.dbW));
       }
       const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
 
@@ -487,15 +500,27 @@ const expressWrapper = (
         isStreamingRequest,
         dbT: t,
       });
+      // copy a cancellation that happened while we were waiting for the db
+      sriRequest.reqCancelled = reqCancelled;
+
       setServerTimingHdr(
         sriRequest,
         "db-starttask",
         hrtimeToMilliseconds(hrElapsedStartTransaction),
       );
 
-      req.on("close", (_err) => {
-        sriRequest.reqCancelled = true;
-      });
+      // If client is already gone: release the db task/transaction immediately
+      // instead of processing a request nobody will receive.
+      if (reqCancelled || resp.destroyed) {
+        debug("requests", `${reqMsgStart} cancelled by client before processing started.`);
+        if (readOnly === true) {
+          await endTask();
+        } else {
+          await rejectTx();
+        }
+        t = null; // prevent a second release in the catch block
+        return;
+      }
 
       await applyHooks(
         "transform request",
@@ -683,7 +708,6 @@ const expressWrapper = (
       ) {
         setImmediate(() => {
           // use setImmediate to make sure also the last log messages are buffered before calling handleRequestDebugLog
-          console.log("GOING TO CALL handleRequestDebugLog");
           handleRequestDebugLog(err.status ? err.status : 500);
         });
       }
@@ -779,18 +803,6 @@ const listRegisteredRoutes = (app: Application) => {
 async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriServerInstance> {
   // make sure no x-powered-by header is being sent
   app.disable("x-powered-by");
-
-  // 2022-03-08 REMOVE gc-stats as the project is abandoned and will cause problems with node versions > 12
-  // let maxHeapUsage = 0;
-  // if (sriConfig.trackHeapMax === true) {
-  //   const gc = (require('gc-stats'))();
-  //   gc.on('stats', (stats) => {
-  //     const heapUsage = (stats.before.usedHeapSize / 1024 / 1024);
-  //     if (heapUsage > maxHeapUsage) {
-  //       maxHeapUsage = heapUsage;
-  //     }
-  //   });
-  // }
 
   try {
     sriConfig.resources.forEach((resource) => {
@@ -898,6 +910,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
           console.error(`Schema: ${JSON.stringify(resourceDefinition.schema, null, 2)}`);
           console.error("");
           console.error(`Error: ${err.message}`);
+          console.error(`Error: ${err.stack}`);
           console.error("===============================================================");
           process.exit(1);
         }
@@ -911,17 +924,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       }
     });
 
-    sriConfig.utils = utils;
-
     if (sriConfig.batchConcurrency === undefined) {
       sriConfig.batchConcurrency = 4;
     }
-
-    if (sriConfig.logdebug !== undefined) {
-      sriConfig.logdebug = createDebugLogConfigObject(sriConfig.logdebug);
-    }
-
-    global.sri4node_configuration = sriConfig; // share configuration with other modules
 
     // in futre we'd want to support a separate read and write datrabase by adding another
     // connection paramaters object toi the config, and if it is filled in that can be the
@@ -936,16 +941,27 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     await applyHooks("start up", sriConfig.startUp || [], (f) => f(db, pgp));
 
     const currentInformationSchema = await informationSchema(dbR, sriConfig);
-    global.sri4node_configuration.informationSchema = currentInformationSchema;
+
+    const resolvedSriConfig = {
+      ...sriConfig,
+      informationSchema: currentInformationSchema,
+      logdebug: createDebugLogConfigObject(sriConfig.logdebug ?? { channels: [] }),
+      utils,
+      db,
+      dbR,
+      dbW,
+    } as TResolvedSriConfig;
+
+    global.sri4node_configuration = resolvedSriConfig; // share configuration with other modules
 
     // Do automatic DB updates that are part of sri4node's standard behavior (like adding version triggers)
     await pMap(
-      sriConfig.resources,
+      resolvedSriConfig.resources,
       async (mapping) => {
         if (!mapping.onlyCustom) {
           const schema =
-            sriConfig.databaseConnectionParameters?.schema ||
-            sriConfig.databaseLibraryInitOptions?.schema;
+            resolvedSriConfig.databaseConnectionParameters?.schema ||
+            resolvedSriConfig.databaseLibraryInitOptions?.schema;
           const schemaName = Array.isArray(schema) ? schema[0] : schema?.toString();
           await installVersionIncTriggerOnTable(dbW, tableFromMapping(mapping), schemaName);
         }
@@ -953,7 +969,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       { concurrency: 1 },
     );
 
-    checkSriConfigWithDb(sriConfig, currentInformationSchema);
+    checkSriConfigWithDb(resolvedSriConfig, currentInformationSchema);
 
     // Prepare pg-promise columnsets for multi insert/update & delete
     const generatePgColumnSet = (columnNames, type, table) => {
@@ -968,9 +984,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
           cConf.prop = `_${cname.replace(/\./g, "_")}`; // if prop is not unique multiple $$meta.* will get the same value!
           cConf.init = (c) => c.source[cname];
         }
-        const cType = global.sri4node_configuration.informationSchema[type][cname].type;
-        const cElementType =
-          global.sri4node_configuration.informationSchema[type][cname].element_type;
+        const cType = resolvedSriConfig.informationSchema[type][cname].type;
+        const cElementType = resolvedSriConfig.informationSchema[type][cname].element_type;
         if (cType !== "text") {
           if (cType === "ARRAY") {
             cConf.cast = `${cElementType}[]`;
@@ -989,8 +1004,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       return new pgp.helpers.ColumnSet(columns, { table });
     };
 
-    global.sri4node_configuration.pgColumns = Object.fromEntries(
-      sriConfig.resources
+    resolvedSriConfig.pgColumns = Object.fromEntries(
+      resolvedSriConfig.resources
         .filter((resource) => !resource.onlyCustom)
         .map((resource) => {
           const { type } = resource;
@@ -1026,7 +1041,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
         return;
       }
 
-      await plugin.install(global.sri4node_configuration, dbW);
+      await plugin.install(resolvedSriConfig, dbW);
 
       if (plugin.uuid !== undefined) {
         debug("general", `Loaded plugin ${plugin.uuid}.`);
@@ -1034,9 +1049,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       }
     };
 
-    if (sriConfig.plugins !== undefined) {
+    if (resolvedSriConfig.plugins !== undefined) {
       await pMap(
-        sriConfig.plugins,
+        resolvedSriConfig.plugins,
         async (plugin) => {
           await global.sri4node_install_plugin(plugin);
         },
@@ -1045,14 +1060,14 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     }
 
     // set the overload protection as first middleware to drop requests as soon as possible
-    global.overloadProtection = overloadProtectionFactory(sriConfig.overloadProtection);
+    global.overloadProtection = overloadProtectionFactory(resolvedSriConfig.overloadProtection);
     app.use(async (_req, res, next) => {
       if (global.overloadProtection.canAccept()) {
         next();
       } else {
         debug("overloadProtection", "DROPPED REQ");
-        if (sriConfig.overloadProtection?.retryAfter !== undefined) {
-          res.set("Retry-After", sriConfig.overloadProtection?.retryAfter.toString());
+        if (resolvedSriConfig.overloadProtection?.retryAfter !== undefined) {
+          res.set("Retry-After", resolvedSriConfig.overloadProtection?.retryAfter.toString());
         }
         res.status(503).send([
           {
@@ -1065,7 +1080,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
     const emt = installEMT(app);
 
-    if (global.sri4node_configuration.forceSecureSockets) {
+    if (resolvedSriConfig.forceSecureSockets) {
       // All URLs force SSL and allow cross origin access.
       app.use(forceSecureSockets);
     }
@@ -1073,7 +1088,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     app.use(emt.instrument(compression(), "mw-compression"));
     app.use(
       emt.instrument(
-        bodyParser.json({ limit: sriConfig.bodyParserLimit, strict: false }),
+        bodyParser.json({ limit: resolvedSriConfig.bodyParserLimit, strict: false }),
         "mw-bodyparser",
       ),
     );
@@ -1105,7 +1120,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     app.get("/resources", middlewareErrorWrapper(getResourcesOverview));
 
     app.post("/setlogdebug", (req, resp, _next) => {
-      global.sri4node_configuration.logdebug = createDebugLogConfigObject(req.body);
+      resolvedSriConfig.logdebug = createDebugLogConfigObject(req.body);
       resp.send("OK");
     });
 
@@ -1115,8 +1130,8 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       healthCheck: (healthLogging: boolean) => void,
     ) => {
       const healthCheckLogging =
-        global.sri4node_configuration.logdebug.channels === "all" ||
-        global.sri4node_configuration.logdebug.channels.has("healthcheck");
+        resolvedSriConfig.logdebug.channels === "all" ||
+        resolvedSriConfig.logdebug.channels.has("healthcheck");
 
       let hrstart;
       let reqMsgStart;
@@ -1180,15 +1195,15 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       } else {
         reqId = shortid.generate();
       }
-      if (sriConfig.id !== undefined) {
-        reqId = `${sriConfig.id}#${reqId}`;
+      if (resolvedSriConfig.id !== undefined) {
+        reqId = `${resolvedSriConfig.id}#${reqId}`;
       }
       httpContext.set("reqId", reqId);
       next();
     });
 
     await pMap(
-      sriConfig.resources,
+      resolvedSriConfig.resources,
       async (mapping) => {
         if (!mapping.onlyCustom) {
           if (mapping.map?.key === undefined) {
@@ -1198,7 +1213,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
               key: {} as any,
             };
           }
-          checkRequiredFields(mapping, sriConfig.informationSchema);
+          checkRequiredFields(mapping, resolvedSriConfig.informationSchema);
 
           if (mapping.query === undefined) {
             mapping.query = {};
@@ -1225,26 +1240,28 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     );
 
     // temporarilty allow a global /batch via config option for samenscholing
-    if (sriConfig.enableGlobalBatch) {
+    if (resolvedSriConfig.enableGlobalBatch) {
       const globalBatchPath = `${
-        sriConfig.globalBatchRoutePrefix !== undefined ? sriConfig.globalBatchRoutePrefix : ""
+        resolvedSriConfig.globalBatchRoutePrefix !== undefined
+          ? resolvedSriConfig.globalBatchRoutePrefix
+          : ""
       }/batch`;
       app.put(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batch.batchOperation, sriConfig, null, false, true, false),
+        expressWrapper(batch.batchOperation, resolvedSriConfig, null, false, true, false),
       );
       app.post(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batch.batchOperation, sriConfig, null, false, true, false),
+        expressWrapper(batch.batchOperation, resolvedSriConfig, null, false, true, false),
       );
 
       app.put(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batch.batchOperationStreaming, sriConfig, null, true, true, false),
+        expressWrapper(batch.batchOperationStreaming, resolvedSriConfig, null, true, true, false),
       );
       app.post(
         `${globalBatchPath}_streaming`,
-        expressWrapper(dbR, dbW, batch.batchOperationStreaming, sriConfig, null, true, true, false),
+        expressWrapper(batch.batchOperationStreaming, resolvedSriConfig, null, true, true, false),
       );
     }
 
@@ -1252,7 +1269,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
      * array of objects with url, verb, handler and some other options
      * which can be called within a batch
      */
-    const batchHandlerMap: Array<TBatchHandlerRecord> = sriConfig.resources.reduce(
+    const batchHandlerMap: Array<TBatchHandlerRecord> = resolvedSriConfig.resources.reduce(
       (acc: Array<TBatchHandlerRecord>, mapping) => {
         // [path, verb, func, mapping, streaming, readOnly, isBatch]
         const crudRoutes: Array<TBatchHandlerRecord> = [
@@ -1260,7 +1277,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: `${mapping.type}/:key`,
             verb: "GET" as THttpMethod,
             func: regularResource.getRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -1270,7 +1287,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: `${mapping.type}/:key`,
             verb: "PUT",
             func: regularResource.createOrUpdateRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -1280,7 +1297,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: `${mapping.type}/:key`,
             verb: "PATCH",
             func: regularResource.patchRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -1290,7 +1307,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: `${mapping.type}/:key`,
             verb: "DELETE",
             func: regularResource.deleteRegularResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
@@ -1300,7 +1317,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: mapping.type,
             verb: "GET",
             func: listResource.getListResource,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -1311,7 +1328,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
             route: `${mapping.type}/isPartOf`,
             verb: "POST",
             func: listResource.isPartOf,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: true,
@@ -1320,45 +1337,45 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
         ];
 
         const batchRoutes: Array<TBatchHandlerRecord> = [
-          // [`${mapping.type}/batch`, 'PUT', batch.batchOperation, sriConfig, mapping, false, false, true],
+          // [`${mapping.type}/batch`, 'PUT', batch.batchOperation, resolvedSriConfig, mapping, false, false, true],
           {
             route: `${mapping.type}/batch`,
             verb: "PUT",
             func: batch.batchOperation,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
             isBatch: true,
           },
-          // [`${mapping.type}/batch`, 'POST', batch.batchOperation, sriConfig, mapping, false, false, true],
+          // [`${mapping.type}/batch`, 'POST', batch.batchOperation, resolvedSriConfig, mapping, false, false, true],
           {
             route: `${mapping.type}/batch`,
             verb: "POST",
             func: batch.batchOperation,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: false,
             readOnly: false,
             isBatch: true,
           },
-          // [`${mapping.type}/batch_streaming`, 'PUT', batch.batchOperationStreaming, sriConfig, mapping, true, false, true],
+          // [`${mapping.type}/batch_streaming`, 'PUT', batch.batchOperationStreaming, resolvedSriConfig, mapping, true, false, true],
           {
             route: `${mapping.type}/batch_streaming`,
             verb: "PUT",
             func: batch.batchOperationStreaming,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: true,
             readOnly: false,
             isBatch: true,
           },
-          // [`${mapping.type}/batch_streaming`, 'POST', batch.batchOperationStreaming, sriConfig, mapping, true, false, true],
+          // [`${mapping.type}/batch_streaming`, 'POST', batch.batchOperationStreaming, resolvedSriConfig, mapping, true, false, true],
           {
             route: `${mapping.type}/batch_streaming`,
             verb: "POST",
             func: batch.batchOperationStreaming,
-            config: sriConfig,
+            config: resolvedSriConfig,
             mapping,
             streaming: true,
             readOnly: false,
@@ -1404,7 +1421,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                   route: crudPath + cr.routePostfix,
                   verb,
                   func,
-                  config: sriConfig,
+                  config: resolvedSriConfig,
                   mapping: customMapping,
                   streaming,
                   readOnly,
@@ -1512,10 +1529,16 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                       if (sriRequest.outStream instanceof ServerResponse) {
                         (sriRequest.outStream as any).flush();
                       }
-                    }, sriConfig.streamingKeepAliveTimeoutMillis || 20000);
+                    }, resolvedSriConfig.streamingKeepAliveTimeoutMillis || 20000);
                   }
 
-                  sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
+                  // 'close' may already have fired (client disconnected early):
+                  // in that case don't wait for an event that will never come.
+                  if (sriRequest.outStream.destroyed || sriRequest.reqCancelled) {
+                    setImmediate(() => streamEndEmitter.emit("done"));
+                  } else {
+                    sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
+                  }
 
                   const streamingHandlerPromise = streamingHandler(
                     tx,
@@ -1550,7 +1573,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
                   return { status: 200 };
                 },
-                config: sriConfig,
+                config: resolvedSriConfig,
                 mapping: customMapping,
                 streaming: true,
                 readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -1594,7 +1617,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                   await phaseSyncer.phase();
                   return result;
                 },
-                config: sriConfig,
+                config: resolvedSriConfig,
                 mapping: customMapping,
                 streaming: false,
                 readOnly: method.toUpperCase() === "GET" ? true : !!cr.readOnly,
@@ -1677,15 +1700,15 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
 
       close: async () => {
         // we don't install plugins with the same uuid twice, so we also don't close them twice!
-        if (Array.isArray(sriConfig.plugins)) {
+        if (Array.isArray(resolvedSriConfig.plugins)) {
           const alreadyClosed = new Set<string>();
           await pMap(
-            sriConfig.plugins,
+            resolvedSriConfig.plugins,
             async (plugin) => {
               if (plugin.close) {
                 try {
                   if (!plugin.uuid || !alreadyClosed.has(plugin.uuid)) {
-                    await plugin.close(global.sri4node_configuration, dbW);
+                    await plugin.close(resolvedSriConfig, dbW);
                   }
                 } catch (err) {
                   console.error(`Error closing plugin ${plugin.uuid}: ${err}`);
@@ -1712,7 +1735,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
         app[verb.toLowerCase()](
           route,
           emt.instrument(
-            expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly),
+            expressWrapper(func, config, mapping, streaming, isBatch, readOnly),
             "express-wrapper",
           ),
         );
@@ -1720,8 +1743,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
     );
 
     // transform map with 'routes' to be usable in batch (translate and group by verb)
-    // TODO: do not modify the sriConfig provided to us by the user!
-    sriConfig.batchHandlerMap = _.groupBy(
+    resolvedSriConfig.batchHandlerMap = _.groupBy(
       batchHandlerMap.map(
         ({ route, verb, func, config, mapping, streaming, readOnly, isBatch }) => ({
           route: new Route(route),

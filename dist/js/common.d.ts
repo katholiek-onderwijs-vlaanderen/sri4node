@@ -2,7 +2,7 @@
 import Express, { Application, Request, Response } from "express";
 import pgPromise from "pg-promise";
 import stream from "stream";
-import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema } from "./typeDefinitions";
+import { TResourceDefinition, TSriConfig, TSriRequest, TDebugChannel, TInternalSriRequest, TDebugLogFunction, TErrorLogFunction, TLogDebug, TInformationSchema, TResolvedLogDebug, TResolvedSriConfig } from "./typeDefinitions";
 import * as emt from "./express-middleware-timer";
 import { JSONSchema4 } from "json-schema";
 import { IClient } from "pg-promise/typescript/pg-subset";
@@ -16,7 +16,7 @@ import { IClient } from "pg-promise/typescript/pg-subset";
  * @returns the input translated to milliseconds
  */
 declare function hrtimeToMilliseconds([seconds, nanoseconds]: [number, number]): number;
-declare const isLogChannelEnabled: (channel: TDebugChannel | string) => boolean;
+declare const isLogChannelEnabled: (channel: TDebugChannel | "all") => boolean;
 /**
  * Logging output: each debug call is 'tagged' with a 'channel' (first parameter).
  * If the 'channel' of a debug call is in the selected set of debug channels in the
@@ -137,7 +137,7 @@ declare function getParentSriRequest(sriRequest: TSriRequest, recurse?: boolean)
 declare function installEMT(app: Application): typeof emt;
 declare function setServerTimingHdr(sriRequest: TSriRequest, property: any, value: any): void;
 declare function emtReportToServerTiming(req: Request, res: Response, sriRequest: TSriRequest): void;
-declare function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TLogDebug;
+declare function createDebugLogConfigObject(logdebug: TLogDebug | boolean): TResolvedLogDebug;
 declare function handleRequestDebugLog(status: number): void;
 declare function urlToTypeAndKey(urlToParse: string): {
     type: any;
@@ -203,7 +203,7 @@ declare function transformRowToObject(row: any, resourceMapping: TResourceDefini
  * @param sriConfig sri4node configuration object
  * @returns nothing, throw an error in case something is wrong
  */
-declare function checkSriConfigWithDb(sriConfig: TSriConfig, informationSchema: TInformationSchema): void;
+declare function checkSriConfigWithDb(sriConfig: TResolvedSriConfig, informationSchema: TInformationSchema): void;
 /**
  * @param obj the api object
  * @param resourceMapping the applicable resource definition from the sriConfig object

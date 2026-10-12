@@ -72,7 +72,11 @@ module.exports = function (
       sriConfig.plugins?.forEach((plugin) => {
         sinon.assert.calledOnce(plugin.install as sinon.SinonSpy);
         sinon.assert.notCalled(plugin.close as sinon.SinonSpy);
-        sinon.assert.calledWith(plugin.install as sinon.SinonSpy, sriConfig, sriServerInstance.db);
+        sinon.assert.calledWith(
+          plugin.install as sinon.SinonSpy,
+          global.sri4node_configuration,
+          sriServerInstance.db,
+        );
       });
 
       // closing the server
@@ -121,7 +125,7 @@ module.exports = function (
           sinon.assert.notCalled(plugin.close as sinon.SinonSpy);
           sinon.assert.calledWith(
             plugin.install as sinon.SinonSpy,
-            sriConfig,
+            global.sri4node_configuration,
             sriServerInstance.db,
           );
           sinon.assert.callOrder(

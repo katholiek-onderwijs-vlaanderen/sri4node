@@ -13,6 +13,7 @@ import stream from "stream";
 import { PhaseSyncer } from "./phaseSyncedSettle";
 import { ValidateFunction } from "ajv";
 import { ParsedUrlQuery } from "querystring";
+import Route from "route-parser";
 /**
  * This is the type definition for the plugin configuration object.
  */
@@ -26,9 +27,10 @@ export type TPluginConfig = {
      * (for example adding hooks to existing paths, or adding new paths).
      * The second parameter is an initialized database connection so the plugin
      * can do some database operations on startup.
+     * Note: batchHandlerMap is NOT available yet at this point.
      *
      */
-    install: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+    install: (sriConfig: TPluginInstallSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
     /**
      * This is called when the api is being closed. It can be used to clean up resources.
      * (like onnotification subscriptions to the database for example)
@@ -37,16 +39,52 @@ export type TPluginConfig = {
      * @param db
      * @returns
      */
-    close?: (sriConfig: TSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+    close?: (sriConfig: TResolvedSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
 };
 export type TUriPath = string;
 export type THttpMethod = "GET" | "PUT" | "DELETE" | "PATCH" | "POST";
-export type TDebugChannel = "general" | "db" | "sql" | "requests" | "hooks" | "server-timing" | "batch" | "trace" | "phaseSyncer" | "overloadProtection" | "healthcheck" | "mocha";
+/**
+ * Registry of all known debug channels.
+ * Consumers can add their own channels via module augmentation:
+ *
+ *   declare module 'sri4node' {
+ *     interface TDebugChannelRegistry {
+ *       'my-custom-channel': true;
+ *     }
+ *   }
+ */
+export interface TDebugChannelRegistry {
+    general: true;
+    db: true;
+    sql: true;
+    requests: true;
+    hooks: true;
+    "server-timing": true;
+    batch: true;
+    trace: true;
+    phaseSyncer: true;
+    overloadProtection: true;
+    healthcheck: true;
+    mocha: true;
+}
+export type TDebugChannel = keyof TDebugChannelRegistry;
 export type TLogDebug = {
-    channels: Set<TDebugChannel> | TDebugChannel[] | "all";
-    statuses?: Set<number> | Array<number>;
+    channels: TDebugChannel[] | "all";
+    statuses?: Array<number>;
+    json?: boolean;
 };
-export type TDebugLogFunction = (channel: TDebugChannel | string, x: (() => string) | string) => void;
+/**
+ * TLogDebug after createDebugLogConfigObject() has processed it:
+ * - channels is always a Set (or "all")
+ * - statuses is always a Set (or undefined)
+ * - json defaults to a boolean
+ */
+export type TResolvedLogDebug = {
+    channels: Set<TDebugChannel> | "all";
+    statuses?: Set<number>;
+    json: boolean;
+};
+export type TDebugLogFunction = (channel: TDebugChannel | "all", x: (() => string) | string) => void;
 export type TErrorLogFunction = (...unknown: any[]) => void;
 export declare class SriError {
     status: number;
@@ -391,7 +429,7 @@ export type TBatchHandlerRecord = {
     route: string;
     verb: THttpMethod;
     func: TSriRequestHandler;
-    config: TSriConfig;
+    config: TResolvedSriConfig;
     mapping: TResourceDefinition;
     streaming: boolean;
     readOnly: boolean;
@@ -430,15 +468,6 @@ export type TOverloadProtection = {
 export type TJobMap = Map<string, PhaseSyncer>;
 export type TBeforePhase = (sriRequestMap: Map<string, TSriRequest>, jobMap: TJobMap, pendingJobs: Set<string>, internalUtils: TSriInternalUtils) => Promise<void>;
 export type TSriConfig = {
-    utils?: unknown;
-    db?: pgPromise.IDatabase<unknown>;
-    dbR?: pgPromise.IDatabase<unknown>;
-    dbW?: pgPromise.IDatabase<unknown>;
-    informationSchema?: TInformationSchema;
-    /** a short string that will be added to every request id while logging
-     * (tis can help to differentiate between different api's while searching thourgh logs)
-     */
-    id?: string;
     plugins?: TPluginConfig[];
     enableGlobalBatch?: boolean;
     globalBatchRoutePrefix?: TUriPath;
@@ -448,18 +477,6 @@ export type TSriConfig = {
     batchConcurrency?: number;
     overloadProtection?: TOverloadProtection;
     defaultlimit?: boolean;
-    /**
-     * DO NOT USE! This is generated when configure() is called,
-     * and then added to the sriConfig object, which is bad practice.
-     *
-     * This is a map generated when configure() is called.
-     * where the keys are httpMethod and the values an array of "*almost* TBatchHandlerRecord"
-     */
-    batchHandlerMap?: {
-        [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, "route"> & {
-            route: Record<string, any>;
-        }>;
-    };
     resources: TResourceDefinition[];
     /**
      * This is a global hook. It is called during configuration, before anything is done.
@@ -493,18 +510,6 @@ export type TSriConfig = {
      * the database task/transaction is already closed and the response is already sent to the client.
      */
     afterRequest?: Array<(sriRequest: TSriRequest) => void>;
-    /**
-     * @deprecated
-     */
-    defaultdatabaseurl?: string;
-    /**
-     * @deprecated
-     */
-    dbConnectionInitSql?: string;
-    /**
-     * @deprecated
-     */
-    maxConnections?: string;
     databaseConnectionParameters: IExtendedDatabaseConnectionParameters;
     databaseLibraryInitOptions?: IExtendedDatabaseInitOptions;
     /**
@@ -519,7 +524,74 @@ export type TSriConfig = {
      * DEFAULT: 20_000 (20 seconds)
      */
     streamingKeepAliveTimeoutMillis?: number;
+    forceSecureSockets?: boolean;
+    /** a short string that will be added to every request id while logging
+     * (this can help to differentiate between different api's while searching thourgh logs)
+     */
+    id?: string;
 };
+/** Make the specified keys K of T required (and non-undefined). */
+export type WithRequired<T, K extends keyof T> = T & Required<Pick<T, K>>;
+/**
+ * A TResourceDefinition after sri4node's configure() has filled in all the
+ * defaults and compiled/derived fields.
+ */
+type TResolvedResourceDefinitionBase = Omit<WithRequired<TResourceDefinition, "listResultDefaultIncludeCount" | "metaType" | "customRoutes" | "transformResponse" | "beforeRead" | "afterRead" | "beforeUpdate" | "afterUpdate" | "beforeInsert" | "afterInsert" | "beforeDelete" | "afterDelete">, "onlyCustom">;
+/** A regular (CRUD) resource: configure() derived all regexes, validators and query. */
+export type TResolvedRegularResourceDefinition = TResolvedResourceDefinitionBase & {
+    onlyCustom?: false;
+    query: NonNullable<TResourceDefinition["query"]>;
+    singleResourceRegex: RegExp;
+    listResourceRegex: RegExp;
+    validateKey: ValidateFunction;
+    validateSchema: ValidateFunction;
+};
+/** A resource with only custom routes: no CRUD-derived fields. */
+export type TResolvedCustomOnlyResourceDefinition = TResolvedResourceDefinitionBase & {
+    onlyCustom: true;
+    singleResourceRegex?: undefined;
+    listResourceRegex?: undefined;
+    validateKey?: undefined;
+    validateSchema?: undefined;
+};
+export type TResolvedResourceDefinition = TResolvedRegularResourceDefinition | TResolvedCustomOnlyResourceDefinition;
+/**
+ * A TBatchHandlerRecord after configure() has compiled the route string
+ * into a route-parser Route object.
+ */
+export type TResolvedBatchHandlerRecord = Omit<TBatchHandlerRecord, "route"> & {
+    route: Route;
+};
+/**
+ * pg-promise ColumnSets per resource, generated during configure()
+ * (used for multi-row insert/update/delete queries).
+ */
+export type TPgColumns = Record<TUriPath, // resource type, e.g. "/persons"
+{
+    insert: pgPromise.ColumnSet;
+    update: pgPromise.ColumnSet;
+    delete: pgPromise.ColumnSet;
+}>;
+/**
+ * The TSriConfig after sri4node's configure() has filled in all defaults and
+ * derived/compiled fields. This is what is stored in global.sri4node_configuration.
+ */
+export type TResolvedSriConfig = Omit<TSriConfig, "resources" | "logdebug"> & Required<Pick<TSriConfig, "batchConcurrency" | "bodyParserLimit" | "beforePhase" | "transformRequest" | "transformInternalRequest">> & {
+    logdebug: TResolvedLogDebug;
+    resources: Array<TResolvedResourceDefinition>;
+    informationSchema: TInformationSchema;
+    pgColumns: TPgColumns;
+    batchHandlerMap: Partial<Record<THttpMethod, Array<TResolvedBatchHandlerRecord>>>;
+    utils: unknown;
+    db: pgPromise.IDatabase<unknown>;
+    dbR: pgPromise.IDatabase<unknown>;
+    dbW: pgPromise.IDatabase<unknown>;
+};
+/**
+ * The configuration as seen by plugin install() callbacks.
+ * batchHandlerMap is not yet filled in, so it is optional here. All other fields are required.
+ */
+export type TPluginInstallSriConfig = Omit<TResolvedSriConfig, "batchHandlerMap"> & Partial<Pick<TResolvedSriConfig, "batchHandlerMap">>;
 export type ParseTreeType = "string" | "number" | "integer" | "boolean";
 export type ParseTreeProperty = {
     name: string;
@@ -550,3 +622,7 @@ export type FlattenedJsonSchema = {
         [jsonSchemaProperty: string]: unknown;
     };
 };
+declare global {
+    var sri4node_configuration: TResolvedSriConfig;
+}
+export {};

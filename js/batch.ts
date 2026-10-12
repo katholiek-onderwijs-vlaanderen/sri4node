@@ -70,9 +70,8 @@ function matchHref(href: string, verb: THttpMethod): TMatchedHref {
   const queryParams = parsedUrl.query;
   const path = (parsedUrl.pathname || "").replace(/\/$/, ""); // replace eventual trailing slash
 
-  const batchHandlerMap: NonNullable<TSriConfig["batchHandlerMap"]> =
-    global.sri4node_configuration.batchHandlerMap;
-  const matches = batchHandlerMap[verb]
+  const batchHandlerMap = global.sri4node_configuration.batchHandlerMap;
+  const matches = (batchHandlerMap[verb] ?? [])
     .map((handler) => ({ handler, match: handler.route.match(path) }))
     .filter(({ match }) => match !== false);
 
@@ -366,7 +365,7 @@ const batchOperationStreaming: TSriRequestHandlerForBatch = async (
   let keepAliveTimer: NodeJS.Timer | null = null;
   const reqBody = sriRequest.body;
   const batchConcurrency = global.overloadProtection.startPipeline(
-    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency),
+    Math.min(maxSubListLen(reqBody), global.sri4node_configuration.batchConcurrency || 0),
   );
   try {
     let batchFailed = false;
