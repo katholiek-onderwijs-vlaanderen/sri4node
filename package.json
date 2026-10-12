@@ -119,7 +119,7 @@
     "url": "https://github.com/katholiek-onderwijs-vlaanderen/sri4node/issues"
   },
   "homepage": "https://github.com/katholiek-onderwijs-vlaanderen/sri4node",
-  "version": "2.3.44",
+  "version": "2.3.45",
   "lint-staged": {
     "*": "npx prettier --ignore-unknown --write"
   }
