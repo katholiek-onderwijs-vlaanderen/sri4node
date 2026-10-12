@@ -27,9 +27,10 @@ export type TPluginConfig = {
      * (for example adding hooks to existing paths, or adding new paths).
      * The second parameter is an initialized database connection so the plugin
      * can do some database operations on startup.
+     * Note: batchHandlerMap is NOT available yet at this point.
      *
      */
-    install: (sriConfig: TResolvedSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
+    install: (sriConfig: TPluginInstallSriConfig, db: pgPromise.IDatabase<{}, IClient>) => void | Promise<void>;
     /**
      * This is called when the api is being closed. It can be used to clean up resources.
      * (like onnotification subscriptions to the database for example)
@@ -562,6 +563,16 @@ export type TResolvedBatchHandlerRecord = Omit<TBatchHandlerRecord, "route"> & {
     route: Route;
 };
 /**
+ * pg-promise ColumnSets per resource, generated during configure()
+ * (used for multi-row insert/update/delete queries).
+ */
+export type TPgColumns = Record<TUriPath, // resource type, e.g. "/persons"
+{
+    insert: pgPromise.ColumnSet;
+    update: pgPromise.ColumnSet;
+    delete: pgPromise.ColumnSet;
+}>;
+/**
  * The TSriConfig after sri4node's configure() has filled in all defaults and
  * derived/compiled fields. This is what is stored in global.sri4node_configuration.
  */
@@ -569,13 +580,18 @@ export type TResolvedSriConfig = Omit<TSriConfig, "resources" | "logdebug"> & Re
     logdebug: TResolvedLogDebug;
     resources: Array<TResolvedResourceDefinition>;
     informationSchema: TInformationSchema;
-    pgColumns: Record<string, any>;
+    pgColumns: TPgColumns;
     batchHandlerMap: Partial<Record<THttpMethod, Array<TResolvedBatchHandlerRecord>>>;
     utils: unknown;
     db: pgPromise.IDatabase<unknown>;
     dbR: pgPromise.IDatabase<unknown>;
     dbW: pgPromise.IDatabase<unknown>;
 };
+/**
+ * The configuration as seen by plugin install() callbacks.
+ * batchHandlerMap is not yet filled in, so it is optional here. All other fields are required.
+ */
+export type TPluginInstallSriConfig = Omit<TResolvedSriConfig, "batchHandlerMap"> & Partial<Pick<TResolvedSriConfig, "batchHandlerMap">>;
 export type ParseTreeType = "string" | "number" | "integer" | "boolean";
 export type ParseTreeProperty = {
     name: string;
