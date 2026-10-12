@@ -1,7 +1,9 @@
 // Utility methods for calling the SRI interface
 import assert from "assert";
 import { randomUUID as uuidv4 } from "crypto";
+import { Server } from "http";
 import sleep from "await-sleep";
+import { TSriServerInstance } from "../js/typeDefinitions";
 import { THttpClient } from "./httpClient";
 
 module.exports = function (
