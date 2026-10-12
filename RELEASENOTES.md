@@ -23,6 +23,24 @@ cfr. [keepachangelog.com](https://keepachangelog.com/en/1.1.0/)
 
 ### Security
 
+## version 2.3.45 (12-10-2026)
+
+### Changed
+
+- debuglog: by default now log in json format, for easier processing by cloudwatch, datadog, ... (can be overwritten for local testing)
+
+- sriConfig: do not overwrite the originally provided config anymore when resolving it + splitted the type in two types, one for the original config and one for resolved config + use this typing effectively also in the code
+
+### Added
+
+- use opentelemetry lib to add relevant fields for tracking requests to json logging
+
+- added possibility to add new log debug channels to sriConfig type by applications using sri4node (otherwise the more strict typing will now generate errors)
+
+### Fixed
+
+- fixed race condition on early connection termination (RT-1850)
+
 ## version 2.3.44 (29-09-2026)
 
 ### Added
