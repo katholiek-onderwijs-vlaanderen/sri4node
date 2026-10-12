@@ -416,8 +416,6 @@ const handleServerTiming = async (req, resp, sriRequest: TSriRequest) => {
 };
 
 const expressWrapper = (
-  dbR,
-  dbW,
   func: TSriRequestHandler,
   sriConfig: TResolvedSriConfig,
   mapping: TResourceDefinition | null,
@@ -489,9 +487,9 @@ const expressWrapper = (
       // Before creating the inital SriRequest object, we need to generate a task/transaction !!!
       const hrStartStartTransaction = process.hrtime();
       if (readOnly === true) {
-        ({ t, endTask } = await startTask(dbR));
+        ({ t, endTask } = await startTask(sriConfig.dbR));
       } else {
-        ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW));
+        ({ tx: t, resolveTx, rejectTx } = await startTransaction(sriConfig.dbW));
       }
       const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
 
@@ -949,6 +947,9 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       informationSchema: currentInformationSchema,
       logdebug: createDebugLogConfigObject(sriConfig.logdebug ?? { channels: [] }),
       utils,
+      db,
+      dbR,
+      dbW,
     } as TResolvedSriConfig;
 
     global.sri4node_configuration = resolvedSriConfig; // share configuration with other modules
@@ -1247,38 +1248,20 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
       }/batch`;
       app.put(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batch.batchOperation, resolvedSriConfig, null, false, true, false),
+        expressWrapper(batch.batchOperation, resolvedSriConfig, null, false, true, false),
       );
       app.post(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batch.batchOperation, resolvedSriConfig, null, false, true, false),
+        expressWrapper(batch.batchOperation, resolvedSriConfig, null, false, true, false),
       );
 
       app.put(
         `${globalBatchPath}_streaming`,
-        expressWrapper(
-          dbR,
-          dbW,
-          batch.batchOperationStreaming,
-          resolvedSriConfig,
-          null,
-          true,
-          true,
-          false,
-        ),
+        expressWrapper(batch.batchOperationStreaming, resolvedSriConfig, null, true, true, false),
       );
       app.post(
         `${globalBatchPath}_streaming`,
-        expressWrapper(
-          dbR,
-          dbW,
-          batch.batchOperationStreaming,
-          resolvedSriConfig,
-          null,
-          true,
-          true,
-          false,
-        ),
+        expressWrapper(batch.batchOperationStreaming, resolvedSriConfig, null, true, true, false),
       );
     }
 
@@ -1753,7 +1736,7 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
         app[verb.toLowerCase()](
           route,
           emt.instrument(
-            expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly),
+            expressWrapper(func, config, mapping, streaming, isBatch, readOnly),
             "express-wrapper",
           ),
         );

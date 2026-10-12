@@ -4505,7 +4505,7 @@ var handleServerTiming = async (req, resp, sriRequest) => {
     }
   }
 };
-var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, isBatchRequest, readOnly0) => async function(req, resp, _next) {
+var expressWrapper = (func, sriConfig, mapping, isStreamingRequest, isBatchRequest, readOnly0) => async function(req, resp, _next) {
   let t = null;
   let endTask;
   let resolveTx;
@@ -4557,9 +4557,9 @@ var expressWrapper = (dbR, dbW, func, sriConfig, mapping, isStreamingRequest, is
     }
     const hrStartStartTransaction = process.hrtime();
     if (readOnly === true) {
-      ({ t, endTask } = await startTask(dbR));
+      ({ t, endTask } = await startTask(sriConfig.dbR));
     } else {
-      ({ tx: t, resolveTx, rejectTx } = await startTransaction(dbW));
+      ({ tx: t, resolveTx, rejectTx } = await startTransaction(sriConfig.dbW));
     }
     const hrElapsedStartTransaction = process.hrtime(hrStartStartTransaction);
     sriRequest = generateSriRequest(req, resp, {
@@ -4911,7 +4911,10 @@ async function configure(app, sriConfig) {
       ...sriConfig,
       informationSchema: currentInformationSchema,
       logdebug: createDebugLogConfigObject(sriConfig.logdebug ?? { channels: [] }),
-      utils
+      utils,
+      db,
+      dbR,
+      dbW
     };
     global.sri4node_configuration = resolvedSriConfig;
     await (0, import_p_map8.default)(
@@ -5131,17 +5134,15 @@ async function configure(app, sriConfig) {
       const globalBatchPath = `${resolvedSriConfig.globalBatchRoutePrefix !== void 0 ? resolvedSriConfig.globalBatchRoutePrefix : ""}/batch`;
       app.put(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batchOperation, resolvedSriConfig, null, false, true, false)
+        expressWrapper(batchOperation, resolvedSriConfig, null, false, true, false)
       );
       app.post(
         globalBatchPath,
-        expressWrapper(dbR, dbW, batchOperation, resolvedSriConfig, null, false, true, false)
+        expressWrapper(batchOperation, resolvedSriConfig, null, false, true, false)
       );
       app.put(
         `${globalBatchPath}_streaming`,
         expressWrapper(
-          dbR,
-          dbW,
           batchOperationStreaming,
           resolvedSriConfig,
           null,
@@ -5153,8 +5154,6 @@ async function configure(app, sriConfig) {
       app.post(
         `${globalBatchPath}_streaming`,
         expressWrapper(
-          dbR,
-          dbW,
           batchOperationStreaming,
           resolvedSriConfig,
           null,
@@ -5551,7 +5550,7 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
         app[verb.toLowerCase()](
           route,
           emt.instrument(
-            expressWrapper(dbR, dbW, func, config, mapping, streaming, isBatch, readOnly),
+            expressWrapper(func, config, mapping, streaming, isBatch, readOnly),
             "express-wrapper"
           )
         );
