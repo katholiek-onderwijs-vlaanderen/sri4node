@@ -529,22 +529,31 @@ export type TSriConfig = {
      */
     id?: string;
 };
+/** Make the specified keys K of T required (and non-undefined). */
+export type WithRequired<T, K extends keyof T> = T & Required<Pick<T, K>>;
 /**
  * A TResourceDefinition after sri4node's configure() has filled in all the
  * defaults and compiled/derived fields.
  */
-export type TResolvedResourceDefinition = TResourceDefinition & Required<Pick<TResourceDefinition, "listResultDefaultIncludeCount" | "query" | "metaType" | "customRoutes" | "transformResponse" | "beforeRead" | "afterRead" | "beforeUpdate" | "afterUpdate" | "beforeInsert" | "afterInsert" | "beforeDelete" | "afterDelete">> & {
+type TResolvedResourceDefinitionBase = Omit<WithRequired<TResourceDefinition, "listResultDefaultIncludeCount" | "metaType" | "customRoutes" | "transformResponse" | "beforeRead" | "afterRead" | "beforeUpdate" | "afterUpdate" | "beforeInsert" | "afterInsert" | "beforeDelete" | "afterDelete">, "onlyCustom">;
+/** A regular (CRUD) resource: configure() derived all regexes, validators and query. */
+export type TResolvedRegularResourceDefinition = TResolvedResourceDefinitionBase & {
+    onlyCustom?: false;
+    query: NonNullable<TResourceDefinition["query"]>;
     singleResourceRegex: RegExp;
     listResourceRegex: RegExp;
     validateKey: ValidateFunction;
     validateSchema: ValidateFunction;
-    informationSchema: TInformationSchema;
-    batchHandlerMap: {
-        [K in THttpMethod]: Array<Omit<TBatchHandlerRecord, "route"> & {
-            route: Record<string, any>;
-        }>;
-    };
 };
+/** A resource with only custom routes: no CRUD-derived fields. */
+export type TResolvedCustomOnlyResourceDefinition = TResolvedResourceDefinitionBase & {
+    onlyCustom: true;
+    singleResourceRegex?: undefined;
+    listResourceRegex?: undefined;
+    validateKey?: undefined;
+    validateSchema?: undefined;
+};
+export type TResolvedResourceDefinition = TResolvedRegularResourceDefinition | TResolvedCustomOnlyResourceDefinition;
 /**
  * A TBatchHandlerRecord after configure() has compiled the route string
  * into a route-parser Route object.
@@ -600,3 +609,4 @@ export type FlattenedJsonSchema = {
 declare global {
     var sri4node_configuration: TResolvedSriConfig;
 }
+export {};

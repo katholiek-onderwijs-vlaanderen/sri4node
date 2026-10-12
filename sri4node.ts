@@ -1539,7 +1539,6 @@ async function configure(app: Application, sriConfig: TSriConfig): Promise<TSriS
                   } else {
                     sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   }
-                  sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
 
                   const streamingHandlerPromise = streamingHandler(
                     tx,

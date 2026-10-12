@@ -5142,25 +5142,11 @@ async function configure(app, sriConfig) {
       );
       app.put(
         `${globalBatchPath}_streaming`,
-        expressWrapper(
-          batchOperationStreaming,
-          resolvedSriConfig,
-          null,
-          true,
-          true,
-          false
-        )
+        expressWrapper(batchOperationStreaming, resolvedSriConfig, null, true, true, false)
       );
       app.post(
         `${globalBatchPath}_streaming`,
-        expressWrapper(
-          batchOperationStreaming,
-          resolvedSriConfig,
-          null,
-          true,
-          true,
-          false
-        )
+        expressWrapper(batchOperationStreaming, resolvedSriConfig, null, true, true, false)
       );
     }
     const batchHandlerMap = resolvedSriConfig.resources.reduce(
@@ -5401,7 +5387,6 @@ WARNING: customRoute like ${crudPath} - ${method} not found => ignored.
                   } else {
                     sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   }
-                  sriRequest.outStream.on("close", () => streamEndEmitter.emit("done"));
                   const streamingHandlerPromise = streamingHandler(
                     tx,
                     sriRequest,
